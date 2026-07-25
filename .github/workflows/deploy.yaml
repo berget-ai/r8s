@@ -67,7 +67,8 @@ jobs:
           cache: 'npm'
 
       - run: npm ci
-      - run: npx r8s render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml --include-operators
+      - run: npx tsc -b
+      - run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml --include-operators
 
       - name: Commit rendered manifests
         run: |
