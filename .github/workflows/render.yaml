@@ -5,12 +5,16 @@ on:
     branches: [main, master]
     paths:
       - 'k8s/**'
+      - 'packages/**'
       - 'package.json'
       - 'package-lock.json'
+      - '.github/workflows/render.yaml'
   pull_request:
     branches: [main, master]
     paths:
       - 'k8s/**'
+      - 'packages/**'
+      - '.github/workflows/render.yaml'
 
 jobs:
   render:
@@ -31,19 +35,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build packages
+        run: npx tsc -b
+
       - name: Render Kubernetes manifests
-        run: npx r8s render --out k8s/manifest.yaml
+        run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
 
       - name: Check for changes
         id: git-check
         run: |
-          git diff --quiet k8s/manifest.yaml || echo "changed=true" >> $GITHUB_OUTPUT
+          git diff --quiet k8s/rendered/manifest.yaml || echo "changed=true" >> $GITHUB_OUTPUT
 
       - name: Commit rendered manifests
         if: steps.git-check.outputs.changed == 'true' && github.event_name == 'push'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add k8s/manifest.yaml
+          git add k8s/rendered/manifest.yaml
           git commit -m "chore: render kubernetes manifests [skip ci]"
           git push
