@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./Layout.css";
 import { SearchDialog } from "../components/SearchDialog";
+import { Logo } from "../components/Logo";
 
 interface NavItem {
   label: string;
@@ -67,21 +68,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Top bar */}
       <header className="border-b border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30 bg-night">
         <div className="flex items-center gap-3">
-          {/* Mobile menu toggle */}
+          {/* Mobile menu toggle — using Logo as hamburger */}
           <button
             type="button"
             onClick={() => setSidebarOpen((v) => !v)}
             className="lg:hidden text-cloud/60 hover:text-peak"
             aria-label="Toggle navigation"
           >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
+            <Logo size={24} />
           </button>
-          <a href="/" className="font-serif text-2xl tracking-tight">
-            r8s
+          <a href="/" className="flex items-center gap-2.5">
+            <Logo size={28} className="text-peak hidden lg:block" />
+            <span className="font-serif text-2xl tracking-tight">r8s</span>
           </a>
         </div>
         <button
@@ -114,7 +112,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             />
             <aside className="relative w-64 bg-night border-r border-white/10 h-full overflow-y-auto">
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                <span className="font-serif text-lg">r8s</span>
+                <span className="flex items-center gap-2">
+                  <Logo size={22} className="text-peak" />
+                  <span className="font-serif text-lg">r8s</span>
+                </span>
                 <button
                   type="button"
                   onClick={() => setSidebarOpen(false)}
@@ -170,7 +171,7 @@ function Sidebar({
               onClick={onNavigate}
               className={`block px-3 py-1.5 rounded-md text-sm transition-colors ${
                 isActive(item.href, pathname)
-                  ? "text-moss bg-white/5 font-medium"
+                  ? "text-peak bg-white/5 font-medium"
                   : "text-cloud/70 hover:text-peak hover:bg-white/5"
               }`}
             >
