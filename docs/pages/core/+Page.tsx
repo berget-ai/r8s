@@ -23,7 +23,7 @@ export default () => (
   </>
 );`;
 
-const rawComponentsExample = `import { Database, Ingress } from '@r8s/recipes';
+const rawComponentsExample = `import { Database, Endpoint } from '@r8s/recipes';
 
 export default function CustomApp() {
   return (
@@ -54,7 +54,7 @@ export default function CustomApp() {
         }}
       />
 
-      <Ingress
+      <Endpoint
         host="myapp.example.com"
         serviceName="myapp-web"
         servicePort={80}
@@ -118,7 +118,7 @@ export default function Page() {
         </p>
         <CodeBlock code={componentExample} language="tsx" />
         <p className="text-cloud/70 text-sm">
-          The <code>&lt;App&gt;</code> component above creates a Deployment, Service, and Ingress — 
+          The <code>&lt;App&gt;</code> component above creates a Deployment, Service, and Endpoint — 
           all wired together with sensible defaults.
         </p>
       </div>

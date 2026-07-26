@@ -32,18 +32,18 @@ metadata:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: api-ingress
+  name: api-endpoint
 # ... 3 resources rendered from 1 component
 ```
 
-> **Batteries included, escape hatches included.** The `<App>` component above creates a Deployment, Service, and Ingress — all wired together with sensible defaults. Prefer raw Kubernetes? Every API resource is available as a lowercase component: `<deployment>`, `<service>`, `<ingress>`, `<configmap>`, `<secret>`, `<statefulset>`, `<daemonset>`, `<job>`, `<cronjob>`, `<hpa>`, `<pdb>`, `<rbac>` — compose them exactly as you need.
+> **Batteries included, escape hatches included.** The `<App>` component above creates a Deployment, Service, and Endpoint — all wired together with sensible defaults. Prefer raw Kubernetes? Every API resource is available as a lowercase component: `<deployment>`, `<service>`, `<ingress>`, `<configmap>`, `<secret>`, `<statefulset>`, `<daemonset>`, `<job>`, `<cronjob>`, `<hpa>`, `<pdb>`, `<rbac>` — compose them exactly as you need.
 
 ## Available Packages
 
 | Package | Description | Operators |
 |---------|-------------|-----------|
 | `@r8s/core` | JSX factory + all Kubernetes API components (`<deployment>`, `<service>`, `<ingress>`, etc.) | — |
-| `@r8s/recipes` | Pre-built components (`<App>`, `<Database>`, `<Ingress>`) | cnpg, nginx-ingress |
+| `@r8s/recipes` | Pre-built components (`<App>`, `<Database>`, `<Endpoint>`, `<Platform>`) | cnpg, nginx-ingress |
 | `@r8s/cert-manager` | TLS certificates | cert-manager |
 | `@r8s/openbao` | Secret management | vault-secrets-operator |
 | `@r8s/keycloak` | Identity management | keycloak-operator |
@@ -62,10 +62,10 @@ metadata:
 You have a microservice. It needs:
 - A Deployment
 - A Service
-- An Ingress with TLS
+- Routing with TLS (Ingress or Gateway API)
 - A PostgreSQL database
 - cert-manager for certificates
-- nginx-ingress for routing
+- An ingress controller or Gateway API implementation
 
 **Option A: Raw YAML** — 300+ lines of boilerplate. Copy-paste between services. Hope you didn't miss an indentation.
 
@@ -126,12 +126,12 @@ Every component declares which Kubernetes operators it needs. No more "forgot to
 
 ```tsx
 import { render } from '@r8s/core';
-import { Database, Ingress } from '@r8s/recipes';
+import { Database, Endpoint } from '@r8s/recipes';
 
 const result = render(
   <>
     <Database name="app-db" storage="10Gi" />
-    <Ingress host="app.example.com" serviceName="app" tlsSecretName="app-tls" />
+    <Endpoint host="app.example.com" serviceName="app" tls={{ secretName: "app-tls", clusterIssuer: "letsencrypt" }} />
   </>
 );
 
@@ -254,7 +254,7 @@ export default () => (
 Or drop down to raw components at any level:
 
 ```tsx
-import { Database, Ingress } from '@r8s/recipes';
+import { Database, Endpoint } from '@r8s/recipes';
 
 export default function CustomApp() {
   return (
@@ -289,7 +289,7 @@ export default function CustomApp() {
         }}
       />
 
-      <Ingress
+      <Endpoint
         host="myapp.example.com"
         serviceName="myapp-web"
         servicePort={80}
@@ -366,29 +366,29 @@ console.log(result.resources);
 
 ### Sharing Operators via Context
 
-For a complete stack, provide shared operators via `OperatorContext`:
+For a complete stack, use `<Platform>` to set routing mode and shared operators:
 
 ```tsx
-import { OperatorContext } from '@r8s/core/defaults';
-import { Database, Ingress, App } from '@r8s/recipes';
+import { Platform, Database, App } from '@r8s/recipes';
 import { cnpgOperator, nginxIngressOperator } from '@r8s/recipes';
 import { certManagerOperator } from '@r8s/cert-manager';
 
-export default function Platform() {
-  return (
-    <OperatorContext.Provider value={[
+export default (
+  <Platform
+    routing="gateway"
+    namespace="production"
+    operators={[
       cnpgOperator('1.22.5'),
       certManagerOperator('1.14.0'),
-      nginxIngressOperator('1.15.1'),
-    ]}>
-      <Database name="app-db" storage="10Gi" />
-      <App name="api" host="api.example.com" image="myapp/api:v1" tls={{ secretName: "api-tls", clusterIssuer: "letsencrypt" }} />
-    </OperatorContext.Provider>
-  );
-}
+    ]}
+  >
+    <Database name="app-db" storage="10Gi" />
+    <App name="api" host="api.example.com" image="myapp/api:v1" tls={{ secretName: "api-tls", clusterIssuer: "letsencrypt" }} />
+  </Platform>
+);
 ```
 
-When operators are provided via context, components won't duplicate them.
+When operators are provided via `<Platform>`, components won't duplicate them.
 
 ### Available Operators
 
@@ -496,30 +496,27 @@ import { WebService } from '@r8s/recipes';
 
 **Automatically declares:** `vault-secrets-operator` (when `vault` props are used)
 
-#### `<Ingress />`
+#### `<Endpoint />`
 
-Creates: Ingress with nginx + cert-manager defaults
+Creates: Cluster-adaptive routing — nginx Ingress or Envoy Gateway based on `<Platform routing="...">`
 
 ```tsx
-import { Ingress } from '@r8s/recipes';
+import { Endpoint } from '@r8s/recipes';
 
-<Ingress
-  name="api-ingress"
+<Endpoint
+  name="api-endpoint"
   host="api.example.com"
   serviceName="api"
   servicePort={80}
-  tlsSecretName="api-tls"
-  annotations={{
-    'nginx.ingress.kubernetes.io/rate-limit': '100',
-  }}
+  tls={{ secretName: "api-tls", clusterIssuer: "letsencrypt" }}
 />
 ```
 
-**Automatically declares:** `nginx-ingress` operator, `cert-manager` operator (when TLS enabled)
+**Automatically declares:** `nginx-ingress` or `envoy-gateway` operator (based on routing mode), `cert-manager` operator (when TLS enabled)
 
 #### `<App />`
 
-Creates: WebService (Deployment + Service) + Ingress. Compose with `<Database />` for a full stack.
+Creates: WebService (Deployment + Service) + Endpoint. Compose with `<Database />` for a full stack.
 
 ```tsx
 import { App } from '@r8s/recipes';
