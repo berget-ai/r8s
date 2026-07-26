@@ -13,6 +13,9 @@ export interface ClusterProps {
 /**
  * Shared PostgreSQL cluster for multiple databases.
  *
+ * @title Database Cluster
+ * @category Data & Analytics
+ *
  * Wrap multiple Database components to share one CNPG cluster,
  * reducing resource usage and simplifying management.
  *

@@ -1,21 +1,15 @@
 import { r8sElement, Fragment, r8sProps } from './jsx-runtime';
 import { KubernetesResource, Operator } from '@r8s/k8s-types';
 import { isOperatorDeclaration, getOperator } from './operator';
-import { Context } from './context';
+import { Context, getContextValue, setContextValue, hasContextValue, getContextValueById, restoreContextValue, clearContextStack } from './context';
 
 export interface RenderResult {
   resources: KubernetesResource[];
   operators: Operator[];
 }
 
-// Active context values during rendering
-const contextStack = new Map<symbol, unknown>();
-
 export function useContext<T>(context: Context<T>): T {
-  if (contextStack.has(context._contextId)) {
-    return contextStack.get(context._contextId) as T;
-  }
-  return context._defaultValue;
+  return getContextValue(context);
 }
 
 function isr8sElement(value: unknown): value is r8sElement {
@@ -80,9 +74,9 @@ function renderElement(element: r8sElement): {
     };
 
     // Push context value
-    const hadPreviousValue = contextStack.has(contextId);
-    const previousValue = contextStack.get(contextId);
-    contextStack.set(contextId, value);
+    const hadPrevious = hasContextValue(contextId);
+    const previousValue = getContextValueById(contextId);
+    setContextValue(contextId, value);
 
     // Render children with new context
     const result = renderChildren(children);
@@ -96,11 +90,7 @@ function renderElement(element: r8sElement): {
     }
 
     // Restore previous context
-    if (hadPreviousValue) {
-      contextStack.set(contextId, previousValue);
-    } else {
-      contextStack.delete(contextId);
-    }
+    restoreContextValue(contextId, hadPrevious, previousValue);
 
     return result;
   }
@@ -138,7 +128,7 @@ function renderElement(element: r8sElement): {
 
 export function render(element: r8sElement): RenderResult {
   // Clear context stack before rendering
-  contextStack.clear();
+  clearContextStack();
 
   const { resources, operators } = renderElement(element);
 

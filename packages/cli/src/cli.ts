@@ -650,7 +650,9 @@ async function main(): Promise<void> {
       const yamlOutput = await renderToOperatorsYaml(entryFile);
 
       if (options.out) {
-        const { writeFileSync } = await import('fs');
+        const { writeFileSync, mkdirSync } = await import('fs');
+        const { dirname } = await import('path');
+        mkdirSync(dirname(resolve(options.out)), { recursive: true });
         writeFileSync(resolve(options.out), yamlOutput, 'utf-8');
         console.error(`Output written to: ${resolve(options.out)}`);
       } else {
@@ -680,7 +682,9 @@ async function main(): Promise<void> {
     });
 
     if (options.out) {
-      const { writeFileSync } = await import('fs');
+      const { writeFileSync, mkdirSync } = await import('fs');
+      const { dirname } = await import('path');
+      mkdirSync(dirname(resolve(options.out)), { recursive: true });
       writeFileSync(resolve(options.out), yamlOutput, 'utf-8');
       console.error(`Output written to: ${resolve(options.out)}`);
     } else {

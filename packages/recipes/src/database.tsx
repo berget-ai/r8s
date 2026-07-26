@@ -22,6 +22,9 @@ export interface DatabaseProps {
 /**
  * CloudNativePG PostgreSQL database.
  *
+ * @title Database
+ * @category Data & Analytics
+ *
  * By default, creates a dedicated 3-instance HA cluster for this database.
  * When wrapped in a `<Cluster>` component, reuses the shared cluster's
  * connection info instead of creating a dedicated cluster.

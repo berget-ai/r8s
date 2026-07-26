@@ -1,7 +1,11 @@
 {
   "name": "@r8s/openbao",
   "version": "0.1.0",
-  "description": "r8s recipes for OpenBao secret management (via Vault Secrets Operator)",
+  "description": "Secret management components powered by the Vault Secrets Operator (OpenBao fork). Declares vault-secrets-operator and provisions VaultConnection, VaultAuth, and VaultStaticSecret resources.",
+  "keywords": ["openbao", "vault", "secrets", "vault-secrets-operator", "security"],
+  "r8s": {
+    "category": "Security & Identity"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

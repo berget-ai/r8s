@@ -8,6 +8,7 @@
   "references": [
     { "path": "../core" },
     { "path": "../k8s-types" },
-    { "path": "../cert-manager" }
+    { "path": "../cert-manager" },
+    { "path": "../envoy" }
   ]
 }

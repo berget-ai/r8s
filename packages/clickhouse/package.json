@@ -1,7 +1,11 @@
 {
   "name": "@r8s/clickhouse",
   "version": "0.1.0",
-  "description": "r8s recipes for ClickHouse Operator",
+  "description": "ClickHouse OLAP database components powered by the Altinity ClickHouse Operator. Declares clickhouse-operator and provisions sharded, replicated clusters with ZooKeeper.",
+  "keywords": ["clickhouse", "olap", "analytics database", "clickhouse-operator", "altinity", "data"],
+  "r8s": {
+    "category": "Data & Analytics"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

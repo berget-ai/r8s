@@ -44,6 +44,9 @@ export interface WebServiceProps {
 /**
  * Simple web service (backend or frontend).
  *
+ * @title Web Service
+ * @category Workloads
+ *
  * Creates a Deployment + Service with health checks.
  *
  * @example

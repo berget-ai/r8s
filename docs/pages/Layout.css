@@ -41,15 +41,15 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 400;
 }
 
-/* Links use Moss green */
+/* Links use white */
 a {
-  color: var(--color-moss);
+  color: var(--color-peak);
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 a:hover {
-  color: var(--color-lichen);
+  color: var(--color-cloud);
 }
 
 /* Code blocks */

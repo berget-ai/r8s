@@ -1,7 +1,11 @@
 {
   "name": "@r8s/cert-manager",
   "version": "0.1.0",
-  "description": "r8s recipes for cert-manager operator",
+  "description": "TLS certificate automation components for Kubernetes. Declares the cert-manager operator and provides Let's Encrypt issuers and managed certificates.",
+  "keywords": ["cert-manager", "tls", "certificate", "letsencrypt", "acme", "cluster-issuer", "security"],
+  "r8s": {
+    "category": "Security & Identity"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

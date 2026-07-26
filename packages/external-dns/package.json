@@ -1,7 +1,11 @@
 {
   "name": "@r8s/external-dns",
   "version": "0.1.0",
-  "description": "r8s recipes for external-dns",
+  "description": "DNS management components. Declares the external-dns operator and creates DNSEndpoint resources plus annotation helpers for ingress-based DNS routing.",
+  "keywords": ["external-dns", "dns", "dnsendpoints", "networking"],
+  "r8s": {
+    "category": "Networking"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

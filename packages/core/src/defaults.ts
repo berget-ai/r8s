@@ -183,3 +183,32 @@ export const SecretContext = createContext<SecretProvider | null>(null);
  * ```
  */
 export const OperatorContext = createContext<Operator[]>([]);
+
+/**
+ * Routing context for cluster-wide routing implementation.
+ *
+ * Set this once at the top of the tree to tell <Endpoint /> and <App />
+ * whether the cluster uses nginx Ingress or Envoy Gateway (Gateway API).
+ * Components read this and render the appropriate resources.
+ *
+ * @example
+ * ```tsx
+ * import { RoutingContext } from '@r8s/core/defaults';
+ *
+ * // Envoy Gateway cluster
+ * <RoutingContext.Provider value={{ mode: 'gateway', gatewayClassName: 'eg' }}>
+ *   <App name="myapp" host="myapp.example.com" />
+ * </RoutingContext.Provider>
+ *
+ * // nginx Ingress cluster (default, no provider needed)
+ * <App name="myapp" host="myapp.example.com" />
+ * ```
+ */
+export interface RoutingConfig {
+  /** Routing implementation: 'ingress' (nginx) or 'gateway' (Envoy Gateway API) */
+  mode: 'ingress' | 'gateway';
+  /** Gateway class name (only used when mode='gateway', default: 'eg') */
+  gatewayClassName?: string;
+}
+
+export const RoutingContext = createContext<RoutingConfig>({ mode: 'ingress' });

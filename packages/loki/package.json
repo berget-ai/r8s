@@ -1,7 +1,11 @@
 {
   "name": "@r8s/loki",
   "version": "0.1.0",
-  "description": "r8s recipes for Grafana Loki",
+  "description": "Loki log aggregation stack components. Declares the loki operator and provisions LokiStack and AlertingRule resources.",
+  "keywords": ["loki", "logs", "log aggregation", "grafana", "observability"],
+  "r8s": {
+    "category": "Observability"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

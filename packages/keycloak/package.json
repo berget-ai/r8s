@@ -1,7 +1,11 @@
 {
   "name": "@r8s/keycloak",
   "version": "0.1.0",
-  "description": "r8s recipes for Keycloak operator",
+  "description": "Identity and access management components powered by the Keycloak Operator. Declares keycloak-operator and provisions Keycloak instances and realm imports.",
+  "keywords": ["keycloak", "iam", "sso", "oauth", "openid", "identity", "security"],
+  "r8s": {
+    "category": "Security & Identity"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

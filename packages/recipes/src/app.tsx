@@ -1,6 +1,7 @@
-import { jsx, Fragment } from '@r8s/core';
+import { jsx, Fragment, useContext } from '@r8s/core';
 import { WebService, type SecretRef, type VaultSecretRef } from './web-service';
-import { Ingress } from './ingress';
+import { Endpoint } from './endpoint';
+import { Namespace } from '@r8s/core/defaults';
 import type { TLSConfig } from '@r8s/k8s-types';
 
 export interface AppProps {
@@ -25,11 +26,21 @@ export interface AppProps {
 }
 
 /**
- * Simple application — Deployment + Service + Ingress.
+ * Simple application — Deployment + Service + Endpoint.
+ *
+ * @title App
+ * @category Complete Solution
  *
  * The simplest way to deploy an app to Kubernetes:
  * ```tsx
  * <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
+ * ```
+ *
+ * With Envoy Gateway instead of nginx Ingress:
+ * ```tsx
+ * <Platform routing="gateway" namespace="production">
+ *   <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
+ * </Platform>
  * ```
  *
  * With secrets from Kubernetes Secrets:
@@ -40,16 +51,6 @@ export interface AppProps {
  *   host="myapp.example.com"
  *   env={{ LOG_LEVEL: 'info' }}
  *   secrets={{ DATABASE_URL: 'app-secrets' }}
- * />
- * ```
- *
- * With Vault secrets (auto-installs Vault Secrets Operator):
- * ```tsx
- * <App
- *   name="myapp"
- *   image="myapp/web:v1.2.3"
- *   host="myapp.example.com"
- *   vault={{ DATABASE_URL: { mount: 'kv', path: 'db/credentials' } }}
  * />
  * ```
  *
@@ -66,7 +67,7 @@ export interface AppProps {
 export function App(props: AppProps) {
   const {
     name,
-    namespace = 'default',
+    namespace: namespaceProp,
     image,
     port = 3000,
     replicas = 2,
@@ -78,6 +79,10 @@ export function App(props: AppProps) {
     resources,
     children,
   } = props;
+
+  // Inherit namespace from <Platform> context if not explicitly set
+  const contextNamespace = useContext(Namespace);
+  const namespace = namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default';
 
   const elements: ReturnType<typeof jsx>[] = [];
 
@@ -96,8 +101,8 @@ export function App(props: AppProps) {
   );
 
   elements.push(
-    jsx(Ingress, {
-      name: `${name}-ingress`,
+    jsx(Endpoint, {
+      name: `${name}-endpoint`,
       namespace,
       host,
       serviceName: name,
