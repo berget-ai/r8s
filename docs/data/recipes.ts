@@ -759,7 +759,7 @@ spec:
       { name: "secrets", type: "object", required: false, description: "Secrets to mount" },
       { name: "resources", type: "object", required: false, description: "CPU/memory requests and limits" },
     ],
-    notes: "Routing (nginx Ingress or Envoy Gateway) is controlled by wrapping in <RoutingContext.Provider value={{ mode: 'gateway' }}>. Defaults to nginx Ingress.",
+    notes: "Routing (nginx Ingress or Envoy Gateway) is controlled by wrapping in <Platform routing=\"gateway\">. Defaults to nginx Ingress.",
     advancedExamples: [
       {
         title: "Full Production Setup",
@@ -979,19 +979,18 @@ spec:
       },
       {
         title: "Envoy Gateway Routing",
-        description: "Use Envoy Gateway (Gateway API) via RoutingContext",
-        code: `import { App } from '@r8s/recipes';
-import { RoutingContext } from '@r8s/core/defaults';
+        description: "Use Envoy Gateway (Gateway API) via Platform",
+        code: `import { Platform, App } from '@r8s/recipes';
 
 export default (
-  <RoutingContext.Provider value={{ mode: 'gateway', gatewayClassName: 'eg' }}>
+  <Platform routing="gateway" namespace="production">
     <App
       name="myapp"
       image="myapp/api:v1"
       host="api.example.com"
       tls={{ clusterIssuer: "letsencrypt-prod", secretName: "myapp-tls" }}
     />
-  </RoutingContext.Provider>
+  </Platform>
 );`,
         yaml: `apiVersion: apps/v1
 kind: Deployment

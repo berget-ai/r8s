@@ -3,20 +3,18 @@
 //
 // This manifest deploys:
 // - r8s documentation site (2 replicas, nginx)
-// - Endpoint (Envoy Gateway via RoutingContext)
+// - Endpoint (Envoy Gateway via Platform routing="gateway")
 // - cert-manager Certificate for TLS
 //
 // NOTE: Namespace is provisioned by Flux in the infra repo.
 // NOTE: Image tag :latest is replaced by CI with commit SHA.
 
-import { App } from '@r8s/recipes';
-import { RoutingContext } from '@r8s/core/defaults';
+import { Platform, App } from '@r8s/recipes';
 
 export default (
-  <RoutingContext.Provider value={{ mode: 'gateway', gatewayClassName: 'eg' }}>
+  <Platform routing="gateway" namespace="r8s-docs">
     <App
       name="r8s-docs"
-      namespace="r8s-docs"
       image="ghcr.io/irony/r8s-docs:latest"
       host="r8s.berget.ai"
       replicas={2}
@@ -27,5 +25,5 @@ export default (
         limits: { cpu: "200m", memory: "256Mi" },
       }}
     />
-  </RoutingContext.Provider>
+  </Platform>
 );

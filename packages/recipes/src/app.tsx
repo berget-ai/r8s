@@ -1,6 +1,7 @@
-import { jsx, Fragment } from '@r8s/core';
+import { jsx, Fragment, useContext } from '@r8s/core';
 import { WebService, type SecretRef, type VaultSecretRef } from './web-service';
 import { Endpoint } from './endpoint';
+import { Namespace } from '@r8s/core/defaults';
 import type { TLSConfig } from '@r8s/k8s-types';
 
 export interface AppProps {
@@ -32,14 +33,11 @@ export interface AppProps {
  * <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
  * ```
  *
- * The routing implementation (nginx Ingress or Envoy Gateway) is
- * controlled by the RoutingContext, set once at the top of the tree:
+ * With Envoy Gateway instead of nginx Ingress:
  * ```tsx
- * import { RoutingContext } from '@r8s/core/defaults';
- *
- * <RoutingContext.Provider value={{ mode: 'gateway', gatewayClassName: 'eg' }}>
+ * <Platform routing="gateway" namespace="production">
  *   <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
- * </RoutingContext.Provider>
+ * </Platform>
  * ```
  *
  * With secrets from Kubernetes Secrets:
@@ -66,7 +64,7 @@ export interface AppProps {
 export function App(props: AppProps) {
   const {
     name,
-    namespace = 'default',
+    namespace: namespaceProp,
     image,
     port = 3000,
     replicas = 2,
@@ -78,6 +76,10 @@ export function App(props: AppProps) {
     resources,
     children,
   } = props;
+
+  // Inherit namespace from <Platform> context if not explicitly set
+  const contextNamespace = useContext(Namespace);
+  const namespace = namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default';
 
   const elements: ReturnType<typeof jsx>[] = [];
 
