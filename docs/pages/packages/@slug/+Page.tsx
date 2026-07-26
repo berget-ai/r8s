@@ -88,7 +88,16 @@ export default function Page() {
 
             {/* Code examples */}
             {component.examples.length > 0 && (
-              <CodeBlock code={component.examples[0]} language="tsx" />
+              <div className="space-y-6">
+                {component.examples.map((example, i) => (
+                  <div key={i} className="space-y-3">
+                    <CodeBlock code={example.tsx} language="tsx" />
+                    {example.yaml && (
+                      <CodeBlock code={example.yaml} language="yaml" />
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
 
             {/* Props table */}

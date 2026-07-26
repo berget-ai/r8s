@@ -92,7 +92,10 @@ export default function Page() {
                 <span className="text-moss font-mono text-sm">{String(index + 1).padStart(2, '0')}</span>
                 <h3 className="text-xl">Example {index + 1}</h3>
               </div>
-              <CodeBlock code={example} language="tsx" />
+              <CodeBlock code={example.tsx} language="tsx" />
+              {example.yaml && (
+                <CodeBlock code={example.yaml} language="yaml" />
+              )}
             </div>
           ))}
         </div>

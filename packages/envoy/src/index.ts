@@ -20,10 +20,15 @@ export const envoyGatewayOperator = (version = '1.7.0') =>
   });
 
 export interface GatewayProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** GatewayClass name (e.g., 'eg' for Envoy Gateway) */
   gatewayClassName?: string;
+  /** Gateway listeners (protocol, port, hostname, TLS) */
   listeners: ListenerConfig[];
+  /** Optional static addresses the Gateway can be reached on */
   addresses?: Array<{
     type?: 'IPAddress' | 'Hostname';
     value: string;
@@ -76,14 +81,19 @@ export function Gateway(props: GatewayProps) {
 }
 
 export interface HTTPRouteProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Gateways this route attaches to (by name, optional sectionName to pin a listener) */
   parentRefs: Array<{
     name: string;
     namespace?: string;
     sectionName?: string;
   }>;
+  /** Hostnames this route matches (a request's Host header must match one) */
   hostnames?: string[];
+  /** Routing rules — each rule has optional matches (path/method/headers) and backend targets */
   rules: Array<{
     matches?: Array<{
       path?: {
@@ -119,7 +129,11 @@ export interface HTTPRouteProps {
 }
 
 /**
- * HTTPRoute for Gateway API routing.
+ * Creates an HTTPRoute that attaches to a parent Gateway and routes
+ * HTTP traffic to backend services.
+ *
+ * @example
+ * <HTTPRoute name="api-route" parentRefs={[{ name: "public-gateway" }]} hostnames={["api.example.com"]} rules={[{ backendRefs: [{ name: "api", port: 80 }] }]} />
  */
 export function HTTPRoute(props: HTTPRouteProps) {
   const { name, namespace = 'default', parentRefs, hostnames, rules } = props;
@@ -149,15 +163,27 @@ export function HTTPRoute(props: HTTPRouteProps) {
 }
 
 export interface EnvoyProxyProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace where the Envoy Proxy pods will run */
   namespace?: string;
+  /** Whether multiple Gateway resources share a single Envoy Proxy instance */
   mergeGateways?: boolean;
+  /** Kubernetes Service type exposing the Envoy Proxy externally */
   serviceType?: 'LoadBalancer' | 'NodePort' | 'ClusterIP';
+  /** Static host port (used when serviceType is 'NodePort') */
   nodePort?: number;
 }
 
 /**
  * EnvoyProxy configuration for Envoy Gateway.
+ */
+/**
+ * Configures the EnvoyProxy data plane — service type, node ports,
+ * and multi-Gateway merging.
+ *
+ * @example
+ * <EnvoyProxy name="envoy-proxy" namespace="envoy-gateway-system" serviceType="LoadBalancer" />
  */
 export function EnvoyProxy(props: EnvoyProxyProps) {
   const {

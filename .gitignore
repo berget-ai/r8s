@@ -40,3 +40,4 @@ my-app/**/*.js
 my-app/**/*.js.map
 my-app/**/*.d.ts
 my-app/**/*.d.ts.map
+.tmp-docs-*/

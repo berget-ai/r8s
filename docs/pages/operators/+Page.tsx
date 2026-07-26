@@ -1,13 +1,13 @@
 import { CodeBlock } from "../../components/CodeBlock";
 
-const basicExample = `import { Database, Ingress } from '@r8s/recipes';
+const basicExample = `import { Database, Endpoint } from '@r8s/recipes';
 
 export default (
   <>
     <Database name="app-db" storage="10Gi" />
-    <Ingress host="app.example.com" serviceName="app" />
+    <Endpoint host="app.example.com" serviceName="app" />
   </>
-);`;
+>);`;
 
 const basicYaml = `# Rendered Kubernetes resources
 apiVersion: postgresql.cnpg.io/v1
@@ -23,7 +23,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: app-ingress
+  name: app-endpoint
   namespace: default
 spec:
   rules:
@@ -45,7 +45,6 @@ const result = render(<MyApp />);
 // Kubernetes resources
 console.log(result.resources);
 // [Cluster, Secret, Ingress, Service, ...]
-
 // Required operators (auto-detected)
 console.log(result.operators);`;
 
@@ -135,7 +134,7 @@ const declareYaml = `# Rendered output includes operator + resources
 ]`;
 
 const contextExample = `import { OperatorContext } from '@r8s/core/defaults';
-import { Database, Ingress } from '@r8s/recipes';
+import { Database, Endpoint } from '@r8s/recipes';
 import { cnpgOperator, nginxIngressOperator } from '@r8s/recipes';
 import { certManagerOperator } from '@r8s/cert-manager';
 
@@ -147,7 +146,7 @@ export default function Platform() {
       nginxIngressOperator('1.15.1'),
     ]}>
       <Database name="app-db" storage="10Gi" />
-      <Ingress host="app.example.com" serviceName="app" />
+      <Endpoint host="app.example.com" serviceName="app" />
     </OperatorContext.Provider>
   );
 }`;
@@ -167,7 +166,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: app-ingress
+  name: app-endpoint
   namespace: default
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt

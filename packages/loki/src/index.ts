@@ -14,17 +14,22 @@ export const lokiOperator = (version = '5.47.0') =>
   });
 
 export interface LokiStackProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace where Loki resources live (defaults to 'loki') */
   namespace?: string;
+  /** Where logs are stored — object storage (S3/GCS/Azure) or local filesystem */
   storage?: {
     type: 's3' | 'gcs' | 'azure' | 'filesystem';
     bucket?: string;
     region?: string;
     endpoint?: string;
   };
+  /** Replication settings — how many copies of each log stream to keep for durability */
   replication?: {
     factor?: number;
   };
+  /** Ingestion rate-limits and retention policy */
   limits?: {
     ingestion?: {
       rate?: string;
@@ -34,6 +39,7 @@ export interface LokiStackProps {
       period?: string;
     };
   };
+  /** CPU and memory requests/limits for Loki pods */
   resources?: {
     requests?: { cpu?: string; memory?: string };
     limits?: { cpu?: string; memory?: string };
@@ -110,8 +116,11 @@ export function LokiStack(props: LokiStackProps) {
 }
 
 export interface AlertingRuleProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace where the rules live (defaults to 'loki') */
   namespace?: string;
+  /** Alert groups — each group contains named rules with LogQL expressions and labels */
   groups: Array<{
     name: string;
     rules: Array<{
@@ -126,6 +135,12 @@ export interface AlertingRuleProps {
 
 /**
  * AlertingRule for Loki-based alerting.
+ */
+/**
+ * Creates a Loki alerting rule group evaluated by the Loki ruler.
+ *
+ * @example
+ * <AlertingRule name="high-error-rate" groups={[{ name: "errors", rules: [{ alert: "HighErrorRate", expr: 'rate({app="api"}[5m]) > 0.1', for: "5m" }] }]} />
  */
 export function AlertingRule(props: AlertingRuleProps) {
   const { name, namespace = 'loki', groups } = props;

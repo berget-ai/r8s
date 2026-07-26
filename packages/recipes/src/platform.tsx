@@ -19,6 +19,7 @@ export interface PlatformProps {
   labels?: Record<string, string>;
   /** Shared operators for all child resources */
   operators?: Operator[];
+  /** Child components that inherit the cluster-level configuration this Platform sets */
   children?: unknown;
 }
 

@@ -24,7 +24,7 @@ metadata:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: api-ingress
+  name: api-endpoint
 # ... 3 resources rendered from 1 component`;
 
 const withDatabase = `import { App, Database } from '@r8s/recipes';
@@ -93,8 +93,8 @@ export default function Page() {
           <h2 className="text-xl text-cloud/60 uppercase tracking-wider font-medium">
             The Problem
           </h2>
-          <p className="text-cloud/80 leading-relaxed">
-            You have a microservice. It needs a Deployment, a Service, an Ingress with TLS, 
+            <p className="text-cloud/80 leading-relaxed">
+            You have a microservice. It needs a Deployment, a Service, routing with TLS, 
             and a PostgreSQL database. That's 300+ lines of YAML boilerplate. Copy-paste between 
             services. Hope you didn't miss an indentation.
           </p>
@@ -199,7 +199,7 @@ export default function Page() {
         <div className="grid md:grid-cols-2 gap-4">
           <a href="/recipes/app" className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group">
             <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">App</h3>
-            <p className="text-sm text-cloud/60">Complete application stack with database, web service, and ingress</p>
+            <p className="text-sm text-cloud/60">Complete application stack with database, web service, and routing</p>
           </a>
           <a href="/recipes/database" className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group">
             <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">Database</h3>
@@ -209,9 +209,9 @@ export default function Page() {
             <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">Web Service</h3>
             <p className="text-sm text-cloud/60">Deployment with health checks and resource limits</p>
           </a>
-          <a href="/recipes/ingress" className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group">
-            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">Ingress</h3>
-            <p className="text-sm text-cloud/60">TLS with cert-manager and nginx-ingress</p>
+          <a href="/recipes/endpoint" className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group">
+            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">Endpoint</h3>
+            <p className="text-sm text-cloud/60">Cluster-adaptive routing: nginx Ingress or Envoy Gateway</p>
           </a>
         </div>
       </div>

@@ -4,26 +4,44 @@ import { OperatorContext } from '@r8s/core/defaults';
 import { cnpgOperator } from './operators';
 
 export interface PostgresProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Initial database name (defaults to 'app') */
   database?: string;
+  /** Initial database owner/username (defaults to 'app') */
   user?: string;
+  /** Plaintext password for the user — if provided, a Secret is created automatically */
   password?: string;
+  /** Name of an existing Kubernetes Secret holding the password (skips auto-creation) */
   passwordSecretName?: string;
+  /** Storage size (e.g., '10Gi') for the PostgreSQL data volume */
   storage?: string;
+  /** Kubernetes StorageClass to use for the data volume */
   storageClass?: string;
+  /** Number of PostgreSQL instances in the HA cluster (defaults to 3) */
   instances?: number;
+  /** PostgreSQL container image (defaults to a CNPG-pinned Postgres 16 image) */
   image?: string;
+  /** CPU and memory requests/limits for the Postgres pods */
   resources?: {
     requests?: { memory?: string; cpu?: string };
     limits?: { memory?: string; cpu?: string };
   };
+  /** Enable PgBouncer connection pooling alongside the cluster */
   enablePooler?: boolean;
+  /** Number of PgBouncer pooler replicas */
   poolerInstances?: number;
+  /** PgBouncer pooling mode — 'session' keeps a backend per client, 'transaction' multiplexes them */
   poolMode?: 'session' | 'transaction';
+  /** Enable scheduled backups of the cluster */
   enableBackup?: boolean;
+  /** Cron expression for the backup schedule (defaults to '0 2 * * *' = daily at 2 AM) */
   backupSchedule?: string;
+  /** How long to keep backups (e.g., '7d') */
   backupRetention?: string;
+  /** Extra postgresql.conf parameters (key/value) applied to the cluster */
   postgresqlParameters?: Record<string, string>;
 }
 

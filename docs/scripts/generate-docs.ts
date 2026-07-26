@@ -6,16 +6,108 @@
  *
  * This extracts component props, JSDoc descriptions, and package metadata
  * from the TypeScript source files and writes them to docs/data/.
+ * Code examples are formatted with prettier and rendered to YAML.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import * as url from 'url';
+import * as os from 'os';
 import * as ts from 'typescript';
+import { render } from '@r8s/core';
+import * as yaml from 'js-yaml';
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
 const DOCS_DATA = path.join(ROOT, 'docs', 'data');
+
+// ─── Code formatting & rendering ────────────────────────────────────────────
+
+/** Format TSX code with prettier */
+async function formatTsx(code: string): Promise<string> {
+  try {
+    const { format } = await import('prettier');
+    return await format(code, {
+      parser: 'tsx',
+      semi: true,
+      singleQuote: true,
+      trailingComma: 'all' as const,
+      printWidth: 80,
+      tabWidth: 2,
+    });
+  } catch {
+    return code; // fallback to unformatted
+  }
+}
+
+/** Render a TSX code snippet to YAML using r8s render() */
+async function renderToYaml(code: string): Promise<string | null> {
+  let tmpDir: string | null = null;
+  try {
+    // Write to a temp dir inside the project so node_modules resolves
+    tmpDir = fs.mkdtempSync(path.join(ROOT, '.tmp-docs-'));
+    const tmpFile = path.join(tmpDir, 'example.tsx');
+    fs.writeFileSync(tmpFile, code, 'utf-8');
+    // Write a tsconfig so esbuild picks up JSX settings and path aliases
+    fs.writeFileSync(path.join(tmpDir, 'tsconfig.json'), JSON.stringify({
+      compilerOptions: {
+        jsx: 'react-jsx',
+        jsxImportSource: '@r8s/core',
+        paths: {
+          '@r8s/core': [path.join(ROOT, 'packages/core/src/index.ts')],
+          '@r8s/core/*': [path.join(ROOT, 'packages/core/src/*')],
+          '@r8s/recipes': [path.join(ROOT, 'packages/recipes/src/index.ts')],
+          '@r8s/envoy': [path.join(ROOT, 'packages/envoy/src/index.ts')],
+          '@r8s/cert-manager': [path.join(ROOT, 'packages/cert-manager/src/index.ts')],
+          '@r8s/prometheus': [path.join(ROOT, 'packages/prometheus/src/index.ts')],
+          '@r8s/logging-operator': [path.join(ROOT, 'packages/logging-operator/src/index.ts')],
+          '@r8s/loki': [path.join(ROOT, 'packages/loki/src/index.ts')],
+          '@r8s/redis': [path.join(ROOT, 'packages/redis/src/index.ts')],
+          '@r8s/clickhouse': [path.join(ROOT, 'packages/clickhouse/src/index.ts')],
+          '@r8s/keycloak': [path.join(ROOT, 'packages/keycloak/src/index.ts')],
+          '@r8s/openbao': [path.join(ROOT, 'packages/openbao/src/index.ts')],
+          '@r8s/external-dns': [path.join(ROOT, 'packages/external-dns/src/index.ts')],
+          '@r8s/k8s-types': [path.join(ROOT, 'packages/k8s-types/src/index.ts')],
+        },
+      },
+    }), 'utf-8');
+
+    const { build } = await import('esbuild');
+    const result = await build({
+      entryPoints: [tmpFile],
+      bundle: true,
+      format: 'esm',
+      target: 'es2022',
+      platform: 'node',
+      write: false,
+      jsx: 'automatic',
+      jsxImportSource: '@r8s/core',
+      external: [],
+      absWorkingDir: ROOT,
+      nodePaths: [path.join(ROOT, 'node_modules')],
+    });
+
+    const bundledCode = result.outputFiles[0].text;
+    const dataUrl = 'data:text/javascript;base64,' + Buffer.from(bundledCode).toString('base64');
+    const mod = await import(dataUrl);
+    const element = mod.default;
+
+    if (!element) return null;
+
+    const renderResult = render(element);
+    if (renderResult.resources.length === 0) return null;
+
+    const yamlDocs = renderResult.resources.map((resource: unknown) =>
+      yaml.dump(resource, { sortKeys: false, noRefs: true, lineWidth: -1 })
+    );
+
+    return yamlDocs.join('---\n');
+  } catch {
+    return null;
+  } finally {
+    if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -31,8 +123,8 @@ interface ComponentDoc {
   name: string;
   description: string;
   props: ComponentProp[];
-  /** JSDoc @example blocks */
-  examples: string[];
+  /** JSDoc @example blocks with formatted TSX and rendered YAML */
+  examples: { tsx: string; yaml: string | null }[];
 }
 
 interface PackageDoc {
@@ -98,11 +190,27 @@ function getJSDocTag(node: ts.Node, tagName: string): string | null {
 
 function getJSDocExamples(node: ts.Node): string[] {
   const examples: string[] = [];
-  const jsDoc = (node as any).jsDoc?.[0];
-  if (jsDoc?.tags) {
-    for (const tag of jsDoc.tags) {
-      if (tag.tagName?.text === 'example') {
-        examples.push(tag.comment?.toString() ?? '');
+  // Use getJSDocCommentsAndTags to find all JSDoc blocks (handles multiple blocks)
+  const jsDocs = (ts as any).getJSDocCommentsAndTags?.(node) ?? [];
+  for (const doc of jsDocs) {
+    if (ts.isJSDoc(doc) && doc.tags) {
+      for (const tag of doc.tags) {
+        if (tag.tagName?.text === 'example') {
+          examples.push(tag.comment?.toString() ?? '');
+        }
+      }
+    }
+  }
+  // Fallback: check jsDoc property (all blocks)
+  if (examples.length === 0) {
+    const allJsDoc = (node as any).jsDoc ?? [];
+    for (const doc of allJsDoc) {
+      if (doc?.tags) {
+        for (const tag of doc.tags) {
+          if (tag.tagName?.text === 'example') {
+            examples.push(tag.comment?.toString() ?? '');
+          }
+        }
       }
     }
   }
@@ -195,25 +303,34 @@ function extractProps(interfaceDecl: ts.InterfaceDeclaration): ComponentProp[] {
   return props;
 }
 
-function extractComponents(sourceFile: ts.SourceFile, sourcePath: string): ComponentDoc[] {
+async function extractComponents(sourceFile: ts.SourceFile, sourcePath: string): Promise<ComponentDoc[]> {
   const components: ComponentDoc[] = [];
   const seenNames = new Set<string>();
 
   function visit(node: ts.Node) {
     // Find export function declarations
-    if (ts.isFunctionDeclaration(node) && hasExportModifier(node)) {
+    if (ts.isFunctionDeclaration(node)) {
       const name = node.name?.text;
       if (!name) return;
+      if (!hasExportModifier(node)) return;
 
       // Only include PascalCase functions (components)
       if (name[0] !== name[0].toUpperCase()) return;
 
+      const description = getJSDoc(node);
+      const rawExamples = getJSDocExamples(node);
+
+      // If already added via interface, update description and examples
+      const existing = components.find(c => c.name === name);
+      if (existing) {
+        if (description) existing.description = description;
+        if (rawExamples.length > 0) existing._rawExamples = rawExamples;
+        return;
+      }
+
       if (seenNames.has(name)) return;
       seenNames.add(name);
-
-      const description = getJSDoc(node);
-      const examples = getJSDocExamples(node);
-      components.push({ name, description, props: [], examples });
+      components.push({ name, description, props: [], examples: [], _rawExamples: rawExamples });
     }
 
     // Find interface declarations with "Props" suffix
@@ -228,12 +345,103 @@ function extractComponents(sourceFile: ts.SourceFile, sourcePath: string): Compo
       } else if (!seenNames.has(componentName)) {
         seenNames.add(componentName);
         const description = getJSDoc(node);
-        components.push({ name: componentName, description, props, examples: [] });
+        components.push({ name: componentName, description, props, examples: [], _rawExamples: [] });
       }
     }
   }
 
   sourceFile.forEachChild(visit);
+
+  // Format examples and render YAML for each component
+  for (const comp of components) {
+    const rawExamples = (comp as any)._rawExamples ?? [];
+    comp.examples = [];
+    for (const raw of rawExamples) {
+      // Split multiple examples separated by blank-line + comment
+      // Each example starts with a // comment followed by JSX
+      const lines = raw.split('\n');
+      const exampleBlocks: string[] = [];
+      let currentBlock: string[] = [];
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed === '' && currentBlock.length > 0) {
+          // Blank line — save current block if it has JSX
+          if (currentBlock.some(l => l.includes('<'))) {
+            exampleBlocks.push(currentBlock.join('\n'));
+          }
+          currentBlock = [];
+        } else {
+          currentBlock.push(line);
+        }
+      }
+      if (currentBlock.length > 0 && currentBlock.some(l => l.includes('<'))) {
+        exampleBlocks.push(currentBlock.join('\n'));
+      }
+
+      // If no blocks found (single example), use the whole raw
+      if (exampleBlocks.length === 0 && raw.includes('<')) {
+        exampleBlocks.push(raw);
+      }
+
+      for (const block of exampleBlocks) {
+        // Extract just the JSX element (skip comment lines)
+        const jsxLines = block.split('\n').filter(l => {
+          const t = l.trim();
+          return t && !t.startsWith('//') && !t.startsWith('*');
+        });
+        const code = jsxLines.join('\n').trim();
+        if (!code || !code.startsWith('<')) continue;
+
+        // Detect which imports are needed based on component names
+        const imports: string[] = [];
+        if (code.match(/<(App|Database|WebService|Endpoint|Platform|Cluster|Ingress)\b/)) {
+          imports.push("import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';");
+        }
+        if (code.match(/<(Gateway|HTTPRoute|EnvoyProxy)\b/)) {
+          imports.push("import { Gateway, HTTPRoute, EnvoyProxy } from '@r8s/envoy';");
+        }
+        if (code.match(/<(LetsEncryptIssuer|ManagedCertificate)\b/)) {
+          imports.push("import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager';");
+        }
+        if (code.match(/<(ServiceMonitor|PrometheusRule|PodMonitor)\b/)) {
+          imports.push("import { ServiceMonitor, PrometheusRule, PodMonitor } from '@r8s/prometheus';");
+        }
+        if (code.match(/<(Logging|Flow|Output)\b/)) {
+          imports.push("import { Logging, Flow, Output } from '@r8s/logging-operator';");
+        }
+        if (code.match(/<(LokiStack|AlertingRule)\b/)) {
+          imports.push("import { LokiStack, AlertingRule } from '@r8s/loki';");
+        }
+        if (code.match(/<(RedisCluster|RedisReplication)\b/)) {
+          imports.push("import { RedisCluster, RedisReplication } from '@r8s/redis';");
+        }
+        if (code.match(/<(ClickHouseCluster)\b/)) {
+          imports.push("import { ClickHouseCluster } from '@r8s/clickhouse';");
+        }
+        if (code.match(/<(KeycloakInstance|KeycloakRealm)\b/)) {
+          imports.push("import { KeycloakInstance, KeycloakRealm } from '@r8s/keycloak';");
+        }
+        if (code.match(/<(VaultConnectionConfig|VaultKubernetesAuth|VaultDatabaseSecret|VaultKVSecret)\b/)) {
+          imports.push("import { VaultConnectionConfig, VaultKubernetesAuth, VaultDatabaseSecret, VaultKVSecret } from '@r8s/openbao';");
+        }
+        if (code.match(/<(ExternalDNSRecord)\b/)) {
+          imports.push("import { ExternalDNSRecord } from '@r8s/external-dns';");
+        }
+        if (code.match(/<RoutingContext\.Provider\b/)) {
+          imports.push("import { RoutingContext } from '@r8s/core/defaults';");
+        }
+
+        // Wrap in a default export with imports
+        const fullCode = `${imports.join('\n')}\n\nexport default ${code};`;
+        const formattedTsx = await formatTsx(fullCode);
+        const yamlOutput = await renderToYaml(fullCode);
+        comp.examples.push({ tsx: formattedTsx.trim(), yaml: yamlOutput });
+      }
+    }
+    delete (comp as any)._rawExamples;
+  }
+
   return components;
 }
 
@@ -285,7 +493,7 @@ function readPackageJson(dir: string): { name: string; description: string; keyw
   };
 }
 
-function generatePackages(): PackageDoc[] {
+async function generatePackages(): Promise<PackageDoc[]> {
   const packages: PackageDoc[] = [];
   const packageDirs = fs.readdirSync(path.join(ROOT, 'packages'))
     .filter(dir => {
@@ -297,7 +505,7 @@ function generatePackages(): PackageDoc[] {
   for (const dir of packageDirs) {
     const srcPath = path.join(ROOT, 'packages', dir, 'src', 'index.ts');
     const sourceFile = parseSourceFile(srcPath);
-    const components = extractComponents(sourceFile, srcPath);
+    const components = await extractComponents(sourceFile, srcPath);
     const operator = extractOperatorInfo(sourceFile, srcPath);
     const pkg = readPackageJson(dir);
 
@@ -324,7 +532,7 @@ function generatePackages(): PackageDoc[] {
 
 // ─── Generate recipes.ts ────────────────────────────────────────────────────
 
-function generateRecipes(): PackageDoc[] {
+async function generateRecipes(): Promise<PackageDoc[]> {
   const recipes: PackageDoc[] = [];
   const seenSlugs = new Set<string>();
 
@@ -335,7 +543,7 @@ function generateRecipes(): PackageDoc[] {
   for (const file of recipeFiles) {
     const filePath = path.join(ROOT, 'packages', 'recipes', 'src', file);
     const fileSource = parseSourceFile(filePath);
-    const fileComponents = extractComponents(fileSource, filePath);
+    const fileComponents = await extractComponents(fileSource, filePath);
 
     for (const comp of fileComponents) {
       // Skip non-recipe components (Ingress is a low-level component, not a recipe)
@@ -418,7 +626,7 @@ function writePackages(packages: PackageDoc[]) {
     '  name: string;',
     '  description: string;',
     '  props: ComponentProp[];',
-    '  examples: string[];',
+    '  examples: { tsx: string; yaml: string | null }[];',
     '}',
     '',
     'export interface Package {',
@@ -497,7 +705,7 @@ function writeRecipes(recipes: PackageDoc[]) {
     '  name: string;',
     '  description: string;',
     '  props: ComponentProp[];',
-    '  examples: string[];',
+    '  examples: { tsx: string; yaml: string | null }[];',
     '}',
     '',
     'export interface Recipe {',
@@ -548,13 +756,13 @@ function writeRecipes(recipes: PackageDoc[]) {
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   console.log('🚀 Generating docs from source code...\n');
 
-  const pkgs = generatePackages();
+  const pkgs = await generatePackages();
   writePackages(pkgs);
 
-  const recipes = generateRecipes();
+  const recipes = await generateRecipes();
   writeRecipes(recipes);
 
   console.log('\n✅ Done!');
