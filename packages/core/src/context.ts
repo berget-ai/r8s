@@ -1,8 +1,9 @@
 // Context stack — shared across all context operations.
-// Uses a global symbol so that createContext and useContext reference the
-// same Map even when @r8s/core and @r8s/core/defaults are bundled as
-// separate modules by esbuild.
-const contextStack: Map<symbol, unknown> = (globalThis as any).__r8sContextStack ??= new Map();
+// Uses a Symbol.for() key on globalThis so that createContext and useContext
+// reference the same Map even when @r8s/core and @r8s/core/defaults are
+// bundled as separate module instances by esbuild.
+const CONTEXT_STACK_KEY = Symbol.for('r8s.contextStack');
+const contextStack: Map<symbol, unknown> = (globalThis as any)[CONTEXT_STACK_KEY] ??= new Map();
 
 export interface Context<T> {
   Provider: (props: { value: T; children?: unknown }) => unknown;

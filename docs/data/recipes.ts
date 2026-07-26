@@ -1029,7 +1029,7 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: myapp-tls
+  name: myapp-endpoint-tls
   namespace: default
 spec:
   secretName: myapp-tls
@@ -1042,7 +1042,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: myapp-gateway
+  name: myapp-endpoint-gateway
   namespace: default
 spec:
   gatewayClassName: eg
@@ -1059,11 +1059,11 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: myapp-route
+  name: myapp-endpoint-route
   namespace: default
 spec:
   parentRefs:
-    - name: myapp-gateway
+    - name: myapp-endpoint-gateway
   hostnames:
     - api.example.com
   rules:

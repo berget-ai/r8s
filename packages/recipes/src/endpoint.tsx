@@ -1,12 +1,14 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core';
 import { Ingress } from '@r8s/k8s-types';
-import type { BaseRouteProps, TLSConfig } from '@r8s/k8s-types';
+import type { BaseRouteProps } from '@r8s/k8s-types';
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults';
 import { nginxIngressOperator } from './operators';
 import { certManagerOperator, ManagedCertificate } from '@r8s/cert-manager';
 import { Gateway, HTTPRoute, envoyGatewayOperator } from '@r8s/envoy';
 
-export interface EndpointProps extends BaseRouteProps {
+export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
+  /** Hostname for the endpoint (required) */
+  host: string;
   /** Service name to route to */
   serviceName: string;
   /** Service port (default: 80) */
@@ -77,12 +79,14 @@ export function Endpoint(props: EndpointProps) {
           name: `${name}-tls`,
           namespace,
           secretName,
-          dnsNames: [host!],
+          dnsNames: [host],
           issuerName,
         })
       );
     }
 
+    // HTTPS listener with TLS, HTTP listener without
+    const useHttps = !!tls;
     resources.push(
       jsx(Gateway, {
         name: `${name}-gateway`,
@@ -90,9 +94,9 @@ export function Endpoint(props: EndpointProps) {
         gatewayClassName,
         listeners: [
           {
-            name: 'https',
-            protocol: 'HTTPS',
-            port: 443,
+            name: useHttps ? 'https' : 'http',
+            protocol: useHttps ? 'HTTPS' : 'HTTP',
+            port: useHttps ? 443 : 80,
             hostname: host,
             ...(tls && {
               tls: {
@@ -110,7 +114,7 @@ export function Endpoint(props: EndpointProps) {
         name: `${name}-route`,
         namespace,
         parentRefs: [{ name: `${name}-gateway` }],
-        hostnames: [host!],
+        hostnames: [host],
         rules: [
           {
             backendRefs: [{ name: serviceName, port: servicePort }],
@@ -166,15 +170,14 @@ export function Endpoint(props: EndpointProps) {
             },
           },
         ],
-        ...(tls?.secretName &&
-          host && {
-            tls: [
-              {
-                hosts: [host],
-                secretName: tls.secretName,
-              },
-            ],
-          }),
+        ...(tls?.secretName && {
+          tls: [
+            {
+              hosts: [host],
+              secretName: tls.secretName,
+            },
+          ],
+        }),
       },
     };
 

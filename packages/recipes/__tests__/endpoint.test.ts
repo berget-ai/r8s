@@ -168,6 +168,45 @@ describe('Endpoint — gateway mode', () => {
     expect(kinds).toContain('HTTPRoute');
   });
 
+  it('should use HTTP listener (port 80) when TLS is not set in gateway mode', () => {
+    const element = jsx(RoutingContext.Provider, {
+      value: { mode: 'gateway' },
+      children: jsx(Endpoint, {
+        name: 'api',
+        host: 'api.example.com',
+        serviceName: 'api',
+      }),
+    });
+
+    const result = render(element);
+    const gateway = result.resources.find((r) => r.kind === 'Gateway') as any;
+
+    expect(gateway.spec.listeners[0].protocol).toBe('HTTP');
+    expect(gateway.spec.listeners[0].port).toBe(80);
+    expect(gateway.spec.listeners[0].name).toBe('http');
+    expect(gateway.spec.listeners[0].tls).toBeUndefined();
+  });
+
+  it('should use HTTPS listener (port 443) when TLS is set in gateway mode', () => {
+    const element = jsx(RoutingContext.Provider, {
+      value: { mode: 'gateway' },
+      children: jsx(Endpoint, {
+        name: 'api',
+        host: 'api.example.com',
+        serviceName: 'api',
+        tls: { secretName: 'api-tls', clusterIssuer: 'letsencrypt-prod' },
+      }),
+    });
+
+    const result = render(element);
+    const gateway = result.resources.find((r) => r.kind === 'Gateway') as any;
+
+    expect(gateway.spec.listeners[0].protocol).toBe('HTTPS');
+    expect(gateway.spec.listeners[0].port).toBe(443);
+    expect(gateway.spec.listeners[0].name).toBe('https');
+    expect(gateway.spec.listeners[0].tls).toBeDefined();
+  });
+
   it('should use gatewayClassName from RoutingContext', () => {
     const element = jsx(RoutingContext.Provider, {
       value: { mode: 'gateway', gatewayClassName: 'custom-gc' },
