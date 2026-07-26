@@ -11,16 +11,19 @@ COPY package.json package-lock.json ./
 # Install root dependencies (includes workspace packages)
 RUN npm ci
 
+# Copy workspace packages and build them
+COPY packages/ ./packages/
+COPY tsconfig.json ./
+RUN npx tsc -b
+
 # Copy docs package files and install docs dependencies
 COPY docs/package.json docs/package-lock.json ./docs/
 RUN cd docs && npm ci
 
-# Copy source
+# Copy docs source
 COPY docs/ ./docs/
-COPY packages/ ./packages/
-COPY tsconfig.json ./
 
-# Build the docs site
+# Build the docs site (generates docs data from source, then builds)
 WORKDIR /app/docs
 RUN npm run build
 
