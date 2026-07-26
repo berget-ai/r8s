@@ -68,7 +68,7 @@ jobs:
 
       - run: npm ci
       - run: npx tsc -b
-      - run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml --include-operators
+      - run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
 
       - name: Commit rendered manifests
         run: |
