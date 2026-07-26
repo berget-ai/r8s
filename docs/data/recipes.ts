@@ -755,6 +755,8 @@ spec:
       { name: "replicas", type: "number", required: false, default: "1", description: "Number of replicas" },
       { name: "database", type: "boolean | object", required: false, default: "false", description: "Enable database (true for defaults, or object with name/storage)" },
       { name: "tls", type: "boolean | object", required: false, default: "false", description: "Enable TLS (true for defaults, or object with issuer/secretName)" },
+      { name: "routing", type: "'ingress' | 'gateway'", required: false, default: "'ingress'", description: "Routing mode: 'ingress' (nginx Ingress) or 'gateway' (Envoy Gateway API)" },
+      { name: "gatewayClassName", type: "string", required: false, default: "'eg'", description: "Gateway class name (only used when routing='gateway')" },
       { name: "env", type: "object", required: false, description: "Environment variables" },
       { name: "secrets", type: "object", required: false, description: "Secrets to mount" },
       { name: "resources", type: "object", required: false, description: "CPU/memory requests and limits" },
@@ -975,6 +977,99 @@ spec:
                 name: myapp-staging
                 port:
                   number: 80`
+      },
+      {
+        title: "Envoy Gateway Routing",
+        description: "Use Envoy Gateway (Gateway API) instead of nginx Ingress",
+        code: `import { App } from '@r8s/recipes';
+
+export default (
+  <App
+    name="myapp"
+    image="myapp/api:v1"
+    host="api.example.com"
+    routing="gateway"
+    tls={{ clusterIssuer: "letsencrypt-prod", secretName: "myapp-tls" }}
+  />
+);`,
+        yaml: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: app
+          image: myapp/api:v1
+          ports:
+            - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: myapp
+  ports:
+    - port: 80
+      targetPort: 3000
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: myapp-tls
+  namespace: default
+spec:
+  secretName: myapp-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - api.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: myapp-gateway
+  namespace: default
+spec:
+  gatewayClassName: eg
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: api.example.com
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: myapp-tls
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: myapp-route
+  namespace: default
+spec:
+  parentRefs:
+    - name: myapp-gateway
+  hostnames:
+    - api.example.com
+  rules:
+    - backendRefs:
+        - name: myapp
+          port: 80`
       },
       {
         title: "Multiple Apps with Shared Database",
