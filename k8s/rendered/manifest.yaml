@@ -57,7 +57,7 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: r8s-docs-tls
+  name: r8s-docs-endpoint-tls
   namespace: r8s-docs
 spec:
   secretName: r8s-docs-tls
@@ -72,7 +72,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: r8s-docs-gateway
+  name: r8s-docs-endpoint-gateway
   namespace: r8s-docs
 spec:
   gatewayClassName: eg
@@ -89,11 +89,11 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: r8s-docs-route
+  name: r8s-docs-endpoint-route
   namespace: r8s-docs
 spec:
   parentRefs:
-    - name: r8s-docs-gateway
+    - name: r8s-docs-endpoint-gateway
   hostnames:
     - r8s.berget.ai
   rules:

@@ -1,11 +1,7 @@
 import { jsx, Fragment } from '@r8s/core';
 import { WebService, type SecretRef, type VaultSecretRef } from './web-service';
-import { Ingress } from './ingress';
-import { Gateway, HTTPRoute } from '@r8s/envoy';
-import { ManagedCertificate } from '@r8s/cert-manager';
+import { Endpoint } from './endpoint';
 import type { TLSConfig } from '@r8s/k8s-types';
-
-export type RoutingMode = 'ingress' | 'gateway';
 
 export interface AppProps {
   name: string;
@@ -15,13 +11,6 @@ export interface AppProps {
   replicas?: number;
   host: string;
   tls?: TLSConfig;
-  /**
-   * Routing mode: 'ingress' (nginx Ingress, default) or 'gateway' (Envoy Gateway API).
-   * Use 'gateway' for clusters that use Envoy Gateway instead of nginx Ingress.
-   */
-  routing?: RoutingMode;
-  /** Gateway class name (only used when routing='gateway', default: 'eg') */
-  gatewayClassName?: string;
   /** Plain environment variables (non-sensitive) */
   env?: Record<string, string>;
   /** Secrets from Kubernetes Secrets — safe by default */
@@ -36,16 +25,21 @@ export interface AppProps {
 }
 
 /**
- * Simple application — Deployment + Service + routing.
+ * Simple application — Deployment + Service + Endpoint.
  *
  * The simplest way to deploy an app to Kubernetes:
  * ```tsx
  * <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
  * ```
  *
- * With Envoy Gateway instead of nginx Ingress:
+ * The routing implementation (nginx Ingress or Envoy Gateway) is
+ * controlled by the RoutingContext, set once at the top of the tree:
  * ```tsx
- * <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" routing="gateway" />
+ * import { RoutingContext } from '@r8s/core/defaults';
+ *
+ * <RoutingContext.Provider value={{ mode: 'gateway', gatewayClassName: 'eg' }}>
+ *   <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
+ * </RoutingContext.Provider>
  * ```
  *
  * With secrets from Kubernetes Secrets:
@@ -56,16 +50,6 @@ export interface AppProps {
  *   host="myapp.example.com"
  *   env={{ LOG_LEVEL: 'info' }}
  *   secrets={{ DATABASE_URL: 'app-secrets' }}
- * />
- * ```
- *
- * With Vault secrets (auto-installs Vault Secrets Operator):
- * ```tsx
- * <App
- *   name="myapp"
- *   image="myapp/web:v1.2.3"
- *   host="myapp.example.com"
- *   vault={{ DATABASE_URL: { mount: 'kv', path: 'db/credentials' } }}
  * />
  * ```
  *
@@ -88,8 +72,6 @@ export function App(props: AppProps) {
     replicas = 2,
     host,
     tls,
-    routing = 'ingress',
-    gatewayClassName = 'eg',
     env = {},
     secrets = {},
     vault = {},
@@ -113,65 +95,16 @@ export function App(props: AppProps) {
     })
   );
 
-  if (routing === 'gateway') {
-    const secretName = tls?.secretName || `${name}-tls`;
-    const issuerName = tls?.clusterIssuer || 'letsencrypt-prod';
-
-    elements.push(
-      jsx(ManagedCertificate, {
-        name: `${name}-tls`,
-        namespace,
-        secretName,
-        dnsNames: [host],
-        issuerName,
-      })
-    );
-
-    elements.push(
-      jsx(Gateway, {
-        name: `${name}-gateway`,
-        namespace,
-        gatewayClassName,
-        listeners: [
-          {
-            name: 'https',
-            protocol: 'HTTPS',
-            port: 443,
-            hostname: host,
-            tls: {
-              mode: 'Terminate',
-              certificateRefs: [{ name: secretName }],
-            },
-          },
-        ],
-      })
-    );
-
-    elements.push(
-      jsx(HTTPRoute, {
-        name: `${name}-route`,
-        namespace,
-        parentRefs: [{ name: `${name}-gateway` }],
-        hostnames: [host],
-        rules: [
-          {
-            backendRefs: [{ name, port: 80 }],
-          },
-        ],
-      })
-    );
-  } else {
-    elements.push(
-      jsx(Ingress, {
-        name: `${name}-ingress`,
-        namespace,
-        host,
-        serviceName: name,
-        servicePort: 80,
-        tls,
-      })
-    );
-  }
+  elements.push(
+    jsx(Endpoint, {
+      name: `${name}-endpoint`,
+      namespace,
+      host,
+      serviceName: name,
+      servicePort: 80,
+      tls,
+    })
+  );
 
   // Children render as sibling resources (e.g. <BackgroundWorker />).
   // WebService does not currently accept children as a prop, so we keep

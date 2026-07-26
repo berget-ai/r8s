@@ -755,12 +755,11 @@ spec:
       { name: "replicas", type: "number", required: false, default: "1", description: "Number of replicas" },
       { name: "database", type: "boolean | object", required: false, default: "false", description: "Enable database (true for defaults, or object with name/storage)" },
       { name: "tls", type: "boolean | object", required: false, default: "false", description: "Enable TLS (true for defaults, or object with issuer/secretName)" },
-      { name: "routing", type: "'ingress' | 'gateway'", required: false, default: "'ingress'", description: "Routing mode: 'ingress' (nginx Ingress) or 'gateway' (Envoy Gateway API)" },
-      { name: "gatewayClassName", type: "string", required: false, default: "'eg'", description: "Gateway class name (only used when routing='gateway')" },
       { name: "env", type: "object", required: false, description: "Environment variables" },
       { name: "secrets", type: "object", required: false, description: "Secrets to mount" },
       { name: "resources", type: "object", required: false, description: "CPU/memory requests and limits" },
     ],
+    notes: "Routing (nginx Ingress or Envoy Gateway) is controlled by wrapping in <RoutingContext.Provider value={{ mode: 'gateway' }}>. Defaults to nginx Ingress.",
     advancedExamples: [
       {
         title: "Full Production Setup",
@@ -980,17 +979,19 @@ spec:
       },
       {
         title: "Envoy Gateway Routing",
-        description: "Use Envoy Gateway (Gateway API) instead of nginx Ingress",
+        description: "Use Envoy Gateway (Gateway API) via RoutingContext",
         code: `import { App } from '@r8s/recipes';
+import { RoutingContext } from '@r8s/core/defaults';
 
 export default (
-  <App
-    name="myapp"
-    image="myapp/api:v1"
-    host="api.example.com"
-    routing="gateway"
-    tls={{ clusterIssuer: "letsencrypt-prod", secretName: "myapp-tls" }}
-  />
+  <RoutingContext.Provider value={{ mode: 'gateway', gatewayClassName: 'eg' }}>
+    <App
+      name="myapp"
+      image="myapp/api:v1"
+      host="api.example.com"
+      tls={{ clusterIssuer: "letsencrypt-prod", secretName: "myapp-tls" }}
+    />
+  </RoutingContext.Provider>
 );`,
         yaml: `apiVersion: apps/v1
 kind: Deployment
