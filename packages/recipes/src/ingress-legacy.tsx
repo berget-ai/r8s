@@ -5,12 +5,19 @@ import { nginxIngressOperator } from './operators';
 import { certManagerOperator } from '@r8s/cert-manager';
 
 export interface CustomIngressProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Domain name (e.g., 'api.example.com') the Ingress accepts traffic for */
   host: string;
+  /** Name of the Service to route traffic to */
   serviceName: string;
+  /** Port of the Service to route traffic to (defaults to 80) */
   servicePort?: number;
+  /** Name of the Kubernetes Secret holding the TLS certificate. When set, cert-manager is declared */
   tlsSecretName?: string;
+  /** Extra Kubernetes annotations merged onto the Ingress */
   annotations?: Record<string, string>;
 }
 

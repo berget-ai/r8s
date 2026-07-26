@@ -10,15 +10,25 @@ export const keycloakOperator = (version = '24.0.0') =>
   });
 
 export interface KeycloakInstanceProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Public hostname users reach Keycloak on (e.g., 'auth.example.com') */
   hostname: string;
+  /** Number of Keycloak pod replicas */
   instances?: number;
+  /** Name of the Kubernetes Secret holding the Keycloak TLS certificate */
   tlsSecretName?: string;
+  /** Hostname of the external PostgreSQL database; auto-wired when wrapped in a Database component */
   dbHost?: string;
+  /** PostgreSQL database name (defaults to 'keycloak') */
   dbName?: string;
+  /** Kubernetes Secret holding the database username (used as { name, key }) */
   dbUsernameSecret?: { name: string; key: string };
+  /** Kubernetes Secret holding the database password (used as { name, key }) */
   dbPasswordSecret?: { name: string; key: string };
+  /** Ingress controller class (e.g., 'nginx') used to expose Keycloak */
   ingressClassName?: string;
 }
 
@@ -32,6 +42,13 @@ export interface KeycloakInstanceProps {
  *
  * Or provide explicit dbHost for external databases:
  * <KeycloakInstance name="keycloak" hostname="auth.example.com" dbHost="my-db-rw" />
+ */
+/**
+ * Provisions a Keycloak identity provider instance with optional
+ * database and ingress configuration.
+ *
+ * @example
+ * <KeycloakInstance name="keycloak" hostname="auth.example.com" instances={2} />
  */
 export function KeycloakInstance(props: KeycloakInstanceProps) {
   const {
@@ -105,11 +122,17 @@ export function KeycloakInstance(props: KeycloakInstanceProps) {
 }
 
 export interface KeycloakRealmProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace for the realm import — required */
   namespace: string;
+  /** Name of the Keycloak instance this realm is imported into */
   keycloakName: string;
+  /** Realm name inside Keycloak (e.g., 'my-company') */
   realmName: string;
+  /** Human-readable name shown in the Keycloak UI */
   displayName?: string;
+  /** Clients (applications) created inside this realm */
   clients?: Array<{
     clientId: string;
     name?: string;
@@ -118,6 +141,7 @@ export interface KeycloakRealmProps {
     publicClient?: boolean;
     serviceAccountsEnabled?: boolean;
   }>;
+  /** User accounts created inside this realm */
   users?: Array<{
     username: string;
     email?: string;
@@ -126,6 +150,13 @@ export interface KeycloakRealmProps {
   }>;
 }
 
+/**
+ * Creates a KeycloakRealmImport to bootstrap a realm with clients, users,
+ * and roles into an existing Keycloak instance.
+ *
+ * @example
+ * <KeycloakRealm name="my-realm" keycloakCRName="keycloak" realm="myapp" />
+ */
 export function KeycloakRealm(props: KeycloakRealmProps) {
   const { name, namespace, keycloakName, realmName, displayName, clients = [], users = [] } = props;
 

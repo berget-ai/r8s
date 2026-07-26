@@ -5,12 +5,19 @@ import { Namespace } from '@r8s/core/defaults';
 import type { TLSConfig } from '@r8s/k8s-types';
 
 export interface AppProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default' or the Platform namespace) */
   namespace?: string;
+  /** Container image (e.g., 'myapp/api:v1.2.3') */
   image: string;
+  /** Container port the app listens on (defaults to 3000) */
   port?: number;
+  /** Number of pod replicas (defaults to 2) */
   replicas?: number;
+  /** Domain name (e.g., 'api.example.com') the endpoint should accept traffic for */
   host: string;
+  /** TLS certificate configuration for HTTPS */
   tls?: TLSConfig;
   /** Plain environment variables (non-sensitive) */
   env?: Record<string, string>;
@@ -18,10 +25,12 @@ export interface AppProps {
   secrets?: Record<string, SecretRef | string>;
   /** Secrets from Vault — creates VaultStaticSecret objects */
   vault?: Record<string, VaultSecretRef>;
+  /** CPU and memory requests/limits for the app container */
   resources?: {
     requests?: { cpu?: string; memory?: string };
     limits?: { cpu?: string; memory?: string };
   };
+  /** Child components rendered as sibling resources (e.g., a BackgroundWorker) */
   children?: unknown;
 }
 

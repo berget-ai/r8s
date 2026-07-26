@@ -4,9 +4,13 @@ import { ClusterContext, OperatorContext } from '@r8s/core/defaults';
 import { cnpgOperator } from './operators';
 
 export interface ClusterProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Storage size (e.g., '50Gi') for the shared PostgreSQL data volume */
   storage?: string;
+  /** Database components rendered as children will share this cluster */
   children?: unknown;
 }
 

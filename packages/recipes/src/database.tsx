@@ -9,13 +9,17 @@ import {
 import { cnpgOperator } from './operators';
 
 export interface DatabaseProps {
+  /** Resource name (also the default database name) */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Storage size (e.g., '10Gi') for the dedicated cluster data volume */
   storage?: string;
   /** Operator version override. If not set, reads from OperatorContext or uses default. */
   operatorVersion?: string;
   /** Password for the database. Required unless using Vault/OpenBao via SecretContext. */
   password?: string;
+  /** Child components rendered with this database's connection info in context */
   children?: unknown;
 }
 

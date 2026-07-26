@@ -24,12 +24,17 @@ export const prometheusOperator = (version = '0.72.0') =>
   );
 
 export interface ServiceMonitorProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Extra labels attached to the ServiceMonitor (often used for Prometheus discovery) */
   labels?: Record<string, string>;
+  /** Label selector that picks the Service(s) whose endpoints should be scraped */
   selector: {
     matchLabels: Record<string, string>;
   };
+  /** Endpoints to scrape — each entry names a port and optional path/interval */
   endpoints: Array<{
     port: string;
     path?: string;
@@ -73,8 +78,11 @@ export function ServiceMonitor(props: ServiceMonitorProps) {
 }
 
 export interface PrometheusRuleProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Alert groups — each contains a name, optional interval, and a list of alerting rules */
   groups: Array<{
     name: string;
     interval?: string;
@@ -90,6 +98,12 @@ export interface PrometheusRuleProps {
 
 /**
  * PrometheusRule for alerting rules.
+ */
+/**
+ * Creates a PrometheusRule with alerting groups and rules evaluated by Prometheus.
+ *
+ * @example
+ * <PrometheusRule name="api-alerts" groups={[{ name: "api", rules: [{ alert: "HighErrorRate", expr: 'rate(http_requests_total{status=~"5.."}[5m]) > 0.1', for: "5m" }] }]} />
  */
 export function PrometheusRule(props: PrometheusRuleProps) {
   const { name, namespace = 'default', groups } = props;
@@ -117,12 +131,17 @@ export function PrometheusRule(props: PrometheusRuleProps) {
 }
 
 export interface PodMonitorProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Extra labels attached to the PodMonitor (often used for Prometheus discovery) */
   labels?: Record<string, string>;
+  /** Label selector that picks which pods should be scraped */
   selector: {
     matchLabels: Record<string, string>;
   };
+  /** Pod metric endpoints to scrape — each names a port and optional path/interval */
   podMetricsEndpoints: Array<{
     port: string;
     path?: string;
@@ -132,6 +151,12 @@ export interface PodMonitorProps {
 
 /**
  * PodMonitor for scraping pods directly (without Service).
+ */
+/**
+ * Creates a PodMonitor that tells Prometheus to scrape pod metrics directly.
+ *
+ * @example
+ * <PodMonitor name="worker-metrics" selector={{ matchLabels: { app: "worker" } }} podMetricsEndpoints={[{ port: "metrics", path: "/metrics", interval: "30s" }]} />
  */
 export function PodMonitor(props: PodMonitorProps) {
   const { name, namespace = 'default', labels, selector, podMetricsEndpoints } = props;

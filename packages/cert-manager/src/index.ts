@@ -23,12 +23,22 @@ export const certManagerOperator = (version = '1.14.0') =>
   );
 
 export interface LetsEncryptIssuerProps {
+  /** Resource name */
   name: string;
+  /** Email address used by Let's Encrypt for certificate expiry notices */
   email: string;
+  /** Let's Encrypt environment to use — 'production' (real, rate-limited certs) or 'staging' (test certs) */
   server?: 'production' | 'staging';
+  /** Ingress controller class (e.g., 'nginx') that cert-manager should use for HTTP-01 challenges */
   ingressClass?: string;
 }
 
+/**
+ * Creates a Let's Encrypt ClusterIssuer for automatic TLS certificates.
+ *
+ * @example
+ * <LetsEncryptIssuer name="letsencrypt" email="admin@example.com" server="production" />
+ */
 export function LetsEncryptIssuer(props: LetsEncryptIssuerProps) {
   const { name, email, server = 'production', ingressClass = 'nginx' } = props;
 
@@ -61,15 +71,29 @@ export function LetsEncryptIssuer(props: LetsEncryptIssuerProps) {
 }
 
 export interface ManagedCertificateProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Name of the Kubernetes Secret holding the TLS certificate */
   secretName: string;
+  /** Name of the cert-manager Issuer or ClusterIssuer to request the certificate from */
   issuerName: string;
+  /** Domain names the certificate should be valid for */
   dnsNames: string[];
+  /** How long the certificate is valid (e.g., '2160h' for 90 days) */
   duration?: string;
+  /** When cert-manager should start renewing the certificate before it expires (e.g., '360h' for 15 days) */
   renewBefore?: string;
 }
 
+/**
+ * Creates a cert-manager Certificate resource that automatically provisions
+ * and renews a TLS certificate from the specified ClusterIssuer.
+ *
+ * @example
+ * <ManagedCertificate name="app-tls" secretName="app-tls" issuerName="letsencrypt-prod" dnsNames={["app.example.com"]} />
+ */
 export function ManagedCertificate(props: ManagedCertificateProps) {
   const {
     name,

@@ -22,10 +22,15 @@ export interface VaultSecretRef {
 }
 
 export interface WebServiceProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Container image (e.g., 'myapp/api:v1.2.3') */
   image: string;
+  /** Container port the app listens on (defaults to 3000) */
   port?: number;
+  /** Number of pod replicas (defaults to 2) */
   replicas?: number;
   /** Plain environment variables (non-sensitive) */
   env?: Record<string, string>;
@@ -35,6 +40,7 @@ export interface WebServiceProps {
   vault?: Record<string, VaultSecretRef>;
   /** Raw env vars for advanced use cases */
   rawEnv?: EnvVar[];
+  /** CPU and memory requests/limits for the app container */
   resources?: {
     requests?: { cpu?: string; memory?: string };
     limits?: { cpu?: string; memory?: string };

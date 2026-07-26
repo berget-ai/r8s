@@ -20,17 +20,22 @@ export const clickhouseOperator = (version = '0.23.0') =>
   );
 
 export interface ClickHouseClusterProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Cluster topology — number of shards and replicas per shard */
   cluster?: {
     layout?: {
       shardsCount?: number;
       replicasCount?: number;
     };
   };
+  /** ZooKeeper cluster used for ClickHouse replication and coordination */
   zookeeper?: {
     nodes?: Array<{ host: string; port?: number }>;
   };
+  /** ClickHouse users to create, keyed by username (each can have password, profile, quota, and grants) */
   users?: Record<
     string,
     {
@@ -41,8 +46,11 @@ export interface ClickHouseClusterProps {
       grants?: { query?: string[] };
     }
   >;
+  /** ClickHouse user profiles (settings) keyed by profile name */
   profiles?: Record<string, Record<string, string>>;
+  /** ClickHouse quotas keyed by quota name */
   quotas?: Record<string, Record<string, string>>;
+  /** Pod and persistent-volume templates for customizing how ClickHouse pods run and store data */
   templates?: {
     podTemplates?: Array<{
       name: string;

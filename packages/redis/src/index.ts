@@ -20,16 +20,24 @@ export const redisOperator = (version = '0.22.0') =>
   );
 
 export interface RedisClusterProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Number of Redis pods in the cluster (must match a valid cluster quorum) */
   clusterSize?: number;
+  /** Whether to enable the Redis exporter sidecar for Prometheus metrics */
   redisExporter?: boolean;
+  /** Storage size (e.g., '10Gi') */
   storage?: string;
+  /** Kubernetes StorageClass to use for the Redis data volume */
   storageClassName?: string;
+  /** Kubernetes Secret (name + key) holding the Redis authentication password */
   redisSecret?: {
     name: string;
     key: string;
   };
+  /** CPU and memory requests/limits for Redis pods */
   resources?: {
     limits?: { cpu?: string; memory?: string };
     requests?: { cpu?: string; memory?: string };
@@ -107,16 +115,29 @@ export function RedisCluster(props: RedisClusterProps) {
 }
 
 export interface RedisReplicationProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Number of Redis pods in the master-replica replication setup */
   clusterSize?: number;
+  /** Whether to enable the Redis exporter sidecar for Prometheus metrics */
   redisExporter?: boolean;
+  /** Storage size (e.g., '10Gi') */
   storage?: string;
+  /** Kubernetes StorageClass to use for the Redis data volume */
   storageClassName?: string;
 }
 
 /**
  * Redis Replication (master-replica) using Redis Operator.
+ */
+/**
+ * Creates a Redis replication setup (primary + replicas) for
+ * read scaling and failover.
+ *
+ * @example
+ * <RedisReplication name="cache" replicas={3} storage="5Gi" />
  */
 export function RedisReplication(props: RedisReplicationProps) {
   const {

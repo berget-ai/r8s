@@ -22,8 +22,11 @@ export const loggingOperator = (version = '4.2.3') =>
   );
 
 export interface LoggingProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Fluentd aggregator configuration (replicas and resources) */
   fluentd?: {
     replicas?: number;
     resources?: {
@@ -31,12 +34,14 @@ export interface LoggingProps {
       limits?: { cpu?: string; memory?: string };
     };
   };
+  /** Fluentbit agent configuration (typically runs on every node) */
   fluentbit?: {
     resources?: {
       requests?: { cpu?: string; memory?: string };
       limits?: { cpu?: string; memory?: string };
     };
   };
+  /** Namespace where logging CRDs and shared resources live */
   controlNamespace?: string;
 }
 
@@ -77,8 +82,11 @@ export function Logging(props: LoggingProps) {
 }
 
 export interface FlowProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Selector-like match rules that decide which logs this Flow handles */
   match?: Array<{
     select?: {
       labels?: Record<string, string>;
@@ -87,6 +95,7 @@ export interface FlowProps {
       labels?: Record<string, string>;
     };
   }>;
+  /** Filters applied to matching log lines (parser, grep, etc.) */
   filters?: Array<{
     parser?: {
       parse?: {
@@ -101,11 +110,19 @@ export interface FlowProps {
       }>;
     };
   }>;
+  /** Names of Output resources that should receive the filtered logs */
   outputRefs: string[];
 }
 
 /**
  * Flow for routing logs to outputs.
+ */
+/**
+ * Creates a Flow that selects logs by label, applies filters, and
+ * routes them to one or more Output references.
+ *
+ * @example
+ * <Flow name="app-flow" match={[{ select: { labels: { app: "api" } } }]} outputRefs={["loki-output"]} />
  */
 export function Flow(props: FlowProps) {
   const { name, namespace = 'default', match, filters, outputRefs } = props;
@@ -125,13 +142,17 @@ export function Flow(props: FlowProps) {
 }
 
 export interface OutputProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Send logs to a Loki aggregation endpoint */
   loki?: {
     url: string;
     configureKubernetesLabels?: boolean;
     labels?: Record<string, string>;
   };
+  /** Send logs to an S3 bucket */
   s3?: {
     bucket: string;
     region: string;
@@ -141,6 +162,12 @@ export interface OutputProps {
 
 /**
  * Output destination for logs.
+ */
+/**
+ * Creates an Output destination (Loki or S3) that Flows can reference.
+ *
+ * @example
+ * <Output name="loki-output" loki={{ url: "http://loki.loki:3100", configureKubernetesLabels: true }} />
  */
 export function Output(props: OutputProps) {
   const { name, namespace = 'default', loki, s3 } = props;

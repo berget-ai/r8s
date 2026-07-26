@@ -15,15 +15,27 @@ export const vaultSecretsOperator = (version = '0.5.0') =>
     }
   );
 
-export interface VaultConnectionProps {
+export interface VaultConnectionConfigProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace (defaults to 'default') */
   namespace?: string;
+  /** Vault/OpenBao server address, e.g. 'https://vault.example.com:8200' */
   address: string;
+  /** Name of the Kubernetes Secret containing the CA certificate used to verify Vault TLS */
   caCertSecretRef?: string;
+  /** Skip TLS certificate verification (insecure — don't use in production) */
   skipTLSVerify?: boolean;
 }
 
-export function VaultConnectionConfig(props: VaultConnectionProps) {
+/**
+ * Creates a VaultConnection resource telling the Vault Secrets Operator
+ * how to reach the OpenBao/Vault server.
+ *
+ * @example
+ * <VaultConnectionConfig name="default" address="https://vault.example.com:8200" />
+ */
+export function VaultConnectionConfig(props: VaultConnectionConfigProps) {
   const { name, namespace = 'default', address, caCertSecretRef, skipTLSVerify = false } = props;
 
   const connection: VaultConnection = {
@@ -41,14 +53,27 @@ export function VaultConnectionConfig(props: VaultConnectionProps) {
 }
 
 export interface VaultKubernetesAuthProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace for the VaultAuth — required */
   namespace: string;
+  /** Name of the VaultConnection resource this auth uses (defaults to 'default' on Vault side) */
   vaultConnectionRef?: string;
+  /** Vault role this Kubernetes service account is allowed to assume */
   role: string;
+  /** Kubernetes service account used to authenticate to Vault */
   serviceAccount: string;
+  /** Vault auth method mount path (defaults to 'kubernetes') */
   mount?: string;
 }
 
+/**
+ * Creates a VaultAuth resource configuring Kubernetes-based authentication
+ * for the Vault Secrets Operator.
+ *
+ * @example
+ * <VaultKubernetesAuth name="default" mount="kubernetes" role="secrets" serviceAccount="default" />
+ */
 export function VaultKubernetesAuth(props: VaultKubernetesAuthProps) {
   const { name, namespace, vaultConnectionRef, role, serviceAccount, mount = 'kubernetes' } = props;
 
@@ -68,15 +93,29 @@ export function VaultKubernetesAuth(props: VaultKubernetesAuthProps) {
 }
 
 export interface VaultDatabaseSecretProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace for the VaultDynamicSecret — required */
   namespace: string;
+  /** Name of the VaultAuth resource used to authenticate to Vault */
   vaultAuthRef: string;
+  /** Vault mount path of the database secrets engine (e.g., 'database') */
   mount: string;
+  /** Vault role/path describing the database credential to lease */
   path: string;
+  /** Name of the Kubernetes Secret Vault will write the leased credentials into */
   secretName: string;
+  /** When credentials rotate, the operator restarts this target (kind + name) so pods pick up the new secret */
   rolloutRestartTarget?: { kind: string; name: string };
 }
 
+/**
+ * Creates a VaultDynamicSecret that dynamically provisions short-lived
+ * credentials (e.g., database passwords) from OpenBao/Vault.
+ *
+ * @example
+ * <VaultDatabaseSecret name="db-creds" vaultAuthRef="default" mount="database" path="postgres/creds/app" destination={{ create: true, name: "db-creds" }} />
+ */
 export function VaultDatabaseSecret(props: VaultDatabaseSecretProps) {
   const { name, namespace, vaultAuthRef, mount, path, secretName, rolloutRestartTarget } = props;
 
@@ -102,16 +141,31 @@ export function VaultDatabaseSecret(props: VaultDatabaseSecretProps) {
 }
 
 export interface VaultKVSecretProps {
+  /** Resource name */
   name: string;
+  /** Kubernetes namespace for the VaultStaticSecret — required */
   namespace: string;
+  /** Name of the VaultAuth resource used to authenticate to Vault */
   vaultAuthRef: string;
+  /** Vault KV mount path (e.g., 'secret' or 'kv') */
   mount: string;
+  /** Path within the mount to the KV secret (e.g., 'myapp/config') */
   path: string;
+  /** Name of the Kubernetes Secret Vault will create with the KV values */
   secretName: string;
+  /** KV engine version — 'kv-v1' or 'kv-v2' (defaults to 'kv-v2') */
   type?: 'kv-v1' | 'kv-v2';
+  /** When the KV secret changes, the operator restarts this target (kind + name) so pods pick up the new secret */
   rolloutRestartTarget?: { kind: string; name: string };
 }
 
+/**
+ * Creates a VaultStaticSecret that syncs a static key-value secret from
+ * OpenBao/Vault into a Kubernetes Secret.
+ *
+ * @example
+ * <VaultKVSecret name="api-key" vaultAuthRef="default" mount="secret" path="api/key" destination={{ create: true, name: "api-key" }} />
+ */
 export function VaultKVSecret(props: VaultKVSecretProps) {
   const {
     name,
