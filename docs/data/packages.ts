@@ -51,13 +51,6 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "LetsEncryptIssuer",
-        description: "",
-        props: [
-        ],
-        examples: [],
-      },
-      {
         name: "ManagedCertificate",
         description: "",
         props: [
@@ -68,13 +61,6 @@ export const packages: Package[] = [
       { name: "dnsNames", type: "string[]", required: true, description: "" },
       { name: "duration", type: "string", required: false, description: "" },
       { name: "renewBefore", type: "string", required: false, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "ManagedCertificate",
-        description: "",
-        props: [
         ],
         examples: [],
       },
@@ -105,13 +91,6 @@ export const packages: Package[] = [
         ],
         examples: [],
       },
-      {
-        name: "ClickHouseCluster",
-        description: "ClickHouse cluster using ClickHouse Operator.",
-        props: [
-        ],
-        examples: ["<ClickHouseCluster\n  name=\"analytics\"\n  namespace=\"production\"\n  cluster={{\n    layout: { shardsCount: 2, replicasCount: 2 }\n  }}\n/>"],
-      },
     ],
   },
   {
@@ -137,13 +116,6 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "Gateway",
-        description: "Gateway resource using Gateway API (Envoy Gateway). Requires Envoy Gateway operator to be installed.",
-        props: [
-        ],
-        examples: ["<Gateway\n  name=\"public-gateway\"\n  namespace=\"envoy-gateway-system\"\n  gatewayClassName=\"eg\"\n  listeners={[\n    { name: 'https', protocol: 'HTTPS', port: 443, hostname: 'api.example.com' },\n  ]}\n/>"],
-      },
-      {
         name: "HTTPRoute",
         description: "",
         props: [
@@ -156,13 +128,6 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "HTTPRoute",
-        description: "HTTPRoute for Gateway API routing.",
-        props: [
-        ],
-        examples: [],
-      },
-      {
         name: "EnvoyProxy",
         description: "",
         props: [
@@ -171,13 +136,6 @@ export const packages: Package[] = [
       { name: "mergeGateways", type: "boolean", required: false, description: "" },
       { name: "serviceType", type: "'LoadBalancer' | 'NodePort' | 'ClusterIP'", required: false, description: "" },
       { name: "nodePort", type: "number", required: false, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "EnvoyProxy",
-        description: "EnvoyProxy configuration for Envoy Gateway.",
-        props: [
         ],
         examples: [],
       },
@@ -203,13 +161,6 @@ export const packages: Package[] = [
       { name: "targets", type: "string[]", required: true, description: "" },
       { name: "recordType", type: "string", required: false, description: "" },
       { name: "ttl", type: "number", required: false, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "ExternalDNSRecord",
-        description: "",
-        props: [
         ],
         examples: [],
       },
@@ -252,13 +203,6 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "KeycloakInstance",
-        description: "Keycloak identity provider with automatic database wiring. When placed inside a Database component, it auto-connects: <Database name=\"keycloak-db\" storage=\"10Gi\"> <KeycloakInstance name=\"keycloak\" hostname=\"auth.example.com\" /> </Database> Or provide explicit dbHost for external databases: <KeycloakInstance name=\"keycloak\" hostname=\"auth.example.com\" dbHost=\"my-db-rw\" />",
-        props: [
-        ],
-        examples: [],
-      },
-      {
         name: "KeycloakRealm",
         description: "",
         props: [
@@ -269,13 +213,6 @@ export const packages: Package[] = [
       { name: "displayName", type: "string", required: false, description: "" },
       { name: "clients", type: "Array", required: false, description: "" },
       { name: "users", type: "Array", required: false, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "KeycloakRealm",
-        description: "",
-        props: [
         ],
         examples: [],
       },
@@ -304,13 +241,6 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "Logging",
-        description: "Logging resource using Logging Operator.",
-        props: [
-        ],
-        examples: ["<Logging\n  name=\"platform-logs\"\n  namespace=\"logging\"\n  fluentd={{ replicas: 2 }}\n/>"],
-      },
-      {
         name: "Flow",
         description: "",
         props: [
@@ -323,13 +253,6 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "Flow",
-        description: "Flow for routing logs to outputs.",
-        props: [
-        ],
-        examples: [],
-      },
-      {
         name: "Output",
         description: "",
         props: [
@@ -337,13 +260,6 @@ export const packages: Package[] = [
       { name: "namespace", type: "string", required: false, description: "" },
       { name: "loki", type: "{ url: string, configureKubernetesLabels?: boolean, labels?: Record }", required: false, description: "" },
       { name: "s3", type: "{ bucket: string, region: string, path: string }", required: false, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "Output",
-        description: "Output destination for logs.",
-        props: [
         ],
         examples: [],
       },
@@ -373,26 +289,12 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "LokiStack",
-        description: "LokiStack for log aggregation.",
-        props: [
-        ],
-        examples: ["<LokiStack\n  name=\"loki\"\n  namespace=\"loki\"\n  storage={{ type: 's3', bucket: 'my-loki-bucket', region: 'eu-north-1' }}\n/>"],
-      },
-      {
         name: "AlertingRule",
         description: "",
         props: [
       { name: "name", type: "string", required: true, description: "" },
       { name: "namespace", type: "string", required: false, description: "" },
       { name: "groups", type: "Array", required: true, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "AlertingRule",
-        description: "AlertingRule for Loki-based alerting.",
-        props: [
         ],
         examples: [],
       },
@@ -441,13 +343,6 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "VaultKubernetesAuth",
-        description: "",
-        props: [
-        ],
-        examples: [],
-      },
-      {
         name: "VaultDatabaseSecret",
         description: "",
         props: [
@@ -458,13 +353,6 @@ export const packages: Package[] = [
       { name: "path", type: "string", required: true, description: "" },
       { name: "secretName", type: "string", required: true, description: "" },
       { name: "rolloutRestartTarget", type: "{ kind: string, name: string }", required: false, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "VaultDatabaseSecret",
-        description: "",
-        props: [
         ],
         examples: [],
       },
@@ -480,13 +368,6 @@ export const packages: Package[] = [
       { name: "secretName", type: "string", required: true, description: "" },
       { name: "type", type: "'kv-v1' | 'kv-v2'", required: false, description: "" },
       { name: "rolloutRestartTarget", type: "{ kind: string, name: string }", required: false, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "VaultKVSecret",
-        description: "",
-        props: [
         ],
         examples: [],
       },
@@ -515,26 +396,12 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "ServiceMonitor",
-        description: "ServiceMonitor for Prometheus scraping. Requires Prometheus Operator to be installed.",
-        props: [
-        ],
-        examples: ["<ServiceMonitor\n  name=\"api-metrics\"\n  namespace=\"production\"\n  selector={{ matchLabels: { app: 'api' } }}\n  endpoints={[{ port: 'metrics', path: '/metrics' }]}\n/>"],
-      },
-      {
         name: "PrometheusRule",
         description: "",
         props: [
       { name: "name", type: "string", required: true, description: "" },
       { name: "namespace", type: "string", required: false, description: "" },
       { name: "groups", type: "Array", required: true, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "PrometheusRule",
-        description: "PrometheusRule for alerting rules.",
-        props: [
         ],
         examples: [],
       },
@@ -547,13 +414,6 @@ export const packages: Package[] = [
       { name: "labels", type: "Record", required: false, description: "" },
       { name: "selector", type: "{ matchLabels: Record }", required: true, description: "" },
       { name: "podMetricsEndpoints", type: "Array", required: true, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "PodMonitor",
-        description: "PodMonitor for scraping pods directly (without Service).",
-        props: [
         ],
         examples: [],
       },
@@ -585,13 +445,6 @@ export const packages: Package[] = [
         examples: [],
       },
       {
-        name: "RedisCluster",
-        description: "Redis Cluster using OT-Container-Kit Redis Operator. Declares redis-operator dependency automatically.",
-        props: [
-        ],
-        examples: ["<RedisCluster\n  name=\"cache\"\n  namespace=\"production\"\n  clusterSize={3}\n  storage=\"10Gi\"\n/>"],
-      },
-      {
         name: "RedisReplication",
         description: "",
         props: [
@@ -601,13 +454,6 @@ export const packages: Package[] = [
       { name: "redisExporter", type: "boolean", required: false, description: "" },
       { name: "storage", type: "string", required: false, description: "" },
       { name: "storageClassName", type: "string", required: false, description: "" },
-        ],
-        examples: [],
-      },
-      {
-        name: "RedisReplication",
-        description: "Redis Replication (master-replica) using Redis Operator.",
-        props: [
         ],
         examples: [],
       },

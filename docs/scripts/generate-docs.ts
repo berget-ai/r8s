@@ -197,19 +197,19 @@ function extractProps(interfaceDecl: ts.InterfaceDeclaration): ComponentProp[] {
 
 function extractComponents(sourceFile: ts.SourceFile, sourcePath: string): ComponentDoc[] {
   const components: ComponentDoc[] = [];
+  const seenNames = new Set<string>();
 
   function visit(node: ts.Node) {
     // Find export function declarations
     if (ts.isFunctionDeclaration(node) && hasExportModifier(node)) {
       const name = node.name?.text;
-      if (!name || name[0] === name[0].toLowerCase()) {
-        // Skip lowercase (non-component) exports like operators
-        // But allow if it's a known component
-      }
       if (!name) return;
 
       // Only include PascalCase functions (components)
       if (name[0] !== name[0].toUpperCase()) return;
+
+      if (seenNames.has(name)) return;
+      seenNames.add(name);
 
       const description = getJSDoc(node);
       const examples = getJSDocExamples(node);
@@ -221,11 +221,12 @@ function extractComponents(sourceFile: ts.SourceFile, sourcePath: string): Compo
       const componentName = node.name.text.replace('Props', '');
       const props = extractProps(node);
 
-      // Find matching component description from the function
+      // Find matching component from the function declaration
       const existing = components.find(c => c.name === componentName);
       if (existing) {
         existing.props = props;
-      } else {
+      } else if (!seenNames.has(componentName)) {
+        seenNames.add(componentName);
         const description = getJSDoc(node);
         components.push({ name: componentName, description, props, examples: [] });
       }
@@ -325,6 +326,7 @@ function generatePackages(): PackageDoc[] {
 
 function generateRecipes(): PackageDoc[] {
   const recipes: PackageDoc[] = [];
+  const seenSlugs = new Set<string>();
 
   // Get all .tsx files in recipes/src (excluding index, operators, legacy)
   const recipeFiles = fs.readdirSync(path.join(ROOT, 'packages', 'recipes', 'src'))
@@ -339,8 +341,16 @@ function generateRecipes(): PackageDoc[] {
       // Skip non-recipe components (Ingress is a low-level component, not a recipe)
       if (comp.name === 'Postgres' || comp.name === 'CustomIngress' || comp.name === 'Ingress') continue;
 
+      const slug = comp.name
+        .replace(/([A-Z])/g, '-$1')
+        .toLowerCase()
+        .replace(/^-/, '');
+
+      // Skip duplicates (component may appear as both Function and Interface)
+      if (seenSlugs.has(slug)) continue;
+      seenSlugs.add(slug);
+
       // Extract @title and @category from the function's JSDoc
-      // Find the function declaration for this component
       let title: string | null = null;
       let category: string | null = null;
       let description: string | null = null;
@@ -353,11 +363,6 @@ function generateRecipes(): PackageDoc[] {
         }
       }
       fileSource.forEachChild(visit);
-
-      const slug = comp.name
-        .replace(/([A-Z])/g, '-$1')
-        .toLowerCase()
-        .replace(/^-/, '');
 
       recipes.push({
         slug,

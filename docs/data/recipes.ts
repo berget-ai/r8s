@@ -53,20 +53,6 @@ export const recipes: Recipe[] = [
     },
   },
   {
-    slug: "app",
-    title: "App",
-    description: "Simple application — Deployment + Service + Endpoint.",
-    category: "Complete Solution",
-    keywords: [],
-    component: {
-      name: "App",
-      description: "Simple application — Deployment + Service + Endpoint.",
-      props: [
-      ],
-      examples: [],
-    },
-  },
-  {
     slug: "cluster",
     title: "Database Cluster",
     description: "Shared PostgreSQL cluster for multiple databases.",
@@ -82,20 +68,6 @@ export const recipes: Recipe[] = [
       { name: "children", type: "unknown", required: false, description: "" },
       ],
       examples: [],
-    },
-  },
-  {
-    slug: "cluster",
-    title: "Database Cluster",
-    description: "Shared PostgreSQL cluster for multiple databases.",
-    category: "Data & Analytics",
-    keywords: [],
-    component: {
-      name: "Cluster",
-      description: "Shared PostgreSQL cluster for multiple databases.",
-      props: [
-      ],
-      examples: ["// Shared cluster with multiple databases\n<Cluster name=\"main\" storage=\"100Gi\">\n  <Database name=\"user-db\" />\n  <Database name=\"order-db\" />\n  <Database name=\"inventory-db\" />\n</Cluster>","// Each app gets its own cluster (default behavior)\n<Database name=\"user-db\" storage=\"10Gi\" />\n<Database name=\"order-db\" storage=\"10Gi\" />"],
     },
   },
   {
@@ -119,20 +91,6 @@ export const recipes: Recipe[] = [
     },
   },
   {
-    slug: "database",
-    title: "Database",
-    description: "CloudNativePG PostgreSQL database.",
-    category: "Data & Analytics",
-    keywords: [],
-    component: {
-      name: "Database",
-      description: "CloudNativePG PostgreSQL database.",
-      props: [
-      ],
-      examples: ["// Dedicated cluster (default)\n<Database name=\"app-db\" storage=\"10Gi\" />","// Shared cluster - reuses connection, does not provision a new database\n<Cluster name=\"main\" storage=\"100Gi\">\n  <Database name=\"user-db\" />\n  <Database name=\"order-db\" />\n</Cluster>","// With child components that auto-connect\n<Database name=\"keycloak-db\" storage=\"10Gi\">\n  <KeycloakInstance name=\"keycloak\" hostname=\"auth.example.com\" />\n</Database>"],
-    },
-  },
-  {
     slug: "endpoint",
     title: "Endpoint",
     description: "Endpoint — cluster-adaptive routing for a service.",
@@ -148,20 +106,6 @@ export const recipes: Recipe[] = [
       { name: "certManagerVersion", type: "string", required: false, description: "cert-manager version override" },
       { name: "nginxIngressVersion", type: "string", required: false, description: "nginx-ingress version override (only used when mode='ingress')" },
       { name: "envoyGatewayVersion", type: "string", required: false, description: "envoy-gateway version override (only used when mode='gateway')" },
-      ],
-      examples: [],
-    },
-  },
-  {
-    slug: "endpoint",
-    title: "Endpoint",
-    description: "Endpoint — cluster-adaptive routing for a service.",
-    category: "Networking",
-    keywords: [],
-    component: {
-      name: "Endpoint",
-      description: "Endpoint — cluster-adaptive routing for a service.",
-      props: [
       ],
       examples: [],
     },
@@ -187,20 +131,6 @@ export const recipes: Recipe[] = [
     },
   },
   {
-    slug: "platform",
-    title: "Platform",
-    description: "Platform — cluster-level configuration wrapper.",
-    category: "Cluster Configuration",
-    keywords: [],
-    component: {
-      name: "Platform",
-      description: "Platform — cluster-level configuration wrapper.",
-      props: [
-      ],
-      examples: ["// Envoy Gateway cluster\n<Platform routing=\"gateway\" namespace=\"production\">\n  <App name=\"api\" image=\"myapp/api:v1\" host=\"api.example.com\" />\n  <App name=\"web\" image=\"myapp/web:v1\" host=\"app.example.com\" />\n</Platform>","// nginx Ingress cluster (default)\n<Platform namespace=\"production\">\n  <App name=\"api\" image=\"myapp/api:v1\" host=\"api.example.com\" />\n</Platform>","// With shared operators\n<Platform\n  routing=\"gateway\"\n  namespace=\"production\"\n  operators={[cnpgOperator(), certManagerOperator()]}\n>\n  <Database name=\"app-db\" storage=\"10Gi\" />\n  <App name=\"api\" image=\"myapp/api:v1\" host=\"api.example.com\" />\n</Platform>"],
-    },
-  },
-  {
     slug: "web-service",
     title: "Web Service",
     description: "Simple web service (backend or frontend).",
@@ -222,20 +152,6 @@ export const recipes: Recipe[] = [
       { name: "resources", type: "{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }", required: false, description: "" },
       ],
       examples: [],
-    },
-  },
-  {
-    slug: "web-service",
-    title: "Web Service",
-    description: "Simple web service (backend or frontend).",
-    category: "Workloads",
-    keywords: [],
-    component: {
-      name: "WebService",
-      description: "Simple web service (backend or frontend).",
-      props: [
-      ],
-      examples: ["// Plain env vars\n<WebService name=\"api\" image=\"myapp/api:v1\" port={3000} env={{ LOG_LEVEL: 'info' }} />\n\n// With secrets from Kubernetes Secrets\n<WebService\n  name=\"api\"\n  image=\"myapp/api:v1\"\n  env={{ LOG_LEVEL: 'info' }}\n  secrets={{ DATABASE_URL: 'app-secrets', API_KEY: 'app-secrets' }}\n/>\n\n// With Vault secrets (creates VaultStaticSecret objects)\n<WebService\n  name=\"api\"\n  image=\"myapp/api:v1\"\n  env={{ LOG_LEVEL: 'info' }}\n  vault={{ DATABASE_URL: { mount: 'kv', path: 'db/credentials' } }}\n/>"],
     },
   },
 ];
