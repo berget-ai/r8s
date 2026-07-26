@@ -28,6 +28,9 @@ export interface AppProps {
 /**
  * Simple application — Deployment + Service + Endpoint.
  *
+ * @title App
+ * @category Complete Solution
+ *
  * The simplest way to deploy an app to Kubernetes:
  * ```tsx
  * <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />

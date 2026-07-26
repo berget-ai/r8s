@@ -1,7 +1,11 @@
 {
   "name": "@r8s/prometheus",
   "version": "0.1.0",
-  "description": "r8s recipes for Prometheus monitoring stack",
+  "description": "Prometheus stack components powered by kube-prometheus-stack. Declares the prometheus operator and provides ServiceMonitors, PrometheusRules, and PodMonitors.",
+  "keywords": ["monitoring", "prometheus", "grafana", "alertmanager", "servicemonitor", "podmonitor", "observability"],
+  "r8s": {
+    "category": "Observability"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

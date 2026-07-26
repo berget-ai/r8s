@@ -86,8 +86,10 @@ export default function Page() {
             </div>
             <p className="text-cloud/70">{component.description}</p>
 
-            {/* Code example */}
-            <CodeBlock code={component.code} language="tsx" />
+            {/* Code examples */}
+            {component.examples.length > 0 && (
+              <CodeBlock code={component.examples[0]} language="tsx" />
+            )}
 
             {/* Props table */}
             <div className="overflow-x-auto">
@@ -122,21 +124,6 @@ export default function Page() {
                 </tbody>
               </table>
             </div>
-
-            {/* Created resources */}
-            {component.resources.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm text-cloud/60 uppercase tracking-wider">Created Resources</p>
-                <ul className="space-y-1">
-                  {component.resources.map((resource) => (
-                    <li key={resource} className="flex items-center gap-2 text-cloud/80 text-sm">
-                      <span className="text-moss">📄</span>
-                      <span className="font-mono">{resource}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         ))}
       </div>

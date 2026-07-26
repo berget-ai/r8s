@@ -25,6 +25,9 @@ export interface PlatformProps {
 /**
  * Platform — cluster-level configuration wrapper.
  *
+ * @title Platform
+ * @category Cluster Configuration
+ *
  * Sets routing mode, namespace, labels, and shared operators for all
  * child components. Use this once at the top of your manifest instead
  * of manually wiring context providers.

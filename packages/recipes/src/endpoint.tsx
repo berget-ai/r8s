@@ -24,6 +24,9 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
 /**
  * Endpoint — cluster-adaptive routing for a service.
  *
+ * @title Endpoint
+ * @category Networking
+ *
  * Reads the RoutingContext to determine whether the cluster uses
  * nginx Ingress or Envoy Gateway (Gateway API), and renders the
  * appropriate resources automatically.

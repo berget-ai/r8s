@@ -1,7 +1,11 @@
 {
   "name": "@r8s/logging-operator",
   "version": "0.1.0",
-  "description": "r8s recipes for Logging Operator (Kube-logging)",
+  "description": "Log aggregation components powered by Banzai Cloud's Logging Operator. Declares logging-operator and provisions Logging, Flow, and Output resources.",
+  "keywords": ["logging", "logs", "fluentd", "fluentbit", "banzai", "logging-operator", "observability"],
+  "r8s": {
+    "category": "Observability"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

@@ -47,17 +47,17 @@ export default function Page() {
               {recipe.description}
             </p>
             <div className="flex flex-wrap gap-2">
-              {recipe.features.slice(0, 3).map((feature) => (
+              {recipe.component.props.slice(0, 3).map((prop) => (
                 <span 
-                  key={feature}
+                  key={prop.name}
                   className="text-xs px-2 py-1 rounded bg-white/5 text-cloud/60"
                 >
-                  {feature}
+                  {prop.name}
                 </span>
               ))}
-              {recipe.features.length > 3 && (
+              {recipe.component.props.length > 3 && (
                 <span className="text-xs px-2 py-1 text-cloud/40">
-                  +{recipe.features.length - 3} more
+                  +{recipe.component.props.length - 3} more
                 </span>
               )}
             </div>

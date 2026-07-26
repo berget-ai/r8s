@@ -21,8 +21,6 @@ export default function Page() {
     );
   }
 
-  const keywords = recipe.keywords.join(", ");
-
   config({
     title: `${recipe.title} — r8s Recipes`,
     description: recipe.description,
@@ -41,32 +39,20 @@ export default function Page() {
         <p className="text-xl text-cloud/80">{recipe.description}</p>
       </div>
 
-      {/* Keywords */}
-      <div className="flex flex-wrap gap-2">
-        {recipe.keywords.map((keyword) => (
-          <span 
-            key={keyword}
-            className="text-xs px-3 py-1 rounded-full bg-white/5 text-cloud/60 border border-white/5"
-          >
-            {keyword}
-          </span>
-        ))}
+      {/* Component name */}
+      <div className="flex items-center gap-3">
+        <span className="text-cloud/40 text-sm">Component:</span>
+        <code className="text-moss font-mono text-sm">{recipe.component.name}</code>
       </div>
 
-      {/* Quick Start */}
-      <div className="space-y-4">
-        <h2 className="text-2xl tracking-tight">Quick Start</h2>
-        <CodeBlock code={recipe.code} yaml={recipe.yaml} language="tsx" />
-      </div>
-
-      {/* Parameters */}
+      {/* Props */}
       <div className="space-y-6">
-        <h2 className="text-2xl tracking-tight">Parameters</h2>
+        <h2 className="text-2xl tracking-tight">Props</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="text-left py-3 px-4 text-cloud/60 font-medium">Parameter</th>
+                <th className="text-left py-3 px-4 text-cloud/60 font-medium">Prop</th>
                 <th className="text-left py-3 px-4 text-cloud/60 font-medium">Type</th>
                 <th className="text-left py-3 px-4 text-cloud/60 font-medium">Required</th>
                 <th className="text-left py-3 px-4 text-cloud/60 font-medium">Default</th>
@@ -74,21 +60,21 @@ export default function Page() {
               </tr>
             </thead>
             <tbody className="text-cloud/80">
-              {recipe.parameters.map((param) => (
-                <tr key={param.name} className="border-b border-white/5">
-                  <td className="py-3 px-4 font-mono text-moss">{param.name}</td>
-                  <td className="py-3 px-4 font-mono text-cloud/60">{param.type}</td>
+              {recipe.component.props.map((prop) => (
+                <tr key={prop.name} className="border-b border-white/5">
+                  <td className="py-3 px-4 font-mono text-moss">{prop.name}</td>
+                  <td className="py-3 px-4 font-mono text-cloud/60">{prop.type}</td>
                   <td className="py-3 px-4">
-                    {param.required ? (
+                    {prop.required ? (
                       <span className="text-red-400">Required</span>
                     ) : (
                       <span className="text-cloud/40">Optional</span>
                     )}
                   </td>
                   <td className="py-3 px-4 text-cloud/40">
-                    {param.default || "—"}
+                    {prop.default || "—"}
                   </td>
-                  <td className="py-3 px-4 text-cloud/70">{param.description}</td>
+                  <td className="py-3 px-4 text-cloud/70">{prop.description}</td>
                 </tr>
               ))}
             </tbody>
@@ -96,64 +82,21 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Advanced Examples */}
-      <div className="space-y-8">
-        <h2 className="text-2xl tracking-tight">Advanced Examples</h2>
-        {recipe.advancedExamples.map((example, index) => (
-          <div key={index} className="space-y-4">
-            <div className="flex items-center gap-4">
-              <span className="text-moss font-mono text-sm">{String(index + 1).padStart(2, '0')}</span>
-              <h3 className="text-xl">{example.title}</h3>
+      {/* Examples */}
+      {recipe.component.examples.length > 0 && (
+        <div className="space-y-8">
+          <h2 className="text-2xl tracking-tight">Examples</h2>
+          {recipe.component.examples.map((example, index) => (
+            <div key={index} className="space-y-4">
+              <div className="flex items-center gap-4">
+                <span className="text-moss font-mono text-sm">{String(index + 1).padStart(2, '0')}</span>
+                <h3 className="text-xl">Example {index + 1}</h3>
+              </div>
+              <CodeBlock code={example} language="tsx" />
             </div>
-            <p className="text-cloud/70">{example.description}</p>
-            <CodeBlock code={example.code} yaml={example.yaml} language="tsx" />
-          </div>
-        ))}
-      </div>
-
-      {/* Features */}
-      <div className="space-y-4">
-        <h2 className="text-2xl tracking-tight">Features</h2>
-        <ul className="grid grid-cols-2 gap-3">
-          {recipe.features.map((feature) => (
-            <li 
-              key={feature}
-              className="flex items-center gap-2 text-cloud/80"
-            >
-              <span className="text-moss">✓</span>
-              {feature}
-            </li>
           ))}
-        </ul>
-      </div>
-
-      {/* Operators & Resources */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {recipe.operators.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-2xl tracking-tight">Required Operators</h2>
-            <ul className="space-y-2">
-              {recipe.operators.map((op) => (
-                <li key={op} className="flex items-center gap-2 text-cloud/80">
-                  <span className="text-moss">⚙</span>
-                  {op}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <div className="space-y-4">
-          <h2 className="text-2xl tracking-tight">Created Resources</h2>
-          <ul className="space-y-2">
-            {recipe.resources.map((resource) => (
-              <li key={resource} className="flex items-center gap-2 text-cloud/80">
-                <span className="text-moss">📄</span>
-                {resource}
-              </li>
-            ))}
-          </ul>
         </div>
-      </div>
+      )}
 
       {/* Navigation */}
       <div className="pt-8 border-t border-white/10 flex justify-between">
