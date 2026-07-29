@@ -32,8 +32,10 @@ RUN npm run build
 # Production image
 FROM nginx:alpine
 
-# Copy built assets
-COPY --from=builder /app/docs/dist /usr/share/nginx/html
+# Copy built assets — all pages are prerendered to static HTML at build
+# time (vike prerender), so dist/client is a complete static site and no
+# Node SSR runtime is needed.
+COPY --from=builder /app/docs/dist/client /usr/share/nginx/html
 
 # Copy nginx config
 COPY k8s/nginx.conf /etc/nginx/conf.d/default.conf
