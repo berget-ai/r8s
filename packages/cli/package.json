@@ -2,14 +2,29 @@
   "name": "@r8s/cli",
   "version": "0.1.0",
   "description": "CLI for rendering r8s TSX to Kubernetes YAML",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/cli"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
   "main": "./dist/index.js",
   "bin": {
     "r8s": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --build",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@r8s/core": "*",

@@ -2,13 +2,29 @@
   "name": "@r8s/r8s-controller",
   "version": "0.1.0",
   "description": "r8s Kubernetes controller - renders TSX to YAML in-cluster",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/r8s-controller"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
   "main": "./dist/controller.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/controller.ts",
     "start": "node dist/controller.js",
-    "test": "echo 'No tests for r8s-controller'"
+    "test": "echo 'No tests for r8s-controller'",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@kubernetes/client-node": "^0.20.0",

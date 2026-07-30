@@ -2,16 +2,39 @@
   "name": "@r8s/prometheus",
   "version": "0.1.0",
   "description": "Prometheus stack components powered by kube-prometheus-stack. Declares the prometheus operator and provides ServiceMonitors, PrometheusRules, and PodMonitors.",
-  "keywords": ["monitoring", "prometheus", "grafana", "alertmanager", "servicemonitor", "podmonitor", "observability"],
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/prometheus"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "monitoring",
+    "prometheus",
+    "grafana",
+    "alertmanager",
+    "servicemonitor",
+    "podmonitor",
+    "observability"
+  ],
   "r8s": {
     "category": "Observability"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --build",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@r8s/core": "*",

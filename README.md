@@ -2,6 +2,11 @@
 
 **Kubernetes manifests as TSX components.**
 
+[![CI](https://github.com/berget-ai/r8s/actions/workflows/ci.yaml/badge.svg)](https://github.com/berget-ai/r8s/actions/workflows/ci.yaml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-r8s.berget.ai-green.svg)](https://r8s.berget.ai)
+[![GitHub release](https://img.shields.io/github/v/release/berget-ai/r8s)](https://github.com/berget-ai/r8s/releases)
+
 Stop writing YAML. Start composing infrastructure.
 
 ```tsx
@@ -1221,6 +1226,8 @@ export function MyComponent(props: { name: string; replicas?: number }) {
 
 See existing packages (`packages/recipes`, `packages/redis`, `packages/prometheus`) for patterns and conventions.
 
+Read the full guide in [CONTRIBUTING.md](CONTRIBUTING.md), and please follow our [Code of Conduct](CODE_OF_CONDUCT.md). Found a security issue? See [SECURITY.md](SECURITY.md).
+
 ## License
 
-MIT
+[MIT](LICENSE) — © Berget AI AB

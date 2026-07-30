@@ -1,0 +1,13 @@
+# Default owners for everything in the repo
+* @berget-ai/r8s-maintainers
+
+# Core rendering and types
+/packages/core/ @berget-ai/r8s-maintainers
+/packages/k8s-types/ @berget-ai/r8s-maintainers
+/packages/cli/ @berget-ai/r8s-maintainers
+
+# Documentation site
+/docs/ @berget-ai/r8s-maintainers
+
+# CI and release automation
+/.github/ @berget-ai/r8s-maintainers

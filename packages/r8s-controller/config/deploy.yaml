@@ -61,7 +61,7 @@ spec:
       serviceAccountName: r8s-controller
       containers:
         - name: controller
-          image: ghcr.io/irony/r8s-controller:latest
+          image: ghcr.io/berget-ai/r8s-controller:latest
           env:
             - name: NAMESPACE
               value: "default"

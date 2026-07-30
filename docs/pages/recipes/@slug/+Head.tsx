@@ -38,7 +38,7 @@ export function Head() {
           "description": recipe.description,
           "keywords": keywords,
           "articleSection": recipe.category,
-          "codeRepository": "https://github.com/irony/r8s",
+          "codeRepository": "https://github.com/berget-ai/r8s",
           "programmingLanguage": "TypeScript"
         })}
       </script>
