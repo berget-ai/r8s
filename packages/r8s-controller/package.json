@@ -23,7 +23,8 @@
     "build": "tsc",
     "dev": "tsx src/controller.ts",
     "start": "node dist/controller.js",
-    "test": "echo 'No tests for r8s-controller'"
+    "test": "echo 'No tests for r8s-controller'",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@kubernetes/client-node": "^0.20.0",

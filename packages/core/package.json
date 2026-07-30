@@ -47,9 +47,9 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --build",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@r8s/k8s-types": "*"
