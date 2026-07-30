@@ -2,7 +2,28 @@
   "name": "@r8s/openbao",
   "version": "0.1.0",
   "description": "Secret management components powered by the Vault Secrets Operator (OpenBao fork). Declares vault-secrets-operator and provisions VaultConnection, VaultAuth, and VaultStaticSecret resources.",
-  "keywords": ["openbao", "vault", "secrets", "vault-secrets-operator", "security"],
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/openbao"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "openbao",
+    "vault",
+    "secrets",
+    "vault-secrets-operator",
+    "security"
+  ],
   "r8s": {
     "category": "Security & Identity"
   },

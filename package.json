@@ -22,5 +22,13 @@
     "tsx": "^4.23.1",
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
-  }
+  },
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "homepage": "https://r8s.berget.ai"
 }

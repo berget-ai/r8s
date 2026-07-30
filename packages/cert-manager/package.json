@@ -2,7 +2,30 @@
   "name": "@r8s/cert-manager",
   "version": "0.1.0",
   "description": "TLS certificate automation components for Kubernetes. Declares the cert-manager operator and provides Let's Encrypt issuers and managed certificates.",
-  "keywords": ["cert-manager", "tls", "certificate", "letsencrypt", "acme", "cluster-issuer", "security"],
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/cert-manager"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "cert-manager",
+    "tls",
+    "certificate",
+    "letsencrypt",
+    "acme",
+    "cluster-issuer",
+    "security"
+  ],
   "r8s": {
     "category": "Security & Identity"
   },

@@ -2,7 +2,30 @@
   "name": "@r8s/keycloak",
   "version": "0.1.0",
   "description": "Identity and access management components powered by the Keycloak Operator. Declares keycloak-operator and provisions Keycloak instances and realm imports.",
-  "keywords": ["keycloak", "iam", "sso", "oauth", "openid", "identity", "security"],
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/keycloak"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "keycloak",
+    "iam",
+    "sso",
+    "oauth",
+    "openid",
+    "identity",
+    "security"
+  ],
   "r8s": {
     "category": "Security & Identity"
   },

@@ -2,7 +2,30 @@
   "name": "@r8s/logging-operator",
   "version": "0.1.0",
   "description": "Log aggregation components powered by Banzai Cloud's Logging Operator. Declares logging-operator and provisions Logging, Flow, and Output resources.",
-  "keywords": ["logging", "logs", "fluentd", "fluentbit", "banzai", "logging-operator", "observability"],
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/logging-operator"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "logging",
+    "logs",
+    "fluentd",
+    "fluentbit",
+    "banzai",
+    "logging-operator",
+    "observability"
+  ],
   "r8s": {
     "category": "Observability"
   },

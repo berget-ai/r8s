@@ -2,7 +2,28 @@
   "name": "@r8s/loki",
   "version": "0.1.0",
   "description": "Loki log aggregation stack components. Declares the loki operator and provisions LokiStack and AlertingRule resources.",
-  "keywords": ["loki", "logs", "log aggregation", "grafana", "observability"],
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/loki"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "loki",
+    "logs",
+    "log aggregation",
+    "grafana",
+    "observability"
+  ],
   "r8s": {
     "category": "Observability"
   },

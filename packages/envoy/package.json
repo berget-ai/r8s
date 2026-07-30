@@ -2,7 +2,30 @@
   "name": "@r8s/envoy",
   "version": "0.1.0",
   "description": "Envoy Gateway components implementing the Kubernetes Gateway API. Declares envoy-gateway and provisions Gateways, HTTPRoutes, and EnvoyProxy configurations.",
-  "keywords": ["gateway", "envoy", "envoy-gateway", "gateway api", "httproute", "ingress", "networking"],
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/envoy"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "gateway",
+    "envoy",
+    "envoy-gateway",
+    "gateway api",
+    "httproute",
+    "ingress",
+    "networking"
+  ],
   "r8s": {
     "category": "Networking"
   },

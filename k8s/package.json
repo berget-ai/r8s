@@ -5,5 +5,7 @@
     "@r8s/core": "*",
     "@r8s/recipes": "*",
     "@r8s/cert-manager": "*"
-  }
+  },
+  "license": "MIT",
+  "author": "Berget AI AB"
 }

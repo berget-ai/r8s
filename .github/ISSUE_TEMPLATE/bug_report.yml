@@ -1,0 +1,80 @@
+name: Bug Report
+description: Report a bug in r8s
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including any error messages.
+      placeholder: Tell us what you saw.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal TSX component or CLI command that reproduces the issue.
+      placeholder: |
+        1. Create a component with ...
+        2. Run `npx r8s render`
+        3. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected package
+      description: Which package does this concern?
+      options:
+        - "@r8s/core"
+        - "@r8s/cli"
+        - "@r8s/recipes"
+        - "@r8s/k8s-types"
+        - "@r8s/cert-manager"
+        - "@r8s/clickhouse"
+        - "@r8s/envoy"
+        - "@r8s/external-dns"
+        - "@r8s/flux-controller"
+        - "@r8s/keycloak"
+        - "@r8s/logging-operator"
+        - "@r8s/loki"
+        - "@r8s/openbao"
+        - "@r8s/prometheus"
+        - "@r8s/r8s-controller"
+        - "@r8s/redis"
+        - docs (r8s.berget.ai)
+        - other / not sure
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Versions and platform.
+      placeholder: |
+        - r8s version:
+        - Node.js version:
+        - OS:
+        - Kubernetes version (if relevant):
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Paste any relevant logs. This will be automatically formatted as code.
+      render: shell

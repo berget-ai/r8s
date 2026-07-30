@@ -2,7 +2,28 @@
   "name": "@r8s/redis",
   "version": "0.1.0",
   "description": "Redis cluster and replication components powered by the Redis Operator. Declares redis-operator and provisions RedisCluster and RedisReplication resources.",
-  "keywords": ["redis", "cache", "redis-operator", "data", "cluster"],
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/redis"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "redis",
+    "cache",
+    "redis-operator",
+    "data",
+    "cluster"
+  ],
   "r8s": {
     "category": "Data & Analytics"
   },
