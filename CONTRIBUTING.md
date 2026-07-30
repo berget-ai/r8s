@@ -57,8 +57,10 @@ r8s/
 4. **Open a pull request.** Fill in the PR template. PRs are reviewed within
    24 hours on weekdays.
 
-5. **CI must be green.** The CI workflow builds all packages, runs all tests,
-   typechecks, and verifies formatting.
+5. **CI must be green.** The CI workflow builds all packages (which also
+   typechecks them) and runs all tests. A formatting check will be added
+   once the Prettier config is aligned with the codebase — see
+   [#39](https://github.com/berget-ai/r8s/issues/39).
 
 ## Adding a New Operator Package
 
