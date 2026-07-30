@@ -11,7 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: irony/r8s-docs
+  IMAGE_NAME: berget-ai/r8s-docs
 
 jobs:
   build:

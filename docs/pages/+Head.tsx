@@ -39,7 +39,7 @@ export function Head() {
             "price": "0",
             "priceCurrency": "USD"
           },
-          "codeRepository": "https://github.com/irony/r8s"
+          "codeRepository": "https://github.com/berget-ai/r8s"
         })}
       </script>
     </>

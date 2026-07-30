@@ -15,7 +15,7 @@ export default (
   <Platform routing="gateway" namespace="r8s-docs">
     <App
       name="r8s-docs"
-      image="ghcr.io/irony/r8s-docs:latest"
+      image="ghcr.io/berget-ai/r8s-docs:latest"
       host="r8s.berget.ai"
       replicas={2}
       port={3000}

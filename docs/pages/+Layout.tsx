@@ -82,19 +82,33 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="font-serif text-2xl tracking-tight">r8s</span>
           </a>
         </div>
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-cloud/60 hover:text-peak hover:border-white/20 transition-colors"
-          aria-label="Open search"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <span className="hidden sm:inline">Search</span>
-          <kbd className="hidden sm:inline-block font-mono text-xs text-cloud/50">⌘K</kbd>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-cloud/60 hover:text-peak hover:border-white/20 transition-colors"
+            aria-label="Open search"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <span className="hidden sm:inline">Search</span>
+            <kbd className="hidden sm:inline-block font-mono text-xs text-cloud/50">⌘K</kbd>
+          </button>
+          <a
+            href="https://github.com/berget-ai/r8s"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-cloud/60 hover:text-peak hover:border-white/20 transition-colors"
+            aria-label="r8s on GitHub"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.42-2.7 5.39-5.27 5.68.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
+            </svg>
+            <span className="hidden sm:inline">GitHub</span>
+          </a>
+        </div>
       </header>
 
       <div className="flex">
@@ -142,6 +156,49 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 px-6 py-8">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-cloud/50">
+          <span>
+            © {new Date().getFullYear()} Berget AI AB ·{" "}
+            <a
+              href="https://github.com/berget-ai/r8s/blob/main/LICENSE"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-peak transition-colors"
+            >
+              MIT License
+            </a>
+          </span>
+          <div className="flex items-center gap-5">
+            <a
+              href="https://github.com/berget-ai/r8s"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-peak transition-colors"
+            >
+              GitHub
+            </a>
+            <a
+              href="https://github.com/berget-ai/r8s/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-peak transition-colors"
+            >
+              Issues
+            </a>
+            <a
+              href="https://berget.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-peak transition-colors"
+            >
+              Berget AI
+            </a>
+          </div>
+        </div>
+      </footer>
 
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>

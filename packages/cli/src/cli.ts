@@ -478,7 +478,7 @@ kubectl apply -f flux/webhook.yaml
 
 The r8s-controller runs as an init container in the Flux source-controller.
 
-See https://github.com/irony/r8s/tree/main/packages/flux-controller for setup instructions.
+See https://github.com/berget-ai/r8s/tree/main/packages/flux-controller for setup instructions.
 
 ## How It Works
 
@@ -545,8 +545,8 @@ This project uses **GitHub Actions** to render TSX → YAML:
 
 ## Learn More
 
-- [r8s Documentation](https://github.com/irony/r8s)
-- [FluxCD Integration](https://github.com/irony/r8s/tree/main/packages/flux-controller)
+- [r8s Documentation](https://github.com/berget-ai/r8s)
+- [FluxCD Integration](https://github.com/berget-ai/r8s/tree/main/packages/flux-controller)
 `;
   } else {
     return `# ${projectName}
@@ -600,9 +600,9 @@ See \`flux/README.md\` for detailed setup instructions.
 
 ## Learn More
 
-- [r8s Documentation](https://github.com/irony/r8s)
-- [FluxCD Controller](https://github.com/irony/r8s/tree/main/packages/flux-controller)
-- [FluxCD Webhooks](https://github.com/irony/r8s/tree/main/packages/flux-controller/WEBHOOKS.md)
+- [r8s Documentation](https://github.com/berget-ai/r8s)
+- [FluxCD Controller](https://github.com/berget-ai/r8s/tree/main/packages/flux-controller)
+- [FluxCD Webhooks](https://github.com/berget-ai/r8s/tree/main/packages/flux-controller/WEBHOOKS.md)
 `;
   }
 }

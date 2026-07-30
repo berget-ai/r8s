@@ -262,7 +262,7 @@ export default function Page() {
               <p className="text-cloud/70">
                 Add r8s-controller as init container to Flux's source-controller:
               </p>
-              <CodeBlock code={`kubectl apply -f https://raw.githubusercontent.com/irony/r8s/main/packages/flux-controller/deploy.yaml`} language="bash" />
+              <CodeBlock code={`kubectl apply -f https://raw.githubusercontent.com/berget-ai/r8s/main/packages/flux-controller/deploy.yaml`} language="bash" />
             </div>
 
             <div className="space-y-4">
