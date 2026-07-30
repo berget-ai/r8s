@@ -1,34 +1,34 @@
-import { r8sElement } from './jsx-runtime';
-import { KubernetesResource } from '@r8s/k8s-types';
+import { r8sElement } from './jsx-runtime'
+import { KubernetesResource } from '@r8s/k8s-types'
 
 export interface ValidationError {
   /** Error code for programmatic handling */
-  code: string;
+  code: string
   /** Human-readable error message */
-  message: string;
+  message: string
   /** Resource or component that caused the error */
-  resource?: string;
+  resource?: string
   /** Field path within the resource */
-  field?: string;
+  field?: string
   /** Suggested fix */
-  suggestion?: string;
+  suggestion?: string
 }
 
 export class r8sValidationError extends Error {
-  errors: ValidationError[];
+  errors: ValidationError[]
 
   constructor(errors: ValidationError[]) {
-    const message = errors.map((e) => `[${e.code}] ${e.message}`).join('\n');
-    super(message);
-    this.name = 'r8sValidationError';
-    this.errors = errors;
+    const message = errors.map((e) => `[${e.code}] ${e.message}`).join('\n')
+    super(message)
+    this.name = 'r8sValidationError'
+    this.errors = errors
   }
 }
 
 /** Validate a Kubernetes resource */
 export function validateResource(resource: KubernetesResource): ValidationError[] {
-  const errors: ValidationError[] = [];
-  const kind = (resource as any).kind || 'unknown';
+  const errors: ValidationError[] = []
+  const kind = (resource as any).kind || 'unknown'
 
   // Check apiVersion
   if (!resource.apiVersion) {
@@ -38,7 +38,7 @@ export function validateResource(resource: KubernetesResource): ValidationError[
       resource: kind,
       field: 'apiVersion',
       suggestion: 'Add apiVersion, e.g., "apps/v1" for Deployments',
-    });
+    })
   }
 
   // Check kind
@@ -48,7 +48,7 @@ export function validateResource(resource: KubernetesResource): ValidationError[
       message: 'Resource is missing kind',
       field: 'kind',
       suggestion: 'Add kind, e.g., "Deployment", "Service", "Ingress"',
-    });
+    })
   }
 
   // Check metadata
@@ -59,7 +59,7 @@ export function validateResource(resource: KubernetesResource): ValidationError[
       resource: kind,
       field: 'metadata',
       suggestion: 'Add metadata: { name: "my-resource" }',
-    });
+    })
   } else {
     // Check name
     if (!resource.metadata.name) {
@@ -69,7 +69,7 @@ export function validateResource(resource: KubernetesResource): ValidationError[
         resource: kind,
         field: 'metadata.name',
         suggestion: 'Add a name to identify this resource',
-      });
+      })
     } else if (!/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(resource.metadata.name)) {
       errors.push({
         code: 'INVALID_NAME',
@@ -78,7 +78,7 @@ export function validateResource(resource: KubernetesResource): ValidationError[
         field: 'metadata.name',
         suggestion:
           'Use lowercase letters, numbers, and hyphens only. Must start and end with alphanumeric.',
-      });
+      })
     }
 
     // Check namespace
@@ -89,17 +89,17 @@ export function validateResource(resource: KubernetesResource): ValidationError[
         resource: kind,
         field: 'metadata.namespace',
         suggestion: 'Either omit namespace (uses "default") or provide a valid namespace name',
-      });
+      })
     }
   }
 
-  return errors;
+  return errors
 }
 
 /** Validate an Ingress resource specifically */
 export function validateIngress(resource: KubernetesResource): ValidationError[] {
-  const errors = validateResource(resource);
-  const spec = (resource as any).spec;
+  const errors = validateResource(resource)
+  const spec = (resource as any).spec
 
   if (!spec) {
     errors.push({
@@ -108,8 +108,8 @@ export function validateIngress(resource: KubernetesResource): ValidationError[]
       resource: 'Ingress',
       field: 'spec',
       suggestion: 'Add spec with rules defining host and backend service',
-    });
-    return errors;
+    })
+    return errors
   }
 
   // Check rules
@@ -120,10 +120,10 @@ export function validateIngress(resource: KubernetesResource): ValidationError[]
       resource: 'Ingress',
       field: 'spec.rules',
       suggestion: 'Add at least one rule with host and backend service',
-    });
+    })
   } else {
     for (let i = 0; i < spec.rules.length; i++) {
-      const rule = spec.rules[i];
+      const rule = spec.rules[i]
       if (!rule.host) {
         errors.push({
           code: 'MISSING_INGRESS_HOST',
@@ -131,7 +131,7 @@ export function validateIngress(resource: KubernetesResource): ValidationError[]
           resource: 'Ingress',
           field: `spec.rules[${i}].host`,
           suggestion: 'Add a hostname, e.g., "app.example.com"',
-        });
+        })
       }
       if (!rule.http || !rule.http.paths || rule.http.paths.length === 0) {
         errors.push({
@@ -140,7 +140,7 @@ export function validateIngress(resource: KubernetesResource): ValidationError[]
           resource: 'Ingress',
           field: `spec.rules[${i}].http.paths`,
           suggestion: 'Add at least one path with a backend service',
-        });
+        })
       }
     }
   }
@@ -148,7 +148,7 @@ export function validateIngress(resource: KubernetesResource): ValidationError[]
   // Check TLS configuration
   if (spec.tls) {
     for (let i = 0; i < spec.tls.length; i++) {
-      const tls = spec.tls[i];
+      const tls = spec.tls[i]
       if (!tls.secretName) {
         errors.push({
           code: 'MISSING_TLS_SECRET',
@@ -157,18 +157,18 @@ export function validateIngress(resource: KubernetesResource): ValidationError[]
           field: `spec.tls[${i}].secretName`,
           suggestion:
             'Add secretName referencing a TLS certificate secret, or use cert-manager with clusterIssuer annotation',
-        });
+        })
       }
     }
   }
 
-  return errors;
+  return errors
 }
 
 /** Validate a Service resource */
 export function validateService(resource: KubernetesResource): ValidationError[] {
-  const errors = validateResource(resource);
-  const spec = (resource as any).spec;
+  const errors = validateResource(resource)
+  const spec = (resource as any).spec
 
   if (!spec) {
     errors.push({
@@ -177,8 +177,8 @@ export function validateService(resource: KubernetesResource): ValidationError[]
       resource: 'Service',
       field: 'spec',
       suggestion: 'Add spec with ports and selector',
-    });
-    return errors;
+    })
+    return errors
   }
 
   // Check ports
@@ -189,10 +189,10 @@ export function validateService(resource: KubernetesResource): ValidationError[]
       resource: 'Service',
       field: 'spec.ports',
       suggestion: 'Add at least one port, e.g., { port: 80, targetPort: 8080 }',
-    });
+    })
   } else {
     for (let i = 0; i < spec.ports.length; i++) {
-      const port = spec.ports[i];
+      const port = spec.ports[i]
       if (!port.port || port.port < 1 || port.port > 65535) {
         errors.push({
           code: 'INVALID_PORT',
@@ -200,18 +200,18 @@ export function validateService(resource: KubernetesResource): ValidationError[]
           resource: 'Service',
           field: `spec.ports[${i}].port`,
           suggestion: 'Port must be between 1 and 65535',
-        });
+        })
       }
     }
   }
 
-  return errors;
+  return errors
 }
 
 /** Validate a Deployment resource */
 export function validateDeployment(resource: KubernetesResource): ValidationError[] {
-  const errors = validateResource(resource);
-  const spec = (resource as any).spec;
+  const errors = validateResource(resource)
+  const spec = (resource as any).spec
 
   if (!spec) {
     errors.push({
@@ -220,8 +220,8 @@ export function validateDeployment(resource: KubernetesResource): ValidationErro
       resource: 'Deployment',
       field: 'spec',
       suggestion: 'Add spec with replicas, selector, and template',
-    });
-    return errors;
+    })
+    return errors
   }
 
   // Check replicas
@@ -232,7 +232,7 @@ export function validateDeployment(resource: KubernetesResource): ValidationErro
       resource: 'Deployment',
       field: 'spec.replicas',
       suggestion: 'replicas must be a non-negative integer',
-    });
+    })
   }
 
   // Check selector
@@ -243,7 +243,7 @@ export function validateDeployment(resource: KubernetesResource): ValidationErro
       resource: 'Deployment',
       field: 'spec.selector',
       suggestion: 'Add selector: { matchLabels: { app: "myapp" } }',
-    });
+    })
   }
 
   // Check template
@@ -254,7 +254,7 @@ export function validateDeployment(resource: KubernetesResource): ValidationErro
       resource: 'Deployment',
       field: 'spec.template',
       suggestion: 'Add template with metadata.labels and spec.containers',
-    });
+    })
   } else if (
     !spec.template.spec ||
     !spec.template.spec.containers ||
@@ -266,15 +266,15 @@ export function validateDeployment(resource: KubernetesResource): ValidationErro
       resource: 'Deployment',
       field: 'spec.template.spec.containers',
       suggestion: 'Add at least one container with name and image',
-    });
+    })
   }
 
-  return errors;
+  return errors
 }
 
 /** Validate an operator declaration */
 export function validateOperator(operator: any): ValidationError[] {
-  const errors: ValidationError[] = [];
+  const errors: ValidationError[] = []
 
   if (!operator.name) {
     errors.push({
@@ -282,7 +282,7 @@ export function validateOperator(operator: any): ValidationError[] {
       message: 'Operator is missing name',
       field: 'name',
       suggestion: 'Provide a unique name for the operator, e.g., "cnpg" or "cert-manager"',
-    });
+    })
   }
 
   if (!operator.version) {
@@ -291,14 +291,14 @@ export function validateOperator(operator: any): ValidationError[] {
       message: `Operator "${operator.name || 'unknown'}" is missing version`,
       field: 'version',
       suggestion: 'Provide a semver version, e.g., "1.22.5"',
-    });
+    })
   } else if (!/^\d+\.\d+\.\d+/.test(operator.version)) {
     errors.push({
       code: 'INVALID_SEMVER',
       message: `Operator "${operator.name}" has invalid version: "${operator.version}"`,
       field: 'version',
       suggestion: 'Use semantic versioning, e.g., "1.22.5" or "1.22.5-rc1"',
-    });
+    })
   }
 
   if (!operator.source) {
@@ -307,28 +307,28 @@ export function validateOperator(operator: any): ValidationError[] {
       message: `Operator "${operator.name || 'unknown'}" is missing source`,
       field: 'source',
       suggestion: 'Provide source with type (manifest, helm, olm, or flux)',
-    });
+    })
   }
 
-  return errors;
+  return errors
 }
 
 /** Check for duplicate resource names in the same namespace */
 export function checkDuplicates(resources: KubernetesResource[]): ValidationError[] {
-  const errors: ValidationError[] = [];
-  const seen = new Map<string, number[]>();
+  const errors: ValidationError[] = []
+  const seen = new Map<string, number[]>()
 
   resources.forEach((resource, index) => {
-    const key = `${resource.kind || 'unknown'}/${resource.metadata?.namespace || 'default'}/${resource.metadata?.name || 'unnamed'}`;
+    const key = `${resource.kind || 'unknown'}/${resource.metadata?.namespace || 'default'}/${resource.metadata?.name || 'unnamed'}`
     if (!seen.has(key)) {
-      seen.set(key, []);
+      seen.set(key, [])
     }
-    seen.get(key)!.push(index);
-  });
+    seen.get(key)!.push(index)
+  })
 
   for (const [key, indices] of seen) {
     if (indices.length > 1) {
-      const [kind, namespace, name] = key.split('/');
+      const [kind, namespace, name] = key.split('/')
       errors.push({
         code: 'DUPLICATE_RESOURCE',
         message: `Duplicate ${kind} "${name}" in namespace "${namespace}" (found ${indices.length} times)`,
@@ -336,9 +336,9 @@ export function checkDuplicates(resources: KubernetesResource[]): ValidationErro
         field: 'metadata.name',
         suggestion:
           'Each resource must have a unique name within its namespace and kind. Consider using different names or namespaces.',
-      });
+      })
     }
   }
 
-  return errors;
+  return errors
 }

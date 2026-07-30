@@ -1,15 +1,15 @@
-import { KubernetesResource } from '@r8s/k8s-types';
-import { ValidationError } from './validate';
+import { KubernetesResource } from '@r8s/k8s-types'
+import { ValidationError } from './validate'
 
 export interface GuardrailRule {
   /** Unique rule identifier */
-  id: string;
+  id: string
   /** Human-readable description */
-  description: string;
+  description: string
   /** Severity level */
-  severity: 'error' | 'warning' | 'info';
+  severity: 'error' | 'warning' | 'info'
   /** Test function - returns empty array if rule passes, ValidationError[] if it fails */
-  test: (resources: KubernetesResource[]) => ValidationError[];
+  test: (resources: KubernetesResource[]) => ValidationError[]
 }
 
 /** Check that all namespaces have NetworkPolicies */
@@ -18,16 +18,16 @@ export const requireNetworkPolicies: GuardrailRule = {
   description: 'All namespaces must have at least one NetworkPolicy',
   severity: 'error',
   test: (resources) => {
-    const errors: ValidationError[] = [];
-    const namespaces = new Set<string>();
-    const hasNetworkPolicy = new Set<string>();
+    const errors: ValidationError[] = []
+    const namespaces = new Set<string>()
+    const hasNetworkPolicy = new Set<string>()
 
     for (const resource of resources as any[]) {
       if (resource.metadata?.namespace) {
-        namespaces.add(resource.metadata.namespace);
+        namespaces.add(resource.metadata.namespace)
       }
       if (resource.kind === 'NetworkPolicy' && resource.metadata?.namespace) {
-        hasNetworkPolicy.add(resource.metadata.namespace);
+        hasNetworkPolicy.add(resource.metadata.namespace)
       }
     }
 
@@ -39,13 +39,13 @@ export const requireNetworkPolicies: GuardrailRule = {
           resource: 'Namespace',
           field: 'networkPolicy',
           suggestion: `Add a NetworkPolicy for namespace "${ns}" to control ingress/egress traffic`,
-        });
+        })
       }
     }
 
-    return errors;
+    return errors
   },
-};
+}
 
 /** Check that all Deployments have resource limits */
 export const requireResourceLimits: GuardrailRule = {
@@ -53,7 +53,7 @@ export const requireResourceLimits: GuardrailRule = {
   description: 'All containers must have resource requests and limits',
   severity: 'error',
   test: (resources) => {
-    const errors: ValidationError[] = [];
+    const errors: ValidationError[] = []
 
     for (const resource of resources as any[]) {
       if (
@@ -61,7 +61,7 @@ export const requireResourceLimits: GuardrailRule = {
         resource.kind === 'StatefulSet' ||
         resource.kind === 'DaemonSet'
       ) {
-        const containers = resource.spec?.template?.spec?.containers || [];
+        const containers = resource.spec?.template?.spec?.containers || []
         for (const container of containers) {
           if (!container.resources?.requests) {
             errors.push({
@@ -70,7 +70,7 @@ export const requireResourceLimits: GuardrailRule = {
               resource: resource.kind,
               field: 'spec.template.spec.containers[].resources.requests',
               suggestion: 'Add resource.requests with cpu and memory values',
-            });
+            })
           }
           if (!container.resources?.limits) {
             errors.push({
@@ -80,15 +80,15 @@ export const requireResourceLimits: GuardrailRule = {
               field: 'spec.template.spec.containers[].resources.limits',
               suggestion:
                 'Add resource.limits with cpu and memory values to prevent resource exhaustion',
-            });
+            })
           }
         }
       }
     }
 
-    return errors;
+    return errors
   },
-};
+}
 
 /** Check that all resources have required labels */
 export const requireLabels = (requiredLabels: string[]): GuardrailRule => ({
@@ -96,10 +96,10 @@ export const requireLabels = (requiredLabels: string[]): GuardrailRule => ({
   description: `All resources must have labels: ${requiredLabels.join(', ')}`,
   severity: 'warning',
   test: (resources) => {
-    const errors: ValidationError[] = [];
+    const errors: ValidationError[] = []
 
     for (const resource of resources as any[]) {
-      const labels = resource.metadata?.labels || {};
+      const labels = resource.metadata?.labels || {}
       for (const label of requiredLabels) {
         if (!labels[label]) {
           errors.push({
@@ -108,14 +108,14 @@ export const requireLabels = (requiredLabels: string[]): GuardrailRule => ({
             resource: resource.kind,
             field: `metadata.labels.${label}`,
             suggestion: `Add label "${label}" to ${resource.kind} "${resource.metadata?.name}"`,
-          });
+          })
         }
       }
     }
 
-    return errors;
+    return errors
   },
-});
+})
 
 /** Check that no secrets contain plaintext passwords */
 export const noPlaintextSecrets: GuardrailRule = {
@@ -123,11 +123,11 @@ export const noPlaintextSecrets: GuardrailRule = {
   description: 'Secrets should not contain plaintext passwords in rendered output',
   severity: 'error',
   test: (resources) => {
-    const errors: ValidationError[] = [];
+    const errors: ValidationError[] = []
 
     for (const resource of resources) {
       if (resource.kind === 'Secret') {
-        const data = (resource as any).stringData || (resource as any).data || {};
+        const data = (resource as any).stringData || (resource as any).data || {}
         for (const [key, value] of Object.entries(data)) {
           if (typeof value === 'string' && value.length > 0) {
             // Check if it looks like a password (not a reference)
@@ -139,16 +139,16 @@ export const noPlaintextSecrets: GuardrailRule = {
                 field: `stringData.${key}`,
                 suggestion:
                   'Use Vault, Sealed Secrets, or external secret management instead of plaintext',
-              });
+              })
             }
           }
         }
       }
     }
 
-    return errors;
+    return errors
   },
-};
+}
 
 /** Check that Ingresses have TLS configured */
 export const requireTLS: GuardrailRule = {
@@ -156,11 +156,11 @@ export const requireTLS: GuardrailRule = {
   description: 'All Ingress resources must have TLS configured',
   severity: 'warning',
   test: (resources) => {
-    const errors: ValidationError[] = [];
+    const errors: ValidationError[] = []
 
     for (const resource of resources) {
       if (resource.kind === 'Ingress') {
-        const spec = (resource as any).spec || {};
+        const spec = (resource as any).spec || {}
         if (!spec.tls || spec.tls.length === 0) {
           errors.push({
             code: 'MISSING_TLS',
@@ -169,14 +169,14 @@ export const requireTLS: GuardrailRule = {
             field: 'spec.tls',
             suggestion:
               'Add TLS configuration with secretName and optionally cert-manager clusterIssuer',
-          });
+          })
         }
       }
     }
 
-    return errors;
+    return errors
   },
-};
+}
 
 /** Check that Pods don't run as root */
 export const noRootContainers: GuardrailRule = {
@@ -184,7 +184,7 @@ export const noRootContainers: GuardrailRule = {
   description: 'Containers should not run as root user',
   severity: 'error',
   test: (resources) => {
-    const errors: ValidationError[] = [];
+    const errors: ValidationError[] = []
 
     for (const resource of resources as any[]) {
       if (
@@ -193,8 +193,8 @@ export const noRootContainers: GuardrailRule = {
         resource.kind === 'DaemonSet' ||
         resource.kind === 'Pod'
       ) {
-        const podSpec = resource.spec?.template?.spec || resource.spec || {};
-        const securityContext = podSpec.securityContext || {};
+        const podSpec = resource.spec?.template?.spec || resource.spec || {}
+        const securityContext = podSpec.securityContext || {}
 
         if (securityContext.runAsUser === 0 || securityContext.runAsRoot === true) {
           errors.push({
@@ -203,11 +203,11 @@ export const noRootContainers: GuardrailRule = {
             resource: resource.kind,
             field: 'spec.template.spec.securityContext.runAsUser',
             suggestion: 'Set runAsUser to a non-zero UID and runAsRoot to false',
-          });
+          })
         }
 
         for (const container of podSpec.containers || []) {
-          const containerSecurity = container.securityContext || {};
+          const containerSecurity = container.securityContext || {}
           if (containerSecurity.runAsUser === 0 || containerSecurity.runAsRoot === true) {
             errors.push({
               code: 'CONTAINER_RUNS_AS_ROOT',
@@ -215,15 +215,15 @@ export const noRootContainers: GuardrailRule = {
               resource: resource.kind,
               field: 'spec.template.spec.containers[].securityContext.runAsUser',
               suggestion: 'Set securityContext.runAsUser to a non-zero UID',
-            });
+            })
           }
         }
       }
     }
 
-    return errors;
+    return errors
   },
-};
+}
 
 /** Default set of guardrails for production use */
 export const defaultGuardrails: GuardrailRule[] = [
@@ -232,31 +232,31 @@ export const defaultGuardrails: GuardrailRule[] = [
   noPlaintextSecrets,
   requireTLS,
   noRootContainers,
-];
+]
 
 /** Run all guardrail rules against a set of resources */
 export function runGuardrails(
   resources: KubernetesResource[],
   rules: GuardrailRule[] = defaultGuardrails
 ): {
-  passed: boolean;
-  errors: ValidationError[];
-  warnings: ValidationError[];
-  info: ValidationError[];
+  passed: boolean
+  errors: ValidationError[]
+  warnings: ValidationError[]
+  info: ValidationError[]
 } {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationError[] = [];
-  const info: ValidationError[] = [];
+  const errors: ValidationError[] = []
+  const warnings: ValidationError[] = []
+  const info: ValidationError[] = []
 
   for (const rule of rules) {
-    const ruleErrors = rule.test(resources);
+    const ruleErrors = rule.test(resources)
     for (const error of ruleErrors) {
       if (rule.severity === 'error') {
-        errors.push(error);
+        errors.push(error)
       } else if (rule.severity === 'warning') {
-        warnings.push(error);
+        warnings.push(error)
       } else if (rule.severity === 'info') {
-        info.push(error);
+        info.push(error)
       }
     }
   }
@@ -266,5 +266,5 @@ export function runGuardrails(
     errors,
     warnings,
     info,
-  };
+  }
 }

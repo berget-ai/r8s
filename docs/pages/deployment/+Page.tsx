@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CodeBlock } from "../../components/CodeBlock";
+import { useState } from 'react'
+import { CodeBlock } from '../../components/CodeBlock'
 
 const projectStructure = `my-project/
 ├── k8s/
@@ -7,7 +7,7 @@ const projectStructure = `my-project/
 ├── .github/
 │   └── workflows/
 │       └── deploy.yaml  # Optional: GitHub Actions
-└── package.json`;
+└── package.json`
 
 const r8sTsx = `// k8s/r8s.tsx
 import { App } from '@r8s/recipes';
@@ -21,7 +21,7 @@ export default (
     database={{ name: "app-db", storage: "10Gi" }}
     tls={{ issuer: "letsencrypt" }}
   />
-);`;
+);`
 
 const githubActions = `name: Render & Deploy
 
@@ -53,7 +53,7 @@ jobs:
           git config --local user.name "GitHub Action"
           git add k8s/rendered/
           git diff --quiet && git diff --staged --quiet || \\
-            (git commit -m "chore: render manifests [skip ci]" && git push)`;
+            (git commit -m "chore: render manifests [skip ci]" && git push)`
 
 const fluxGitRepo = `apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
@@ -64,7 +64,7 @@ spec:
   interval: 1m
   url: https://github.com/your-org/my-project
   ref:
-    branch: main`;
+    branch: main`
 
 const fluxKustomization = `apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -78,7 +78,7 @@ spec:
     kind: GitRepository
     name: my-app
   prune: true
-  wait: true`;
+  wait: true`
 
 const renderedOutput = `# Operator: cnpg v1.22.5
 apiVersion: v1
@@ -97,7 +97,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api
-# ...`;
+# ...`
 
 const multiEnv = `// k8s/overlays/staging/r8s.tsx
 import { App } from '@r8s/recipes';
@@ -124,10 +124,10 @@ export default (
     database={{ name: "app-db", storage: "20Gi" }}
     tls={{ issuer: "letsencrypt" }}
   />
-);`;
+);`
 
 export default function Page() {
-  const [strategy, setStrategy] = useState<'github' | 'flux'>('flux');
+  const [strategy, setStrategy] = useState<'github' | 'flux'>('flux')
 
   return (
     <div className="space-y-12">
@@ -170,7 +170,7 @@ export default function Page() {
           <div className="p-6 rounded-lg border border-white/10 bg-spruce/20">
             <h3 className="font-serif text-xl mb-3">GitHub Actions</h3>
             <p className="text-cloud/70 text-sm">
-              Render TSX to YAML in CI. Use <code>--include-operators</code> to fetch and include 
+              Render TSX to YAML in CI. Use <code>--include-operators</code> to fetch and include
               operator manifests. Commit the output — your GitOps tool applies everything.
             </p>
           </div>
@@ -212,11 +212,13 @@ export default function Page() {
       {strategy === 'flux' && (
         <div className="space-y-12">
           <div className="p-6 rounded-lg border border-moss/30 bg-moss/5">
-            <h3 className="font-serif text-xl mb-3 text-moss">FluxCD + r8s-controller (Recommended)</h3>
+            <h3 className="font-serif text-xl mb-3 text-moss">
+              FluxCD + r8s-controller (Recommended)
+            </h3>
             <p className="text-cloud/70 text-sm">
-              Render TSX directly in the cluster. No CI build step. Your repo stays clean 
-              — just TypeScript source code. Use <code>--include-operators</code> when you want 
-              operators in the output.
+              Render TSX directly in the cluster. No CI build step. Your repo stays clean — just
+              TypeScript source code. Use <code>--include-operators</code> when you want operators
+              in the output.
             </p>
           </div>
 
@@ -248,12 +250,18 @@ export default function Page() {
 
           <div className="space-y-6">
             <h2 className="text-2xl tracking-tight">Setup</h2>
-            
+
             <div className="space-y-4">
               <h3 className="text-xl">1. Bootstrap Flux</h3>
               <p className="text-cloud/70">
-                If you haven't already, bootstrap FluxCD. See{" "}
-                <a href="https://fluxcd.io/flux/installation/bootstrap/github/" className="text-moss hover:text-lichen">Flux Bootstrap Docs</a>.
+                If you haven't already, bootstrap FluxCD. See{' '}
+                <a
+                  href="https://fluxcd.io/flux/installation/bootstrap/github/"
+                  className="text-moss hover:text-lichen"
+                >
+                  Flux Bootstrap Docs
+                </a>
+                .
               </p>
             </div>
 
@@ -262,7 +270,10 @@ export default function Page() {
               <p className="text-cloud/70">
                 Add r8s-controller as init container to Flux's source-controller:
               </p>
-              <CodeBlock code={`kubectl apply -f https://raw.githubusercontent.com/berget-ai/r8s/main/packages/flux-controller/deploy.yaml`} language="bash" />
+              <CodeBlock
+                code={`kubectl apply -f https://raw.githubusercontent.com/berget-ai/r8s/main/packages/flux-controller/deploy.yaml`}
+                language="bash"
+              />
             </div>
 
             <div className="space-y-4">
@@ -285,26 +296,27 @@ export default function Page() {
         <div className="space-y-6">
           <h2 className="text-2xl tracking-tight">Including Operators</h2>
           <p className="text-cloud/70">
-            By default, r8s renders only your resources. Use <code>--include-operators</code> to 
-            fetch and include operator manifests in the output. This is useful when each team 
+            By default, r8s renders only your resources. Use <code>--include-operators</code> to
+            fetch and include operator manifests in the output. This is useful when each team
             manages their own operators, or when you want a self-contained deployment.
           </p>
-          <CodeBlock code={`# Render with operators included
+          <CodeBlock
+            code={`# Render with operators included
 npx r8s render --include-operators
 
 # Render only operators (for platform teams)
 npx r8s operators --out operators.yaml
 
 # Render without operators (default)
-npx r8s render`} language="bash" />
+npx r8s render`}
+            language="bash"
+          />
           <CodeBlock code={renderedOutput} language="yaml" />
         </div>
 
         <div className="space-y-6">
           <h2 className="text-2xl tracking-tight">Project Structure</h2>
-          <p className="text-cloud/70">
-            Your repository only needs TSX source files:
-          </p>
+          <p className="text-cloud/70">Your repository only needs TSX source files:</p>
           <CodeBlock code={projectStructure} language="bash" />
         </div>
 
@@ -318,9 +330,7 @@ npx r8s render`} language="bash" />
 
         <div className="space-y-6">
           <h2 className="text-2xl tracking-tight">Multi-Environment</h2>
-          <p className="text-cloud/70">
-            Use overlays for different environments:
-          </p>
+          <p className="text-cloud/70">Use overlays for different environments:</p>
           <CodeBlock code={multiEnv} language="tsx" />
         </div>
       </div>
@@ -329,11 +339,17 @@ npx r8s render`} language="bash" />
       <div className="p-6 rounded-lg border border-white/10 bg-spruce/20">
         <h2 className="font-serif text-2xl mb-3">Ready to deploy?</h2>
         <p className="text-cloud/70 text-sm leading-relaxed">
-          Check out the <a href="/recipes" className="text-moss hover:text-lichen">recipes</a> to find 
-          components to deploy, or read about <a href="/operators" className="text-moss hover:text-lichen">operators</a> 
+          Check out the{' '}
+          <a href="/recipes" className="text-moss hover:text-lichen">
+            recipes
+          </a>{' '}
+          to find components to deploy, or read about{' '}
+          <a href="/operators" className="text-moss hover:text-lichen">
+            operators
+          </a>
           to understand how dependencies are tracked.
         </p>
       </div>
     </div>
-  );
+  )
 }

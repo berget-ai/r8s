@@ -1,48 +1,48 @@
-import { jsx, declareOperator, useContext } from '@r8s/core';
-import { Cluster, Pooler, ScheduledBackup } from '@r8s/k8s-types';
-import { OperatorContext } from '@r8s/core/defaults';
-import { cnpgOperator } from './operators';
+import { jsx, declareOperator, useContext } from '@r8s/core'
+import { Cluster, Pooler, ScheduledBackup } from '@r8s/k8s-types'
+import { OperatorContext } from '@r8s/core/defaults'
+import { cnpgOperator } from './operators'
 
 export interface PostgresProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Initial database name (defaults to 'app') */
-  database?: string;
+  database?: string
   /** Initial database owner/username (defaults to 'app') */
-  user?: string;
+  user?: string
   /** Plaintext password for the user — if provided, a Secret is created automatically */
-  password?: string;
+  password?: string
   /** Name of an existing Kubernetes Secret holding the password (skips auto-creation) */
-  passwordSecretName?: string;
+  passwordSecretName?: string
   /** Storage size (e.g., '10Gi') for the PostgreSQL data volume */
-  storage?: string;
+  storage?: string
   /** Kubernetes StorageClass to use for the data volume */
-  storageClass?: string;
+  storageClass?: string
   /** Number of PostgreSQL instances in the HA cluster (defaults to 3) */
-  instances?: number;
+  instances?: number
   /** PostgreSQL container image (defaults to a CNPG-pinned Postgres 16 image) */
-  image?: string;
+  image?: string
   /** CPU and memory requests/limits for the Postgres pods */
   resources?: {
-    requests?: { memory?: string; cpu?: string };
-    limits?: { memory?: string; cpu?: string };
-  };
+    requests?: { memory?: string; cpu?: string }
+    limits?: { memory?: string; cpu?: string }
+  }
   /** Enable PgBouncer connection pooling alongside the cluster */
-  enablePooler?: boolean;
+  enablePooler?: boolean
   /** Number of PgBouncer pooler replicas */
-  poolerInstances?: number;
+  poolerInstances?: number
   /** PgBouncer pooling mode — 'session' keeps a backend per client, 'transaction' multiplexes them */
-  poolMode?: 'session' | 'transaction';
+  poolMode?: 'session' | 'transaction'
   /** Enable scheduled backups of the cluster */
-  enableBackup?: boolean;
+  enableBackup?: boolean
   /** Cron expression for the backup schedule (defaults to '0 2 * * *' = daily at 2 AM) */
-  backupSchedule?: string;
+  backupSchedule?: string
   /** How long to keep backups (e.g., '7d') */
-  backupRetention?: string;
+  backupRetention?: string
   /** Extra postgresql.conf parameters (key/value) applied to the cluster */
-  postgresqlParameters?: Record<string, string>;
+  postgresqlParameters?: Record<string, string>
 }
 
 export function Postgres(props: PostgresProps) {
@@ -71,14 +71,14 @@ export function Postgres(props: PostgresProps) {
       max_connections: '200',
       shared_buffers: '256MB',
     },
-  } = props;
+  } = props
 
   // Use provided secret name or generate one
-  const secretName = passwordSecretName || `${name}-credentials`;
+  const secretName = passwordSecretName || `${name}-credentials`
 
   // Declare CNPG operator if not already provided via context
-  const sharedOperators = useContext(OperatorContext);
-  const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg');
+  const sharedOperators = useContext(OperatorContext)
+  const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg')
 
   const cluster: Cluster = {
     apiVersion: 'postgresql.cnpg.io/v1',
@@ -129,16 +129,16 @@ export function Postgres(props: PostgresProps) {
         },
       },
     },
-  };
+  }
 
-  const outputResources: ReturnType<typeof jsx>[] = [];
+  const outputResources: ReturnType<typeof jsx>[] = []
 
   // Declare CNPG operator if not already provided via context
   if (!hasCNPG) {
-    outputResources.push(declareOperator(cnpgOperator()));
+    outputResources.push(declareOperator(cnpgOperator()))
   }
 
-  outputResources.push(jsx('Cluster', cluster));
+  outputResources.push(jsx('Cluster', cluster))
 
   // Add Secret if password is provided directly
   if (password && !passwordSecretName) {
@@ -156,7 +156,7 @@ export function Postgres(props: PostgresProps) {
           password,
         },
       })
-    );
+    )
   }
 
   // Add Pooler for connection pooling
@@ -182,9 +182,9 @@ export function Postgres(props: PostgresProps) {
           },
         },
       },
-    };
+    }
 
-    outputResources.push(jsx('Pooler', pooler));
+    outputResources.push(jsx('Pooler', pooler))
   }
 
   // Add ScheduledBackup if enabled
@@ -203,10 +203,10 @@ export function Postgres(props: PostgresProps) {
           name,
         },
       },
-    };
+    }
 
-    outputResources.push(jsx('ScheduledBackup', scheduledBackup));
+    outputResources.push(jsx('ScheduledBackup', scheduledBackup))
   }
 
-  return outputResources;
+  return outputResources
 }

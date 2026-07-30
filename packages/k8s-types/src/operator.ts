@@ -22,39 +22,39 @@
 export type OperatorSource =
   | { type: 'manifest'; url: string; version: string; namespace?: string }
   | {
-      type: 'helm';
-      chart: string;
-      repository: string;
-      version: string;
-      namespace?: string;
-      values?: Record<string, unknown>;
+      type: 'helm'
+      chart: string
+      repository: string
+      version: string
+      namespace?: string
+      values?: Record<string, unknown>
     }
   | { type: 'olm'; package: string; channel: string; version?: string }
   | {
-      type: 'flux';
-      sourceRef: { kind: string; name: string; namespace: string };
-      chart: string;
-      version: string;
-    };
+      type: 'flux'
+      sourceRef: { kind: string; name: string; namespace: string }
+      chart: string
+      version: string
+    }
 
 /** Operator dependency declaration */
 export interface Operator {
   /** Unique operator identifier (e.g., 'cnpg', 'cert-manager') */
-  name: string;
+  name: string
   /** Human-readable description */
-  description?: string;
+  description?: string
   /** How to install this operator */
-  source: OperatorSource;
+  source: OperatorSource
   /** Minimum required version (semver) */
-  version: string;
+  version: string
   /** Namespaces this operator should watch (empty = cluster-wide) */
-  watchNamespaces?: string[];
+  watchNamespaces?: string[]
   /** Other operators this one depends on */
-  dependencies?: string[];
+  dependencies?: string[]
   /** Custom resource definitions provided by this operator */
-  crds?: string[];
+  crds?: string[]
   /** Installation command for direct use */
-  installCommand?: string;
+  installCommand?: string
 }
 
 /** Helper to create a manifest-based operator declaration */
@@ -63,11 +63,11 @@ export function manifestOperator(
   url: string,
   version: string,
   options?: {
-    description?: string;
-    namespace?: string;
-    watchNamespaces?: string[];
-    dependencies?: string[];
-    crds?: string[];
+    description?: string
+    namespace?: string
+    watchNamespaces?: string[]
+    dependencies?: string[]
+    crds?: string[]
   }
 ): Operator {
   return {
@@ -84,7 +84,7 @@ export function manifestOperator(
     dependencies: options?.dependencies,
     crds: options?.crds,
     installCommand: `kubectl apply --server-side -f ${url}`,
-  };
+  }
 }
 
 /** Helper to create a Helm-based operator declaration */
@@ -94,12 +94,12 @@ export function helmOperator(
   repository: string,
   version: string,
   options?: {
-    description?: string;
-    namespace?: string;
-    values?: Record<string, unknown>;
-    watchNamespaces?: string[];
-    dependencies?: string[];
-    crds?: string[];
+    description?: string
+    namespace?: string
+    values?: Record<string, unknown>
+    watchNamespaces?: string[]
+    dependencies?: string[]
+    crds?: string[]
   }
 ): Operator {
   return {
@@ -118,7 +118,7 @@ export function helmOperator(
     dependencies: options?.dependencies,
     crds: options?.crds,
     installCommand: `helm upgrade --install ${name} ${chart} --repo ${repository} --namespace ${options?.namespace || name + '-system'} --create-namespace`,
-  };
+  }
 }
 
 /** Helper to create an OLM-based operator declaration */
@@ -128,10 +128,10 @@ export function olmOperator(
   channel: string,
   version: string,
   options?: {
-    description?: string;
-    watchNamespaces?: string[];
-    dependencies?: string[];
-    crds?: string[];
+    description?: string
+    watchNamespaces?: string[]
+    dependencies?: string[]
+    crds?: string[]
   }
 ): Operator {
   return {
@@ -148,5 +148,5 @@ export function olmOperator(
     dependencies: options?.dependencies,
     crds: options?.crds,
     installCommand: `kubectl apply -f https://operatorhub.io/install/${packageName}.yaml`,
-  };
+  }
 }

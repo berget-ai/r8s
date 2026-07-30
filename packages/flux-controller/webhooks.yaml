@@ -33,7 +33,7 @@ metadata:
   namespace: flux-system
 type: Opaque
 stringData:
-  token: "your-webhook-secret-here"
+  token: 'your-webhook-secret-here'
 ---
 # 3. Alert - Notify on reconciliation failures
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
@@ -53,8 +53,8 @@ spec:
       namespace: flux-system
   eventSeverity: error
   inclusionList:
-    - "reconciliation failed"
-    - "render failed"
+    - 'reconciliation failed'
+    - 'render failed'
 ---
 # 4. Provider - Where to send alerts (Slack example)
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
@@ -76,4 +76,4 @@ metadata:
   namespace: flux-system
 type: Opaque
 stringData:
-  address: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+  address: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'

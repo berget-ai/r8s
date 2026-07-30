@@ -1,37 +1,37 @@
-import { jsx, Fragment, useContext } from '@r8s/core';
-import { WebService, type SecretRef, type VaultSecretRef } from './web-service';
-import { Endpoint } from './endpoint';
-import { Namespace } from '@r8s/core/defaults';
-import type { TLSConfig } from '@r8s/k8s-types';
+import { jsx, Fragment, useContext } from '@r8s/core'
+import { WebService, type SecretRef, type VaultSecretRef } from './web-service'
+import { Endpoint } from './endpoint'
+import { Namespace } from '@r8s/core/defaults'
+import type { TLSConfig } from '@r8s/k8s-types'
 
 export interface AppProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default' or the Platform namespace) */
-  namespace?: string;
+  namespace?: string
   /** Container image (e.g., 'myapp/api:v1.2.3') */
-  image: string;
+  image: string
   /** Container port the app listens on (defaults to 3000) */
-  port?: number;
+  port?: number
   /** Number of pod replicas (defaults to 2) */
-  replicas?: number;
+  replicas?: number
   /** Domain name (e.g., 'api.example.com') the endpoint should accept traffic for */
-  host: string;
+  host: string
   /** TLS certificate configuration for HTTPS */
-  tls?: TLSConfig;
+  tls?: TLSConfig
   /** Plain environment variables (non-sensitive) */
-  env?: Record<string, string>;
+  env?: Record<string, string>
   /** Secrets from Kubernetes Secrets — safe by default */
-  secrets?: Record<string, SecretRef | string>;
+  secrets?: Record<string, SecretRef | string>
   /** Secrets from Vault — creates VaultStaticSecret objects */
-  vault?: Record<string, VaultSecretRef>;
+  vault?: Record<string, VaultSecretRef>
   /** CPU and memory requests/limits for the app container */
   resources?: {
-    requests?: { cpu?: string; memory?: string };
-    limits?: { cpu?: string; memory?: string };
-  };
+    requests?: { cpu?: string; memory?: string }
+    limits?: { cpu?: string; memory?: string }
+  }
   /** Child components rendered as sibling resources (e.g., a BackgroundWorker) */
-  children?: unknown;
+  children?: unknown
 }
 
 /**
@@ -87,13 +87,14 @@ export function App(props: AppProps) {
     vault = {},
     resources,
     children,
-  } = props;
+  } = props
 
   // Inherit namespace from <Platform> context if not explicitly set
-  const contextNamespace = useContext(Namespace);
-  const namespace = namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default';
+  const contextNamespace = useContext(Namespace)
+  const namespace =
+    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
 
-  const elements: ReturnType<typeof jsx>[] = [];
+  const elements: ReturnType<typeof jsx>[] = []
 
   elements.push(
     jsx(WebService, {
@@ -107,7 +108,7 @@ export function App(props: AppProps) {
       vault,
       resources,
     })
-  );
+  )
 
   elements.push(
     jsx(Endpoint, {
@@ -118,14 +119,14 @@ export function App(props: AppProps) {
       servicePort: 80,
       tls,
     })
-  );
+  )
 
   // Children render as sibling resources (e.g. <BackgroundWorker />).
   // WebService does not currently accept children as a prop, so we keep
   // them as a Fragment sibling for the renderer to flatten.
   if (children) {
-    elements.push(jsx(Fragment, { children }));
+    elements.push(jsx(Fragment, { children }))
   }
 
-  return jsx(Fragment, { children: elements });
+  return jsx(Fragment, { children: elements })
 }

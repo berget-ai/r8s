@@ -1,6 +1,6 @@
-import { jsx } from '@r8s/core';
-import { helmOperator } from '@r8s/k8s-types';
-import type { BaseRouteProps, RouteTarget, TLSConfig, ListenerConfig } from '@r8s/k8s-types';
+import { jsx } from '@r8s/core'
+import { helmOperator } from '@r8s/k8s-types'
+import type { BaseRouteProps, RouteTarget, TLSConfig, ListenerConfig } from '@r8s/k8s-types'
 
 /** Envoy Gateway operator declaration */
 export const envoyGatewayOperator = (version = '1.7.0') =>
@@ -17,22 +17,22 @@ export const envoyGatewayOperator = (version = '1.7.0') =>
       'udproutes.gateway.networking.k8s.io',
       'envoyproxies.gateway.envoyproxy.io',
     ],
-  });
+  })
 
 export interface GatewayProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** GatewayClass name (e.g., 'eg' for Envoy Gateway) */
-  gatewayClassName?: string;
+  gatewayClassName?: string
   /** Gateway listeners (protocol, port, hostname, TLS) */
-  listeners: ListenerConfig[];
+  listeners: ListenerConfig[]
   /** Optional static addresses the Gateway can be reached on */
   addresses?: Array<{
-    type?: 'IPAddress' | 'Hostname';
-    value: string;
-  }>;
+    type?: 'IPAddress' | 'Hostname'
+    value: string
+  }>
 }
 
 /**
@@ -51,7 +51,7 @@ export interface GatewayProps {
  * />
  */
 export function Gateway(props: GatewayProps) {
-  const { name, namespace = 'default', gatewayClassName = 'eg', listeners, addresses } = props;
+  const { name, namespace = 'default', gatewayClassName = 'eg', listeners, addresses } = props
 
   const gateway = {
     apiVersion: 'gateway.networking.k8s.io/v1',
@@ -75,39 +75,39 @@ export function Gateway(props: GatewayProps) {
       })),
       ...(addresses && { addresses }),
     },
-  };
+  }
 
-  return jsx('Gateway', gateway);
+  return jsx('Gateway', gateway)
 }
 
 export interface HTTPRouteProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Gateways this route attaches to (by name, optional sectionName to pin a listener) */
   parentRefs: Array<{
-    name: string;
-    namespace?: string;
-    sectionName?: string;
-  }>;
+    name: string
+    namespace?: string
+    sectionName?: string
+  }>
   /** Hostnames this route matches (a request's Host header must match one) */
-  hostnames?: string[];
+  hostnames?: string[]
   /** Routing rules — each rule has optional matches (path/method/headers) and backend targets */
   rules: Array<{
     matches?: Array<{
       path?: {
-        type?: 'Exact' | 'PathPrefix' | 'RegularExpression';
-        value: string;
-      };
-      method?: string;
+        type?: 'Exact' | 'PathPrefix' | 'RegularExpression'
+        value: string
+      }
+      method?: string
       headers?: Array<{
-        name: string;
-        value: string;
-        type?: 'Exact' | 'RegularExpression';
-      }>;
-    }>;
-    backendRefs: RouteTarget[];
+        name: string
+        value: string
+        type?: 'Exact' | 'RegularExpression'
+      }>
+    }>
+    backendRefs: RouteTarget[]
     filters?: Array<{
       type:
         | 'URLRewrite'
@@ -115,17 +115,17 @@ export interface HTTPRouteProps {
         | 'ResponseHeaderModifier'
         | 'RequestRedirect'
         | 'RequestMirror'
-        | 'ExtensionRef';
+        | 'ExtensionRef'
       urlRewrite?: {
-        hostname?: string;
+        hostname?: string
         path?: {
-          type: 'ReplaceFullPath' | 'ReplacePrefixMatch';
-          replaceFullPath?: string;
-          replacePrefixMatch?: string;
-        };
-      };
-    }>;
-  }>;
+          type: 'ReplaceFullPath' | 'ReplacePrefixMatch'
+          replaceFullPath?: string
+          replacePrefixMatch?: string
+        }
+      }
+    }>
+  }>
 }
 
 /**
@@ -136,7 +136,7 @@ export interface HTTPRouteProps {
  * <HTTPRoute name="api-route" parentRefs={[{ name: "public-gateway" }]} hostnames={["api.example.com"]} rules={[{ backendRefs: [{ name: "api", port: 80 }] }]} />
  */
 export function HTTPRoute(props: HTTPRouteProps) {
-  const { name, namespace = 'default', parentRefs, hostnames, rules } = props;
+  const { name, namespace = 'default', parentRefs, hostnames, rules } = props
 
   const route = {
     apiVersion: 'gateway.networking.k8s.io/v1',
@@ -157,22 +157,22 @@ export function HTTPRoute(props: HTTPRouteProps) {
         ...(r.filters && { filters: r.filters }),
       })),
     },
-  };
+  }
 
-  return jsx('HTTPRoute', route);
+  return jsx('HTTPRoute', route)
 }
 
 export interface EnvoyProxyProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace where the Envoy Proxy pods will run */
-  namespace?: string;
+  namespace?: string
   /** Whether multiple Gateway resources share a single Envoy Proxy instance */
-  mergeGateways?: boolean;
+  mergeGateways?: boolean
   /** Kubernetes Service type exposing the Envoy Proxy externally */
-  serviceType?: 'LoadBalancer' | 'NodePort' | 'ClusterIP';
+  serviceType?: 'LoadBalancer' | 'NodePort' | 'ClusterIP'
   /** Static host port (used when serviceType is 'NodePort') */
-  nodePort?: number;
+  nodePort?: number
 }
 
 /**
@@ -192,7 +192,7 @@ export function EnvoyProxy(props: EnvoyProxyProps) {
     mergeGateways = false,
     serviceType = 'LoadBalancer',
     nodePort,
-  } = props;
+  } = props
 
   const proxy = {
     apiVersion: 'gateway.envoyproxy.io/v1alpha1',
@@ -226,7 +226,7 @@ export function EnvoyProxy(props: EnvoyProxyProps) {
         },
       },
     },
-  };
+  }
 
-  return jsx('EnvoyProxy', proxy);
+  return jsx('EnvoyProxy', proxy)
 }

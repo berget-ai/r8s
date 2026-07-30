@@ -1,8 +1,8 @@
-import { jsx, useContext } from '@r8s/core';
-import { RoutingContext, Namespace, Labels, OperatorContext } from '@r8s/core/defaults';
-import type { Operator } from '@r8s/k8s-types';
+import { jsx, useContext } from '@r8s/core'
+import { RoutingContext, Namespace, Labels, OperatorContext } from '@r8s/core/defaults'
+import type { Operator } from '@r8s/k8s-types'
 
-export type RoutingMode = 'ingress' | 'gateway';
+export type RoutingMode = 'ingress' | 'gateway'
 
 export interface PlatformProps {
   /**
@@ -10,17 +10,17 @@ export interface PlatformProps {
    * - 'ingress': nginx Ingress (default)
    * - 'gateway': Envoy Gateway (Gateway API)
    */
-  routing?: RoutingMode;
+  routing?: RoutingMode
   /** Gateway class name (only used when routing='gateway', default: 'eg') */
-  gatewayClassName?: string;
+  gatewayClassName?: string
   /** Default namespace for all child resources */
-  namespace?: string;
+  namespace?: string
   /** Default labels applied to all child resources */
-  labels?: Record<string, string>;
+  labels?: Record<string, string>
   /** Shared operators for all child resources */
-  operators?: Operator[];
+  operators?: Operator[]
   /** Child components that inherit the cluster-level configuration this Platform sets */
-  children?: unknown;
+  children?: unknown
 }
 
 /**
@@ -65,30 +65,30 @@ export function Platform(props: PlatformProps) {
     labels,
     operators,
     children,
-  } = props;
+  } = props
 
-  let result: unknown = children;
+  let result: unknown = children
 
   // Apply operators context (outermost so all children share)
   if (operators && operators.length > 0) {
-    result = jsx(OperatorContext.Provider, { value: operators, children: result });
+    result = jsx(OperatorContext.Provider, { value: operators, children: result })
   }
 
   // Apply labels context
   if (labels) {
-    result = jsx(Labels.Provider, { value: labels, children: result });
+    result = jsx(Labels.Provider, { value: labels, children: result })
   }
 
   // Apply namespace context
   if (namespace) {
-    result = jsx(Namespace.Provider, { value: namespace, children: result });
+    result = jsx(Namespace.Provider, { value: namespace, children: result })
   }
 
   // Apply routing context (innermost — closest to children)
   result = jsx(RoutingContext.Provider, {
     value: { mode: routing, gatewayClassName },
     children: result,
-  });
+  })
 
-  return result;
+  return result
 }

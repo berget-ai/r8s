@@ -1,4 +1,4 @@
-import { App, Database } from '@r8s/recipes';
+import { App, Database } from '@r8s/recipes'
 
 /**
  * My Application
@@ -10,10 +10,7 @@ import { App, Database } from '@r8s/recipes';
 export default function MyApp() {
   return (
     <>
-      <Database
-        name="myapp-db"
-        storage="10Gi"
-      />
+      <Database name="myapp-db" storage="10Gi" />
 
       <App
         name="myapp"
@@ -27,5 +24,5 @@ export default function MyApp() {
         }}
       />
     </>
-  );
+  )
 }

@@ -1,4 +1,4 @@
-import { CodeBlock } from "../../components/CodeBlock";
+import { CodeBlock } from '../../components/CodeBlock'
 
 const basicExample = `import { Database, Endpoint } from '@r8s/recipes';
 
@@ -7,7 +7,7 @@ export default (
     <Database name="app-db" storage="10Gi" />
     <Endpoint host="app.example.com" serviceName="app" />
   </>
->);`;
+>);`
 
 const basicYaml = `# Rendered Kubernetes resources
 apiVersion: postgresql.cnpg.io/v1
@@ -36,7 +36,7 @@ spec:
               service:
                 name: app
                 port:
-                  number: 80`;
+                  number: 80`
 
 const renderExample = `import { render } from '@r8s/core';
 
@@ -46,7 +46,7 @@ const result = render(<MyApp />);
 console.log(result.resources);
 // [Cluster, Secret, Ingress, Service, ...]
 // Required operators (auto-detected)
-console.log(result.operators);`;
+console.log(result.operators);`
 
 const renderYaml = `# Auto-detected operators
 [
@@ -66,7 +66,7 @@ const renderYaml = `# Auto-detected operators
       "version": "1.14.0"
     }
   }
-]`;
+]`
 
 const autoInclude = `# r8s render automatically fetches and includes operators
 # No manual installation needed
@@ -84,7 +84,7 @@ metadata:
   name: app-db
 spec:
   storage:
-    size: 10Gi`;
+    size: 10Gi`
 
 const declareOperator = `import { declareOperator } from '@r8s/core';
 
@@ -105,7 +105,7 @@ export function MyComponent(props: { name: string }) {
       spec={{ replicas: 1, template: { spec: { containers: [{ name: 'app', image: 'myapp' }] } } }}
     />,
   ];
-}`;
+}`
 
 const declareYaml = `# Rendered output includes operator + resources
 [
@@ -131,7 +131,7 @@ const declareYaml = `# Rendered output includes operator + resources
       }
     }
   }
-]`;
+]`
 
 const contextExample = `import { OperatorContext } from '@r8s/core/defaults';
 import { Database, Endpoint } from '@r8s/recipes';
@@ -149,7 +149,7 @@ export default function Platform() {
       <Endpoint host="app.example.com" serviceName="app" />
     </OperatorContext.Provider>
   );
-}`;
+}`
 
 const contextYaml = `# Operators provided via context - not duplicated
 # Only resources are rendered
@@ -185,7 +185,7 @@ spec:
               service:
                 name: app
                 port:
-                  number: 80`;
+                  number: 80`
 
 const dedupExample = `// Component A declares cnpg
 function DatabaseA() {
@@ -212,7 +212,7 @@ const result = render(
 );
 
 console.log(result.operators);
-// [{ name: 'cnpg', ... }] — deduplicated!`;
+// [{ name: 'cnpg', ... }] — deduplicated!`
 
 const dedupYaml = `# Operators (deduplicated)
 [
@@ -242,7 +242,7 @@ metadata:
   name: db-b
 spec:
   storage:
-    size: 10Gi`;
+    size: 10Gi`
 
 export default function Page() {
   return (
@@ -250,7 +250,8 @@ export default function Page() {
       <div className="space-y-4">
         <h1 className="text-4xl tracking-tight">Operators & Dependencies</h1>
         <p className="text-xl text-cloud/80">
-          r8s tracks Kubernetes operator dependencies automatically. No more "forgot to install cert-manager" surprises.
+          r8s tracks Kubernetes operator dependencies automatically. No more "forgot to install
+          cert-manager" surprises.
         </p>
       </div>
 
@@ -267,8 +268,8 @@ export default function Page() {
             <li>❌ Database pods are stuck — CloudNativePG operator isn't running</li>
           </ul>
           <p className="mt-4 text-cloud/60 text-sm">
-            These errors show up <em>after</em> deployment, often in production. 
-            The dependencies are documented somewhere, but not enforced.
+            These errors show up <em>after</em> deployment, often in production. The dependencies
+            are documented somewhere, but not enforced.
           </p>
         </div>
       </div>
@@ -277,8 +278,9 @@ export default function Page() {
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">The r8s Way</h2>
         <p className="text-cloud/70 leading-relaxed">
-          Every r8s component declares its operator dependencies explicitly. When you render your infrastructure, 
-          operators are fetched and included automatically — no manual installation needed.
+          Every r8s component declares its operator dependencies explicitly. When you render your
+          infrastructure, operators are fetched and included automatically — no manual installation
+          needed.
         </p>
         <CodeBlock code={basicExample} yaml={basicYaml} language="tsx" />
         <CodeBlock code={renderExample} yaml={renderYaml} language="tsx" />
@@ -287,21 +289,21 @@ export default function Page() {
       {/* How It Works */}
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">How It Works</h2>
-        
+
         <div className="grid md:grid-cols-3 gap-6">
           <div className="p-6 rounded-lg border border-white/10">
             <div className="text-moss font-mono text-sm mb-3">01</div>
             <h3 className="font-serif text-xl mb-3">Declare</h3>
             <p className="text-cloud/70 text-sm">
-              Components declare operators using <code>declareOperator()</code>. 
-              This happens inside the component, close to where the operator is actually used.
+              Components declare operators using <code>declareOperator()</code>. This happens inside
+              the component, close to where the operator is actually used.
             </p>
           </div>
           <div className="p-6 rounded-lg border border-white/10">
             <div className="text-moss font-mono text-sm mb-3">02</div>
             <h3 className="font-serif text-xl mb-3">Collect</h3>
             <p className="text-cloud/70 text-sm">
-              The renderer walks the component tree and collects all operator declarations. 
+              The renderer walks the component tree and collects all operator declarations.
               Duplicates are automatically removed.
             </p>
           </div>
@@ -309,7 +311,7 @@ export default function Page() {
             <div className="text-moss font-mono text-sm mb-3">03</div>
             <h3 className="font-serif text-xl mb-3">Include</h3>
             <p className="text-cloud/70 text-sm">
-              Operator manifests are fetched from their URLs and included in the rendered YAML. 
+              Operator manifests are fetched from their URLs and included in the rendered YAML.
               Everything is applied together.
             </p>
           </div>
@@ -320,7 +322,8 @@ export default function Page() {
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">Operators Included Automatically</h2>
         <p className="text-cloud/70">
-          When you run <code>r8s render</code>, operators are fetched and prepended to your resources:
+          When you run <code>r8s render</code>, operators are fetched and prepended to your
+          resources:
         </p>
         <CodeBlock code={autoInclude} language="yaml" />
       </div>
@@ -338,7 +341,8 @@ export default function Page() {
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">Shared Operators via Context</h2>
         <p className="text-cloud/70">
-          For a complete platform, provide shared operators via context. Components won't duplicate them:
+          For a complete platform, provide shared operators via context. Components won't duplicate
+          them:
         </p>
         <CodeBlock code={contextExample} yaml={contextYaml} language="tsx" />
       </div>
@@ -423,10 +427,17 @@ export default function Page() {
       <div className="p-6 rounded-lg border border-white/10 bg-spruce/20">
         <h2 className="font-serif text-2xl mb-3">Ready to use operators?</h2>
         <p className="text-cloud/70 text-sm leading-relaxed">
-          Check out the <a href="/recipes" className="text-moss hover:text-lichen">recipes</a> to see operators in action, 
-          or read about <a href="/deployment" className="text-moss hover:text-lichen">deployment strategies</a> with FluxCD.
+          Check out the{' '}
+          <a href="/recipes" className="text-moss hover:text-lichen">
+            recipes
+          </a>{' '}
+          to see operators in action, or read about{' '}
+          <a href="/deployment" className="text-moss hover:text-lichen">
+            deployment strategies
+          </a>{' '}
+          with FluxCD.
         </p>
       </div>
     </div>
-  );
+  )
 }

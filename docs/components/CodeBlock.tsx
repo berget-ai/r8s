@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import type { CSSProperties } from 'react';
+import { useState } from 'react'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import type { CSSProperties } from 'react'
 
 // Custom theme matching Berget AI's dark design
 const customTheme = {
@@ -37,50 +37,50 @@ const customTheme = {
     borderRadius: '0.5rem',
     border: '1px solid rgba(255, 255, 255, 0.1)',
   } as CSSProperties,
-  'comment': { color: '#6B7280', fontStyle: 'italic' } as CSSProperties,
-  'prolog': { color: '#6B7280' } as CSSProperties,
-  'doctype': { color: '#6B7280' } as CSSProperties,
-  'cdata': { color: '#6B7280' } as CSSProperties,
-  'punctuation': { color: '#9CA3AF' } as CSSProperties,
-  'property': { color: '#74C69D' } as CSSProperties,
-  'tag': { color: '#52B788' } as CSSProperties,
-  'boolean': { color: '#CFFF8B' } as CSSProperties,
-  'number': { color: '#CFFF8B' } as CSSProperties,
-  'constant': { color: '#74C69D' } as CSSProperties,
-  'symbol': { color: '#74C69D' } as CSSProperties,
-  'deleted': { color: '#D1392E' } as CSSProperties,
-  'selector': { color: '#52B788' } as CSSProperties,
+  comment: { color: '#6B7280', fontStyle: 'italic' } as CSSProperties,
+  prolog: { color: '#6B7280' } as CSSProperties,
+  doctype: { color: '#6B7280' } as CSSProperties,
+  cdata: { color: '#6B7280' } as CSSProperties,
+  punctuation: { color: '#9CA3AF' } as CSSProperties,
+  property: { color: '#74C69D' } as CSSProperties,
+  tag: { color: '#52B788' } as CSSProperties,
+  boolean: { color: '#CFFF8B' } as CSSProperties,
+  number: { color: '#CFFF8B' } as CSSProperties,
+  constant: { color: '#74C69D' } as CSSProperties,
+  symbol: { color: '#74C69D' } as CSSProperties,
+  deleted: { color: '#D1392E' } as CSSProperties,
+  selector: { color: '#52B788' } as CSSProperties,
   'attr-name': { color: '#CFFF8B' } as CSSProperties,
-  'string': { color: '#CFFF8B' } as CSSProperties,
-  'char': { color: '#CFFF8B' } as CSSProperties,
-  'builtin': { color: '#74C69D' } as CSSProperties,
-  'inserted': { color: '#52B788' } as CSSProperties,
-  'operator': { color: '#9CA3AF' } as CSSProperties,
-  'entity': { color: '#52B788', cursor: 'help' } as CSSProperties,
-  'url': { color: '#E5DDD5' } as CSSProperties,
+  string: { color: '#CFFF8B' } as CSSProperties,
+  char: { color: '#CFFF8B' } as CSSProperties,
+  builtin: { color: '#74C69D' } as CSSProperties,
+  inserted: { color: '#52B788' } as CSSProperties,
+  operator: { color: '#9CA3AF' } as CSSProperties,
+  entity: { color: '#52B788', cursor: 'help' } as CSSProperties,
+  url: { color: '#E5DDD5' } as CSSProperties,
   '.language-css .token.string': { color: '#E5DDD5' } as CSSProperties,
   '.style .token.string': { color: '#E5DDD5' } as CSSProperties,
-  'variable': { color: '#E5DDD5' } as CSSProperties,
-  'atrule': { color: '#3975D6' } as CSSProperties,
+  variable: { color: '#E5DDD5' } as CSSProperties,
+  atrule: { color: '#3975D6' } as CSSProperties,
   'attr-value': { color: '#CFFF8B' } as CSSProperties,
-  'function': { color: '#52B788' } as CSSProperties,
+  function: { color: '#52B788' } as CSSProperties,
   'class-name': { color: '#74C69D' } as CSSProperties,
-  'keyword': { color: '#3975D6' } as CSSProperties,
-  'regex': { color: '#CFFF8B' } as CSSProperties,
-  'important': { color: '#3975D6', fontWeight: 'bold' } as CSSProperties,
-  'bold': { fontWeight: 'bold' } as CSSProperties,
-  'italic': { fontStyle: 'italic' } as CSSProperties,
-};
+  keyword: { color: '#3975D6' } as CSSProperties,
+  regex: { color: '#CFFF8B' } as CSSProperties,
+  important: { color: '#3975D6', fontWeight: 'bold' } as CSSProperties,
+  bold: { fontWeight: 'bold' } as CSSProperties,
+  italic: { fontStyle: 'italic' } as CSSProperties,
+}
 
 interface CodeBlockProps {
-  code: string;
-  yaml?: string;
-  language?: string;
+  code: string
+  yaml?: string
+  language?: string
 }
 
 export function CodeBlock({ code, yaml, language = 'tsx' }: CodeBlockProps) {
-  const [showYaml, setShowYaml] = useState(false);
-  const hasYaml = yaml && yaml.length > 0;
+  const [showYaml, setShowYaml] = useState(false)
+  const hasYaml = yaml && yaml.length > 0
 
   return (
     <div className="rounded-lg border border-white/10 overflow-hidden">
@@ -89,9 +89,7 @@ export function CodeBlock({ code, yaml, language = 'tsx' }: CodeBlockProps) {
           <button
             onClick={() => setShowYaml(false)}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
-              !showYaml
-                ? 'text-moss border-b-2 border-moss'
-                : 'text-cloud/60 hover:text-cloud/80'
+              !showYaml ? 'text-moss border-b-2 border-moss' : 'text-cloud/60 hover:text-cloud/80'
             }`}
           >
             TSX
@@ -99,9 +97,7 @@ export function CodeBlock({ code, yaml, language = 'tsx' }: CodeBlockProps) {
           <button
             onClick={() => setShowYaml(true)}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
-              showYaml
-                ? 'text-moss border-b-2 border-moss'
-                : 'text-cloud/60 hover:text-cloud/80'
+              showYaml ? 'text-moss border-b-2 border-moss' : 'text-cloud/60 hover:text-cloud/80'
             }`}
           >
             YAML Output
@@ -123,5 +119,5 @@ export function CodeBlock({ code, yaml, language = 'tsx' }: CodeBlockProps) {
         {showYaml ? yaml! : code}
       </SyntaxHighlighter>
     </div>
-  );
+  )
 }

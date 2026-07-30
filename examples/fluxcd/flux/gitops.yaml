@@ -43,4 +43,4 @@ spec:
     - name: cert-manager
     - name: ingress-nginx
     - name: fluxcd-demo-staging
-  suspend: true  # Require manual promotion
+  suspend: true # Require manual promotion

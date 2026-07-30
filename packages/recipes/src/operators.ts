@@ -1,4 +1,4 @@
-import { manifestOperator } from '@r8s/k8s-types';
+import { manifestOperator } from '@r8s/k8s-types'
 
 /** CloudNativePG operator declaration */
 export const cnpgOperator = (version = '1.22.5') =>
@@ -15,7 +15,7 @@ export const cnpgOperator = (version = '1.22.5') =>
         'scheduledbackups.postgresql.cnpg.io',
       ],
     }
-  );
+  )
 
 /** NGINX Ingress Controller operator declaration */
 export const nginxIngressOperator = (version = '1.15.1') =>
@@ -27,7 +27,7 @@ export const nginxIngressOperator = (version = '1.15.1') =>
       description: 'NGINX Ingress Controller',
       namespace: 'ingress-nginx',
     }
-  );
+  )
 
 /**
  * Vault Secrets Operator declaration.
@@ -49,5 +49,4 @@ export const vaultSecretsOperator = (version = '0.5.0') =>
       namespace: 'vault-secrets-operator',
       crds: ['vaultstaticsecrets.secrets.hashicorp.com', 'vaultauths.secrets.hashicorp.com'],
     }
-  );
-
+  )

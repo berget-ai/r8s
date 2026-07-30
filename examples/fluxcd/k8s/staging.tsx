@@ -1,14 +1,10 @@
-import { Postgres, CustomIngress } from '@r8s/recipes';
-import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager';
+import { Postgres, CustomIngress } from '@r8s/recipes'
+import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager'
 
 export default function StagingApp() {
   return (
     <>
-      <LetsEncryptIssuer
-        name="letsencrypt-staging"
-        email="admin@example.com"
-        server="staging"
-      />
+      <LetsEncryptIssuer name="letsencrypt-staging" email="admin@example.com" server="staging" />
 
       <Postgres
         name="app-db"
@@ -29,15 +25,19 @@ export default function StagingApp() {
           template: {
             metadata: { labels: { app: 'app' } },
             spec: {
-              containers: [{
-                name: 'app',
-                image: 'myapp/app:staging',
-                ports: [{ containerPort: 3000 }],
-                env: [{
-                  name: 'DATABASE_URL',
-                  value: 'postgresql://app:staging-password@app-db:5432/app',
-                }],
-              }],
+              containers: [
+                {
+                  name: 'app',
+                  image: 'myapp/app:staging',
+                  ports: [{ containerPort: 3000 }],
+                  env: [
+                    {
+                      name: 'DATABASE_URL',
+                      value: 'postgresql://app:staging-password@app-db:5432/app',
+                    },
+                  ],
+                },
+              ],
             },
           },
         }}
@@ -62,5 +62,5 @@ export default function StagingApp() {
         servicePort={80}
       />
     </>
-  );
+  )
 }

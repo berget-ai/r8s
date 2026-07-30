@@ -1,19 +1,19 @@
 // Platform team's shared components library
 // This would be published as @mycompany/platform-k8s
 
-import { CustomIngress } from '@r8s/recipes';
+import { CustomIngress } from '@r8s/recipes'
 
 interface ServiceProps {
-  name: string;
-  namespace: string;
-  image: string;
-  port: number;
-  replicas?: number;
-  env?: Array<{ name: string; value: string }>;
+  name: string
+  namespace: string
+  image: string
+  port: number
+  replicas?: number
+  env?: Array<{ name: string; value: string }>
   resources?: {
-    requests?: { memory?: string; cpu?: string };
-    limits?: { memory?: string; cpu?: string };
-  };
+    requests?: { memory?: string; cpu?: string }
+    limits?: { memory?: string; cpu?: string }
+  }
 }
 
 export function Microservice(props: ServiceProps) {
@@ -28,7 +28,7 @@ export function Microservice(props: ServiceProps) {
       requests: { memory: '128Mi', cpu: '100m' },
       limits: { memory: '256Mi', cpu: '200m' },
     },
-  } = props;
+  } = props
 
   return (
     <>
@@ -52,27 +52,29 @@ export function Microservice(props: ServiceProps) {
               },
             },
             spec: {
-              containers: [{
-                name: 'app',
-                image,
-                ports: [{ containerPort: port }],
-                env: [
-                  { name: 'PORT', value: String(port) },
-                  { name: 'LOG_LEVEL', value: 'info' },
-                  ...env,
-                ],
-                resources,
-                livenessProbe: {
-                  httpGet: { path: '/health', port },
-                  initialDelaySeconds: 10,
-                  periodSeconds: 10,
+              containers: [
+                {
+                  name: 'app',
+                  image,
+                  ports: [{ containerPort: port }],
+                  env: [
+                    { name: 'PORT', value: String(port) },
+                    { name: 'LOG_LEVEL', value: 'info' },
+                    ...env,
+                  ],
+                  resources,
+                  livenessProbe: {
+                    httpGet: { path: '/health', port },
+                    initialDelaySeconds: 10,
+                    periodSeconds: 10,
+                  },
+                  readinessProbe: {
+                    httpGet: { path: '/ready', port },
+                    initialDelaySeconds: 5,
+                    periodSeconds: 5,
+                  },
                 },
-                readinessProbe: {
-                  httpGet: { path: '/ready', port },
-                  initialDelaySeconds: 5,
-                  periodSeconds: 5,
-                },
-              }],
+              ],
             },
           },
         }}
@@ -85,25 +87,27 @@ export function Microservice(props: ServiceProps) {
         spec={{
           type: 'ClusterIP',
           selector: { app: name },
-          ports: [{
-            port: 80,
-            targetPort: port,
-            name: 'http',
-          }],
+          ports: [
+            {
+              port: 80,
+              targetPort: port,
+              name: 'http',
+            },
+          ],
         }}
       />
     </>
-  );
+  )
 }
 
 interface PublicServiceProps extends ServiceProps {
-  domain: string;
-  tlsSecretName?: string;
-  rateLimit?: string;
+  domain: string
+  tlsSecretName?: string
+  rateLimit?: string
 }
 
 export function PublicService(props: PublicServiceProps) {
-  const { domain, tlsSecretName, rateLimit, ...serviceProps } = props;
+  const { domain, tlsSecretName, rateLimit, ...serviceProps } = props
 
   return (
     <>
@@ -116,20 +120,24 @@ export function PublicService(props: PublicServiceProps) {
         serviceName={serviceProps.name}
         servicePort={80}
         tlsSecretName={tlsSecretName}
-        annotations={rateLimit ? {
-          'nginx.ingress.kubernetes.io/rate-limit': rateLimit,
-        } : undefined}
+        annotations={
+          rateLimit
+            ? {
+                'nginx.ingress.kubernetes.io/rate-limit': rateLimit,
+              }
+            : undefined
+        }
       />
     </>
-  );
+  )
 }
 
 interface InternalServiceProps extends ServiceProps {
-  allowedClients?: string[];
+  allowedClients?: string[]
 }
 
 export function InternalService(props: InternalServiceProps) {
-  const { allowedClients, ...serviceProps } = props;
+  const { allowedClients, ...serviceProps } = props
 
   return (
     <>
@@ -145,11 +153,13 @@ export function InternalService(props: InternalServiceProps) {
         spec={{
           podSelector: { matchLabels: { app: serviceProps.name } },
           policyTypes: ['Ingress'],
-          ingress: allowedClients ? allowedClients.map(client => ({
-            from: [{ podSelector: { matchLabels: { app: client } } }],
-          })) : undefined,
+          ingress: allowedClients
+            ? allowedClients.map((client) => ({
+                from: [{ podSelector: { matchLabels: { app: client } } }],
+              }))
+            : undefined,
         }}
       />
     </>
-  );
+  )
 }

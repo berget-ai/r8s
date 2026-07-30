@@ -1,21 +1,21 @@
 // Platform team's "Golden Path" template
 // Teams just fill in the blanks — everything else is standardized
 
-import { Postgres, CustomIngress } from '@r8s/recipes';
+import { Postgres, CustomIngress } from '@r8s/recipes'
 
 interface StandardWebAppProps {
   // Required: What the team controls
-  name: string;
-  image: string;
-  domain: string;
+  name: string
+  image: string
+  domain: string
 
   // Optional: Sensible defaults provided
-  namespace?: string;
-  port?: number;
-  replicas?: number;
-  dbName?: string;
-  enableMonitoring?: boolean;
-  enableTracing?: boolean;
+  namespace?: string
+  port?: number
+  replicas?: number
+  dbName?: string
+  enableMonitoring?: boolean
+  enableTracing?: boolean
 }
 
 export function StandardWebApp(props: StandardWebAppProps) {
@@ -29,9 +29,9 @@ export function StandardWebApp(props: StandardWebAppProps) {
     dbName = name,
     enableMonitoring = true,
     enableTracing = true,
-  } = props;
+  } = props
 
-  const dbPassword = '${DB_PASSWORD}'; // Injected via external secret
+  const dbPassword = '${DB_PASSWORD}' // Injected via external secret
 
   return (
     <>
@@ -79,34 +79,36 @@ export function StandardWebApp(props: StandardWebAppProps) {
               },
             },
             spec: {
-              containers: [{
-                name: 'app',
-                image,
-                ports: [{ containerPort: port }],
-                env: [
-                  { name: 'PORT', value: String(port) },
-                  {
-                    name: 'DATABASE_URL',
-                    value: `postgresql://${name}:${dbPassword}@${name}-db:5432/${dbName}`,
+              containers: [
+                {
+                  name: 'app',
+                  image,
+                  ports: [{ containerPort: port }],
+                  env: [
+                    { name: 'PORT', value: String(port) },
+                    {
+                      name: 'DATABASE_URL',
+                      value: `postgresql://${name}:${dbPassword}@${name}-db:5432/${dbName}`,
+                    },
+                    ...(enableMonitoring ? [{ name: 'METRICS_ENABLED', value: 'true' }] : []),
+                    ...(enableTracing ? [{ name: 'TRACING_ENABLED', value: 'true' }] : []),
+                  ],
+                  resources: {
+                    requests: { memory: '128Mi', cpu: '100m' },
+                    limits: { memory: '256Mi', cpu: '200m' },
                   },
-                  ...(enableMonitoring ? [{ name: 'METRICS_ENABLED', value: 'true' }] : []),
-                  ...(enableTracing ? [{ name: 'TRACING_ENABLED', value: 'true' }] : []),
-                ],
-                resources: {
-                  requests: { memory: '128Mi', cpu: '100m' },
-                  limits: { memory: '256Mi', cpu: '200m' },
+                  livenessProbe: {
+                    httpGet: { path: '/health', port },
+                    initialDelaySeconds: 10,
+                    periodSeconds: 10,
+                  },
+                  readinessProbe: {
+                    httpGet: { path: '/ready', port },
+                    initialDelaySeconds: 5,
+                    periodSeconds: 5,
+                  },
                 },
-                livenessProbe: {
-                  httpGet: { path: '/health', port },
-                  initialDelaySeconds: 10,
-                  periodSeconds: 10,
-                },
-                readinessProbe: {
-                  httpGet: { path: '/ready', port },
-                  initialDelaySeconds: 5,
-                  periodSeconds: 5,
-                },
-              }],
+              ],
             },
           },
         }}
@@ -151,5 +153,5 @@ export function StandardWebApp(props: StandardWebAppProps) {
         />
       )}
     </>
-  );
+  )
 }

@@ -1,9 +1,9 @@
-import { usePageContext } from "vike-react/usePageContext";
-import type { Recipe } from "../../../data/recipes";
+import { usePageContext } from 'vike-react/usePageContext'
+import type { Recipe } from '../../../data/recipes'
 
 export function Head() {
-  const pageContext = usePageContext();
-  const recipe = pageContext.recipe as Recipe | undefined;
+  const pageContext = usePageContext()
+  const recipe = pageContext.recipe as Recipe | undefined
 
   if (!recipe) {
     return (
@@ -11,12 +11,12 @@ export function Head() {
         <title>{`Recipe Not Found — r8s`}</title>
         <meta name="robots" content="noindex" />
       </>
-    );
+    )
   }
 
-  const keywords = recipe.keywords.join(", ");
-  const title = `${recipe.title} — r8s Recipes`;
-  
+  const keywords = recipe.keywords.join(', ')
+  const title = `${recipe.title} — r8s Recipes`
+
   return (
     <>
       <title>{title}</title>
@@ -32,16 +32,16 @@ export function Head() {
       <link rel="canonical" href={`https://r8s.dev/recipes/${recipe.slug}`} />
       <script type="application/ld+json">
         {JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "TechArticle",
-          "headline": recipe.title,
-          "description": recipe.description,
-          "keywords": keywords,
-          "articleSection": recipe.category,
-          "codeRepository": "https://github.com/berget-ai/r8s",
-          "programmingLanguage": "TypeScript"
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: recipe.title,
+          description: recipe.description,
+          keywords: keywords,
+          articleSection: recipe.category,
+          codeRepository: 'https://github.com/berget-ai/r8s',
+          programmingLanguage: 'TypeScript',
         })}
       </script>
     </>
-  );
+  )
 }

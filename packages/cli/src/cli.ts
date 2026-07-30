@@ -1,46 +1,46 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { resolve, join } from 'path';
-import { renderToYaml } from './renderer';
+import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { resolve, join } from 'path'
+import { renderToYaml } from './renderer'
 
 interface CliOptions {
-  entry?: string;
-  out?: string;
-  help?: boolean;
-  template?: string;
-  operators?: string;
-  strategy?: 'github-actions' | 'flux-controller';
-  includeOperators?: boolean;
-  operatorsOnly?: boolean;
+  entry?: string
+  out?: string
+  help?: boolean
+  template?: string
+  operators?: string
+  strategy?: 'github-actions' | 'flux-controller'
+  includeOperators?: boolean
+  operatorsOnly?: boolean
 }
 
 function parseArgs(args: string[]): CliOptions {
-  const options: CliOptions = {};
+  const options: CliOptions = {}
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
+    const arg = args[i]
 
     if (arg === '--entry' || arg === '-e') {
-      options.entry = args[++i];
+      options.entry = args[++i]
     } else if (arg === '--out' || arg === '-o') {
-      options.out = args[++i];
+      options.out = args[++i]
     } else if (arg === '--template' || arg === '-t') {
-      options.template = args[++i];
+      options.template = args[++i]
     } else if (arg === '--operators') {
-      options.operators = args[++i];
+      options.operators = args[++i]
     } else if (arg === '--strategy' || arg === '-s') {
-      options.strategy = args[++i] as 'github-actions' | 'flux-controller';
+      options.strategy = args[++i] as 'github-actions' | 'flux-controller'
     } else if (arg === '--include-operators') {
-      options.includeOperators = true;
+      options.includeOperators = true
     } else if (arg === '--operators-only') {
-      options.operatorsOnly = true;
+      options.operatorsOnly = true
     } else if (arg === '--help' || arg === '-h') {
-      options.help = true;
+      options.help = true
     }
   }
 
-  return options;
+  return options
 }
 
 function showHelp(): void {
@@ -76,24 +76,24 @@ Examples:
   r8s init my-project --template fullstack
   r8s init my-project --strategy flux-controller
   r8s init my-project --operators cert-manager,openbao
-`);
+`)
 }
 
 async function findEntryFile(entryPath?: string): Promise<string> {
   if (entryPath) {
-    const resolved = resolve(entryPath);
+    const resolved = resolve(entryPath)
     if (!existsSync(resolved)) {
-      throw new Error(`Entry file not found: ${resolved}`);
+      throw new Error(`Entry file not found: ${resolved}`)
     }
-    return resolved;
+    return resolved
   }
 
-  const defaults = ['k8s/r8s.tsx', 'k8s/r8s.tsx', 'k8s/index.tsx', 'infra/r8s.tsx'];
+  const defaults = ['k8s/r8s.tsx', 'k8s/r8s.tsx', 'k8s/index.tsx', 'infra/r8s.tsx']
 
   for (const defaultPath of defaults) {
-    const resolved = resolve(defaultPath);
+    const resolved = resolve(defaultPath)
     if (existsSync(resolved)) {
-      return resolved;
+      return resolved
     }
   }
 
@@ -101,7 +101,7 @@ async function findEntryFile(entryPath?: string): Promise<string> {
     'No entry file found. Expected one of:\n' +
       defaults.map((d) => `  - ${d}`).join('\n') +
       '\n\nUse --entry to specify a custom path.'
-  );
+  )
 }
 
 const VALID_OPERATORS = [
@@ -115,7 +115,7 @@ const VALID_OPERATORS = [
   'clickhouse',
   'logging-operator',
   'loki',
-];
+]
 
 async function initProject(
   projectName: string,
@@ -123,45 +123,45 @@ async function initProject(
   strategy: 'github-actions' | 'flux-controller' = 'github-actions',
   operators?: string[]
 ): Promise<void> {
-  const projectDir = resolve(projectName);
+  const projectDir = resolve(projectName)
 
   if (existsSync(projectDir)) {
-    throw new Error(`Directory ${projectName} already exists`);
+    throw new Error(`Directory ${projectName} already exists`)
   }
 
   // Validate operators if provided
   if (operators && operators.length > 0) {
-    const invalid = operators.filter((op) => !VALID_OPERATORS.includes(op));
+    const invalid = operators.filter((op) => !VALID_OPERATORS.includes(op))
     if (invalid.length > 0) {
       throw new Error(
         `Invalid operators: ${invalid.join(', ')}. ` +
           `Valid operators are: ${VALID_OPERATORS.join(', ')}`
-      );
+      )
     }
   }
 
-  console.log(`Creating r8s project: ${projectName}`);
-  console.log(`Deployment strategy: ${strategy}`);
+  console.log(`Creating r8s project: ${projectName}`)
+  console.log(`Deployment strategy: ${strategy}`)
 
   // Create directory structure
-  mkdirSync(join(projectDir, 'k8s'), { recursive: true });
+  mkdirSync(join(projectDir, 'k8s'), { recursive: true })
 
   // Create package.json
   const dependencies: Record<string, string> = {
     '@r8s/core': '^0.1.0',
     '@r8s/recipes': '^0.1.0',
-  };
+  }
 
   // Add operator packages if requested
   if (operators) {
     for (const op of operators) {
-      dependencies[`@r8s/${op}`] = '^0.1.0';
+      dependencies[`@r8s/${op}`] = '^0.1.0'
     }
   }
 
-  const scripts: Record<string, string> = {};
+  const scripts: Record<string, string> = {}
   if (strategy === 'github-actions') {
-    scripts['render-k8s'] = 'r8s render';
+    scripts['render-k8s'] = 'r8s render'
   }
 
   const packageJson = {
@@ -174,13 +174,13 @@ async function initProject(
       '@r8s/cli': '^0.1.0',
       typescript: '^5.3.0',
     },
-  };
+  }
 
   writeFileSync(
     join(projectDir, 'package.json'),
     JSON.stringify(packageJson, null, 2) + '\n',
     'utf-8'
-  );
+  )
 
   // Create tsconfig.json
   const tsConfig = {
@@ -196,24 +196,24 @@ async function initProject(
       forceConsistentCasingInFileNames: true,
     },
     include: ['k8s/**/*'],
-  };
+  }
 
   writeFileSync(
     join(projectDir, 'tsconfig.json'),
     JSON.stringify(tsConfig, null, 2) + '\n',
     'utf-8'
-  );
+  )
 
   // Create k8s/r8s.tsx based on template
-  let r8sContent: string;
+  let r8sContent: string
 
   if (template === 'fullstack') {
-    r8sContent = generateFullstackTemplate(strategy);
+    r8sContent = generateFullstackTemplate(strategy)
   } else {
-    r8sContent = generateBasicTemplate(strategy);
+    r8sContent = generateBasicTemplate(strategy)
   }
 
-  writeFileSync(join(projectDir, 'k8s', 'r8s.tsx'), r8sContent, 'utf-8');
+  writeFileSync(join(projectDir, 'k8s', 'r8s.tsx'), r8sContent, 'utf-8')
 
   // Create .gitignore
   const gitignore =
@@ -232,40 +232,40 @@ dist/
 !k8s/*.yaml
 !.github/
 !flux/
-`;
+`
 
-  writeFileSync(join(projectDir, '.gitignore'), gitignore, 'utf-8');
+  writeFileSync(join(projectDir, '.gitignore'), gitignore, 'utf-8')
 
   // Create deployment strategy files
   if (strategy === 'github-actions') {
-    createGitHubActionsWorkflow(projectDir);
+    createGitHubActionsWorkflow(projectDir)
   } else {
-    createFluxControllerFiles(projectDir, projectName);
+    createFluxControllerFiles(projectDir, projectName)
   }
 
   // Create README.md
-  const readme = generateReadme(projectName, strategy);
+  const readme = generateReadme(projectName, strategy)
 
-  writeFileSync(join(projectDir, 'README.md'), readme, 'utf-8');
+  writeFileSync(join(projectDir, 'README.md'), readme, 'utf-8')
 
-  console.log(`\n✅ Project created: ${projectName}`);
-  console.log(`\nDeployment strategy: ${strategy}`);
+  console.log(`\n✅ Project created: ${projectName}`)
+  console.log(`\nDeployment strategy: ${strategy}`)
 
   if (strategy === 'github-actions') {
-    console.log(`\nNext steps:`);
-    console.log(`  cd ${projectName}`);
-    console.log(`  npm install`);
-    console.log(`  npm run render-k8s`);
-    console.log(`\nGitHub Actions will auto-render on push to main.`);
+    console.log(`\nNext steps:`)
+    console.log(`  cd ${projectName}`)
+    console.log(`  npm install`)
+    console.log(`  npm run render-k8s`)
+    console.log(`\nGitHub Actions will auto-render on push to main.`)
   } else {
-    console.log(`\nNext steps:`);
-    console.log(`  cd ${projectName}`);
-    console.log(`  npm install`);
-    console.log(`  git init && git add . && git commit -m "init"`);
-    console.log(`  # Push to a Git repository`);
-    console.log(`  # Configure FluxCD to point to your repo`);
-    console.log(`\nFluxCD will render .tsx files in-cluster.`);
-    console.log(`See flux/ directory for example manifests.`);
+    console.log(`\nNext steps:`)
+    console.log(`  cd ${projectName}`)
+    console.log(`  npm install`)
+    console.log(`  git init && git add . && git commit -m "init"`)
+    console.log(`  # Push to a Git repository`)
+    console.log(`  # Configure FluxCD to point to your repo`)
+    console.log(`\nFluxCD will render .tsx files in-cluster.`)
+    console.log(`See flux/ directory for example manifests.`)
   }
 }
 
@@ -273,7 +273,7 @@ function generateBasicTemplate(strategy: string): string {
   const fluxComment =
     strategy === 'flux-controller'
       ? `// This file stays as .tsx - FluxCD renders it in-cluster via r8s-controller\n`
-      : '';
+      : ''
 
   return `${fluxComment}import { App } from '@r8s/recipes';
 
@@ -284,14 +284,14 @@ export default () => (
     host="myapp.example.com"
   />
 );
-`;
+`
 }
 
 function generateFullstackTemplate(strategy: string): string {
   const fluxComment =
     strategy === 'flux-controller'
       ? `// This file stays as .tsx - FluxCD renders it in-cluster via r8s-controller\n`
-      : '';
+      : ''
 
   return `${fluxComment}import { App, Database } from '@r8s/recipes';
 
@@ -326,11 +326,11 @@ export default () => (
     />
   </>
 );
-`;
+`
 }
 
 function createGitHubActionsWorkflow(projectDir: string): void {
-  mkdirSync(join(projectDir, '.github', 'workflows'), { recursive: true });
+  mkdirSync(join(projectDir, '.github', 'workflows'), { recursive: true })
 
   const workflowContent = `name: Render Kubernetes Manifests
 
@@ -381,14 +381,14 @@ jobs:
           git add k8s/manifest.yaml
           git commit -m "chore: render kubernetes manifests [skip ci]"
           git push
-`;
+`
 
-  writeFileSync(join(projectDir, '.github', 'workflows', 'render.yaml'), workflowContent, 'utf-8');
+  writeFileSync(join(projectDir, '.github', 'workflows', 'render.yaml'), workflowContent, 'utf-8')
 }
 
 function createFluxControllerFiles(projectDir: string, projectName: string): void {
   // Create flux/ directory with example manifests
-  mkdirSync(join(projectDir, 'flux'), { recursive: true });
+  mkdirSync(join(projectDir, 'flux'), { recursive: true })
 
   const gitRepository = `apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
@@ -413,9 +413,9 @@ spec:
   sourceRef:
     kind: GitRepository
     name: ${projectName}
-`;
+`
 
-  writeFileSync(join(projectDir, 'flux', 'gitrepository.yaml'), gitRepository, 'utf-8');
+  writeFileSync(join(projectDir, 'flux', 'gitrepository.yaml'), gitRepository, 'utf-8')
 
   const webhook = `apiVersion: notification.toolkit.fluxcd.io/v1
 kind: Receiver
@@ -443,9 +443,9 @@ metadata:
 type: Opaque
 stringData:
   token: "replace-me-with-20-char-random-string"
-`;
+`
 
-  writeFileSync(join(projectDir, 'flux', 'webhook.yaml'), webhook, 'utf-8');
+  writeFileSync(join(projectDir, 'flux', 'webhook.yaml'), webhook, 'utf-8')
 
   const readme = `# FluxCD Setup for ${projectName}
 
@@ -495,9 +495,9 @@ See https://github.com/berget-ai/r8s/tree/main/packages/flux-controller for setu
 npm install
 npx r8s render --out k8s/manifest.yaml
 \`\`\`
-`;
+`
 
-  writeFileSync(join(projectDir, 'flux', 'README.md'), readme, 'utf-8');
+  writeFileSync(join(projectDir, 'flux', 'README.md'), readme, 'utf-8')
 }
 
 function generateReadme(projectName: string, strategy: string): string {
@@ -547,7 +547,7 @@ This project uses **GitHub Actions** to render TSX → YAML:
 
 - [r8s Documentation](https://github.com/berget-ai/r8s)
 - [FluxCD Integration](https://github.com/berget-ai/r8s/tree/main/packages/flux-controller)
-`;
+`
   } else {
     return `# ${projectName}
 
@@ -603,97 +603,97 @@ See \`flux/README.md\` for detailed setup instructions.
 - [r8s Documentation](https://github.com/berget-ai/r8s)
 - [FluxCD Controller](https://github.com/berget-ai/r8s/tree/main/packages/flux-controller)
 - [FluxCD Webhooks](https://github.com/berget-ai/r8s/tree/main/packages/flux-controller/WEBHOOKS.md)
-`;
+`
   }
 }
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const options = parseArgs(args);
+  const args = process.argv.slice(2)
+  const options = parseArgs(args)
 
   if (options.help) {
-    showHelp();
-    process.exit(0);
+    showHelp()
+    process.exit(0)
   }
 
-  const command = args[0] || 'render';
+  const command = args[0] || 'render'
 
   if (command === 'init') {
-    const projectName = args[1] || 'r8s-app';
-    const template = options.template || 'basic';
-    const strategy = options.strategy || 'github-actions';
+    const projectName = args[1] || 'r8s-app'
+    const template = options.template || 'basic'
+    const strategy = options.strategy || 'github-actions'
     const operators = options.operators
       ?.split(',')
       .map((op) => op.trim())
-      .filter(Boolean);
+      .filter(Boolean)
 
     if (strategy !== 'github-actions' && strategy !== 'flux-controller') {
-      console.error(`Invalid strategy: ${strategy}. Valid: github-actions, flux-controller`);
-      process.exit(1);
+      console.error(`Invalid strategy: ${strategy}. Valid: github-actions, flux-controller`)
+      process.exit(1)
     }
 
     try {
-      await initProject(projectName, template, strategy, operators);
+      await initProject(projectName, template, strategy, operators)
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : error);
-      process.exit(1);
+      console.error('Error:', error instanceof Error ? error.message : error)
+      process.exit(1)
     }
-    return;
+    return
   }
 
   if (command === 'operators') {
     try {
-      const entryFile = await findEntryFile(options.entry);
-      console.error(`Rendering operators from: ${entryFile}`);
+      const entryFile = await findEntryFile(options.entry)
+      console.error(`Rendering operators from: ${entryFile}`)
 
-      const { renderToOperatorsYaml } = await import('./renderer.js');
-      const yamlOutput = await renderToOperatorsYaml(entryFile);
+      const { renderToOperatorsYaml } = await import('./renderer.js')
+      const yamlOutput = await renderToOperatorsYaml(entryFile)
 
       if (options.out) {
-        const { writeFileSync, mkdirSync } = await import('fs');
-        const { dirname } = await import('path');
-        mkdirSync(dirname(resolve(options.out)), { recursive: true });
-        writeFileSync(resolve(options.out), yamlOutput, 'utf-8');
-        console.error(`Output written to: ${resolve(options.out)}`);
+        const { writeFileSync, mkdirSync } = await import('fs')
+        const { dirname } = await import('path')
+        mkdirSync(dirname(resolve(options.out)), { recursive: true })
+        writeFileSync(resolve(options.out), yamlOutput, 'utf-8')
+        console.error(`Output written to: ${resolve(options.out)}`)
       } else {
-        console.log(yamlOutput);
+        console.log(yamlOutput)
       }
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : error);
-      process.exit(1);
+      console.error('Error:', error instanceof Error ? error.message : error)
+      process.exit(1)
     }
-    return;
+    return
   }
 
   if (command !== 'render') {
-    console.error(`Unknown command: ${command}`);
-    showHelp();
-    process.exit(1);
+    console.error(`Unknown command: ${command}`)
+    showHelp()
+    process.exit(1)
   }
 
   try {
-    const entryFile = await findEntryFile(options.entry);
-    console.error(`Rendering: ${entryFile}`);
+    const entryFile = await findEntryFile(options.entry)
+    console.error(`Rendering: ${entryFile}`)
 
-      const { renderToYaml } = await import('./renderer.js');
+    const { renderToYaml } = await import('./renderer.js')
     const yamlOutput = await renderToYaml(entryFile, {
       includeOperators: options.includeOperators,
       operatorsOnly: options.operatorsOnly,
-    });
+    })
 
     if (options.out) {
-      const { writeFileSync, mkdirSync } = await import('fs');
-      const { dirname } = await import('path');
-      mkdirSync(dirname(resolve(options.out)), { recursive: true });
-      writeFileSync(resolve(options.out), yamlOutput, 'utf-8');
-      console.error(`Output written to: ${resolve(options.out)}`);
+      const { writeFileSync, mkdirSync } = await import('fs')
+      const { dirname } = await import('path')
+      mkdirSync(dirname(resolve(options.out)), { recursive: true })
+      writeFileSync(resolve(options.out), yamlOutput, 'utf-8')
+      console.error(`Output written to: ${resolve(options.out)}`)
     } else {
-      console.log(yamlOutput);
+      console.log(yamlOutput)
     }
   } catch (error) {
-    console.error('Error:', error instanceof Error ? error.message : error);
-    process.exit(1);
+    console.error('Error:', error instanceof Error ? error.message : error)
+    process.exit(1)
   }
 }
 
-main();
+main()

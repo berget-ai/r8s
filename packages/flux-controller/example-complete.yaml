@@ -103,7 +103,7 @@ metadata:
   namespace: r8s-production
 type: Opaque
 stringData:
-  token: "replace-me-with-20-char-random-string"
+  token: 'replace-me-with-20-char-random-string'
 ---
 # Slack notifications for failures
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
@@ -125,7 +125,7 @@ metadata:
   namespace: r8s-production
 type: Opaque
 stringData:
-  address: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+  address: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
 ---
 # Alert for r8s failures
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
@@ -145,8 +145,8 @@ spec:
       namespace: r8s-production
   eventSeverity: error
   inclusionList:
-    - "reconciliation failed"
-    - ".*render.*failed.*"
+    - 'reconciliation failed'
+    - '.*render.*failed.*'
 ---
 # Ingress for webhook endpoint
 apiVersion: networking.k8s.io/v1
@@ -156,7 +156,7 @@ metadata:
   namespace: r8s-production
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 spec:
   ingressClassName: nginx
   tls:
@@ -182,7 +182,7 @@ metadata:
   name: cluster-vars
   namespace: r8s-production
 data:
-  cluster_name: "production"
-  domain: "example.com"
-  environment: "prod"
-  region: "eu-north-1"
+  cluster_name: 'production'
+  domain: 'example.com'
+  environment: 'prod'
+  region: 'eu-north-1'

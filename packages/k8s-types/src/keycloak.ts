@@ -2,93 +2,93 @@
 // https://www.keycloak.org/operator/basic-deployment
 
 export interface Keycloak {
-  apiVersion: 'k8s.keycloak.org/v2alpha1';
-  kind: 'Keycloak';
+  apiVersion: 'k8s.keycloak.org/v2alpha1'
+  kind: 'Keycloak'
   metadata: {
-    name: string;
-    namespace: string;
-    labels?: Record<string, string>;
-  };
+    name: string
+    namespace: string
+    labels?: Record<string, string>
+  }
   spec: {
-    instances?: number;
+    instances?: number
     hostname?: {
-      hostname: string;
-      strict?: boolean;
-      strictBackchannel?: boolean;
-    };
+      hostname: string
+      strict?: boolean
+      strictBackchannel?: boolean
+    }
     http?: {
-      tlsSecret?: string;
-    };
+      tlsSecret?: string
+    }
     proxy?: {
-      headers?: string;
-    };
+      headers?: string
+    }
     db?: {
-      vendor?: string;
-      host?: string;
-      database?: string;
-      port?: number;
+      vendor?: string
+      host?: string
+      database?: string
+      port?: number
       usernameSecret?: {
-        name: string;
-        key: string;
-      };
+        name: string
+        key: string
+      }
       passwordSecret?: {
-        name: string;
-        key: string;
-      };
-    };
+        name: string
+        key: string
+      }
+    }
     ingress?: {
-      enabled?: boolean;
-      className?: string;
-    };
+      enabled?: boolean
+      className?: string
+    }
     transaction?: {
-      xaEnabled?: boolean;
-    };
+      xaEnabled?: boolean
+    }
     unsupported?: {
-      podTemplate?: Record<string, unknown>;
-    };
-  };
+      podTemplate?: Record<string, unknown>
+    }
+  }
 }
 
 export interface KeycloakRealmImport {
-  apiVersion: 'k8s.keycloak.org/v2alpha1';
-  kind: 'KeycloakRealmImport';
+  apiVersion: 'k8s.keycloak.org/v2alpha1'
+  kind: 'KeycloakRealmImport'
   metadata: {
-    name: string;
-    namespace: string;
-    labels?: Record<string, string>;
-  };
+    name: string
+    namespace: string
+    labels?: Record<string, string>
+  }
   spec: {
-    keycloakCRName: string;
+    keycloakCRName: string
     realm: {
-      realm: string;
-      enabled: boolean;
-      displayName?: string;
+      realm: string
+      enabled: boolean
+      displayName?: string
       clients?: Array<{
-        clientId: string;
-        name?: string;
-        enabled?: boolean;
-        clientAuthenticatorType?: string;
-        redirectUris?: string[];
-        webOrigins?: string[];
-        standardFlowEnabled?: boolean;
-        implicitFlowEnabled?: boolean;
-        directAccessGrantsEnabled?: boolean;
-        serviceAccountsEnabled?: boolean;
-        publicClient?: boolean;
-        protocol?: string;
-      }>;
+        clientId: string
+        name?: string
+        enabled?: boolean
+        clientAuthenticatorType?: string
+        redirectUris?: string[]
+        webOrigins?: string[]
+        standardFlowEnabled?: boolean
+        implicitFlowEnabled?: boolean
+        directAccessGrantsEnabled?: boolean
+        serviceAccountsEnabled?: boolean
+        publicClient?: boolean
+        protocol?: string
+      }>
       users?: Array<{
-        username: string;
-        enabled?: boolean;
-        email?: string;
-        firstName?: string;
-        lastName?: string;
+        username: string
+        enabled?: boolean
+        email?: string
+        firstName?: string
+        lastName?: string
         credentials?: Array<{
-          type: string;
-          value: string;
-          temporary?: boolean;
-        }>;
-      }>;
-    };
-  };
+          type: string
+          value: string
+          temporary?: boolean
+        }>
+      }>
+    }
+  }
 }

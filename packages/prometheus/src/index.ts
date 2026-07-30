@@ -1,5 +1,5 @@
-import { jsx } from '@r8s/core';
-import { helmOperator } from '@r8s/k8s-types';
+import { jsx } from '@r8s/core'
+import { helmOperator } from '@r8s/k8s-types'
 
 /** Prometheus Operator (kube-prometheus-stack) declaration */
 export const prometheusOperator = (version = '0.72.0') =>
@@ -21,26 +21,26 @@ export const prometheusOperator = (version = '0.72.0') =>
         'thanosrulers.monitoring.coreos.com',
       ],
     }
-  );
+  )
 
 export interface ServiceMonitorProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Extra labels attached to the ServiceMonitor (often used for Prometheus discovery) */
-  labels?: Record<string, string>;
+  labels?: Record<string, string>
   /** Label selector that picks the Service(s) whose endpoints should be scraped */
   selector: {
-    matchLabels: Record<string, string>;
-  };
+    matchLabels: Record<string, string>
+  }
   /** Endpoints to scrape — each entry names a port and optional path/interval */
   endpoints: Array<{
-    port: string;
-    path?: string;
-    interval?: string;
-    scrapeTimeout?: string;
-  }>;
+    port: string
+    path?: string
+    interval?: string
+    scrapeTimeout?: string
+  }>
 }
 
 /**
@@ -57,7 +57,7 @@ export interface ServiceMonitorProps {
  * />
  */
 export function ServiceMonitor(props: ServiceMonitorProps) {
-  const { name, namespace = 'default', labels, selector, endpoints } = props;
+  const { name, namespace = 'default', labels, selector, endpoints } = props
 
   const monitor = {
     apiVersion: 'monitoring.coreos.com/v1',
@@ -72,28 +72,28 @@ export function ServiceMonitor(props: ServiceMonitorProps) {
         ...(e.scrapeTimeout && { scrapeTimeout: e.scrapeTimeout }),
       })),
     },
-  };
+  }
 
-  return jsx('ServiceMonitor', monitor);
+  return jsx('ServiceMonitor', monitor)
 }
 
 export interface PrometheusRuleProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Alert groups — each contains a name, optional interval, and a list of alerting rules */
   groups: Array<{
-    name: string;
-    interval?: string;
+    name: string
+    interval?: string
     rules: Array<{
-      alert: string;
-      expr: string;
-      for?: string;
-      labels?: Record<string, string>;
-      annotations?: Record<string, string>;
-    }>;
-  }>;
+      alert: string
+      expr: string
+      for?: string
+      labels?: Record<string, string>
+      annotations?: Record<string, string>
+    }>
+  }>
 }
 
 /**
@@ -106,7 +106,7 @@ export interface PrometheusRuleProps {
  * <PrometheusRule name="api-alerts" groups={[{ name: "api", rules: [{ alert: "HighErrorRate", expr: 'rate(http_requests_total{status=~"5.."}[5m]) > 0.1', for: "5m" }] }]} />
  */
 export function PrometheusRule(props: PrometheusRuleProps) {
-  const { name, namespace = 'default', groups } = props;
+  const { name, namespace = 'default', groups } = props
 
   const rule = {
     apiVersion: 'monitoring.coreos.com/v1',
@@ -125,28 +125,28 @@ export function PrometheusRule(props: PrometheusRuleProps) {
         })),
       })),
     },
-  };
+  }
 
-  return jsx('PrometheusRule', rule);
+  return jsx('PrometheusRule', rule)
 }
 
 export interface PodMonitorProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Extra labels attached to the PodMonitor (often used for Prometheus discovery) */
-  labels?: Record<string, string>;
+  labels?: Record<string, string>
   /** Label selector that picks which pods should be scraped */
   selector: {
-    matchLabels: Record<string, string>;
-  };
+    matchLabels: Record<string, string>
+  }
   /** Pod metric endpoints to scrape — each names a port and optional path/interval */
   podMetricsEndpoints: Array<{
-    port: string;
-    path?: string;
-    interval?: string;
-  }>;
+    port: string
+    path?: string
+    interval?: string
+  }>
 }
 
 /**
@@ -159,7 +159,7 @@ export interface PodMonitorProps {
  * <PodMonitor name="worker-metrics" selector={{ matchLabels: { app: "worker" } }} podMetricsEndpoints={[{ port: "metrics", path: "/metrics", interval: "30s" }]} />
  */
 export function PodMonitor(props: PodMonitorProps) {
-  const { name, namespace = 'default', labels, selector, podMetricsEndpoints } = props;
+  const { name, namespace = 'default', labels, selector, podMetricsEndpoints } = props
 
   const monitor = {
     apiVersion: 'monitoring.coreos.com/v1',
@@ -173,7 +173,7 @@ export function PodMonitor(props: PodMonitorProps) {
         ...(e.interval && { interval: e.interval }),
       })),
     },
-  };
+  }
 
-  return jsx('PodMonitor', monitor);
+  return jsx('PodMonitor', monitor)
 }

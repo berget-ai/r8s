@@ -1,1 +1,1 @@
-export { renderToYaml } from './renderer';
+export { renderToYaml } from './renderer'

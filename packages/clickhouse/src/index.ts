@@ -1,5 +1,5 @@
-import { jsx } from '@r8s/core';
-import { helmOperator } from '@r8s/k8s-types';
+import { jsx } from '@r8s/core'
+import { helmOperator } from '@r8s/k8s-types'
 
 /** ClickHouse Operator declaration */
 export const clickhouseOperator = (version = '0.23.0') =>
@@ -17,64 +17,64 @@ export const clickhouseOperator = (version = '0.23.0') =>
         'clickhouseoperatorconfigurations.clickhouse.altinity.com',
       ],
     }
-  );
+  )
 
 export interface ClickHouseClusterProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Cluster topology — number of shards and replicas per shard */
   cluster?: {
     layout?: {
-      shardsCount?: number;
-      replicasCount?: number;
-    };
-  };
+      shardsCount?: number
+      replicasCount?: number
+    }
+  }
   /** ZooKeeper cluster used for ClickHouse replication and coordination */
   zookeeper?: {
-    nodes?: Array<{ host: string; port?: number }>;
-  };
+    nodes?: Array<{ host: string; port?: number }>
+  }
   /** ClickHouse users to create, keyed by username (each can have password, profile, quota, and grants) */
   users?: Record<
     string,
     {
-      password?: string;
-      profile?: string;
-      quota?: string;
-      networks?: { ip?: string[] };
-      grants?: { query?: string[] };
+      password?: string
+      profile?: string
+      quota?: string
+      networks?: { ip?: string[] }
+      grants?: { query?: string[] }
     }
-  >;
+  >
   /** ClickHouse user profiles (settings) keyed by profile name */
-  profiles?: Record<string, Record<string, string>>;
+  profiles?: Record<string, Record<string, string>>
   /** ClickHouse quotas keyed by quota name */
-  quotas?: Record<string, Record<string, string>>;
+  quotas?: Record<string, Record<string, string>>
   /** Pod and persistent-volume templates for customizing how ClickHouse pods run and store data */
   templates?: {
     podTemplates?: Array<{
-      name: string;
+      name: string
       spec: {
         containers: Array<{
-          name: string;
-          image: string;
+          name: string
+          image: string
           resources?: {
-            requests?: { cpu?: string; memory?: string };
-            limits?: { cpu?: string; memory?: string };
-          };
-        }>;
-      };
-    }>;
+            requests?: { cpu?: string; memory?: string }
+            limits?: { cpu?: string; memory?: string }
+          }
+        }>
+      }
+    }>
     volumeClaimTemplates?: Array<{
-      name: string;
+      name: string
       spec: {
-        accessModes: string[];
+        accessModes: string[]
         resources: {
-          requests: { storage: string };
-        };
-      };
-    }>;
-  };
+          requests: { storage: string }
+        }
+      }
+    }>
+  }
 }
 
 /**
@@ -99,7 +99,7 @@ export function ClickHouseCluster(props: ClickHouseClusterProps) {
     profiles,
     quotas,
     templates,
-  } = props;
+  } = props
 
   const chi = {
     apiVersion: 'clickhouse.altinity.com/v1',
@@ -137,7 +137,7 @@ export function ClickHouseCluster(props: ClickHouseClusterProps) {
         },
       }),
     },
-  };
+  }
 
-  return jsx('ClickHouseInstallation', chi);
+  return jsx('ClickHouseInstallation', chi)
 }

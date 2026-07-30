@@ -1,35 +1,35 @@
-import { jsx, useContext } from '@r8s/core';
-import { Keycloak, KeycloakRealmImport } from '@r8s/k8s-types';
-import { DatabaseContext } from '@r8s/core/defaults';
-import { olmOperator } from '@r8s/k8s-types';
+import { jsx, useContext } from '@r8s/core'
+import { Keycloak, KeycloakRealmImport } from '@r8s/k8s-types'
+import { DatabaseContext } from '@r8s/core/defaults'
+import { olmOperator } from '@r8s/k8s-types'
 
 /** Keycloak operator declaration (requires OLM) */
 export const keycloakOperator = (version = '24.0.0') =>
   olmOperator('keycloak-operator', 'keycloak-operator', 'fast', version, {
     description: 'Keycloak identity and access management operator',
-  });
+  })
 
 export interface KeycloakInstanceProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Public hostname users reach Keycloak on (e.g., 'auth.example.com') */
-  hostname: string;
+  hostname: string
   /** Number of Keycloak pod replicas */
-  instances?: number;
+  instances?: number
   /** Name of the Kubernetes Secret holding the Keycloak TLS certificate */
-  tlsSecretName?: string;
+  tlsSecretName?: string
   /** Hostname of the external PostgreSQL database; auto-wired when wrapped in a Database component */
-  dbHost?: string;
+  dbHost?: string
   /** PostgreSQL database name (defaults to 'keycloak') */
-  dbName?: string;
+  dbName?: string
   /** Kubernetes Secret holding the database username (used as { name, key }) */
-  dbUsernameSecret?: { name: string; key: string };
+  dbUsernameSecret?: { name: string; key: string }
   /** Kubernetes Secret holding the database password (used as { name, key }) */
-  dbPasswordSecret?: { name: string; key: string };
+  dbPasswordSecret?: { name: string; key: string }
   /** Ingress controller class (e.g., 'nginx') used to expose Keycloak */
-  ingressClassName?: string;
+  ingressClassName?: string
 }
 
 /**
@@ -62,24 +62,26 @@ export function KeycloakInstance(props: KeycloakInstanceProps) {
     dbUsernameSecret: explicitUsernameSecret,
     dbPasswordSecret: explicitPasswordSecret,
     ingressClassName = 'nginx',
-  } = props;
+  } = props
 
   // Auto-wire from DatabaseContext if available
-  const dbContext = useContext(DatabaseContext);
-  const dbHost = explicitDbHost ?? dbContext?.host;
-  const dbPasswordSecretRef = dbContext?.passwordSecret;
+  const dbContext = useContext(DatabaseContext)
+  const dbHost = explicitDbHost ?? dbContext?.host
+  const dbPasswordSecretRef = dbContext?.passwordSecret
   const dbUsernameSecret =
     explicitUsernameSecret ??
-    (dbContext && dbPasswordSecretRef && {
-      name: dbPasswordSecretRef.name,
-      key: 'username',
-    });
+    (dbContext &&
+      dbPasswordSecretRef && {
+        name: dbPasswordSecretRef.name,
+        key: 'username',
+      })
   const dbPasswordSecret =
     explicitPasswordSecret ??
-    (dbContext && dbPasswordSecretRef && {
-      name: dbPasswordSecretRef.name,
-      key: dbContext.passwordKey || dbPasswordSecretRef.key || 'password',
-    });
+    (dbContext &&
+      dbPasswordSecretRef && {
+        name: dbPasswordSecretRef.name,
+        key: dbContext.passwordKey || dbPasswordSecretRef.key || 'password',
+      })
 
   const keycloak: Keycloak = {
     apiVersion: 'k8s.keycloak.org/v2alpha1',
@@ -116,38 +118,38 @@ export function KeycloakInstance(props: KeycloakInstanceProps) {
         xaEnabled: false,
       },
     },
-  };
+  }
 
-  return jsx('Keycloak', keycloak);
+  return jsx('Keycloak', keycloak)
 }
 
 export interface KeycloakRealmProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace for the realm import — required */
-  namespace: string;
+  namespace: string
   /** Name of the Keycloak instance this realm is imported into */
-  keycloakName: string;
+  keycloakName: string
   /** Realm name inside Keycloak (e.g., 'my-company') */
-  realmName: string;
+  realmName: string
   /** Human-readable name shown in the Keycloak UI */
-  displayName?: string;
+  displayName?: string
   /** Clients (applications) created inside this realm */
   clients?: Array<{
-    clientId: string;
-    name?: string;
-    redirectUris?: string[];
-    webOrigins?: string[];
-    publicClient?: boolean;
-    serviceAccountsEnabled?: boolean;
-  }>;
+    clientId: string
+    name?: string
+    redirectUris?: string[]
+    webOrigins?: string[]
+    publicClient?: boolean
+    serviceAccountsEnabled?: boolean
+  }>
   /** User accounts created inside this realm */
   users?: Array<{
-    username: string;
-    email?: string;
-    password?: string;
-    temporary?: boolean;
-  }>;
+    username: string
+    email?: string
+    password?: string
+    temporary?: boolean
+  }>
 }
 
 /**
@@ -158,7 +160,7 @@ export interface KeycloakRealmProps {
  * <KeycloakRealm name="my-realm" keycloakCRName="keycloak" realm="myapp" />
  */
 export function KeycloakRealm(props: KeycloakRealmProps) {
-  const { name, namespace, keycloakName, realmName, displayName, clients = [], users = [] } = props;
+  const { name, namespace, keycloakName, realmName, displayName, clients = [], users = [] } = props
 
   const realmImport: KeycloakRealmImport = {
     apiVersion: 'k8s.keycloak.org/v2alpha1',
@@ -200,7 +202,7 @@ export function KeycloakRealm(props: KeycloakRealmProps) {
         })),
       },
     },
-  };
+  }
 
-  return jsx('KeycloakRealmImport', realmImport);
+  return jsx('KeycloakRealmImport', realmImport)
 }

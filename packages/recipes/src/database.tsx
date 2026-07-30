@@ -1,26 +1,21 @@
-import { jsx, useContext, declareOperator } from '@r8s/core';
-import { Cluster } from '@r8s/k8s-types';
-import {
-  DatabaseContext,
-  SecretContext,
-  OperatorContext,
-  ClusterContext,
-} from '@r8s/core/defaults';
-import { cnpgOperator } from './operators';
+import { jsx, useContext, declareOperator } from '@r8s/core'
+import { Cluster } from '@r8s/k8s-types'
+import { DatabaseContext, SecretContext, OperatorContext, ClusterContext } from '@r8s/core/defaults'
+import { cnpgOperator } from './operators'
 
 export interface DatabaseProps {
   /** Resource name (also the default database name) */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Storage size (e.g., '10Gi') for the dedicated cluster data volume */
-  storage?: string;
+  storage?: string
   /** Operator version override. If not set, reads from OperatorContext or uses default. */
-  operatorVersion?: string;
+  operatorVersion?: string
   /** Password for the database. Required unless using Vault/OpenBao via SecretContext. */
-  password?: string;
+  password?: string
   /** Child components rendered with this database's connection info in context */
-  children?: unknown;
+  children?: unknown
 }
 
 /**
@@ -58,14 +53,14 @@ export function Database(props: DatabaseProps) {
     operatorVersion,
     password,
     children,
-  } = props;
+  } = props
 
-  const clusterConfig = useContext(ClusterContext);
-  const secretProvider = useContext(SecretContext);
-  const sharedOperators = useContext(OperatorContext);
-  const secretName = `${name}-db-credentials`;
+  const clusterConfig = useContext(ClusterContext)
+  const secretProvider = useContext(SecretContext)
+  const sharedOperators = useContext(OperatorContext)
+  const secretName = `${name}-db-credentials`
 
-  const resources: ReturnType<typeof jsx>[] = [];
+  const resources: ReturnType<typeof jsx>[] = []
 
   if (clusterConfig) {
     // Running inside a shared cluster - reuse connection info
@@ -77,7 +72,7 @@ export function Database(props: DatabaseProps) {
       passwordSecret: { name: secretName, key: 'password' },
       passwordKey: 'password',
       vendor: 'postgres' as const,
-    };
+    }
 
     // Create secret for this database (respect SecretContext)
     if (secretProvider) {
@@ -99,8 +94,8 @@ export function Database(props: DatabaseProps) {
                 },
               },
             })
-          );
-          break;
+          )
+          break
 
         case 'openbao':
           resources.push(
@@ -119,8 +114,8 @@ export function Database(props: DatabaseProps) {
                 },
               },
             })
-          );
-          break;
+          )
+          break
 
         case 'kubernetes':
           // Shared cluster path: we cannot rely on CNPG's bootstrap secret
@@ -133,7 +128,7 @@ export function Database(props: DatabaseProps) {
             throw new Error(
               `Database "${name}" requires a password prop when using Kubernetes secrets. ` +
                 'Either provide a password or use Vault/OpenBao via SecretContext.'
-            );
+            )
           }
           resources.push(
             jsx('Secret', {
@@ -146,15 +141,15 @@ export function Database(props: DatabaseProps) {
                 uri: `postgresql://${name}:${password}@${clusterConfig.host}:5432/${name}`,
               },
             })
-          );
-          break;
+          )
+          break
 
         default:
           if (!password) {
             throw new Error(
               `Database "${name}" requires a password prop. ` +
                 'Either provide a password or use Vault/OpenBao via SecretContext.'
-            );
+            )
           }
           resources.push(
             jsx('Secret', {
@@ -167,7 +162,7 @@ export function Database(props: DatabaseProps) {
                 uri: `postgresql://${name}:${password}@${clusterConfig.host}:5432/${name}`,
               },
             })
-          );
+          )
       }
     } else {
       // No SecretContext - require explicit password
@@ -175,7 +170,7 @@ export function Database(props: DatabaseProps) {
         throw new Error(
           `Database "${name}" requires a password prop. ` +
             'Either provide a password or use Vault/OpenBao via SecretContext.'
-        );
+        )
       }
       resources.push(
         jsx('Secret', {
@@ -188,7 +183,7 @@ export function Database(props: DatabaseProps) {
             uri: `postgresql://${name}:${password}@${clusterConfig.host}:5432/${name}`,
           },
         })
-      );
+      )
     }
 
     if (children) {
@@ -197,11 +192,11 @@ export function Database(props: DatabaseProps) {
           value: connection,
           children,
         })
-      );
+      )
     }
   } else {
     // Dedicated cluster - create full CNPG cluster
-    const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg');
+    const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg')
 
     const cluster: Cluster = {
       apiVersion: 'postgresql.cnpg.io/v1',
@@ -225,7 +220,7 @@ export function Database(props: DatabaseProps) {
           enabled: true,
         },
       },
-    };
+    }
 
     const connection = {
       host: `${name}-rw`,
@@ -235,14 +230,14 @@ export function Database(props: DatabaseProps) {
       passwordSecret: { name: secretName, key: 'password' },
       passwordKey: 'password',
       vendor: 'postgres' as const,
-    };
+    }
 
     // Declare CNPG operator if not already provided via context
     if (!hasCNPG) {
-      resources.push(declareOperator(cnpgOperator(operatorVersion)));
+      resources.push(declareOperator(cnpgOperator(operatorVersion)))
     }
 
-    resources.push(jsx('Cluster', cluster));
+    resources.push(jsx('Cluster', cluster))
 
     // Create secret resources based on SecretContext
     if (secretProvider) {
@@ -264,8 +259,8 @@ export function Database(props: DatabaseProps) {
                 },
               },
             })
-          );
-          break;
+          )
+          break
 
         case 'openbao':
           resources.push(
@@ -284,8 +279,8 @@ export function Database(props: DatabaseProps) {
                 },
               },
             })
-          );
-          break;
+          )
+          break
 
         case 'kubernetes':
           // Dedicated cluster path: the CNPG Cluster resource created above
@@ -293,7 +288,7 @@ export function Database(props: DatabaseProps) {
           // CNPG will populate and rotate its contents automatically. No need
           // to emit a Secret ourselves — bringing one would actually conflict
           // with CNPG's ownership of that secret.
-          break;
+          break
       }
     }
 
@@ -303,9 +298,9 @@ export function Database(props: DatabaseProps) {
           value: connection,
           children,
         })
-      );
+      )
     }
   }
 
-  return resources;
+  return resources
 }
