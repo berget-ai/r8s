@@ -70,6 +70,16 @@ jobs:
       - run: npx tsc -b
       - run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
 
+      # Pin the image to the commit SHA tag pushed by the build job
+      # (docker/metadata-action: type=sha,format=short → tag is the short
+      # SHA, e.g. ghcr.io/berget-ai/r8s-docs:ec9bf90).
+      # Without this the manifest always says :latest — Flux sees no diff
+      # and the cluster never rolls to the newly built image.
+      - name: Pin image tag to commit SHA
+        run: |
+          sed -i "s|ghcr.io/berget-ai/r8s-docs:latest|ghcr.io/berget-ai/r8s-docs:${GITHUB_SHA::7}|g" k8s/rendered/manifest.yaml
+          grep -n "image:" k8s/rendered/manifest.yaml
+
       - name: Commit rendered manifests
         run: |
           git config --local user.email "action@github.com"
