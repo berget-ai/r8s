@@ -7,6 +7,7 @@ export {
   type VaultSecretRef,
 } from './web-service'
 export { Ingress, type IngressProps } from './ingress'
+export { EnvoyIngress, type EnvoyIngressProps } from './envoy-ingress'
 export { Endpoint, type EndpointProps } from './endpoint'
 export { App, type AppProps } from './app'
 export { Platform, type PlatformProps, type RoutingMode } from './platform'
