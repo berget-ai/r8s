@@ -68,7 +68,15 @@ jobs:
 
       - run: npm ci
       - run: npx tsc -b
-      - run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
+
+      # IMAGE_TAG is read by k8s/r8s.tsx and set directly on the App
+      # component — the same short SHA the build job tagged the image
+      # with. Without a changing tag the manifest always says :latest,
+      # Flux sees no diff, and the cluster never rolls to the new image.
+      - name: Render manifests with pinned image tag
+        run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
+        env:
+          IMAGE_TAG: ${{ github.sha }}
 
       - name: Commit rendered manifests
         run: |
