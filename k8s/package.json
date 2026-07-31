@@ -1,5 +1,6 @@
 {
   "name": "r8s-infrastructure",
+  "version": "0.1.0-rc.0",
   "private": true,
   "dependencies": {
     "@r8s/core": "*",

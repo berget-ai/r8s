@@ -7,9 +7,10 @@
 // - cert-manager Certificate for TLS
 //
 // NOTE: Namespace is provisioned by Flux in the infra repo.
-// NOTE: Keep the image tag as :latest here — CI pins the rendered
-// manifest to the commit SHA tag (see deploy.yaml "Pin image tag"),
-// which is what triggers Flux rollouts on merge.
+// NOTE: Keep the image tag as :latest here — the deploy workflow bumps
+// k8s/package.json (0.1.0-rc.N per main push), tags the image with that
+// version, and pins the rendered manifest to it. The changing tag is
+// what triggers Flux rollouts on merge.
 
 import { Platform, App } from '@r8s/recipes'
 

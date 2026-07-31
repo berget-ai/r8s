@@ -17,11 +17,31 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # version bump commit
       packages: write
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+
+      # Same pattern as berget-k8s-template: every main push gets its own
+      # prerelease version (0.1.0-rc.N). The version is the single source
+      # of truth for both the image tag and the manifest pin below —
+      # no Flux image automation needed.
+      - name: Bump rc version
+        id: version
+        run: |
+          npm version prerelease --preid=rc --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          git add package.json
+          git commit -m "chore: bump r8s-docs version to $VERSION [skip ci]"
+          git push
+        working-directory: k8s
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -33,23 +53,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=,suffix=,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./k8s/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -61,6 +73,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The build job pushed a version-bump commit after this ref —
+          # check out main so the render runs on the latest tree.
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -70,14 +86,13 @@ jobs:
       - run: npx tsc -b
       - run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
 
-      # Pin the image to the commit SHA tag pushed by the build job
-      # (docker/metadata-action: type=sha,format=short → tag is the short
-      # SHA, e.g. ghcr.io/berget-ai/r8s-docs:ec9bf90).
-      # Without this the manifest always says :latest — Flux sees no diff
-      # and the cluster never rolls to the newly built image.
-      - name: Pin image tag to commit SHA
+      # Pin the image to the rc version built above. Without a changing
+      # tag the manifest always says :latest — Flux sees no diff and the
+      # cluster never rolls to the newly built image.
+      - name: Pin image tag to rc version
         run: |
-          sed -i "s|ghcr.io/berget-ai/r8s-docs:latest|ghcr.io/berget-ai/r8s-docs:${GITHUB_SHA::7}|g" k8s/rendered/manifest.yaml
+          VERSION=$(node -p "require('./k8s/package.json').version")
+          sed -i "s|ghcr.io/berget-ai/r8s-docs:latest|ghcr.io/berget-ai/r8s-docs:$VERSION|g" k8s/rendered/manifest.yaml
           grep -n "image:" k8s/rendered/manifest.yaml
 
       - name: Commit rendered manifests
