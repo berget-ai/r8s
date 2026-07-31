@@ -34,9 +34,10 @@ export interface DatabaseProps {
  *
  * @example
  * // Shared cluster - reuses connection, does not provision a new database
+ * // (password required per database — shared clusters materialize their own secrets)
  * <Cluster name="main" storage="100Gi">
- *   <Database name="user-db" />
- *   <Database name="order-db" />
+ *   <Database name="user-db" password="change-me" />
+ *   <Database name="order-db" password="change-me" />
  * </Cluster>
  *
  * @example
