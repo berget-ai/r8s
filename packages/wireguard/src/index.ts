@@ -1,7 +1,9 @@
 import { jsx, Fragment } from '@r8s/core'
 
 export interface WireGuardProps {
+  /** Resource name */
   name?: string
+  /** Kubernetes namespace */
   namespace?: string
   /** wg-easy version (default: latest) */
   version?: string
