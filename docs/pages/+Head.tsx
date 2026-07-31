@@ -1,18 +1,19 @@
 export function Head() {
-  const title = "r8s — Kubernetes Infrastructure as TypeScript Components";
-  const description = "Build Kubernetes infrastructure with familiar TSX components. Composable, testable, and type-safe infrastructure as code. Free templates and recipes included.";
+  const title = 'r8s — Kubernetes Infrastructure as TypeScript Components'
+  const description =
+    'Build Kubernetes infrastructure with familiar TSX components. Composable, testable, and type-safe infrastructure as code. Free templates and recipes included.'
   const keywords = [
-    "kubernetes infrastructure",
-    "infrastructure as code",
-    "typescript kubernetes",
-    "k8s components",
-    "kubernetes templates",
-    "k8s boilerplate",
-    "infrastructure recipes",
-    "kubernetes deployment",
-    "devops tools",
-    "cloud native"
-  ].join(", ");
+    'kubernetes infrastructure',
+    'infrastructure as code',
+    'typescript kubernetes',
+    'k8s components',
+    'kubernetes templates',
+    'k8s boilerplate',
+    'infrastructure recipes',
+    'kubernetes deployment',
+    'devops tools',
+    'cloud native',
+  ].join(', ')
 
   return (
     <>
@@ -28,20 +29,20 @@ export function Head() {
       <link rel="canonical" href="https://r8s.dev" />
       <script type="application/ld+json">
         {JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "SoftwareApplication",
-          "name": "r8s",
-          "description": description,
-          "applicationCategory": "DeveloperApplication",
-          "operatingSystem": "Kubernetes",
-          "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
+          '@context': 'https://schema.org',
+          '@type': 'SoftwareApplication',
+          name: 'r8s',
+          description: description,
+          applicationCategory: 'DeveloperApplication',
+          operatingSystem: 'Kubernetes',
+          offers: {
+            '@type': 'Offer',
+            price: '0',
+            priceCurrency: 'USD',
           },
-          "codeRepository": "https://github.com/berget-ai/r8s"
+          codeRepository: 'https://github.com/berget-ai/r8s',
         })}
       </script>
     </>
-  );
+  )
 }

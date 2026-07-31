@@ -1,4 +1,4 @@
-import { PublicService, InternalService } from './shared/platform';
+import { PublicService, InternalService } from './shared/platform'
 
 export default function EcommercePlatform() {
   return (
@@ -61,9 +61,12 @@ export default function EcommercePlatform() {
         replicas={2}
         allowedClients={['api-gateway', 'order-service']}
         env={[
-          { name: 'DATABASE_URL', value: 'postgresql://inventory:pass@inventory-db:5432/inventory' },
+          {
+            name: 'DATABASE_URL',
+            value: 'postgresql://inventory:pass@inventory-db:5432/inventory',
+          },
         ]}
       />
     </>
-  );
+  )
 }

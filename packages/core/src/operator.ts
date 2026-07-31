@@ -1,7 +1,7 @@
-import { Operator } from '@r8s/k8s-types';
-import { r8sElement } from './jsx-runtime';
+import { Operator } from '@r8s/k8s-types'
+import { r8sElement } from './jsx-runtime'
 
-const OPERATOR_SYMBOL = Symbol.for('r8s.operator');
+const OPERATOR_SYMBOL = Symbol.for('r8s.operator')
 
 /**
  * Declare an operator dependency.
@@ -28,23 +28,23 @@ export function declareOperator(operator: Operator): r8sElement {
     type: OPERATOR_SYMBOL,
     props: { operator },
     key: null,
-  } as unknown as r8sElement;
+  } as unknown as r8sElement
 }
 
 /** Check if a value is an operator declaration */
 export function isOperatorDeclaration(element: unknown): boolean {
-  if (!element || typeof element !== 'object') return false;
+  if (!element || typeof element !== 'object') return false
   return (
     'type' in element &&
     typeof (element as Record<string, unknown>).type === 'symbol' &&
     (element as Record<string, unknown>).type === OPERATOR_SYMBOL
-  );
+  )
 }
 
 /** Extract operator from declaration element */
 export function getOperator(element: unknown): Operator | null {
-  if (!isOperatorDeclaration(element)) return null;
-  const props = (element as Record<string, unknown>).props;
-  if (!props || typeof props !== 'object') return null;
-  return (props as { operator?: Operator }).operator || null;
+  if (!isOperatorDeclaration(element)) return null
+  const props = (element as Record<string, unknown>).props
+  if (!props || typeof props !== 'object') return null
+  return (props as { operator?: Operator }).operator || null
 }

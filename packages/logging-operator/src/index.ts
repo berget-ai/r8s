@@ -1,5 +1,5 @@
-import { jsx } from '@r8s/core';
-import { helmOperator } from '@r8s/k8s-types';
+import { jsx } from '@r8s/core'
+import { helmOperator } from '@r8s/k8s-types'
 
 /** Logging Operator declaration (Kube-logging / Banzai Cloud) */
 export const loggingOperator = (version = '4.2.3') =>
@@ -19,30 +19,30 @@ export const loggingOperator = (version = '4.2.3') =>
         'clusteroutputs.logging.banzaicloud.io',
       ],
     }
-  );
+  )
 
 export interface LoggingProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Fluentd aggregator configuration (replicas and resources) */
   fluentd?: {
-    replicas?: number;
+    replicas?: number
     resources?: {
-      requests?: { cpu?: string; memory?: string };
-      limits?: { cpu?: string; memory?: string };
-    };
-  };
+      requests?: { cpu?: string; memory?: string }
+      limits?: { cpu?: string; memory?: string }
+    }
+  }
   /** Fluentbit agent configuration (typically runs on every node) */
   fluentbit?: {
     resources?: {
-      requests?: { cpu?: string; memory?: string };
-      limits?: { cpu?: string; memory?: string };
-    };
-  };
+      requests?: { cpu?: string; memory?: string }
+      limits?: { cpu?: string; memory?: string }
+    }
+  }
   /** Namespace where logging CRDs and shared resources live */
-  controlNamespace?: string;
+  controlNamespace?: string
 }
 
 /**
@@ -56,7 +56,7 @@ export interface LoggingProps {
  * />
  */
 export function Logging(props: LoggingProps) {
-  const { name, namespace = 'default', fluentd, fluentbit, controlNamespace } = props;
+  const { name, namespace = 'default', fluentd, fluentbit, controlNamespace } = props
 
   const logging = {
     apiVersion: 'logging.banzaicloud.io/v1beta1',
@@ -76,42 +76,42 @@ export function Logging(props: LoggingProps) {
       }),
       ...(controlNamespace && { controlNamespace }),
     },
-  };
+  }
 
-  return jsx('Logging', logging);
+  return jsx('Logging', logging)
 }
 
 export interface FlowProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Selector-like match rules that decide which logs this Flow handles */
   match?: Array<{
     select?: {
-      labels?: Record<string, string>;
-    };
+      labels?: Record<string, string>
+    }
     exclude?: {
-      labels?: Record<string, string>;
-    };
-  }>;
+      labels?: Record<string, string>
+    }
+  }>
   /** Filters applied to matching log lines (parser, grep, etc.) */
   filters?: Array<{
     parser?: {
       parse?: {
-        type: string;
-        expression: string;
-      };
-    };
+        type: string
+        expression: string
+      }
+    }
     grep?: {
       regexp?: Array<{
-        key: string;
-        pattern: string;
-      }>;
-    };
-  }>;
+        key: string
+        pattern: string
+      }>
+    }
+  }>
   /** Names of Output resources that should receive the filtered logs */
-  outputRefs: string[];
+  outputRefs: string[]
 }
 
 /**
@@ -125,7 +125,7 @@ export interface FlowProps {
  * <Flow name="app-flow" match={[{ select: { labels: { app: "api" } } }]} outputRefs={["loki-output"]} />
  */
 export function Flow(props: FlowProps) {
-  const { name, namespace = 'default', match, filters, outputRefs } = props;
+  const { name, namespace = 'default', match, filters, outputRefs } = props
 
   const flow = {
     apiVersion: 'logging.banzaicloud.io/v1beta1',
@@ -136,28 +136,28 @@ export function Flow(props: FlowProps) {
       ...(filters && { filters }),
       outputRefs,
     },
-  };
+  }
 
-  return jsx('Flow', flow);
+  return jsx('Flow', flow)
 }
 
 export interface OutputProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Send logs to a Loki aggregation endpoint */
   loki?: {
-    url: string;
-    configureKubernetesLabels?: boolean;
-    labels?: Record<string, string>;
-  };
+    url: string
+    configureKubernetesLabels?: boolean
+    labels?: Record<string, string>
+  }
   /** Send logs to an S3 bucket */
   s3?: {
-    bucket: string;
-    region: string;
-    path: string;
-  };
+    bucket: string
+    region: string
+    path: string
+  }
 }
 
 /**
@@ -170,7 +170,7 @@ export interface OutputProps {
  * <Output name="loki-output" loki={{ url: "http://loki.loki:3100", configureKubernetesLabels: true }} />
  */
 export function Output(props: OutputProps) {
-  const { name, namespace = 'default', loki, s3 } = props;
+  const { name, namespace = 'default', loki, s3 } = props
 
   const output = {
     apiVersion: 'logging.banzaicloud.io/v1beta1',
@@ -194,7 +194,7 @@ export function Output(props: OutputProps) {
         },
       }),
     },
-  };
+  }
 
-  return jsx('Output', output);
+  return jsx('Output', output)
 }

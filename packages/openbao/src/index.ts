@@ -1,6 +1,6 @@
-import { jsx } from '@r8s/core';
-import { VaultConnection, VaultAuth, VaultDynamicSecret, VaultStaticSecret } from '@r8s/k8s-types';
-import { manifestOperator } from '@r8s/k8s-types';
+import { jsx } from '@r8s/core'
+import { VaultConnection, VaultAuth, VaultDynamicSecret, VaultStaticSecret } from '@r8s/k8s-types'
+import { manifestOperator } from '@r8s/k8s-types'
 
 /** Vault Secrets Operator declaration */
 export const vaultSecretsOperator = (version = '0.5.0') =>
@@ -13,19 +13,19 @@ export const vaultSecretsOperator = (version = '0.5.0') =>
       namespace: 'vault-secrets-operator',
       crds: ['vaultstaticsecrets.secrets.hashicorp.com', 'vaultauths.secrets.hashicorp.com'],
     }
-  );
+  )
 
 export interface VaultConnectionConfigProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Vault/OpenBao server address, e.g. 'https://vault.example.com:8200' */
-  address: string;
+  address: string
   /** Name of the Kubernetes Secret containing the CA certificate used to verify Vault TLS */
-  caCertSecretRef?: string;
+  caCertSecretRef?: string
   /** Skip TLS certificate verification (insecure — don't use in production) */
-  skipTLSVerify?: boolean;
+  skipTLSVerify?: boolean
 }
 
 /**
@@ -36,7 +36,7 @@ export interface VaultConnectionConfigProps {
  * <VaultConnectionConfig name="default" address="https://vault.example.com:8200" />
  */
 export function VaultConnectionConfig(props: VaultConnectionConfigProps) {
-  const { name, namespace = 'default', address, caCertSecretRef, skipTLSVerify = false } = props;
+  const { name, namespace = 'default', address, caCertSecretRef, skipTLSVerify = false } = props
 
   const connection: VaultConnection = {
     apiVersion: 'secrets.hashicorp.com/v1beta1',
@@ -47,24 +47,24 @@ export function VaultConnectionConfig(props: VaultConnectionConfigProps) {
       ...(caCertSecretRef && { caCertSecretRef }),
       skipTLSVerify,
     },
-  };
+  }
 
-  return jsx('VaultConnection', connection);
+  return jsx('VaultConnection', connection)
 }
 
 export interface VaultKubernetesAuthProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace for the VaultAuth — required */
-  namespace: string;
+  namespace: string
   /** Name of the VaultConnection resource this auth uses (defaults to 'default' on Vault side) */
-  vaultConnectionRef?: string;
+  vaultConnectionRef?: string
   /** Vault role this Kubernetes service account is allowed to assume */
-  role: string;
+  role: string
   /** Kubernetes service account used to authenticate to Vault */
-  serviceAccount: string;
+  serviceAccount: string
   /** Vault auth method mount path (defaults to 'kubernetes') */
-  mount?: string;
+  mount?: string
 }
 
 /**
@@ -75,7 +75,7 @@ export interface VaultKubernetesAuthProps {
  * <VaultKubernetesAuth name="default" mount="kubernetes" role="secrets" serviceAccount="default" />
  */
 export function VaultKubernetesAuth(props: VaultKubernetesAuthProps) {
-  const { name, namespace, vaultConnectionRef, role, serviceAccount, mount = 'kubernetes' } = props;
+  const { name, namespace, vaultConnectionRef, role, serviceAccount, mount = 'kubernetes' } = props
 
   const auth: VaultAuth = {
     apiVersion: 'secrets.hashicorp.com/v1beta1',
@@ -87,26 +87,26 @@ export function VaultKubernetesAuth(props: VaultKubernetesAuthProps) {
       kubernetes: { role, serviceAccount },
       ...(vaultConnectionRef && { vaultConnectionRef }),
     },
-  };
+  }
 
-  return jsx('VaultAuth', auth);
+  return jsx('VaultAuth', auth)
 }
 
 export interface VaultDatabaseSecretProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace for the VaultDynamicSecret — required */
-  namespace: string;
+  namespace: string
   /** Name of the VaultAuth resource used to authenticate to Vault */
-  vaultAuthRef: string;
+  vaultAuthRef: string
   /** Vault mount path of the database secrets engine (e.g., 'database') */
-  mount: string;
+  mount: string
   /** Vault role/path describing the database credential to lease */
-  path: string;
+  path: string
   /** Name of the Kubernetes Secret Vault will write the leased credentials into */
-  secretName: string;
+  secretName: string
   /** When credentials rotate, the operator restarts this target (kind + name) so pods pick up the new secret */
-  rolloutRestartTarget?: { kind: string; name: string };
+  rolloutRestartTarget?: { kind: string; name: string }
 }
 
 /**
@@ -117,7 +117,7 @@ export interface VaultDatabaseSecretProps {
  * <VaultDatabaseSecret name="db-creds" vaultAuthRef="default" mount="database" path="postgres/creds/app" destination={{ create: true, name: "db-creds" }} />
  */
 export function VaultDatabaseSecret(props: VaultDatabaseSecretProps) {
-  const { name, namespace, vaultAuthRef, mount, path, secretName, rolloutRestartTarget } = props;
+  const { name, namespace, vaultAuthRef, mount, path, secretName, rolloutRestartTarget } = props
 
   const dynamicSecret: VaultDynamicSecret = {
     apiVersion: 'secrets.hashicorp.com/v1beta1',
@@ -135,28 +135,28 @@ export function VaultDatabaseSecret(props: VaultDatabaseSecretProps) {
         rolloutRestartTargets: [rolloutRestartTarget],
       }),
     },
-  };
+  }
 
-  return jsx('VaultDynamicSecret', dynamicSecret);
+  return jsx('VaultDynamicSecret', dynamicSecret)
 }
 
 export interface VaultKVSecretProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace for the VaultStaticSecret — required */
-  namespace: string;
+  namespace: string
   /** Name of the VaultAuth resource used to authenticate to Vault */
-  vaultAuthRef: string;
+  vaultAuthRef: string
   /** Vault KV mount path (e.g., 'secret' or 'kv') */
-  mount: string;
+  mount: string
   /** Path within the mount to the KV secret (e.g., 'myapp/config') */
-  path: string;
+  path: string
   /** Name of the Kubernetes Secret Vault will create with the KV values */
-  secretName: string;
+  secretName: string
   /** KV engine version — 'kv-v1' or 'kv-v2' (defaults to 'kv-v2') */
-  type?: 'kv-v1' | 'kv-v2';
+  type?: 'kv-v1' | 'kv-v2'
   /** When the KV secret changes, the operator restarts this target (kind + name) so pods pick up the new secret */
-  rolloutRestartTarget?: { kind: string; name: string };
+  rolloutRestartTarget?: { kind: string; name: string }
 }
 
 /**
@@ -176,7 +176,7 @@ export function VaultKVSecret(props: VaultKVSecretProps) {
     secretName,
     type = 'kv-v2',
     rolloutRestartTarget,
-  } = props;
+  } = props
 
   const staticSecret: VaultStaticSecret = {
     apiVersion: 'secrets.hashicorp.com/v1beta1',
@@ -195,7 +195,7 @@ export function VaultKVSecret(props: VaultKVSecretProps) {
         rolloutRestartTargets: [rolloutRestartTarget],
       }),
     },
-  };
+  }
 
-  return jsx('VaultStaticSecret', staticSecret);
+  return jsx('VaultStaticSecret', staticSecret)
 }

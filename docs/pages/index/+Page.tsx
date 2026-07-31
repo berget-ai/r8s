@@ -1,4 +1,4 @@
-import { CodeBlock } from "../../components/CodeBlock";
+import { CodeBlock } from '../../components/CodeBlock'
 
 const simpleExample = `import { App } from '@r8s/recipes';
 
@@ -8,7 +8,7 @@ export default () => (
     image="myapp/api:v1.2.3"
     host="api.example.com"
   />
-);`;
+);`
 
 const renderOutput = `$ npx r8s render
 apiVersion: apps/v1
@@ -25,7 +25,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: api-endpoint
-# ... 3 resources rendered from 1 component`;
+# ... 3 resources rendered from 1 component`
 
 const withDatabase = `import { App, Database } from '@r8s/recipes';
 
@@ -38,7 +38,7 @@ export default () => (
       host="api.example.com"
     />
   </>
-);`;
+);`
 
 const typeSafeExample = `function App({ environment }: { environment: 'staging' | 'production' }) {
   const replicas = environment === 'production' ? 3 : 1;
@@ -59,7 +59,7 @@ const typeSafeExample = `function App({ environment }: { environment: 'staging' 
       }}
     />
   );
-}`;
+}`
 
 const testExample = `import { describe, it, expect } from 'vitest';
 import { render } from '@r8s/core';
@@ -74,7 +74,7 @@ describe('MyApp', () => {
     const deployment = result.resources.find(r => r.kind === 'Deployment');
     expect(deployment.spec.replicas).toBe(3);
   });
-});`;
+});`
 
 export default function Page() {
   return (
@@ -93,10 +93,10 @@ export default function Page() {
           <h2 className="text-xl text-cloud/60 uppercase tracking-wider font-medium">
             The Problem
           </h2>
-            <p className="text-cloud/80 leading-relaxed">
-            You have a microservice. It needs a Deployment, a Service, routing with TLS, 
-            and a PostgreSQL database. That's 300+ lines of YAML boilerplate. Copy-paste between 
-            services. Hope you didn't miss an indentation.
+          <p className="text-cloud/80 leading-relaxed">
+            You have a microservice. It needs a Deployment, a Service, routing with TLS, and a
+            PostgreSQL database. That's 300+ lines of YAML boilerplate. Copy-paste between services.
+            Hope you didn't miss an indentation.
           </p>
           <div className="space-y-2 text-sm text-cloud/60">
             <p>❌ Raw YAML — Copy-paste hell</p>
@@ -105,9 +105,7 @@ export default function Page() {
           </div>
         </div>
         <div className="space-y-4">
-          <h2 className="text-xl text-moss uppercase tracking-wider font-medium">
-            The Solution
-          </h2>
+          <h2 className="text-xl text-moss uppercase tracking-wider font-medium">The Solution</h2>
           <p className="text-cloud/80 leading-relaxed">
             One component. Three resources. All wired together with sensible defaults.
           </p>
@@ -119,12 +117,13 @@ export default function Page() {
       {/* Why r8s */}
       <div className="space-y-6">
         <h2 className="text-3xl tracking-tight">Why r8s?</h2>
-        
+
         <div className="grid md:grid-cols-2 gap-6">
           <div className="p-6 rounded-lg border border-white/10">
             <h3 className="font-serif text-xl mb-3 text-moss">DRY by Default</h3>
             <p className="text-cloud/70 text-sm leading-relaxed">
-              Your 10 microservices all need the same database setup? One component, imported everywhere.
+              Your 10 microservices all need the same database setup? One component, imported
+              everywhere.
             </p>
             <div className="mt-4">
               <CodeBlock code={withDatabase} language="tsx" />
@@ -134,8 +133,9 @@ export default function Page() {
           <div className="p-6 rounded-lg border border-white/10">
             <h3 className="font-serif text-xl mb-3 text-moss">Type Safety Out of the Box</h3>
             <p className="text-cloud/70 text-sm leading-relaxed">
-              Misspelled <code>containerPort</code>? TypeScript catches it. Wrong <code>apiVersion</code>? 
-              Red squiggly. No more <code>kubectl apply</code> → "error: validation failed."
+              Misspelled <code>containerPort</code>? TypeScript catches it. Wrong{' '}
+              <code>apiVersion</code>? Red squiggly. No more <code>kubectl apply</code> → "error:
+              validation failed."
             </p>
             <div className="mt-4">
               <CodeBlock code={typeSafeExample} language="tsx" />
@@ -145,16 +145,16 @@ export default function Page() {
           <div className="p-6 rounded-lg border border-white/10">
             <h3 className="font-serif text-xl mb-3 text-moss">Real Code, Real Logic</h3>
             <p className="text-cloud/70 text-sm leading-relaxed">
-              Use conditionals, loops, and variables. Environment-specific configuration 
-              without template syntax nightmares.
+              Use conditionals, loops, and variables. Environment-specific configuration without
+              template syntax nightmares.
             </p>
           </div>
 
           <div className="p-6 rounded-lg border border-white/10">
             <h3 className="font-serif text-xl mb-3 text-moss">Testable Infrastructure</h3>
             <p className="text-cloud/70 text-sm leading-relaxed">
-              Because r8s components are just TypeScript functions, you can test them with 
-              standard tools like Vitest.
+              Because r8s components are just TypeScript functions, you can test them with standard
+              tools like Vitest.
             </p>
             <div className="mt-4">
               <CodeBlock code={testExample} language="tsx" />
@@ -166,20 +166,23 @@ export default function Page() {
       {/* Quick Start */}
       <div className="space-y-6">
         <h2 className="text-3xl tracking-tight">Quick Start</h2>
-        
+
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             <span className="text-moss font-mono text-sm">01</span>
             <h3 className="text-xl">Create a new project</h3>
           </div>
           <CodeBlock code={`npx r8s init my-project\ncd my-project\nnpm install`} language="bash" />
-          
+
           <div className="flex items-center gap-4">
             <span className="text-moss font-mono text-sm">02</span>
             <h3 className="text-xl">Edit your components</h3>
           </div>
-          <CodeBlock code={`import { App } from '@r8s/recipes';\n\nexport default () => (\n  <App\n    name="myapp"\n    image="myapp/web:v1.2.3"\n    host="myapp.example.com"\n    replicas={3}\n  />\n);`} language="tsx" />
-          
+          <CodeBlock
+            code={`import { App } from '@r8s/recipes';\n\nexport default () => (\n  <App\n    name="myapp"\n    image="myapp/web:v1.2.3"\n    host="myapp.example.com"\n    replicas={3}\n  />\n);`}
+            language="tsx"
+          />
+
           <div className="flex items-center gap-4">
             <span className="text-moss font-mono text-sm">03</span>
             <h3 className="text-xl">Render to YAML</h3>
@@ -192,26 +195,52 @@ export default function Page() {
       <div className="space-y-6">
         <h2 className="text-3xl tracking-tight">Recipes</h2>
         <p className="text-cloud/70">
-          Pre-built components for common infrastructure patterns. 
-          <a href="/recipes" className="text-moss hover:text-lichen ml-2">Browse all recipes →</a>
-        </p>
-        
-        <div className="grid md:grid-cols-2 gap-4">
-          <a href="/recipes/app" className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group">
-            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">App</h3>
-            <p className="text-sm text-cloud/60">Complete application stack with database, web service, and routing</p>
+          Pre-built components for common infrastructure patterns.
+          <a href="/recipes" className="text-moss hover:text-lichen ml-2">
+            Browse all recipes →
           </a>
-          <a href="/recipes/database" className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group">
-            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">Database</h3>
+        </p>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <a
+            href="/recipes/app"
+            className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group"
+          >
+            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">App</h3>
+            <p className="text-sm text-cloud/60">
+              Complete application stack with database, web service, and routing
+            </p>
+          </a>
+          <a
+            href="/recipes/database"
+            className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group"
+          >
+            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">
+              Database
+            </h3>
             <p className="text-sm text-cloud/60">PostgreSQL cluster with CloudNativePG operator</p>
           </a>
-          <a href="/recipes/web-service" className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group">
-            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">Web Service</h3>
-            <p className="text-sm text-cloud/60">Deployment with health checks and resource limits</p>
+          <a
+            href="/recipes/web-service"
+            className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group"
+          >
+            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">
+              Web Service
+            </h3>
+            <p className="text-sm text-cloud/60">
+              Deployment with health checks and resource limits
+            </p>
           </a>
-          <a href="/recipes/endpoint" className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group">
-            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">Endpoint</h3>
-            <p className="text-sm text-cloud/60">Cluster-adaptive routing: nginx Ingress or Envoy Gateway</p>
+          <a
+            href="/recipes/endpoint"
+            className="block p-6 rounded-lg border border-white/10 hover:border-moss transition-colors group"
+          >
+            <h3 className="font-serif text-xl mb-2 group-hover:text-moss transition-colors">
+              Endpoint
+            </h3>
+            <p className="text-sm text-cloud/60">
+              Cluster-adaptive routing: nginx Ingress or Envoy Gateway
+            </p>
           </a>
         </div>
       </div>
@@ -219,7 +248,7 @@ export default function Page() {
       {/* Comparison */}
       <div className="space-y-6">
         <h2 className="text-3xl tracking-tight">Comparison</h2>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -272,5 +301,5 @@ export default function Page() {
         </div>
       </div>
     </div>
-  );
+  )
 }

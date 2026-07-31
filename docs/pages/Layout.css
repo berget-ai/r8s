@@ -1,31 +1,31 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Import Berget AI fonts */
-@import "@fontsource/ovo/index.css";
-@import "@fontsource-variable/dm-sans/wght.css";
-@import "@fontsource/dm-mono/400.css";
+@import '@fontsource/ovo/index.css';
+@import '@fontsource-variable/dm-sans/wght.css';
+@import '@fontsource/dm-mono/400.css';
 
 @theme {
   /* Berget AI Brand Colors */
-  --color-moss: #52B788;
-  --color-lichen: #74C69D;
-  --color-spruce: #2D6A4F;
-  --color-fjord: #0F405A;
-  --color-peak: #FFFFFF;
-  --color-cloud: #E5DDD5;
-  --color-slate: #1A1A1A;
-  --color-night: #0A0A0A;
-  
+  --color-moss: #52b788;
+  --color-lichen: #74c69d;
+  --color-spruce: #2d6a4f;
+  --color-fjord: #0f405a;
+  --color-peak: #ffffff;
+  --color-cloud: #e5ddd5;
+  --color-slate: #1a1a1a;
+  --color-night: #0a0a0a;
+
   /* Status Colors */
-  --color-info: #3975D6;
-  --color-success: #52B788;
-  --color-warning: #CFFF8B;
-  --color-error: #D1392E;
-  
+  --color-info: #3975d6;
+  --color-success: #52b788;
+  --color-warning: #cfff8b;
+  --color-error: #d1392e;
+
   /* Typography */
-  --font-serif: "Ovo", serif;
-  --font-sans: "DM Sans Variable", sans-serif;
-  --font-mono: "DM Mono", monospace;
+  --font-serif: 'Ovo', serif;
+  --font-sans: 'DM Sans Variable', sans-serif;
+  --font-mono: 'DM Mono', monospace;
 }
 
 /* Base styles */
@@ -36,7 +36,12 @@ body {
 }
 
 /* Headings use serif (Ovo) */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-serif);
   font-weight: 400;
 }

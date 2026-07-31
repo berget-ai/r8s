@@ -1,50 +1,50 @@
-import { jsx, declareOperator, useContext } from '@r8s/core';
-import { Deployment, Service, EnvVar } from '@r8s/k8s-types';
-import { OperatorContext, DatabaseContext } from '@r8s/core/defaults';
-import { vaultSecretsOperator } from './operators';
+import { jsx, declareOperator, useContext } from '@r8s/core'
+import { Deployment, Service, EnvVar } from '@r8s/k8s-types'
+import { OperatorContext, DatabaseContext } from '@r8s/core/defaults'
+import { vaultSecretsOperator } from './operators'
 
 export interface SecretRef {
   /** Name of the Kubernetes Secret containing this value */
-  secret: string;
+  secret: string
   /** Key within the secret (defaults to env var name) */
-  key?: string;
+  key?: string
 }
 
 export interface VaultSecretRef {
   /** Vault KV mount path */
-  mount: string;
+  mount: string
   /** Secret path in Vault */
-  path: string;
+  path: string
   /** Key within the Vault secret (defaults to env var name) */
-  key?: string;
+  key?: string
   /** VaultAuth reference name (defaults to 'default') */
-  vaultAuthRef?: string;
+  vaultAuthRef?: string
 }
 
 export interface WebServiceProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Container image (e.g., 'myapp/api:v1.2.3') */
-  image: string;
+  image: string
   /** Container port the app listens on (defaults to 3000) */
-  port?: number;
+  port?: number
   /** Number of pod replicas (defaults to 2) */
-  replicas?: number;
+  replicas?: number
   /** Plain environment variables (non-sensitive) */
-  env?: Record<string, string>;
+  env?: Record<string, string>
   /** Secrets from Kubernetes Secrets — safe by default */
-  secrets?: Record<string, SecretRef | string>;
+  secrets?: Record<string, SecretRef | string>
   /** Secrets from Vault — creates VaultStaticSecret objects */
-  vault?: Record<string, VaultSecretRef>;
+  vault?: Record<string, VaultSecretRef>
   /** Raw env vars for advanced use cases */
-  rawEnv?: EnvVar[];
+  rawEnv?: EnvVar[]
   /** CPU and memory requests/limits for the app container */
   resources?: {
-    requests?: { cpu?: string; memory?: string };
-    limits?: { cpu?: string; memory?: string };
-  };
+    requests?: { cpu?: string; memory?: string }
+    limits?: { cpu?: string; memory?: string }
+  }
 }
 
 /**
@@ -87,14 +87,14 @@ export function WebService(props: WebServiceProps) {
     vault = {},
     rawEnv = [],
     resources,
-  } = props;
+  } = props
 
-  const envVars: EnvVar[] = [];
-  const vaultResources: ReturnType<typeof jsx>[] = [];
+  const envVars: EnvVar[] = []
+  const vaultResources: ReturnType<typeof jsx>[] = []
 
   // Plain env vars
   for (const [key, value] of Object.entries(env)) {
-    envVars.push({ name: key, value });
+    envVars.push({ name: key, value })
   }
 
   // Secrets from Kubernetes Secrets
@@ -104,19 +104,19 @@ export function WebService(props: WebServiceProps) {
       envVars.push({
         name: envName,
         valueFrom: { secretKeyRef: { name: ref, key: envName } },
-      });
+      })
     } else {
       // Object with explicit secret/key
       envVars.push({
         name: envName,
         valueFrom: { secretKeyRef: { name: ref.secret, key: ref.key || envName } },
-      });
+      })
     }
   }
 
   // Vault secrets — create VaultStaticSecret objects
   for (const [envName, ref] of Object.entries(vault)) {
-    const secretName = `${name}-${envName.toLowerCase().replace(/_/g, '-')}-vault`;
+    const secretName = `${name}-${envName.toLowerCase().replace(/_/g, '-')}-vault`
 
     // Create VaultStaticSecret
     vaultResources.push(
@@ -135,23 +135,23 @@ export function WebService(props: WebServiceProps) {
           },
         },
       })
-    );
+    )
 
     // Reference the generated secret
     envVars.push({
       name: envName,
       valueFrom: { secretKeyRef: { name: secretName, key: ref.key || envName } },
-    });
+    })
   }
 
   // Raw env vars (advanced)
-  envVars.push(...rawEnv);
+  envVars.push(...rawEnv)
 
   // Auto-wire DATABASE_URL from DatabaseContext if available
-  const dbContext = useContext(DatabaseContext);
+  const dbContext = useContext(DatabaseContext)
   if (dbContext && !envVars.some((e) => e.name === 'DATABASE_URL')) {
     // Build DATABASE_URL from context fields instead of assuming a 'uri' key exists
-    const { host, port, database, username, passwordSecret } = dbContext;
+    const { host, port, database, username, passwordSecret } = dbContext
 
     // Set individual PostgreSQL env vars for flexibility
     envVars.push(
@@ -168,22 +168,22 @@ export function WebService(props: WebServiceProps) {
           },
         },
       }
-    );
+    )
 
     // Set DATABASE_URL as a template referencing the individual vars
     // Kubernetes will expand $(VAR) syntax in env var values
     envVars.push({
       name: 'DATABASE_URL',
       value: `postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)`,
-    });
+    })
   }
 
   // Declare Vault Secrets Operator if vault secrets are used
   if (Object.keys(vault).length > 0) {
-    const sharedOperators = useContext(OperatorContext);
-    const hasVSO = sharedOperators.some((op) => op.name === 'vault-secrets-operator');
+    const sharedOperators = useContext(OperatorContext)
+    const hasVSO = sharedOperators.some((op) => op.name === 'vault-secrets-operator')
     if (!hasVSO) {
-      vaultResources.push(declareOperator(vaultSecretsOperator()));
+      vaultResources.push(declareOperator(vaultSecretsOperator()))
     }
   }
 
@@ -219,7 +219,7 @@ export function WebService(props: WebServiceProps) {
         },
       },
     },
-  };
+  }
 
   const service: Service = {
     apiVersion: 'v1',
@@ -230,7 +230,7 @@ export function WebService(props: WebServiceProps) {
       selector: { app: name },
       ports: [{ port: 80, targetPort: port }],
     },
-  };
+  }
 
-  return [...vaultResources, jsx('Deployment', deployment), jsx('Service', service)];
+  return [...vaultResources, jsx('Deployment', deployment), jsx('Service', service)]
 }

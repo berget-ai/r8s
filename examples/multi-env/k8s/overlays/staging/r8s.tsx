@@ -1,15 +1,10 @@
-import { Fragment } from '@r8s/core';
-import { WebApp, Database } from '../../components/shared';
+import { Fragment } from '@r8s/core'
+import { WebApp, Database } from '../../components/shared'
 
 export default function Staging() {
   return (
     <>
-      <Database
-        name="app-db"
-        namespace="staging"
-        storage="5Gi"
-        password="staging-password"
-      />
+      <Database name="app-db" namespace="staging" storage="5Gi" password="staging-password" />
 
       <WebApp
         name="app"
@@ -21,5 +16,5 @@ export default function Staging() {
         ingressHost="staging.myapp.example.com"
       />
     </>
-  );
+  )
 }

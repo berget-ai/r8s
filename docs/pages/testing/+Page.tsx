@@ -1,4 +1,4 @@
-import { CodeBlock } from "../../components/CodeBlock";
+import { CodeBlock } from '../../components/CodeBlock'
 
 const projectStructure = `my-project/
 ├── k8s/
@@ -6,7 +6,7 @@ const projectStructure = `my-project/
 │   └── __tests__/
 │       └── r8s.test.ts      # Tests for your infrastructure
 ├── package.json
-└── tsconfig.json`;
+└── tsconfig.json`
 
 const infrastructureCode = `// k8s/r8s.tsx
 import { App } from '@r8s/recipes';
@@ -24,7 +24,7 @@ export default (
       limits: { cpu: "500m", memory: "512Mi" },
     }}
   />
-);`;
+);`
 
 const basicTest = `// k8s/__tests__/r8s.test.ts
 import { describe, it, expect } from 'vitest';
@@ -45,7 +45,7 @@ describe('Infrastructure', () => {
     expect(result.operators).toHaveLength(1);
     expect(result.operators[0].name).toBe('cnpg');
   });
-});`;
+});`
 
 const guardrailsTest = `// k8s/__tests__/guardrails.test.ts
 import { describe, it, expect } from 'vitest';
@@ -79,7 +79,7 @@ describe('Production Guardrails', () => {
     expect(guardrails.errors[0].code).toBe('MISSING_RESOURCE_LIMITS');
     expect(guardrails.errors[0].suggestion).toContain('resource.limits');
   });
-});`;
+});`
 
 const guardrailsOutput = `// When guardrails fail, you get detailed actionable errors
 {
@@ -95,7 +95,7 @@ const guardrailsOutput = `// When guardrails fail, you get detailed actionable e
   ],
   warnings: [],
   info: []
-}`;
+}`
 
 const multipleGuardrails = `// k8s/__tests__/guardrails.test.ts
 import { describe, it, expect } from 'vitest';
@@ -123,7 +123,7 @@ describe('Production Readiness', () => {
     expect(guardrails.errors).toHaveLength(0);
     expect(guardrails.warnings).toHaveLength(0);
   });
-});`;
+});`
 
 const customGuardrail = `// k8s/__tests__/guardrails.test.ts
 import { GuardrailRule, runGuardrails } from '@r8s/core/guardrails';
@@ -165,7 +165,7 @@ const result = render(infrastructure);
 const guardrails = runGuardrails(result.resources, [
   requireResourceLimits,
   requireReadinessProbe,  // Your custom rule
-]);`;
+]);`
 
 const snapshotTest = `// k8s/__tests__/snapshots.test.ts
 import { describe, it } from 'vitest';
@@ -179,7 +179,7 @@ describe('Snapshots', () => {
     expect(result.resources).toMatchSnapshot();
     expect(result.operators).toMatchSnapshot();
   });
-});`;
+});`
 
 const ciExample = `name: Test Infrastructure
 
@@ -205,57 +205,55 @@ jobs:
           cache: 'npm'
 
       - run: npm ci
-      - run: npm test`;
+      - run: npm test`
 
 export default function Page() {
   return (
     <div className="space-y-12">
       <div className="space-y-4">
         <h1 className="text-4xl tracking-tight">Testing</h1>
-        <p className="text-xl text-cloud/80">
-          Infrastructure is just code. Test it like code.
-        </p>
+        <p className="text-xl text-cloud/80">Infrastructure is just code. Test it like code.</p>
       </div>
 
       {/* Why Test Infrastructure */}
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">Why Test Infrastructure?</h2>
         <p className="text-cloud/70 leading-relaxed">
-          With r8s, your Kubernetes manifests are TypeScript components. That means you can test them 
-          with the same tools you use for your application code — Vitest, Jest, or any test runner.
+          With r8s, your Kubernetes manifests are TypeScript components. That means you can test
+          them with the same tools you use for your application code — Vitest, Jest, or any test
+          runner.
         </p>
         <p className="text-cloud/70 leading-relaxed">
-          No more deploying to staging and hoping it works. Run tests in CI and catch issues 
-          before they reach any cluster.
+          No more deploying to staging and hoping it works. Run tests in CI and catch issues before
+          they reach any cluster.
         </p>
-        
+
         <div className="grid md:grid-cols-2 gap-6 mt-8">
           <div className="p-6 rounded-lg border border-white/10">
             <h3 className="font-serif text-xl mb-3 text-moss">Catch Errors Early</h3>
             <p className="text-cloud/70 text-sm">
-              Find missing resource limits, wrong image tags, or missing operators 
-              in CI — not in production.
+              Find missing resource limits, wrong image tags, or missing operators in CI — not in
+              production.
             </p>
           </div>
           <div className="p-6 rounded-lg border border-white/10">
             <h3 className="font-serif text-xl mb-3 text-moss">Document Intent</h3>
             <p className="text-cloud/70 text-sm">
-              Tests show what you expect from your infrastructure. 
-              New team members can read tests to understand the setup.
+              Tests show what you expect from your infrastructure. New team members can read tests
+              to understand the setup.
             </p>
           </div>
           <div className="p-6 rounded-lg border border-white/10">
             <h3 className="font-serif text-xl mb-3 text-moss">Prevent Regressions</h3>
             <p className="text-cloud/70 text-sm">
-              Changing a component? Tests ensure you don't break 
-              other services that depend on it.
+              Changing a component? Tests ensure you don't break other services that depend on it.
             </p>
           </div>
           <div className="p-6 rounded-lg border border-white/10">
             <h3 className="font-serif text-xl mb-3 text-moss">Enforce Standards</h3>
             <p className="text-cloud/70 text-sm">
-              Pick the guardrails that matter for your organization. 
-              Start with one, add more as you grow.
+              Pick the guardrails that matter for your organization. Start with one, add more as you
+              grow.
             </p>
           </div>
         </div>
@@ -264,9 +262,7 @@ export default function Page() {
       {/* Project Structure */}
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">Project Structure</h2>
-        <p className="text-cloud/70">
-          Keep your infrastructure and tests together:
-        </p>
+        <p className="text-cloud/70">Keep your infrastructure and tests together:</p>
         <CodeBlock code={projectStructure} language="bash" />
       </div>
 
@@ -282,9 +278,7 @@ export default function Page() {
       {/* Basic Testing */}
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">Test Your Infrastructure</h2>
-        <p className="text-cloud/70">
-          Import your infrastructure and test it with Vitest:
-        </p>
+        <p className="text-cloud/70">Import your infrastructure and test it with Vitest:</p>
         <CodeBlock code={basicTest} language="tsx" />
       </div>
 
@@ -292,17 +286,17 @@ export default function Page() {
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">Built-in Guardrails</h2>
         <p className="text-cloud/70">
-          Don't write boilerplate test code. r8s includes production-ready guardrails 
-          in <code>@r8s/core/guardrails</code> that enforce Kubernetes best practices. 
-          Import the ones you need and run them with a single function call.
+          Don't write boilerplate test code. r8s includes production-ready guardrails in{' '}
+          <code>@r8s/core/guardrails</code> that enforce Kubernetes best practices. Import the ones
+          you need and run them with a single function call.
         </p>
-        
+
         <div className="p-6 rounded-lg border border-moss/30 bg-moss/5">
           <p className="text-cloud/80">
-            <strong className="text-moss">Why guardrails?</strong>{" "}
-            Instead of writing repetitive tests like "check that every container has resource limits", 
-            use the built-in <code>requireResourceLimits</code> guardrail. It checks all containers 
-            across all Deployments, StatefulSets, and DaemonSets — and gives you actionable error messages.
+            <strong className="text-moss">Why guardrails?</strong> Instead of writing repetitive
+            tests like "check that every container has resource limits", use the built-in{' '}
+            <code>requireResourceLimits</code> guardrail. It checks all containers across all
+            Deployments, StatefulSets, and DaemonSets — and gives you actionable error messages.
           </p>
         </div>
       </div>
@@ -311,8 +305,8 @@ export default function Page() {
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">Example: Resource Limits</h2>
         <p className="text-cloud/70">
-          The most common production issue is missing resource limits. One line prevents 
-          resource exhaustion and noisy neighbor problems:
+          The most common production issue is missing resource limits. One line prevents resource
+          exhaustion and noisy neighbor problems:
         </p>
         <CodeBlock code={guardrailsTest} language="tsx" />
         <CodeBlock code={guardrailsOutput} language="tsx" />
@@ -322,8 +316,8 @@ export default function Page() {
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">Combine Multiple Guardrails</h2>
         <p className="text-cloud/70">
-          Mix and match guardrails for your requirements. Each guardrail is independent — 
-          pick the ones that matter for your team:
+          Mix and match guardrails for your requirements. Each guardrail is independent — pick the
+          ones that matter for your team:
         </p>
         <CodeBlock code={multipleGuardrails} language="tsx" />
       </div>
@@ -331,10 +325,8 @@ export default function Page() {
       {/* Available Guardrails */}
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">All Available Guardrails</h2>
-        <p className="text-cloud/70">
-          Import only the ones you need:
-        </p>
-        
+        <p className="text-cloud/70">Import only the ones you need:</p>
+
         <div className="space-y-3">
           <div className="flex items-start gap-4 p-4 rounded-lg border border-white/10">
             <div className="flex-shrink-0 w-2 h-2 rounded-full bg-red-400 mt-2" />
@@ -345,7 +337,7 @@ export default function Page() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-4 p-4 rounded-lg border border-white/10">
             <div className="flex-shrink-0 w-2 h-2 rounded-full bg-red-400 mt-2" />
             <div>
@@ -355,7 +347,7 @@ export default function Page() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-4 p-4 rounded-lg border border-white/10">
             <div className="flex-shrink-0 w-2 h-2 rounded-full bg-red-400 mt-2" />
             <div>
@@ -365,17 +357,15 @@ export default function Page() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-4 p-4 rounded-lg border border-white/10">
             <div className="flex-shrink-0 w-2 h-2 rounded-full bg-red-400 mt-2" />
             <div>
               <h3 className="font-medium">noRootContainers</h3>
-              <p className="text-cloud/70 text-sm">
-                Containers should not run as root user.
-              </p>
+              <p className="text-cloud/70 text-sm">Containers should not run as root user.</p>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-4 p-4 rounded-lg border border-white/10">
             <div className="flex-shrink-0 w-2 h-2 rounded-full bg-yellow-400 mt-2" />
             <div>
@@ -385,7 +375,7 @@ export default function Page() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-4 p-4 rounded-lg border border-white/10">
             <div className="flex-shrink-0 w-2 h-2 rounded-full bg-yellow-400 mt-2" />
             <div>
@@ -419,9 +409,7 @@ export default function Page() {
       {/* CI/CD */}
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">CI/CD Integration</h2>
-        <p className="text-cloud/70">
-          Run tests on every push to your k8s/ folder:
-        </p>
+        <p className="text-cloud/70">Run tests on every push to your k8s/ folder:</p>
         <CodeBlock code={ciExample} language="yaml" />
       </div>
 
@@ -429,11 +417,17 @@ export default function Page() {
       <div className="p-6 rounded-lg border border-white/10 bg-spruce/20">
         <h2 className="font-serif text-2xl mb-3">Ready to test your infrastructure?</h2>
         <p className="text-cloud/70 text-sm leading-relaxed">
-          Check out the <a href="/recipes" className="text-moss hover:text-lichen">recipes</a> to find 
-          components to test, or read about <a href="/operators" className="text-moss hover:text-lichen">operators</a> 
+          Check out the{' '}
+          <a href="/recipes" className="text-moss hover:text-lichen">
+            recipes
+          </a>{' '}
+          to find components to test, or read about{' '}
+          <a href="/operators" className="text-moss hover:text-lichen">
+            operators
+          </a>
           to understand what dependencies to verify.
         </p>
       </div>
     </div>
-  );
+  )
 }

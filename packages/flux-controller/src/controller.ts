@@ -5,25 +5,25 @@
  * Renders r8s TSX manifests to YAML for FluxCD consumption.
  */
 
-import { execSync } from 'child_process';
-import { existsSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'fs';
-import { join, dirname, relative, resolve } from 'path';
+import { execSync } from 'child_process'
+import { existsSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'fs'
+import { join, dirname, relative, resolve } from 'path'
 
 export interface ControllerOptions {
-  source: string;
-  output: string;
-  entry?: string;
-  verbose?: boolean;
-  includeOperators?: boolean;
+  source: string
+  output: string
+  entry?: string
+  verbose?: boolean
+  includeOperators?: boolean
 }
 
 export interface RenderResult {
-  file: string;
-  success: boolean;
-  resources?: number;
-  operators?: number;
-  outputFile?: string;
-  error?: string;
+  file: string
+  success: boolean
+  resources?: number
+  operators?: number
+  outputFile?: string
+  error?: string
 }
 
 const log = {
@@ -31,65 +31,70 @@ const log = {
   error: (msg: string) => console.error('[r8s-controller] ERROR: ' + msg),
   debug: (msg: string, verbose?: boolean) =>
     verbose && console.log('[r8s-controller] DEBUG: ' + msg),
-};
+}
 
 /** Fetch operator manifests from URLs */
 async function fetchOperatorManifests(operators: any[]): Promise<string[]> {
-  const manifests: string[] = [];
+  const manifests: string[] = []
 
   for (const op of operators) {
     if (op.source?.type !== 'manifest' || !op.source?.url) {
-      continue;
+      continue
     }
 
     try {
-      const response = await fetch(op.source.url);
+      const response = await fetch(op.source.url)
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status}`)
       }
-      const yaml = await response.text();
-      manifests.push(`# Operator: ${op.name} v${op.version}\n${yaml}`);
+      const yaml = await response.text()
+      manifests.push(`# Operator: ${op.name} v${op.version}\n${yaml}`)
     } catch (error: any) {
-      log.error(`Failed to fetch operator ${op.name}: ${error.message}`);
+      log.error(`Failed to fetch operator ${op.name}: ${error.message}`)
       // Continue without this operator — better to have partial output than nothing
     }
   }
 
-  return manifests;
+  return manifests
 }
 
 /** Find all r8s entry files */
 export function findEntryFiles(sourcePath: string, entryPattern = 'r8s.tsx'): string[] {
-  const files: string[] = [];
+  const files: string[] = []
 
   function scan(dir: string) {
-    if (!existsSync(dir)) return;
+    if (!existsSync(dir)) return
 
     for (const entry of readdirSync(dir)) {
-      const fullPath = join(dir, entry);
-      const stat = statSync(fullPath);
+      const fullPath = join(dir, entry)
+      const stat = statSync(fullPath)
 
       if (stat.isDirectory()) {
         if (entry !== 'node_modules' && !entry.startsWith('.') && entry !== 'dist') {
-          scan(fullPath);
+          scan(fullPath)
         }
       } else if (entry === entryPattern || entry.endsWith('.r8s.tsx')) {
-        files.push(fullPath);
+        files.push(fullPath)
       }
     }
   }
 
-  scan(sourcePath);
-  return files;
+  scan(sourcePath)
+  return files
 }
 
 /** Render a TSX file to YAML */
-export async function renderFile(filePath: string, outputDir: string, verbose?: boolean, includeOperators?: boolean): Promise<RenderResult> {
-  const startTime = Date.now();
-  const relativePath = relative(process.cwd(), filePath);
+export async function renderFile(
+  filePath: string,
+  outputDir: string,
+  verbose?: boolean,
+  includeOperators?: boolean
+): Promise<RenderResult> {
+  const startTime = Date.now()
+  const relativePath = relative(process.cwd(), filePath)
 
   try {
-    log.debug('Rendering ' + relativePath + '...', verbose);
+    log.debug('Rendering ' + relativePath + '...', verbose)
 
     const script = [
       "import { render } from '@r8s/core';",
@@ -115,7 +120,7 @@ export async function renderFile(filePath: string, outputDir: string, verbose?: 
       '  }',
       '}',
       'main();',
-    ].join('\n');
+    ].join('\n')
 
     const result = execSync('npx tsx --eval "' + script.replace(/"/g, '\\"') + '"', {
       encoding: 'utf-8',
@@ -125,32 +130,34 @@ export async function renderFile(filePath: string, outputDir: string, verbose?: 
         ...process.env,
         NODE_PATH: resolve(process.cwd(), 'node_modules'),
       },
-    });
+    })
 
-    const lines = result.trim().split('\n');
-    const jsonLine = lines.find((l) => l.startsWith('{')) || '{}';
-    const parsed = JSON.parse(jsonLine);
+    const lines = result.trim().split('\n')
+    const jsonLine = lines.find((l) => l.startsWith('{')) || '{}'
+    const parsed = JSON.parse(jsonLine)
 
     if (parsed.error) {
-      throw new Error(parsed.error);
+      throw new Error(parsed.error)
     }
 
     // Fetch operator manifests only if requested
-    const operatorManifests = (includeOperators && parsed.operatorList?.length > 0)
-      ? await fetchOperatorManifests(parsed.operatorList)
-      : [];
+    const operatorManifests =
+      includeOperators && parsed.operatorList?.length > 0
+        ? await fetchOperatorManifests(parsed.operatorList)
+        : []
 
-    const resourceYaml = resourcesToYAML(parsed.yaml || []);
-    const combinedYaml = operatorManifests.length > 0
-      ? operatorManifests.join('\n---\n') + '\n---\n' + resourceYaml
-      : resourceYaml;
+    const resourceYaml = resourcesToYAML(parsed.yaml || [])
+    const combinedYaml =
+      operatorManifests.length > 0
+        ? operatorManifests.join('\n---\n') + '\n---\n' + resourceYaml
+        : resourceYaml
 
-    const outputFile = join(outputDir, relativePath.replace(/\.tsx$/, '.yaml'));
-    mkdirSync(dirname(outputFile), { recursive: true });
-    writeFileSync(outputFile, combinedYaml);
+    const outputFile = join(outputDir, relativePath.replace(/\.tsx$/, '.yaml'))
+    mkdirSync(dirname(outputFile), { recursive: true })
+    writeFileSync(outputFile, combinedYaml)
 
-    const duration = Date.now() - startTime;
-    log.debug('Rendered ' + parsed.resources + ' resources in ' + duration + 'ms', verbose);
+    const duration = Date.now() - startTime
+    log.debug('Rendered ' + parsed.resources + ' resources in ' + duration + 'ms', verbose)
 
     return {
       file: filePath,
@@ -158,53 +165,53 @@ export async function renderFile(filePath: string, outputDir: string, verbose?: 
       resources: parsed.resources,
       operators: parsed.operators,
       outputFile,
-    };
+    }
   } catch (error: any) {
-    log.error('Failed to render ' + relativePath + ': ' + error.message);
+    log.error('Failed to render ' + relativePath + ': ' + error.message)
     return {
       file: filePath,
       success: false,
       error: error.message,
-    };
+    }
   }
 }
 
 /** Convert resources array to YAML */
 export function resourcesToYAML(resources: any[]): string {
   if (resources.length === 0) {
-    return '# No resources generated\n';
+    return '# No resources generated\n'
   }
 
   return (
     resources
       .map((resource) => {
-        const lines: string[] = ['---'];
+        const lines: string[] = ['---']
 
         function serialize(obj: any, indent = 0): string[] {
-          const prefix = '  '.repeat(indent);
-          const result: string[] = [];
+          const prefix = '  '.repeat(indent)
+          const result: string[] = []
 
           for (const [key, value] of Object.entries(obj)) {
             if (value === null || value === undefined) {
-              continue;
+              continue
             } else if (Array.isArray(value)) {
               if (value.length === 0) {
-                result.push(prefix + key + ': []');
+                result.push(prefix + key + ': []')
               } else if (typeof value[0] === 'object') {
-                result.push(prefix + key + ':');
+                result.push(prefix + key + ':')
                 for (const item of value) {
-                  result.push(prefix + '-');
-                  result.push(...serialize(item, indent + 1));
+                  result.push(prefix + '-')
+                  result.push(...serialize(item, indent + 1))
                 }
               } else {
-                result.push(prefix + key + ':');
+                result.push(prefix + key + ':')
                 for (const item of value) {
-                  result.push(prefix + '- ' + JSON.stringify(item));
+                  result.push(prefix + '- ' + JSON.stringify(item))
                 }
               }
             } else if (typeof value === 'object') {
-              result.push(prefix + key + ':');
-              result.push(...serialize(value, indent + 1));
+              result.push(prefix + key + ':')
+              result.push(...serialize(value, indent + 1))
             } else if (typeof value === 'string') {
               if (
                 value.includes(':') ||
@@ -213,59 +220,59 @@ export function resourcesToYAML(resources: any[]): string {
                 value === '' ||
                 value.includes('\n')
               ) {
-                result.push(prefix + key + ': "' + value.replace(/"/g, '\\"') + '"');
+                result.push(prefix + key + ': "' + value.replace(/"/g, '\\"') + '"')
               } else {
-                result.push(prefix + key + ': ' + value);
+                result.push(prefix + key + ': ' + value)
               }
             } else {
-              result.push(prefix + key + ': ' + value);
+              result.push(prefix + key + ': ' + value)
             }
           }
 
-          return result;
+          return result
         }
 
-        lines.push(...serialize(resource));
-        return lines.join('\n');
+        lines.push(...serialize(resource))
+        return lines.join('\n')
       })
       .join('\n') + '\n'
-  );
+  )
 }
 
 /** Main controller function */
 export async function runController(options: ControllerOptions): Promise<RenderResult[]> {
-  const { source, output, entry = 'r8s.tsx', verbose, includeOperators } = options;
+  const { source, output, entry = 'r8s.tsx', verbose, includeOperators } = options
 
-  log.info('Starting r8s-controller');
-  log.info('Source: ' + source);
-  log.info('Output: ' + output);
-  log.info('Entry pattern: ' + entry);
+  log.info('Starting r8s-controller')
+  log.info('Source: ' + source)
+  log.info('Output: ' + output)
+  log.info('Entry pattern: ' + entry)
   if (includeOperators) {
-    log.info('Including operator manifests');
+    log.info('Including operator manifests')
   }
 
   if (!existsSync(source)) {
-    log.error('Source directory does not exist: ' + source);
-    return [];
+    log.error('Source directory does not exist: ' + source)
+    return []
   }
 
-  const entryFiles = findEntryFiles(source, entry);
-  log.info('Found ' + entryFiles.length + ' entry file(s)');
+  const entryFiles = findEntryFiles(source, entry)
+  log.info('Found ' + entryFiles.length + ' entry file(s)')
 
   if (entryFiles.length === 0) {
-    log.info('No entry files found, creating empty output');
-    mkdirSync(output, { recursive: true });
+    log.info('No entry files found, creating empty output')
+    mkdirSync(output, { recursive: true })
     writeFileSync(
       join(output, 'README.md'),
       '# r8s rendered output\n\nNo .tsx entry files found.\n'
-    );
-    return [];
+    )
+    return []
   }
 
-  const results: RenderResult[] = [];
+  const results: RenderResult[] = []
   for (const file of entryFiles) {
-    const result = await renderFile(file, output, verbose, includeOperators);
-    results.push(result);
+    const result = await renderFile(file, output, verbose, includeOperators)
+    results.push(result)
 
     if (result.success) {
       log.info(
@@ -276,38 +283,38 @@ export async function runController(options: ControllerOptions): Promise<RenderR
           ' (' +
           result.resources +
           ' resources)'
-      );
+      )
     } else {
-      log.error('FAIL ' + relative(source, file) + ': ' + result.error);
+      log.error('FAIL ' + relative(source, file) + ': ' + result.error)
     }
   }
 
-  const success = results.filter((r) => r.success).length;
-  const totalResources = results.reduce((sum, r) => sum + (r.resources || 0), 0);
-  const totalOperators = results.reduce((sum, r) => sum + (r.operators || 0), 0);
+  const success = results.filter((r) => r.success).length
+  const totalResources = results.reduce((sum, r) => sum + (r.resources || 0), 0)
+  const totalOperators = results.reduce((sum, r) => sum + (r.operators || 0), 0)
 
-  log.info('Rendered ' + success + '/' + results.length + ' files');
-  log.info('Total: ' + totalResources + ' resources, ' + totalOperators + ' operators');
+  log.info('Rendered ' + success + '/' + results.length + ' files')
+  log.info('Total: ' + totalResources + ' resources, ' + totalOperators + ' operators')
 
-  return results;
+  return results
 }
 
 /** CLI entry point */
 if (require.main === module) {
-  const args = process.argv.slice(2);
-  const options: Partial<ControllerOptions> = {};
+  const args = process.argv.slice(2)
+  const options: Partial<ControllerOptions> = {}
 
   for (const arg of args) {
     if (arg.startsWith('--source=')) {
-      options.source = arg.split('=')[1];
+      options.source = arg.split('=')[1]
     } else if (arg.startsWith('--output=')) {
-      options.output = arg.split('=')[1];
+      options.output = arg.split('=')[1]
     } else if (arg.startsWith('--entry=')) {
-      options.entry = arg.split('=')[1];
+      options.entry = arg.split('=')[1]
     } else if (arg === '--include-operators') {
-      options.includeOperators = true;
+      options.includeOperators = true
     } else if (arg === '--verbose' || arg === '-v') {
-      options.verbose = true;
+      options.verbose = true
     }
   }
 
@@ -327,17 +334,17 @@ Options:
 
 Example:
   r8s-controller --source=./k8s --output=./rendered --include-operators --verbose
-`);
-    process.exit(1);
+`)
+    process.exit(1)
   }
 
   runController(options as ControllerOptions)
     .then((results) => {
-      const failed = results.filter((r) => !r.success).length;
-      process.exit(failed > 0 ? 1 : 0);
+      const failed = results.filter((r) => !r.success).length
+      process.exit(failed > 0 ? 1 : 0)
     })
     .catch((err) => {
-      log.error('Controller failed: ' + err.message);
-      process.exit(1);
-    });
+      log.error('Controller failed: ' + err.message)
+      process.exit(1)
+    })
 }

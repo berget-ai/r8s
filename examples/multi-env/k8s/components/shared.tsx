@@ -1,15 +1,15 @@
-import { Postgres, CustomIngress } from '@r8s/recipes';
+import { Postgres, CustomIngress } from '@r8s/recipes'
 
 interface WebAppProps {
-  name: string;
-  namespace: string;
-  image: string;
-  replicas: number;
-  dbHost: string;
-  dbPassword: string;
-  ingressHost: string;
-  tlsSecretName?: string;
-  enableHPA?: boolean;
+  name: string
+  namespace: string
+  image: string
+  replicas: number
+  dbHost: string
+  dbPassword: string
+  ingressHost: string
+  tlsSecretName?: string
+  enableHPA?: boolean
 }
 
 export function WebApp(props: WebAppProps) {
@@ -23,7 +23,7 @@ export function WebApp(props: WebAppProps) {
     ingressHost,
     tlsSecretName,
     enableHPA = false,
-  } = props;
+  } = props
 
   return (
     <>
@@ -37,22 +37,27 @@ export function WebApp(props: WebAppProps) {
           template: {
             metadata: { labels: { app: name } },
             spec: {
-              containers: [{
-                name: 'app',
-                image,
-                ports: [{ containerPort: 3000 }],
-                env: [{
-                  name: 'DATABASE_URL',
-                  value: `postgresql://app:${dbPassword}@${dbHost}:5432/app`,
-                }, {
-                  name: 'NODE_ENV',
-                  value: namespace === 'production' ? 'production' : 'development',
-                }],
-                resources: {
-                  requests: { memory: '256Mi', cpu: '250m' },
-                  limits: { memory: '512Mi', cpu: '500m' },
+              containers: [
+                {
+                  name: 'app',
+                  image,
+                  ports: [{ containerPort: 3000 }],
+                  env: [
+                    {
+                      name: 'DATABASE_URL',
+                      value: `postgresql://app:${dbPassword}@${dbHost}:5432/app`,
+                    },
+                    {
+                      name: 'NODE_ENV',
+                      value: namespace === 'production' ? 'production' : 'development',
+                    },
+                  ],
+                  resources: {
+                    requests: { memory: '256Mi', cpu: '250m' },
+                    limits: { memory: '512Mi', cpu: '500m' },
+                  },
                 },
-              }],
+              ],
             },
           },
         }}
@@ -91,28 +96,30 @@ export function WebApp(props: WebAppProps) {
             },
             minReplicas: replicas,
             maxReplicas: replicas * 3,
-            metrics: [{
-              type: 'Resource',
-              resource: {
-                name: 'cpu',
-                target: {
-                  type: 'Utilization',
-                  averageUtilization: 70,
+            metrics: [
+              {
+                type: 'Resource',
+                resource: {
+                  name: 'cpu',
+                  target: {
+                    type: 'Utilization',
+                    averageUtilization: 70,
+                  },
                 },
               },
-            }],
+            ],
           }}
         />
       )}
     </>
-  );
+  )
 }
 
 interface DatabaseProps {
-  name: string;
-  namespace: string;
-  storage: string;
-  password: string;
+  name: string
+  namespace: string
+  storage: string
+  password: string
 }
 
 export function Database(props: DatabaseProps) {
@@ -125,5 +132,5 @@ export function Database(props: DatabaseProps) {
       password={props.password}
       storage={props.storage}
     />
-  );
+  )
 }

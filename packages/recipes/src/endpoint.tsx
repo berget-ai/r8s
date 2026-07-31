@@ -1,24 +1,24 @@
-import { jsx, Fragment, useContext, declareOperator } from '@r8s/core';
-import { Ingress } from '@r8s/k8s-types';
-import type { BaseRouteProps } from '@r8s/k8s-types';
-import { OperatorContext, RoutingContext } from '@r8s/core/defaults';
-import { nginxIngressOperator } from './operators';
-import { certManagerOperator, ManagedCertificate } from '@r8s/cert-manager';
-import { Gateway, HTTPRoute, envoyGatewayOperator } from '@r8s/envoy';
+import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
+import { Ingress } from '@r8s/k8s-types'
+import type { BaseRouteProps } from '@r8s/k8s-types'
+import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
+import { nginxIngressOperator } from './operators'
+import { certManagerOperator, ManagedCertificate } from '@r8s/cert-manager'
+import { Gateway, HTTPRoute, envoyGatewayOperator } from '@r8s/envoy'
 
 export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   /** Hostname for the endpoint (required) */
-  host: string;
+  host: string
   /** Service name to route to */
-  serviceName: string;
+  serviceName: string
   /** Service port (default: 80) */
-  servicePort?: number;
+  servicePort?: number
   /** cert-manager version override */
-  certManagerVersion?: string;
+  certManagerVersion?: string
   /** nginx-ingress version override (only used when mode='ingress') */
-  nginxIngressVersion?: string;
+  nginxIngressVersion?: string
   /** envoy-gateway version override (only used when mode='gateway') */
-  envoyGatewayVersion?: string;
+  envoyGatewayVersion?: string
 }
 
 /**
@@ -54,26 +54,26 @@ export function Endpoint(props: EndpointProps) {
     certManagerVersion,
     nginxIngressVersion,
     envoyGatewayVersion,
-  } = props;
+  } = props
 
-  const routing = useContext(RoutingContext);
-  const sharedOperators = useContext(OperatorContext);
+  const routing = useContext(RoutingContext)
+  const sharedOperators = useContext(OperatorContext)
 
-  const resources: ReturnType<typeof jsx>[] = [];
+  const resources: ReturnType<typeof jsx>[] = []
 
   if (routing.mode === 'gateway') {
-    const gatewayClassName = routing.gatewayClassName || 'eg';
-    const secretName = tls?.secretName || `${name}-tls`;
-    const issuerName = tls?.clusterIssuer || 'letsencrypt-prod';
+    const gatewayClassName = routing.gatewayClassName || 'eg'
+    const secretName = tls?.secretName || `${name}-tls`
+    const issuerName = tls?.clusterIssuer || 'letsencrypt-prod'
 
-    const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager');
-    const hasEnvoyGateway = sharedOperators.some((op) => op.name === 'envoy-gateway');
+    const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager')
+    const hasEnvoyGateway = sharedOperators.some((op) => op.name === 'envoy-gateway')
 
     if (tls && !hasCertManager) {
-      resources.push(declareOperator(certManagerOperator(certManagerVersion)));
+      resources.push(declareOperator(certManagerOperator(certManagerVersion)))
     }
     if (!hasEnvoyGateway) {
-      resources.push(declareOperator(envoyGatewayOperator(envoyGatewayVersion)));
+      resources.push(declareOperator(envoyGatewayOperator(envoyGatewayVersion)))
     }
 
     if (tls) {
@@ -85,11 +85,11 @@ export function Endpoint(props: EndpointProps) {
           dnsNames: [host],
           issuerName,
         })
-      );
+      )
     }
 
     // HTTPS listener with TLS, HTTP listener without
-    const useHttps = !!tls;
+    const useHttps = !!tls
     resources.push(
       jsx(Gateway, {
         name: `${name}-gateway`,
@@ -110,7 +110,7 @@ export function Endpoint(props: EndpointProps) {
           },
         ],
       })
-    );
+    )
 
     resources.push(
       jsx(HTTPRoute, {
@@ -124,16 +124,16 @@ export function Endpoint(props: EndpointProps) {
           },
         ],
       })
-    );
+    )
   } else {
-    const hasNginxIngress = sharedOperators.some((op) => op.name === 'nginx-ingress');
-    const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager');
+    const hasNginxIngress = sharedOperators.some((op) => op.name === 'nginx-ingress')
+    const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager')
 
     if (!hasNginxIngress) {
-      resources.push(declareOperator(nginxIngressOperator(nginxIngressVersion)));
+      resources.push(declareOperator(nginxIngressOperator(nginxIngressVersion)))
     }
     if (tls && !hasCertManager) {
-      resources.push(declareOperator(certManagerOperator(certManagerVersion)));
+      resources.push(declareOperator(certManagerOperator(certManagerVersion)))
     }
 
     const ingress: Ingress = {
@@ -182,10 +182,10 @@ export function Endpoint(props: EndpointProps) {
           ],
         }),
       },
-    };
+    }
 
-    resources.push(jsx('Ingress', ingress));
+    resources.push(jsx('Ingress', ingress))
   }
 
-  return jsx(Fragment, { children: resources });
+  return jsx(Fragment, { children: resources })
 }

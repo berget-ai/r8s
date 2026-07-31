@@ -1,14 +1,10 @@
-import { Postgres, CustomIngress } from '@r8s/recipes';
-import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager';
+import { Postgres, CustomIngress } from '@r8s/recipes'
+import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager'
 
 export default function ProductionApp() {
   return (
     <>
-      <LetsEncryptIssuer
-        name="letsencrypt-prod"
-        email="admin@example.com"
-        server="production"
-      />
+      <LetsEncryptIssuer name="letsencrypt-prod" email="admin@example.com" server="production" />
 
       <ManagedCertificate
         name="app-tls"
@@ -37,15 +33,19 @@ export default function ProductionApp() {
           template: {
             metadata: { labels: { app: 'app' } },
             spec: {
-              containers: [{
-                name: 'app',
-                image: 'myapp/app:v1.2.3',
-                ports: [{ containerPort: 3000 }],
-                env: [{
-                  name: 'DATABASE_URL',
-                  value: 'postgresql://app:${DB_PASSWORD}@app-db:5432/app',
-                }],
-              }],
+              containers: [
+                {
+                  name: 'app',
+                  image: 'myapp/app:v1.2.3',
+                  ports: [{ containerPort: 3000 }],
+                  env: [
+                    {
+                      name: 'DATABASE_URL',
+                      value: 'postgresql://app:${DB_PASSWORD}@app-db:5432/app',
+                    },
+                  ],
+                },
+              ],
             },
           },
         }}
@@ -71,5 +71,5 @@ export default function ProductionApp() {
         tlsSecretName="app-tls"
       />
     </>
-  );
+  )
 }

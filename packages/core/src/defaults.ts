@@ -1,24 +1,24 @@
-import { createContext } from './context';
-import type { Operator } from '@r8s/k8s-types';
+import { createContext } from './context'
+import type { Operator } from '@r8s/k8s-types'
 
 /** Database connection info passed via context */
 export interface DatabaseConnection {
-  host: string;
-  port: number;
-  database: string;
-  username: string;
-  passwordSecret: { name: string; key: string };
+  host: string
+  port: number
+  database: string
+  username: string
+  passwordSecret: { name: string; key: string }
   /** Key for the password within the secret (defaults to 'password') */
-  passwordKey?: string;
-  vendor?: string;
+  passwordKey?: string
+  vendor?: string
 }
 
 /** Secret provider configuration */
 export interface SecretProvider {
-  backend: 'vault' | 'openbao' | 'kubernetes';
-  mount?: string;
-  path?: string;
-  authRef?: string;
+  backend: 'vault' | 'openbao' | 'kubernetes'
+  mount?: string
+  path?: string
+  authRef?: string
 }
 
 /**
@@ -45,38 +45,38 @@ export interface SecretProvider {
  */
 
 /** Inherits namespace to all child resources */
-export const Namespace = createContext<string>('default');
+export const Namespace = createContext<string>('default')
 
 /** Inherits labels to all child resources */
-export const Labels = createContext<Record<string, string>>({});
+export const Labels = createContext<Record<string, string>>({})
 
 /** Inherits annotations to all child resources */
-export const Annotations = createContext<Record<string, string>>({});
+export const Annotations = createContext<Record<string, string>>({})
 
 /** Inherits environment variables to all child containers */
-export const Environment = createContext<Array<{ name: string; value: string }>>([]);
+export const Environment = createContext<Array<{ name: string; value: string }>>([])
 
 /** Inherits resource requests/limits to all child containers */
 export const Resources = createContext<{
-  requests?: Record<string, string>;
-  limits?: Record<string, string>;
-}>({});
+  requests?: Record<string, string>
+  limits?: Record<string, string>
+}>({})
 
 /** Inherits service account name to all child pods */
-export const ServiceAccount = createContext<string>('default');
+export const ServiceAccount = createContext<string>('default')
 
 /** Inherits image registry prefix (e.g., 'ghcr.io/myorg') */
-export const ImageRegistry = createContext<string>('');
+export const ImageRegistry = createContext<string>('')
 
 /** Inherits domain suffix for ingresses */
-export const Domain = createContext<string>('');
+export const Domain = createContext<string>('')
 
 /** Inherits TLS configuration */
 export const TLS = createContext<{
-  enabled: boolean;
-  issuer?: string;
-  secretName?: string;
-}>({ enabled: false });
+  enabled: boolean
+  issuer?: string
+  secretName?: string
+}>({ enabled: false })
 
 /**
  * Cluster context for shared PostgreSQL clusters.
@@ -97,11 +97,11 @@ export const TLS = createContext<{
  * ```
  */
 export interface ClusterConfig {
-  name: string;
-  namespace: string;
-  storage: string;
-  host: string;
-  secretName: string;
+  name: string
+  namespace: string
+  storage: string
+  host: string
+  secretName: string
   /**
    * Reference to the Kubernetes Secret holding the shared cluster's password.
    * Optional because the `Cluster` component itself does not create a Secret —
@@ -109,10 +109,10 @@ export interface ClusterConfig {
    * need an explicit reference should set this when they know the secret name
    * (e.g. when a `<Database />` child creates its own credentials secret).
    */
-  passwordSecret?: { name: string; key: string };
+  passwordSecret?: { name: string; key: string }
 }
 
-export const ClusterContext = createContext<ClusterConfig | null>(null);
+export const ClusterContext = createContext<ClusterConfig | null>(null)
 
 /**
  * Database connection context for component composition.
@@ -133,7 +133,7 @@ export const ClusterContext = createContext<ClusterConfig | null>(null);
  * }
  * ```
  */
-export const DatabaseContext = createContext<DatabaseConnection | null>(null);
+export const DatabaseContext = createContext<DatabaseConnection | null>(null)
 
 /**
  * Secret provider context for pluggable secret management.
@@ -154,7 +154,7 @@ export const DatabaseContext = createContext<DatabaseConnection | null>(null);
  * </SecretContext.Provider>
  * ```
  */
-export const SecretContext = createContext<SecretProvider | null>(null);
+export const SecretContext = createContext<SecretProvider | null>(null)
 
 /**
  * Operator context for declaring Kubernetes operator dependencies.
@@ -182,7 +182,7 @@ export const SecretContext = createContext<SecretProvider | null>(null);
  * </OperatorContext.Provider>
  * ```
  */
-export const OperatorContext = createContext<Operator[]>([]);
+export const OperatorContext = createContext<Operator[]>([])
 
 /**
  * Routing context for cluster-wide routing implementation.
@@ -206,9 +206,9 @@ export const OperatorContext = createContext<Operator[]>([]);
  */
 export interface RoutingConfig {
   /** Routing implementation: 'ingress' (nginx) or 'gateway' (Envoy Gateway API) */
-  mode: 'ingress' | 'gateway';
+  mode: 'ingress' | 'gateway'
   /** Gateway class name (only used when mode='gateway', default: 'eg') */
-  gatewayClassName?: string;
+  gatewayClassName?: string
 }
 
-export const RoutingContext = createContext<RoutingConfig>({ mode: 'ingress' });
+export const RoutingContext = createContext<RoutingConfig>({ mode: 'ingress' })

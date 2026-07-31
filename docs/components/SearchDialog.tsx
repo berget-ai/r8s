@@ -1,101 +1,112 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { search, searchEntries } from '../data/search';
-import type { SearchEntry } from '../data/search';
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { search, searchEntries } from '../data/search'
+import type { SearchEntry } from '../data/search'
 
 interface SearchDialogProps {
-  open: boolean;
-  onClose: () => void;
+  open: boolean
+  onClose: () => void
 }
 
-const CATEGORY_ORDER: SearchEntry['category'][] = ['Pages', 'Recipes', 'Components', 'Operators'];
+const CATEGORY_ORDER: SearchEntry['category'][] = ['Pages', 'Recipes', 'Components', 'Operators']
 
-function groupByCategory(results: SearchEntry[]): { category: SearchEntry['category']; items: SearchEntry[] }[] {
-  const groups = new Map<SearchEntry['category'], SearchEntry[]>();
+function groupByCategory(
+  results: SearchEntry[]
+): { category: SearchEntry['category']; items: SearchEntry[] }[] {
+  const groups = new Map<SearchEntry['category'], SearchEntry[]>()
   for (const r of results) {
-    if (!groups.has(r.category)) groups.set(r.category, []);
-    groups.get(r.category)!.push(r);
+    if (!groups.has(r.category)) groups.set(r.category, [])
+    groups.get(r.category)!.push(r)
   }
-  return CATEGORY_ORDER.filter((c) => groups.has(c)).map((category) => ({ category, items: groups.get(category)! }));
+  return CATEGORY_ORDER.filter((c) => groups.has(c)).map((category) => ({
+    category,
+    items: groups.get(category)!,
+  }))
 }
 
 export function SearchDialog({ open, onClose }: SearchDialogProps) {
-  const [query, setQuery] = useState('');
-  const [activeIndex, setActiveIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
-  const results = useMemo(() => search(searchEntries, query), [query]);
-  const flatResults = results;
-  const grouped = useMemo(() => groupByCategory(results), [results]);
-  const maxIndex = flatResults.length - 1;
+  const results = useMemo(() => search(searchEntries, query), [query])
+  const flatResults = results
+  const grouped = useMemo(() => groupByCategory(results), [results])
+  const maxIndex = flatResults.length - 1
 
   useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
+    setActiveIndex(0)
+  }, [query])
 
   useEffect(() => {
     if (open) {
-      setQuery('');
-      setActiveIndex(0);
-      const t = setTimeout(() => inputRef.current?.focus(), 0);
-      return () => clearTimeout(t);
+      setQuery('')
+      setActiveIndex(0)
+      const t = setTimeout(() => inputRef.current?.focus(), 0)
+      return () => clearTimeout(t)
     }
-  }, [open]);
+  }, [open])
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
+        e.preventDefault()
+        onClose()
       }
-    };
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
+    }
+    window.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
     return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [open, onClose])
 
   useEffect(() => {
-    if (!open) return;
-    const el = listRef.current?.querySelector<HTMLButtonElement>(`[data-idx="${activeIndex}"]`);
-    el?.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex, open]);
+    if (!open) return
+    const el = listRef.current?.querySelector<HTMLButtonElement>(`[data-idx="${activeIndex}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex, open])
 
-  if (!open) return null;
+  if (!open) return null
 
   const go = (entry: SearchEntry | undefined) => {
-    if (!entry) return;
-    onClose();
-    window.location.href = entry.href;
-  };
+    if (!entry) return
+    onClose()
+    window.location.href = entry.href
+  }
 
   const onKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActiveIndex((i) => (maxIndex <= 0 ? 0 : (i + 1) % (maxIndex + 1)));
+      e.preventDefault()
+      setActiveIndex((i) => (maxIndex <= 0 ? 0 : (i + 1) % (maxIndex + 1)))
     } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveIndex((i) => (maxIndex <= 0 ? 0 : (i - 1 + maxIndex + 1) % (maxIndex + 1)));
+      e.preventDefault()
+      setActiveIndex((i) => (maxIndex <= 0 ? 0 : (i - 1 + maxIndex + 1) % (maxIndex + 1)))
     } else if (e.key === 'Enter') {
-      e.preventDefault();
-      go(flatResults[activeIndex]);
+      e.preventDefault()
+      go(flatResults[activeIndex])
     } else if (e.key === 'Tab') {
-      e.preventDefault();
-      setActiveIndex((i) => (maxIndex <= 0 ? 0 : e.shiftKey ? (i - 1 + maxIndex + 1) % (maxIndex + 1) : (i + 1) % (maxIndex + 1)));
+      e.preventDefault()
+      setActiveIndex((i) =>
+        maxIndex <= 0
+          ? 0
+          : e.shiftKey
+            ? (i - 1 + maxIndex + 1) % (maxIndex + 1)
+            : (i + 1) % (maxIndex + 1)
+      )
     }
-  };
+  }
 
-  let runningIdx = -1;
+  let runningIdx = -1
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh] sm:pt-[15vh]"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) onClose()
       }}
     >
       <div className="absolute inset-0 bg-night/80 backdrop-blur-sm" aria-hidden="true" />
@@ -152,9 +163,9 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
                   {group.category}
                 </div>
                 {group.items.map((entry) => {
-                  runningIdx += 1;
-                  const idx = runningIdx;
-                  const isActive = idx === activeIndex;
+                  runningIdx += 1
+                  const idx = runningIdx
+                  const isActive = idx === activeIndex
                   return (
                     <button
                       key={`${entry.category}-${entry.href}-${idx}`}
@@ -166,7 +177,9 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
                       }`}
                     >
                       <span className="min-w-0">
-                        <span className={`block truncate text-sm ${isActive ? 'text-peak' : 'text-peak/90'}`}>
+                        <span
+                          className={`block truncate text-sm ${isActive ? 'text-peak' : 'text-peak/90'}`}
+                        >
                           {entry.title}
                         </span>
                         <span className="mt-0.5 block truncate text-xs text-cloud/50">
@@ -177,7 +190,7 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
                         {entry.href}
                       </span>
                     </button>
-                  );
+                  )
                 })}
               </div>
             ))
@@ -186,13 +199,19 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
 
         <div className="flex items-center justify-between border-t border-white/10 px-4 py-2 text-xs text-cloud/40">
           <div className="flex items-center gap-3">
-            <span><kbd className="font-mono">↑</kbd> <kbd className="font-mono">↓</kbd> navigate</span>
-            <span><kbd className="font-mono">↵</kbd> select</span>
-            <span><kbd className="font-mono">Esc</kbd> close</span>
+            <span>
+              <kbd className="font-mono">↑</kbd> <kbd className="font-mono">↓</kbd> navigate
+            </span>
+            <span>
+              <kbd className="font-mono">↵</kbd> select
+            </span>
+            <span>
+              <kbd className="font-mono">Esc</kbd> close
+            </span>
           </div>
           <span className="text-cloud/30">{flatResults.length} results</span>
         </div>
       </div>
     </div>
-  );
+  )
 }

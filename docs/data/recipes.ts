@@ -2,160 +2,418 @@
 // Do not edit manually — run: npx tsx docs/scripts/generate-docs.ts
 
 export interface ComponentProp {
-  name: string;
-  type: string;
-  required: boolean;
-  default?: string;
-  description: string;
+  name: string
+  type: string
+  required: boolean
+  default?: string
+  description: string
 }
 
 export interface ComponentDoc {
-  name: string;
-  description: string;
-  props: ComponentProp[];
-  examples: { tsx: string; yaml: string | null }[];
+  name: string
+  description: string
+  props: ComponentProp[]
+  examples: { tsx: string; yaml: string | null }[]
 }
 
 export interface Recipe {
-  slug: string;
-  title: string;
-  description: string;
-  category: string;
-  keywords: string[];
-  component: ComponentDoc;
+  slug: string
+  title: string
+  description: string
+  category: string
+  keywords: string[]
+  component: ComponentDoc
 }
 
 export const recipes: Recipe[] = [
   {
-    slug: "app",
-    title: "App",
-    description: "Simple application — Deployment + Service + Endpoint.",
-    category: "Complete Solution",
+    slug: 'app',
+    title: 'App',
+    description: 'Simple application — Deployment + Service + Endpoint.',
+    category: 'Complete Solution',
     keywords: [],
     component: {
-      name: "App",
-      description: "Simple application — Deployment + Service + Endpoint.",
+      name: 'App',
+      description: 'Simple application — Deployment + Service + Endpoint.',
       props: [
-      { name: "name", type: "string", required: true, description: "Resource name" },
-      { name: "namespace", type: "string", required: false, description: "Kubernetes namespace (defaults to 'default' or the Platform namespace)" },
-      { name: "image", type: "string", required: true, description: "Container image (e.g., 'myapp/api:v1.2.3')" },
-      { name: "port", type: "number", required: false, description: "Container port the app listens on (defaults to 3000)" },
-      { name: "replicas", type: "number", required: false, description: "Number of pod replicas (defaults to 2)" },
-      { name: "host", type: "string", required: true, description: "Domain name (e.g., 'api.example.com') the endpoint should accept traffic for" },
-      { name: "tls", type: "TLSConfig", required: false, description: "TLS certificate configuration for HTTPS" },
-      { name: "env", type: "Record", required: false, description: "Plain environment variables (non-sensitive)" },
-      { name: "secrets", type: "Record", required: false, description: "Secrets from Kubernetes Secrets — safe by default" },
-      { name: "vault", type: "Record", required: false, description: "Secrets from Vault — creates VaultStaticSecret objects" },
-      { name: "resources", type: "{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }", required: false, description: "CPU and memory requests/limits for the app container" },
-      { name: "children", type: "unknown", required: false, description: "Child components rendered as sibling resources (e.g., a BackgroundWorker)" },
+        { name: 'name', type: 'string', required: true, description: 'Resource name' },
+        {
+          name: 'namespace',
+          type: 'string',
+          required: false,
+          description: "Kubernetes namespace (defaults to 'default' or the Platform namespace)",
+        },
+        {
+          name: 'image',
+          type: 'string',
+          required: true,
+          description: "Container image (e.g., 'myapp/api:v1.2.3')",
+        },
+        {
+          name: 'port',
+          type: 'number',
+          required: false,
+          description: 'Container port the app listens on (defaults to 3000)',
+        },
+        {
+          name: 'replicas',
+          type: 'number',
+          required: false,
+          description: 'Number of pod replicas (defaults to 2)',
+        },
+        {
+          name: 'host',
+          type: 'string',
+          required: true,
+          description:
+            "Domain name (e.g., 'api.example.com') the endpoint should accept traffic for",
+        },
+        {
+          name: 'tls',
+          type: 'TLSConfig',
+          required: false,
+          description: 'TLS certificate configuration for HTTPS',
+        },
+        {
+          name: 'env',
+          type: 'Record',
+          required: false,
+          description: 'Plain environment variables (non-sensitive)',
+        },
+        {
+          name: 'secrets',
+          type: 'Record',
+          required: false,
+          description: 'Secrets from Kubernetes Secrets — safe by default',
+        },
+        {
+          name: 'vault',
+          type: 'Record',
+          required: false,
+          description: 'Secrets from Vault — creates VaultStaticSecret objects',
+        },
+        {
+          name: 'resources',
+          type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+          required: false,
+          description: 'CPU and memory requests/limits for the app container',
+        },
+        {
+          name: 'children',
+          type: 'unknown',
+          required: false,
+          description: 'Child components rendered as sibling resources (e.g., a BackgroundWorker)',
+        },
       ],
       examples: [],
     },
   },
   {
-    slug: "cluster",
-    title: "Database Cluster",
-    description: "Shared PostgreSQL cluster for multiple databases.",
-    category: "Data & Analytics",
+    slug: 'cluster',
+    title: 'Database Cluster',
+    description: 'Shared PostgreSQL cluster for multiple databases.',
+    category: 'Data & Analytics',
     keywords: [],
     component: {
-      name: "Cluster",
-      description: "Shared PostgreSQL cluster for multiple databases.",
+      name: 'Cluster',
+      description: 'Shared PostgreSQL cluster for multiple databases.',
       props: [
-      { name: "name", type: "string", required: true, description: "Resource name" },
-      { name: "namespace", type: "string", required: false, description: "Kubernetes namespace (defaults to 'default')" },
-      { name: "storage", type: "string", required: false, description: "Storage size (e.g., '50Gi') for the shared PostgreSQL data volume" },
-      { name: "children", type: "unknown", required: false, description: "Database components rendered as children will share this cluster" },
+        { name: 'name', type: 'string', required: true, description: 'Resource name' },
+        {
+          name: 'namespace',
+          type: 'string',
+          required: false,
+          description: "Kubernetes namespace (defaults to 'default')",
+        },
+        {
+          name: 'storage',
+          type: 'string',
+          required: false,
+          description: "Storage size (e.g., '50Gi') for the shared PostgreSQL data volume",
+        },
+        {
+          name: 'children',
+          type: 'unknown',
+          required: false,
+          description: 'Database components rendered as children will share this cluster',
+        },
       ],
-      examples: [{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <Cluster name=\"main\" storage=\"100Gi\">\n  <Database name=\"user-db\" />\n  <Database name=\"order-db\" />\n  <Database name=\"inventory-db\" />\n</Cluster>;","yaml":null},{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <Database name=\"user-db\" storage=\"10Gi\" />\n<Database name=\"order-db\" storage=\"10Gi\" />;","yaml":null}],
+      examples: [
+        {
+          tsx: 'import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from \'@r8s/recipes\';\n\nexport default <Cluster name="main" storage="100Gi">\n  <Database name="user-db" />\n  <Database name="order-db" />\n  <Database name="inventory-db" />\n</Cluster>;',
+          yaml: null,
+        },
+        {
+          tsx: 'import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from \'@r8s/recipes\';\n\nexport default <Database name="user-db" storage="10Gi" />\n<Database name="order-db" storage="10Gi" />;',
+          yaml: null,
+        },
+      ],
     },
   },
   {
-    slug: "database",
-    title: "Database",
-    description: "CloudNativePG PostgreSQL database.",
-    category: "Data & Analytics",
+    slug: 'database',
+    title: 'Database',
+    description: 'CloudNativePG PostgreSQL database.',
+    category: 'Data & Analytics',
     keywords: [],
     component: {
-      name: "Database",
-      description: "CloudNativePG PostgreSQL database.",
+      name: 'Database',
+      description: 'CloudNativePG PostgreSQL database.',
       props: [
-      { name: "name", type: "string", required: true, description: "Resource name (also the default database name)" },
-      { name: "namespace", type: "string", required: false, description: "Kubernetes namespace (defaults to 'default')" },
-      { name: "storage", type: "string", required: false, description: "Storage size (e.g., '10Gi') for the dedicated cluster data volume" },
-      { name: "operatorVersion", type: "string", required: false, description: "Operator version override. If not set, reads from OperatorContext or uses default." },
-      { name: "password", type: "string", required: false, description: "Password for the database. Required unless using Vault/OpenBao via SecretContext." },
-      { name: "children", type: "unknown", required: false, description: "Child components rendered with this database's connection info in context" },
+        {
+          name: 'name',
+          type: 'string',
+          required: true,
+          description: 'Resource name (also the default database name)',
+        },
+        {
+          name: 'namespace',
+          type: 'string',
+          required: false,
+          description: "Kubernetes namespace (defaults to 'default')",
+        },
+        {
+          name: 'storage',
+          type: 'string',
+          required: false,
+          description: "Storage size (e.g., '10Gi') for the dedicated cluster data volume",
+        },
+        {
+          name: 'operatorVersion',
+          type: 'string',
+          required: false,
+          description:
+            'Operator version override. If not set, reads from OperatorContext or uses default.',
+        },
+        {
+          name: 'password',
+          type: 'string',
+          required: false,
+          description:
+            'Password for the database. Required unless using Vault/OpenBao via SecretContext.',
+        },
+        {
+          name: 'children',
+          type: 'unknown',
+          required: false,
+          description: "Child components rendered with this database's connection info in context",
+        },
       ],
-      examples: [{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <Database name=\"app-db\" storage=\"10Gi\" />;","yaml":"apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enabled: true\n"},{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <Cluster name=\"main\" storage=\"100Gi\">\n  <Database name=\"user-db\" />\n  <Database name=\"order-db\" />\n</Cluster>;","yaml":null},{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\nimport { KeycloakInstance, KeycloakRealm } from '@r8s/keycloak';\n\nexport default <Database name=\"keycloak-db\" storage=\"10Gi\">\n  <KeycloakInstance name=\"keycloak\" hostname=\"auth.example.com\" />\n</Database>;","yaml":"apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: keycloak-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: keycloak-db\n      owner: keycloak-db\n      secret:\n        name: keycloak-db-db-credentials\n  monitoring:\n    enabled: true\n---\napiVersion: k8s.keycloak.org/v2alpha1\nkind: Keycloak\nmetadata:\n  name: keycloak\n  namespace: default\nspec:\n  instances: 1\n  hostname:\n    hostname: auth.example.com\n    strict: false\n    strictBackchannel: false\n  proxy:\n    headers: xforwarded\n  db:\n    vendor: postgres\n    host: keycloak-db-rw\n    database: keycloak\n    port: 5432\n    usernameSecret:\n      name: keycloak-db-db-credentials\n      key: username\n    passwordSecret:\n      name: keycloak-db-db-credentials\n      key: password\n  ingress:\n    enabled: true\n    className: nginx\n  transaction:\n    xaEnabled: false\n"}],
+      examples: [
+        {
+          tsx: 'import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from \'@r8s/recipes\';\n\nexport default <Database name="app-db" storage="10Gi" />;',
+          yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enabled: true\n',
+        },
+        {
+          tsx: 'import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from \'@r8s/recipes\';\n\nexport default <Cluster name="main" storage="100Gi">\n  <Database name="user-db" />\n  <Database name="order-db" />\n</Cluster>;',
+          yaml: null,
+        },
+        {
+          tsx: 'import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from \'@r8s/recipes\';\nimport { KeycloakInstance, KeycloakRealm } from \'@r8s/keycloak\';\n\nexport default <Database name="keycloak-db" storage="10Gi">\n  <KeycloakInstance name="keycloak" hostname="auth.example.com" />\n</Database>;',
+          yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: keycloak-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: keycloak-db\n      owner: keycloak-db\n      secret:\n        name: keycloak-db-db-credentials\n  monitoring:\n    enabled: true\n---\napiVersion: k8s.keycloak.org/v2alpha1\nkind: Keycloak\nmetadata:\n  name: keycloak\n  namespace: default\nspec:\n  instances: 1\n  hostname:\n    hostname: auth.example.com\n    strict: false\n    strictBackchannel: false\n  proxy:\n    headers: xforwarded\n  db:\n    vendor: postgres\n    host: keycloak-db-rw\n    database: keycloak\n    port: 5432\n    usernameSecret:\n      name: keycloak-db-db-credentials\n      key: username\n    passwordSecret:\n      name: keycloak-db-db-credentials\n      key: password\n  ingress:\n    enabled: true\n    className: nginx\n  transaction:\n    xaEnabled: false\n',
+        },
+      ],
     },
   },
   {
-    slug: "endpoint",
-    title: "Endpoint",
-    description: "Endpoint — cluster-adaptive routing for a service.",
-    category: "Networking",
+    slug: 'endpoint',
+    title: 'Endpoint',
+    description: 'Endpoint — cluster-adaptive routing for a service.',
+    category: 'Networking',
     keywords: [],
     component: {
-      name: "Endpoint",
-      description: "Endpoint — cluster-adaptive routing for a service.",
+      name: 'Endpoint',
+      description: 'Endpoint — cluster-adaptive routing for a service.',
       props: [
-      { name: "host", type: "string", required: true, description: "Hostname for the endpoint (required)" },
-      { name: "serviceName", type: "string", required: true, description: "Service name to route to" },
-      { name: "servicePort", type: "number", required: false, description: "Service port (default: 80)" },
-      { name: "certManagerVersion", type: "string", required: false, description: "cert-manager version override" },
-      { name: "nginxIngressVersion", type: "string", required: false, description: "nginx-ingress version override (only used when mode='ingress')" },
-      { name: "envoyGatewayVersion", type: "string", required: false, description: "envoy-gateway version override (only used when mode='gateway')" },
+        {
+          name: 'host',
+          type: 'string',
+          required: true,
+          description: 'Hostname for the endpoint (required)',
+        },
+        {
+          name: 'serviceName',
+          type: 'string',
+          required: true,
+          description: 'Service name to route to',
+        },
+        {
+          name: 'servicePort',
+          type: 'number',
+          required: false,
+          description: 'Service port (default: 80)',
+        },
+        {
+          name: 'certManagerVersion',
+          type: 'string',
+          required: false,
+          description: 'cert-manager version override',
+        },
+        {
+          name: 'nginxIngressVersion',
+          type: 'string',
+          required: false,
+          description: "nginx-ingress version override (only used when mode='ingress')",
+        },
+        {
+          name: 'envoyGatewayVersion',
+          type: 'string',
+          required: false,
+          description: "envoy-gateway version override (only used when mode='gateway')",
+        },
       ],
       examples: [],
     },
   },
   {
-    slug: "platform",
-    title: "Platform",
-    description: "Platform — cluster-level configuration wrapper.",
-    category: "Cluster Configuration",
+    slug: 'platform',
+    title: 'Platform',
+    description: 'Platform — cluster-level configuration wrapper.',
+    category: 'Cluster Configuration',
     keywords: [],
     component: {
-      name: "Platform",
-      description: "Platform — cluster-level configuration wrapper.",
+      name: 'Platform',
+      description: 'Platform — cluster-level configuration wrapper.',
       props: [
-      { name: "routing", type: "RoutingMode", required: false, description: "Routing implementation for the cluster. - 'ingress': nginx Ingress (default) - 'gateway': Envoy Gateway (Gateway API)" },
-      { name: "gatewayClassName", type: "string", required: false, description: "Gateway class name (only used when routing='gateway', default: 'eg')" },
-      { name: "namespace", type: "string", required: false, description: "Default namespace for all child resources" },
-      { name: "labels", type: "Record", required: false, description: "Default labels applied to all child resources" },
-      { name: "operators", type: "Operator[]", required: false, description: "Shared operators for all child resources" },
-      { name: "children", type: "unknown", required: false, description: "Child components that inherit the cluster-level configuration this Platform sets" },
+        {
+          name: 'routing',
+          type: 'RoutingMode',
+          required: false,
+          description:
+            "Routing implementation for the cluster. - 'ingress': nginx Ingress (default) - 'gateway': Envoy Gateway (Gateway API)",
+        },
+        {
+          name: 'gatewayClassName',
+          type: 'string',
+          required: false,
+          description: "Gateway class name (only used when routing='gateway', default: 'eg')",
+        },
+        {
+          name: 'namespace',
+          type: 'string',
+          required: false,
+          description: 'Default namespace for all child resources',
+        },
+        {
+          name: 'labels',
+          type: 'Record',
+          required: false,
+          description: 'Default labels applied to all child resources',
+        },
+        {
+          name: 'operators',
+          type: 'Operator[]',
+          required: false,
+          description: 'Shared operators for all child resources',
+        },
+        {
+          name: 'children',
+          type: 'unknown',
+          required: false,
+          description:
+            'Child components that inherit the cluster-level configuration this Platform sets',
+        },
       ],
-      examples: [{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <Platform routing=\"gateway\" namespace=\"production\">\n  <App name=\"api\" image=\"myapp/api:v1\" host=\"api.example.com\" />\n  <App name=\"web\" image=\"myapp/web:v1\" host=\"app.example.com\" />\n</Platform>;","yaml":"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: api-endpoint-gateway\n  namespace: production\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: http\n      protocol: HTTP\n      port: 80\n      hostname: api.example.com\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: api-endpoint-route\n  namespace: production\nspec:\n  parentRefs:\n    - name: api-endpoint-gateway\n  hostnames:\n    - api.example.com\n  rules:\n    - backendRefs:\n        - name: api\n          port: 80\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n  namespace: production\n  labels:\n    app: web\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: web\n  template:\n    metadata:\n      labels:\n        app: web\n    spec:\n      containers:\n        - name: app\n          image: myapp/web:v1\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: web\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: web\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: web-endpoint-gateway\n  namespace: production\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: http\n      protocol: HTTP\n      port: 80\n      hostname: app.example.com\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: web-endpoint-route\n  namespace: production\nspec:\n  parentRefs:\n    - name: web-endpoint-gateway\n  hostnames:\n    - app.example.com\n  rules:\n    - backendRefs:\n        - name: web\n          port: 80\n"},{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <Platform namespace=\"production\">\n  <App name=\"api\" image=\"myapp/api:v1\" host=\"api.example.com\" />\n</Platform>;","yaml":"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: api-endpoint\n  namespace: production\n  annotations:\n    nginx.ingress.kubernetes.io/rewrite-target: /\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: api.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: api\n                port:\n                  number: 80\n"},{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <Platform\n  routing=\"gateway\"\n  namespace=\"production\"\n  operators={[cnpgOperator(), certManagerOperator()]}\n>\n  <Database name=\"app-db\" storage=\"10Gi\" />\n  <App name=\"api\" image=\"myapp/api:v1\" host=\"api.example.com\" />\n</Platform>;","yaml":null}],
+      examples: [
+        {
+          tsx: 'import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from \'@r8s/recipes\';\n\nexport default <Platform routing="gateway" namespace="production">\n  <App name="api" image="myapp/api:v1" host="api.example.com" />\n  <App name="web" image="myapp/web:v1" host="app.example.com" />\n</Platform>;',
+          yaml: 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: api-endpoint-gateway\n  namespace: production\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: http\n      protocol: HTTP\n      port: 80\n      hostname: api.example.com\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: api-endpoint-route\n  namespace: production\nspec:\n  parentRefs:\n    - name: api-endpoint-gateway\n  hostnames:\n    - api.example.com\n  rules:\n    - backendRefs:\n        - name: api\n          port: 80\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n  namespace: production\n  labels:\n    app: web\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: web\n  template:\n    metadata:\n      labels:\n        app: web\n    spec:\n      containers:\n        - name: app\n          image: myapp/web:v1\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: web\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: web\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: web-endpoint-gateway\n  namespace: production\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: http\n      protocol: HTTP\n      port: 80\n      hostname: app.example.com\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: web-endpoint-route\n  namespace: production\nspec:\n  parentRefs:\n    - name: web-endpoint-gateway\n  hostnames:\n    - app.example.com\n  rules:\n    - backendRefs:\n        - name: web\n          port: 80\n',
+        },
+        {
+          tsx: 'import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from \'@r8s/recipes\';\n\nexport default <Platform namespace="production">\n  <App name="api" image="myapp/api:v1" host="api.example.com" />\n</Platform>;',
+          yaml: 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: api-endpoint\n  namespace: production\n  annotations:\n    nginx.ingress.kubernetes.io/rewrite-target: /\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: api.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: api\n                port:\n                  number: 80\n',
+        },
+        {
+          tsx: 'import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from \'@r8s/recipes\';\n\nexport default <Platform\n  routing="gateway"\n  namespace="production"\n  operators={[cnpgOperator(), certManagerOperator()]}\n>\n  <Database name="app-db" storage="10Gi" />\n  <App name="api" image="myapp/api:v1" host="api.example.com" />\n</Platform>;',
+          yaml: null,
+        },
+      ],
     },
   },
   {
-    slug: "web-service",
-    title: "Web Service",
-    description: "Simple web service (backend or frontend).",
-    category: "Workloads",
+    slug: 'web-service',
+    title: 'Web Service',
+    description: 'Simple web service (backend or frontend).',
+    category: 'Workloads',
     keywords: [],
     component: {
-      name: "WebService",
-      description: "Simple web service (backend or frontend).",
+      name: 'WebService',
+      description: 'Simple web service (backend or frontend).',
       props: [
-      { name: "name", type: "string", required: true, description: "Resource name" },
-      { name: "namespace", type: "string", required: false, description: "Kubernetes namespace (defaults to 'default')" },
-      { name: "image", type: "string", required: true, description: "Container image (e.g., 'myapp/api:v1.2.3')" },
-      { name: "port", type: "number", required: false, description: "Container port the app listens on (defaults to 3000)" },
-      { name: "replicas", type: "number", required: false, description: "Number of pod replicas (defaults to 2)" },
-      { name: "env", type: "Record", required: false, description: "Plain environment variables (non-sensitive)" },
-      { name: "secrets", type: "Record", required: false, description: "Secrets from Kubernetes Secrets — safe by default" },
-      { name: "vault", type: "Record", required: false, description: "Secrets from Vault — creates VaultStaticSecret objects" },
-      { name: "rawEnv", type: "EnvVar[]", required: false, description: "Raw env vars for advanced use cases" },
-      { name: "resources", type: "{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }", required: false, description: "CPU and memory requests/limits for the app container" },
+        { name: 'name', type: 'string', required: true, description: 'Resource name' },
+        {
+          name: 'namespace',
+          type: 'string',
+          required: false,
+          description: "Kubernetes namespace (defaults to 'default')",
+        },
+        {
+          name: 'image',
+          type: 'string',
+          required: true,
+          description: "Container image (e.g., 'myapp/api:v1.2.3')",
+        },
+        {
+          name: 'port',
+          type: 'number',
+          required: false,
+          description: 'Container port the app listens on (defaults to 3000)',
+        },
+        {
+          name: 'replicas',
+          type: 'number',
+          required: false,
+          description: 'Number of pod replicas (defaults to 2)',
+        },
+        {
+          name: 'env',
+          type: 'Record',
+          required: false,
+          description: 'Plain environment variables (non-sensitive)',
+        },
+        {
+          name: 'secrets',
+          type: 'Record',
+          required: false,
+          description: 'Secrets from Kubernetes Secrets — safe by default',
+        },
+        {
+          name: 'vault',
+          type: 'Record',
+          required: false,
+          description: 'Secrets from Vault — creates VaultStaticSecret objects',
+        },
+        {
+          name: 'rawEnv',
+          type: 'EnvVar[]',
+          required: false,
+          description: 'Raw env vars for advanced use cases',
+        },
+        {
+          name: 'resources',
+          type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+          required: false,
+          description: 'CPU and memory requests/limits for the app container',
+        },
       ],
-      examples: [{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <WebService name=\"api\" image=\"myapp/api:v1\" port={3000} env={{ LOG_LEVEL: 'info' }} />;","yaml":"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: default\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env:\n            - name: LOG_LEVEL\n              value: info\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n"},{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <WebService\n  name=\"api\"\n  image=\"myapp/api:v1\"\n  env={{ LOG_LEVEL: 'info' }}\n  secrets={{ DATABASE_URL: 'app-secrets', API_KEY: 'app-secrets' }}\n/>;","yaml":"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: default\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env:\n            - name: LOG_LEVEL\n              value: info\n            - name: DATABASE_URL\n              valueFrom:\n                secretKeyRef:\n                  name: app-secrets\n                  key: DATABASE_URL\n            - name: API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: app-secrets\n                  key: API_KEY\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n"},{"tsx":"import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <WebService\n  name=\"api\"\n  image=\"myapp/api:v1\"\n  env={{ LOG_LEVEL: 'info' }}\n  vault={{ DATABASE_URL: { mount: 'kv', path: 'db/credentials' } }}\n/>;","yaml":"apiVersion: secrets.hashicorp.com/v1beta1\nkind: VaultStaticSecret\nmetadata:\n  name: api-database-url-vault\n  namespace: default\nspec:\n  vaultAuthRef: default\n  mount: kv\n  type: kv-v2\n  path: db/credentials\n  destination:\n    create: true\n    name: api-database-url-vault\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: default\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env:\n            - name: LOG_LEVEL\n              value: info\n            - name: DATABASE_URL\n              valueFrom:\n                secretKeyRef:\n                  name: api-database-url-vault\n                  key: DATABASE_URL\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n"}],
+      examples: [
+        {
+          tsx: 'import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from \'@r8s/recipes\';\n\nexport default <WebService name="api" image="myapp/api:v1" port={3000} env={{ LOG_LEVEL: \'info\' }} />;',
+          yaml: 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: default\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env:\n            - name: LOG_LEVEL\n              value: info\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n',
+        },
+        {
+          tsx: "import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <WebService\n  name=\"api\"\n  image=\"myapp/api:v1\"\n  env={{ LOG_LEVEL: 'info' }}\n  secrets={{ DATABASE_URL: 'app-secrets', API_KEY: 'app-secrets' }}\n/>;",
+          yaml: 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: default\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env:\n            - name: LOG_LEVEL\n              value: info\n            - name: DATABASE_URL\n              valueFrom:\n                secretKeyRef:\n                  name: app-secrets\n                  key: DATABASE_URL\n            - name: API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: app-secrets\n                  key: API_KEY\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n',
+        },
+        {
+          tsx: "import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';\n\nexport default <WebService\n  name=\"api\"\n  image=\"myapp/api:v1\"\n  env={{ LOG_LEVEL: 'info' }}\n  vault={{ DATABASE_URL: { mount: 'kv', path: 'db/credentials' } }}\n/>;",
+          yaml: 'apiVersion: secrets.hashicorp.com/v1beta1\nkind: VaultStaticSecret\nmetadata:\n  name: api-database-url-vault\n  namespace: default\nspec:\n  vaultAuthRef: default\n  mount: kv\n  type: kv-v2\n  path: db/credentials\n  destination:\n    create: true\n    name: api-database-url-vault\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: default\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env:\n            - name: LOG_LEVEL\n              value: info\n            - name: DATABASE_URL\n              valueFrom:\n                secretKeyRef:\n                  name: api-database-url-vault\n                  key: DATABASE_URL\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n',
+        },
+      ],
     },
   },
-];
+]
 
 export function getRecipeBySlug(slug: string): Recipe | undefined {
-  return recipes.find(r => r.slug === slug);
+  return recipes.find((r) => r.slug === slug)
 }

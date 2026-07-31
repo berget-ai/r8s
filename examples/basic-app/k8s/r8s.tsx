@@ -1,4 +1,4 @@
-import { Postgres, CustomIngress } from '@r8s/recipes';
+import { Postgres, CustomIngress } from '@r8s/recipes'
 
 export default function App() {
   return (
@@ -22,15 +22,19 @@ export default function App() {
           template: {
             metadata: { labels: { app: 'myapp-web' } },
             spec: {
-              containers: [{
-                name: 'web',
-                image: 'myapp/web:v1.2.3',
-                ports: [{ containerPort: 3000 }],
-                env: [{
-                  name: 'DATABASE_URL',
-                  value: 'postgresql://myapp:supersecret@myapp-db:5432/myapp',
-                }],
-              }],
+              containers: [
+                {
+                  name: 'web',
+                  image: 'myapp/web:v1.2.3',
+                  ports: [{ containerPort: 3000 }],
+                  env: [
+                    {
+                      name: 'DATABASE_URL',
+                      value: 'postgresql://myapp:supersecret@myapp-db:5432/myapp',
+                    },
+                  ],
+                },
+              ],
             },
           },
         }}
@@ -59,5 +63,5 @@ export default function App() {
         }}
       />
     </>
-  );
+  )
 }

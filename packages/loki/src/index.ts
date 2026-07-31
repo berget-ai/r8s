@@ -1,5 +1,5 @@
-import { jsx } from '@r8s/core';
-import { helmOperator } from '@r8s/k8s-types';
+import { jsx } from '@r8s/core'
+import { helmOperator } from '@r8s/k8s-types'
 
 /** Grafana Loki declaration */
 export const lokiOperator = (version = '5.47.0') =>
@@ -11,39 +11,39 @@ export const lokiOperator = (version = '5.47.0') =>
       'recordingrules.loki.grafana.com',
       'rulerconfigs.loki.grafana.com',
     ],
-  });
+  })
 
 export interface LokiStackProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace where Loki resources live (defaults to 'loki') */
-  namespace?: string;
+  namespace?: string
   /** Where logs are stored — object storage (S3/GCS/Azure) or local filesystem */
   storage?: {
-    type: 's3' | 'gcs' | 'azure' | 'filesystem';
-    bucket?: string;
-    region?: string;
-    endpoint?: string;
-  };
+    type: 's3' | 'gcs' | 'azure' | 'filesystem'
+    bucket?: string
+    region?: string
+    endpoint?: string
+  }
   /** Replication settings — how many copies of each log stream to keep for durability */
   replication?: {
-    factor?: number;
-  };
+    factor?: number
+  }
   /** Ingestion rate-limits and retention policy */
   limits?: {
     ingestion?: {
-      rate?: string;
-      burstSize?: string;
-    };
+      rate?: string
+      burstSize?: string
+    }
     retention?: {
-      period?: string;
-    };
-  };
+      period?: string
+    }
+  }
   /** CPU and memory requests/limits for Loki pods */
   resources?: {
-    requests?: { cpu?: string; memory?: string };
-    limits?: { cpu?: string; memory?: string };
-  };
+    requests?: { cpu?: string; memory?: string }
+    limits?: { cpu?: string; memory?: string }
+  }
 }
 
 /**
@@ -57,7 +57,7 @@ export interface LokiStackProps {
  * />
  */
 export function LokiStack(props: LokiStackProps) {
-  const { name, namespace = 'loki', storage, replication, limits, resources } = props;
+  const { name, namespace = 'loki', storage, replication, limits, resources } = props
 
   const stack = {
     apiVersion: 'loki.grafana.com/v1',
@@ -110,27 +110,27 @@ export function LokiStack(props: LokiStackProps) {
         },
       }),
     },
-  };
+  }
 
-  return jsx('LokiStack', stack);
+  return jsx('LokiStack', stack)
 }
 
 export interface AlertingRuleProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace where the rules live (defaults to 'loki') */
-  namespace?: string;
+  namespace?: string
   /** Alert groups — each group contains named rules with LogQL expressions and labels */
   groups: Array<{
-    name: string;
+    name: string
     rules: Array<{
-      alert: string;
-      expr: string;
-      for?: string;
-      labels?: Record<string, string>;
-      annotations?: Record<string, string>;
-    }>;
-  }>;
+      alert: string
+      expr: string
+      for?: string
+      labels?: Record<string, string>
+      annotations?: Record<string, string>
+    }>
+  }>
 }
 
 /**
@@ -143,7 +143,7 @@ export interface AlertingRuleProps {
  * <AlertingRule name="high-error-rate" groups={[{ name: "errors", rules: [{ alert: "HighErrorRate", expr: 'rate({app="api"}[5m]) > 0.1', for: "5m" }] }]} />
  */
 export function AlertingRule(props: AlertingRuleProps) {
-  const { name, namespace = 'loki', groups } = props;
+  const { name, namespace = 'loki', groups } = props
 
   const rule = {
     apiVersion: 'loki.grafana.com/v1',
@@ -161,7 +161,7 @@ export function AlertingRule(props: AlertingRuleProps) {
         })),
       })),
     },
-  };
+  }
 
-  return jsx('AlertingRule', rule);
+  return jsx('AlertingRule', rule)
 }

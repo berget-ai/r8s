@@ -1,24 +1,24 @@
-import { jsx, declareOperator, useContext } from '@r8s/core';
-import { Ingress } from '@r8s/k8s-types';
-import { OperatorContext } from '@r8s/core/defaults';
-import { nginxIngressOperator } from './operators';
-import { certManagerOperator } from '@r8s/cert-manager';
+import { jsx, declareOperator, useContext } from '@r8s/core'
+import { Ingress } from '@r8s/k8s-types'
+import { OperatorContext } from '@r8s/core/defaults'
+import { nginxIngressOperator } from './operators'
+import { certManagerOperator } from '@r8s/cert-manager'
 
 export interface CustomIngressProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Domain name (e.g., 'api.example.com') the Ingress accepts traffic for */
-  host: string;
+  host: string
   /** Name of the Service to route traffic to */
-  serviceName: string;
+  serviceName: string
   /** Port of the Service to route traffic to (defaults to 80) */
-  servicePort?: number;
+  servicePort?: number
   /** Name of the Kubernetes Secret holding the TLS certificate. When set, cert-manager is declared */
-  tlsSecretName?: string;
+  tlsSecretName?: string
   /** Extra Kubernetes annotations merged onto the Ingress */
-  annotations?: Record<string, string>;
+  annotations?: Record<string, string>
 }
 
 /**
@@ -40,7 +40,7 @@ export function CustomIngress(props: CustomIngressProps) {
     servicePort = 80,
     tlsSecretName,
     annotations = {},
-  } = props;
+  } = props
 
   const defaultAnnotations: Record<string, string> = {
     'nginx.ingress.kubernetes.io/rewrite-target': '/',
@@ -48,7 +48,7 @@ export function CustomIngress(props: CustomIngressProps) {
       'cert-manager.io/cluster-issuer': 'letsencrypt-prod',
     }),
     ...annotations,
-  };
+  }
 
   const ingress: Ingress = {
     apiVersion: 'networking.k8s.io/v1',
@@ -88,23 +88,23 @@ export function CustomIngress(props: CustomIngressProps) {
         ],
       }),
     },
-  };
+  }
 
-  const sharedOperators = useContext(OperatorContext);
-  const hasNginxIngress = sharedOperators.some((op) => op.name === 'nginx-ingress');
-  const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager');
+  const sharedOperators = useContext(OperatorContext)
+  const hasNginxIngress = sharedOperators.some((op) => op.name === 'nginx-ingress')
+  const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager')
 
-  const resources: ReturnType<typeof jsx>[] = [];
+  const resources: ReturnType<typeof jsx>[] = []
 
   if (!hasNginxIngress) {
-    resources.push(declareOperator(nginxIngressOperator()));
+    resources.push(declareOperator(nginxIngressOperator()))
   }
 
   if (tlsSecretName && !hasCertManager) {
-    resources.push(declareOperator(certManagerOperator()));
+    resources.push(declareOperator(certManagerOperator()))
   }
 
-  resources.push(jsx('Ingress', ingress));
+  resources.push(jsx('Ingress', ingress))
 
-  return resources;
+  return resources
 }

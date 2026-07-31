@@ -1,8 +1,8 @@
-import { Postgres } from '@r8s/recipes';
-import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager';
-import { VaultConnectionConfig, VaultKubernetesAuth, VaultKVSecret } from '@r8s/openbao';
-import { KeycloakInstance, KeycloakRealm } from '@r8s/keycloak';
-import { ExternalDNSRecord } from '@r8s/external-dns';
+import { Postgres } from '@r8s/recipes'
+import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager'
+import { VaultConnectionConfig, VaultKubernetesAuth, VaultKVSecret } from '@r8s/openbao'
+import { KeycloakInstance, KeycloakRealm } from '@r8s/keycloak'
+import { ExternalDNSRecord } from '@r8s/external-dns'
 
 export default function PlatformInfrastructure() {
   return (
@@ -120,5 +120,5 @@ export default function PlatformInfrastructure() {
         ]}
       />
     </>
-  );
+  )
 }

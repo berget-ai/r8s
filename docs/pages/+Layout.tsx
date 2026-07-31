@@ -1,67 +1,67 @@
-import { useEffect, useState } from "react";
-import "./Layout.css";
-import { SearchDialog } from "../components/SearchDialog";
-import { Logo } from "../components/Logo";
+import { useEffect, useState } from 'react'
+import './Layout.css'
+import { SearchDialog } from '../components/SearchDialog'
+import { Logo } from '../components/Logo'
 
 interface NavItem {
-  label: string;
-  href: string;
+  label: string
+  href: string
 }
 
 interface NavGroup {
-  title: string;
-  items: NavItem[];
+  title: string
+  items: NavItem[]
 }
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    title: "Introduction",
+    title: 'Introduction',
     items: [
-      { label: "Overview", href: "/" },
-      { label: "Core Concepts", href: "/core" },
+      { label: 'Overview', href: '/' },
+      { label: 'Core Concepts', href: '/core' },
     ],
   },
   {
-    title: "Components",
+    title: 'Components',
     items: [
-      { label: "Recipes", href: "/recipes" },
-      { label: "Packages", href: "/packages" },
-      { label: "Operators", href: "/operators" },
+      { label: 'Recipes', href: '/recipes' },
+      { label: 'Packages', href: '/packages' },
+      { label: 'Operators', href: '/operators' },
     ],
   },
   {
-    title: "Guides",
+    title: 'Guides',
     items: [
-      { label: "Deployment", href: "/deployment" },
-      { label: "Testing", href: "/testing" },
+      { label: 'Deployment', href: '/deployment' },
+      { label: 'Testing', href: '/testing' },
     ],
   },
-];
+]
 
 function isActive(href: string, pathname: string): boolean {
-  if (href === "/") return pathname === "/";
-  return pathname.startsWith(href);
+  if (href === '/') return pathname === '/'
+  return pathname.startsWith(href)
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pathname, setPathname] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pathname, setPathname] = useState('')
 
   useEffect(() => {
-    setPathname(window.location.pathname);
-  }, []);
+    setPathname(window.location.pathname)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setSearchOpen((v) => !v);
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setSearchOpen((v) => !v)
       }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className="min-h-screen bg-night text-peak font-sans">
@@ -89,7 +89,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-cloud/60 hover:text-peak hover:border-white/20 transition-colors"
             aria-label="Open search"
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.3-4.3" />
             </svg>
@@ -120,10 +129,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Sidebar — mobile drawer */}
         {sidebarOpen && (
           <div className="lg:hidden fixed inset-0 z-40 flex">
-            <div
-              className="fixed inset-0 bg-black/60"
-              onClick={() => setSidebarOpen(false)}
-            />
+            <div className="fixed inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
             <aside className="relative w-64 bg-night border-r border-white/10 h-full overflow-y-auto">
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
                 <span className="flex items-center gap-2">
@@ -136,7 +142,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   className="text-cloud/60 hover:text-peak"
                   aria-label="Close navigation"
                 >
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
@@ -152,16 +166,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Main content */}
-        <main className="flex-1 min-w-0 max-w-4xl mx-auto px-6 py-12 w-full">
-          {children}
-        </main>
+        <main className="flex-1 min-w-0 max-w-4xl mx-auto px-6 py-12 w-full">{children}</main>
       </div>
 
       {/* Footer */}
       <footer className="border-t border-white/10 px-6 py-8">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-cloud/50">
           <span>
-            © <span suppressHydrationWarning>{new Date().getFullYear()}</span> Berget AI AB ·{" "}
+            © <span suppressHydrationWarning>{new Date().getFullYear()}</span> Berget AI AB ·{' '}
             <a
               href="https://github.com/berget-ai/r8s/blob/main/LICENSE"
               target="_blank"
@@ -202,7 +214,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
-  );
+  )
 }
 
 function Sidebar({
@@ -210,9 +222,9 @@ function Sidebar({
   pathname,
   onNavigate,
 }: {
-  navGroups: NavGroup[];
-  pathname: string;
-  onNavigate?: () => void;
+  navGroups: NavGroup[]
+  pathname: string
+  onNavigate?: () => void
 }) {
   return (
     <nav className="px-3 py-4 space-y-6">
@@ -228,8 +240,8 @@ function Sidebar({
               onClick={onNavigate}
               className={`block px-3 py-1.5 rounded-md text-sm transition-colors ${
                 isActive(item.href, pathname)
-                  ? "text-peak bg-white/5 font-medium"
-                  : "text-cloud/70 hover:text-peak hover:bg-white/5"
+                  ? 'text-peak bg-white/5 font-medium'
+                  : 'text-cloud/70 hover:text-peak hover:bg-white/5'
               }`}
             >
               {item.label}
@@ -238,5 +250,5 @@ function Sidebar({
         </div>
       ))}
     </nav>
-  );
+  )
 }

@@ -1,19 +1,19 @@
-import { jsx, Fragment, useContext, declareOperator } from '@r8s/core';
-import { Ingress } from '@r8s/k8s-types';
-import type { BaseRouteProps, RouteTarget, TLSConfig } from '@r8s/k8s-types';
-import { OperatorContext } from '@r8s/core/defaults';
-import { nginxIngressOperator } from './operators';
-import { certManagerOperator } from '@r8s/cert-manager';
+import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
+import { Ingress } from '@r8s/k8s-types'
+import type { BaseRouteProps, RouteTarget, TLSConfig } from '@r8s/k8s-types'
+import { OperatorContext } from '@r8s/core/defaults'
+import { nginxIngressOperator } from './operators'
+import { certManagerOperator } from '@r8s/cert-manager'
 
 export interface IngressProps extends BaseRouteProps {
   /** Service name to route to */
-  serviceName: string;
+  serviceName: string
   /** Service port (default: 80) */
-  servicePort?: number;
+  servicePort?: number
   /** cert-manager version override */
-  certManagerVersion?: string;
+  certManagerVersion?: string
   /** nginx-ingress version override */
-  nginxIngressVersion?: string;
+  nginxIngressVersion?: string
 }
 
 /**
@@ -48,13 +48,13 @@ export function Ingress(props: IngressProps) {
     annotations = {},
     certManagerVersion,
     nginxIngressVersion,
-  } = props;
+  } = props
 
-  const sharedOperators = useContext(OperatorContext);
+  const sharedOperators = useContext(OperatorContext)
 
   // Check which operators are already provided
-  const hasNginxIngress = sharedOperators.some((op) => op.name === 'nginx-ingress');
-  const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager');
+  const hasNginxIngress = sharedOperators.some((op) => op.name === 'nginx-ingress')
+  const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager')
 
   const ingress: Ingress = {
     apiVersion: 'networking.k8s.io/v1',
@@ -103,21 +103,21 @@ export function Ingress(props: IngressProps) {
           ],
         }),
     },
-  };
+  }
 
-  const resources: ReturnType<typeof jsx>[] = [];
+  const resources: ReturnType<typeof jsx>[] = []
 
   // Declare nginx-ingress operator if not already provided
   if (!hasNginxIngress) {
-    resources.push(declareOperator(nginxIngressOperator(nginxIngressVersion)));
+    resources.push(declareOperator(nginxIngressOperator(nginxIngressVersion)))
   }
 
   // Declare cert-manager operator if TLS is enabled and not already provided
   if (tls && !hasCertManager) {
-    resources.push(declareOperator(certManagerOperator(certManagerVersion)));
+    resources.push(declareOperator(certManagerOperator(certManagerVersion)))
   }
 
-  resources.push(jsx('Ingress', ingress));
+  resources.push(jsx('Ingress', ingress))
 
-  return jsx(Fragment, { children: resources });
+  return jsx(Fragment, { children: resources })
 }

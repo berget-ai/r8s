@@ -1,7 +1,7 @@
 name: Bug Report
 description: Report a bug in r8s
-title: "bug: "
-labels: ["bug"]
+title: 'bug: '
+labels: ['bug']
 body:
   - type: markdown
     attributes:
@@ -42,22 +42,22 @@ body:
       label: Affected package
       description: Which package does this concern?
       options:
-        - "@r8s/core"
-        - "@r8s/cli"
-        - "@r8s/recipes"
-        - "@r8s/k8s-types"
-        - "@r8s/cert-manager"
-        - "@r8s/clickhouse"
-        - "@r8s/envoy"
-        - "@r8s/external-dns"
-        - "@r8s/flux-controller"
-        - "@r8s/keycloak"
-        - "@r8s/logging-operator"
-        - "@r8s/loki"
-        - "@r8s/openbao"
-        - "@r8s/prometheus"
-        - "@r8s/r8s-controller"
-        - "@r8s/redis"
+        - '@r8s/core'
+        - '@r8s/cli'
+        - '@r8s/recipes'
+        - '@r8s/k8s-types'
+        - '@r8s/cert-manager'
+        - '@r8s/clickhouse'
+        - '@r8s/envoy'
+        - '@r8s/external-dns'
+        - '@r8s/flux-controller'
+        - '@r8s/keycloak'
+        - '@r8s/logging-operator'
+        - '@r8s/loki'
+        - '@r8s/openbao'
+        - '@r8s/prometheus'
+        - '@r8s/r8s-controller'
+        - '@r8s/redis'
         - docs (r8s.berget.ai)
         - other / not sure
 

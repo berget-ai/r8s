@@ -1,17 +1,17 @@
-import { jsx, useContext, declareOperator } from '@r8s/core';
-import type { Cluster as ClusterType } from '@r8s/k8s-types';
-import { ClusterContext, OperatorContext } from '@r8s/core/defaults';
-import { cnpgOperator } from './operators';
+import { jsx, useContext, declareOperator } from '@r8s/core'
+import type { Cluster as ClusterType } from '@r8s/k8s-types'
+import { ClusterContext, OperatorContext } from '@r8s/core/defaults'
+import { cnpgOperator } from './operators'
 
 export interface ClusterProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Storage size (e.g., '50Gi') for the shared PostgreSQL data volume */
-  storage?: string;
+  storage?: string
   /** Database components rendered as children will share this cluster */
-  children?: unknown;
+  children?: unknown
 }
 
 /**
@@ -37,12 +37,12 @@ export interface ClusterProps {
  * <Database name="order-db" storage="10Gi" />
  */
 export function Cluster(props: ClusterProps) {
-  const { name, namespace = 'default', storage = '50Gi', children } = props;
+  const { name, namespace = 'default', storage = '50Gi', children } = props
 
-  const sharedOperators = useContext(OperatorContext);
-  const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg');
+  const sharedOperators = useContext(OperatorContext)
+  const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg')
 
-  const secretName = `${name}-db-credentials`;
+  const secretName = `${name}-db-credentials`
 
   const cluster: ClusterType = {
     apiVersion: 'postgresql.cnpg.io/v1',
@@ -57,15 +57,15 @@ export function Cluster(props: ClusterProps) {
         enabled: true,
       },
     },
-  };
-
-  const resources: ReturnType<typeof jsx>[] = [];
-
-  if (!hasCNPG) {
-    resources.push(declareOperator(cnpgOperator()));
   }
 
-  resources.push(jsx('Cluster', cluster));
+  const resources: ReturnType<typeof jsx>[] = []
+
+  if (!hasCNPG) {
+    resources.push(declareOperator(cnpgOperator()))
+  }
+
+  resources.push(jsx('Cluster', cluster))
 
   if (children) {
     resources.push(
@@ -80,8 +80,8 @@ export function Cluster(props: ClusterProps) {
         },
         children,
       })
-    );
+    )
   }
 
-  return resources;
+  return resources
 }

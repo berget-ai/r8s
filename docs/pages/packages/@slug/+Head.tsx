@@ -1,9 +1,9 @@
-import { usePageContext } from "vike-react/usePageContext";
-import type { Package } from "../../../data/packages";
+import { usePageContext } from 'vike-react/usePageContext'
+import type { Package } from '../../../data/packages'
 
 export function Head() {
-  const pageContext = usePageContext();
-  const pkg = pageContext.package as Package | undefined;
+  const pageContext = usePageContext()
+  const pkg = pageContext.package as Package | undefined
 
   if (!pkg) {
     return (
@@ -11,11 +11,11 @@ export function Head() {
         <title>{`Package Not Found — r8s`}</title>
         <meta name="robots" content="noindex" />
       </>
-    );
+    )
   }
 
-  const keywords = pkg.keywords.join(", ");
-  const title = `${pkg.title} — r8s Packages`;
+  const keywords = pkg.keywords.join(', ')
+  const title = `${pkg.title} — r8s Packages`
 
   return (
     <>
@@ -32,16 +32,16 @@ export function Head() {
       <link rel="canonical" href={`https://r8s.dev/packages/${pkg.slug}`} />
       <script type="application/ld+json">
         {JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "TechArticle",
-          "headline": pkg.title,
-          "description": pkg.description,
-          "keywords": keywords,
-          "articleSection": pkg.category,
-          "codeRepository": "https://github.com/berget-ai/r8s",
-          "programmingLanguage": "TypeScript"
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: pkg.title,
+          description: pkg.description,
+          keywords: keywords,
+          articleSection: pkg.category,
+          codeRepository: 'https://github.com/berget-ai/r8s',
+          programmingLanguage: 'TypeScript',
         })}
       </script>
     </>
-  );
+  )
 }

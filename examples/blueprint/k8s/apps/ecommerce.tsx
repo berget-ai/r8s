@@ -1,4 +1,4 @@
-import { StandardWebApp } from '../templates/standard-web-app';
+import { StandardWebApp } from '../templates/standard-web-app'
 
 export default function EcommerceApp() {
   return (
@@ -13,5 +13,5 @@ export default function EcommerceApp() {
       enableMonitoring={true}
       enableTracing={true}
     />
-  );
+  )
 }

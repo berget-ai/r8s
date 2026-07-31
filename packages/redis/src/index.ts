@@ -1,5 +1,5 @@
-import { jsx } from '@r8s/core';
-import { helmOperator } from '@r8s/k8s-types';
+import { jsx } from '@r8s/core'
+import { helmOperator } from '@r8s/k8s-types'
 
 /** Redis Operator declaration (OT-Container-Kit) */
 export const redisOperator = (version = '0.22.0') =>
@@ -17,31 +17,31 @@ export const redisOperator = (version = '0.22.0') =>
         'redissentinels.redis.redis.opstreelabs.in',
       ],
     }
-  );
+  )
 
 export interface RedisClusterProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Number of Redis pods in the cluster (must match a valid cluster quorum) */
-  clusterSize?: number;
+  clusterSize?: number
   /** Whether to enable the Redis exporter sidecar for Prometheus metrics */
-  redisExporter?: boolean;
+  redisExporter?: boolean
   /** Storage size (e.g., '10Gi') */
-  storage?: string;
+  storage?: string
   /** Kubernetes StorageClass to use for the Redis data volume */
-  storageClassName?: string;
+  storageClassName?: string
   /** Kubernetes Secret (name + key) holding the Redis authentication password */
   redisSecret?: {
-    name: string;
-    key: string;
-  };
+    name: string
+    key: string
+  }
   /** CPU and memory requests/limits for Redis pods */
   resources?: {
-    limits?: { cpu?: string; memory?: string };
-    requests?: { cpu?: string; memory?: string };
-  };
+    limits?: { cpu?: string; memory?: string }
+    requests?: { cpu?: string; memory?: string }
+  }
 }
 
 /**
@@ -70,7 +70,7 @@ export function RedisCluster(props: RedisClusterProps) {
       limits: { cpu: '100m', memory: '128Mi' },
       requests: { cpu: '100m', memory: '128Mi' },
     },
-  } = props;
+  } = props
 
   const cluster = {
     apiVersion: 'redis.redis.opstreelabs.in/v1beta1',
@@ -109,24 +109,24 @@ export function RedisCluster(props: RedisClusterProps) {
         },
       }),
     },
-  };
+  }
 
-  return jsx('RedisCluster', cluster);
+  return jsx('RedisCluster', cluster)
 }
 
 export interface RedisReplicationProps {
   /** Resource name */
-  name: string;
+  name: string
   /** Kubernetes namespace (defaults to 'default') */
-  namespace?: string;
+  namespace?: string
   /** Number of Redis pods in the master-replica replication setup */
-  clusterSize?: number;
+  clusterSize?: number
   /** Whether to enable the Redis exporter sidecar for Prometheus metrics */
-  redisExporter?: boolean;
+  redisExporter?: boolean
   /** Storage size (e.g., '10Gi') */
-  storage?: string;
+  storage?: string
   /** Kubernetes StorageClass to use for the Redis data volume */
-  storageClassName?: string;
+  storageClassName?: string
 }
 
 /**
@@ -147,7 +147,7 @@ export function RedisReplication(props: RedisReplicationProps) {
     redisExporter = true,
     storage,
     storageClassName,
-  } = props;
+  } = props
 
   const replication = {
     apiVersion: 'redis.redis.opstreelabs.in/v1beta1',
@@ -179,7 +179,7 @@ export function RedisReplication(props: RedisReplicationProps) {
         },
       }),
     },
-  };
+  }
 
-  return jsx('RedisReplication', replication);
+  return jsx('RedisReplication', replication)
 }

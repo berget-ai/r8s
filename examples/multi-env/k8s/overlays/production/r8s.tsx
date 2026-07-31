@@ -1,5 +1,5 @@
-import { Fragment } from '@r8s/core';
-import { WebApp, Database } from '../../components/shared';
+import { Fragment } from '@r8s/core'
+import { WebApp, Database } from '../../components/shared'
 
 export default function Production() {
   return (
@@ -8,7 +8,7 @@ export default function Production() {
         name="app-db"
         namespace="production"
         storage="50Gi"
-        password="${DB_PASSWORD}"  // Use external secret management
+        password="${DB_PASSWORD}" // Use external secret management
       />
 
       <WebApp
@@ -23,5 +23,5 @@ export default function Production() {
         enableHPA={true}
       />
     </>
-  );
+  )
 }

@@ -1,30 +1,32 @@
-import { usePageContext } from "vike-react/usePageContext";
-import { useConfig } from "vike-react/useConfig";
-import type { Package } from "../../../data/packages";
-import { CodeBlock } from "../../../components/CodeBlock";
+import { usePageContext } from 'vike-react/usePageContext'
+import { useConfig } from 'vike-react/useConfig'
+import type { Package } from '../../../data/packages'
+import { CodeBlock } from '../../../components/CodeBlock'
 
 export default function Page() {
-  const pageContext = usePageContext();
-  const pkg = pageContext.package as Package | undefined;
-  const config = useConfig();
+  const pageContext = usePageContext()
+  const pkg = pageContext.package as Package | undefined
+  const config = useConfig()
 
   if (!pkg) {
     config({
-      title: "Package Not Found — r8s",
-    });
+      title: 'Package Not Found — r8s',
+    })
     return (
       <div className="space-y-8">
         <h1 className="text-4xl tracking-tight">Package Not Found</h1>
         <p className="text-cloud/70">The package you're looking for doesn't exist.</p>
-        <a href="/packages" className="text-moss hover:text-lichen">← Back to packages</a>
+        <a href="/packages" className="text-moss hover:text-lichen">
+          ← Back to packages
+        </a>
       </div>
-    );
+    )
   }
 
   config({
     title: `${pkg.title} — r8s Packages`,
     description: pkg.description,
-  });
+  })
 
   return (
     <div className="space-y-12">
@@ -73,7 +75,8 @@ export default function Page() {
       {/* Components */}
       <div className="space-y-16">
         <h2 className="text-2xl tracking-tight">
-          Components {pkg.components.length > 0 && (
+          Components{' '}
+          {pkg.components.length > 0 && (
             <span className="text-cloud/40 text-base font-sans">({pkg.components.length})</span>
           )}
         </h2>
@@ -81,7 +84,9 @@ export default function Page() {
         {pkg.components.map((component, index) => (
           <div key={component.name} className="space-y-6">
             <div className="flex items-center gap-4">
-              <span className="text-moss font-mono text-sm">{String(index + 1).padStart(2, '0')}</span>
+              <span className="text-moss font-mono text-sm">
+                {String(index + 1).padStart(2, '0')}
+              </span>
               <h3 className="text-xl font-mono">{component.name}</h3>
             </div>
             <p className="text-cloud/70">{component.description}</p>
@@ -92,9 +97,7 @@ export default function Page() {
                 {component.examples.map((example, i) => (
                   <div key={i} className="space-y-3">
                     <CodeBlock code={example.tsx} language="tsx" />
-                    {example.yaml && (
-                      <CodeBlock code={example.yaml} language="yaml" />
-                    )}
+                    {example.yaml && <CodeBlock code={example.yaml} language="yaml" />}
                   </div>
                 ))}
               </div>
@@ -124,9 +127,7 @@ export default function Page() {
                           <span className="text-cloud/40">Optional</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-cloud/40">
-                        {prop.default || "—"}
-                      </td>
+                      <td className="py-3 px-4 text-cloud/40">{prop.default || '—'}</td>
                       <td className="py-3 px-4 text-cloud/70">{prop.description}</td>
                     </tr>
                   ))}
@@ -145,5 +146,5 @@ export default function Page() {
         </a>
       </div>
     </div>
-  );
+  )
 }
