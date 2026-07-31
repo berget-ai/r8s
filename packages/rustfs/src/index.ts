@@ -1,7 +1,9 @@
 import { jsx, Fragment } from '@r8s/core'
 
 export interface RustFSProps {
+  /** Resource name */
   name?: string
+  /** Kubernetes namespace */
   namespace?: string
   /** Number of instances (default: 4) */
   instances?: number

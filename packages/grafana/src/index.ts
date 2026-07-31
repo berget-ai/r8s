@@ -1,7 +1,9 @@
 import { jsx, Fragment } from '@r8s/core'
 
 export interface GrafanaProps {
+  /** Resource name */
   name?: string
+  /** Kubernetes namespace */
   namespace?: string
   /** Grafana version (default: 10.3.0) */
   version?: string
@@ -27,6 +29,11 @@ export interface GrafanaProps {
 
 /**
  * Grafana deployment with persistent storage.
+ *
+ * Standalone Grafana (Deployment + Service + PVC) with optional datasource
+ * provisioning via ConfigMap and TLS ingress. Dashboards are kept in the
+ * PVC; point `datasources` at your Prometheus/Loki instances to have them
+ * available on first login.
  *
  * @example
  * <Grafana
