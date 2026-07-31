@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
-import { envoyGatewayOperator } from '@r8s/envoy'
-import { certManagerOperator } from '@r8s/cert-manager'
+
+import { operators } from '@r8s/crds'
 import { EnvoyIngress } from '../src/envoy-ingress'
 
 describe('EnvoyIngress', () => {
@@ -59,7 +59,7 @@ describe('EnvoyIngress', () => {
   it('should not re-declare operators provided via context', () => {
     const result = render(
       jsx(OperatorContext.Provider, {
-        value: [envoyGatewayOperator(), certManagerOperator()],
+        value: [operators['envoy-gateway'](), operators['cert-manager']()],
         children: jsx(EnvoyIngress, {
           name: 'api',
           host: 'api.example.com',

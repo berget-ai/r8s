@@ -3,7 +3,7 @@ import { render } from '@r8s/core'
 import { Database, Ingress, WebService, App } from '../src/index'
 import { cnpgOperator, nginxIngressOperator } from '../src/operators'
 import { jsx, Fragment } from '@r8s/core'
-import { certManagerOperator } from '@r8s/cert-manager'
+import { operators } from '@r8s/crds'
 import { OperatorContext } from '@r8s/core/defaults'
 
 describe('Database Recipe (CNPG)', () => {
@@ -177,7 +177,7 @@ describe('Ingress Recipe', () => {
 
   it('should not duplicate operators when provided via context', () => {
     const element = jsx(OperatorContext.Provider, {
-      value: [nginxIngressOperator('1.15.1'), certManagerOperator('1.14.0')],
+      value: [nginxIngressOperator('1.15.1'), operators['cert-manager']('1.14.0')],
       children: jsx(Ingress, {
         name: 'test-ingress',
         host: 'test.example.com',
@@ -270,7 +270,7 @@ describe('App Recipe', () => {
 
   it('should use shared operators from context without duplication', () => {
     const element = jsx(OperatorContext.Provider, {
-      value: [certManagerOperator('1.14.0'), nginxIngressOperator('1.15.1')],
+      value: [operators['cert-manager']('1.14.0'), nginxIngressOperator('1.15.1')],
       children: jsx(App, {
         name: 'myapp',
         host: 'myapp.example.com',

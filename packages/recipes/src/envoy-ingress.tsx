@@ -1,7 +1,6 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
-import { envoyGatewayOperator } from '@r8s/envoy'
-import { certManagerOperator } from '@r8s/cert-manager'
+import { operators } from '@r8s/crds'
 import type { TLSConfig } from '@r8s/k8s-types'
 
 export interface EnvoyIngressProps {
@@ -75,12 +74,12 @@ export function EnvoyIngress(props: EnvoyIngressProps) {
 
   // Declare Envoy Gateway operator if not already provided
   if (!hasEnvoyGateway) {
-    resources.push(declareOperator(envoyGatewayOperator(envoyGatewayVersion)))
+    resources.push(declareOperator(operators['envoy-gateway'](envoyGatewayVersion)))
   }
 
   // Declare cert-manager operator if TLS is enabled and not already provided
   if (tls && !hasCertManager) {
-    resources.push(declareOperator(certManagerOperator(certManagerVersion)))
+    resources.push(declareOperator(operators['cert-manager'](certManagerVersion)))
   }
 
   // Gateway resource

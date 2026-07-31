@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
 import { Endpoint, App } from '../src/index'
 import { nginxIngressOperator } from '../src/operators'
-import { certManagerOperator } from '@r8s/cert-manager'
-import { envoyGatewayOperator } from '@r8s/envoy'
+import { operators } from '@r8s/crds'
+
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
 
 describe('Endpoint — ingress mode (default)', () => {
@@ -97,7 +97,7 @@ describe('Endpoint — ingress mode (default)', () => {
 
   it('should not duplicate operators when provided via OperatorContext', () => {
     const element = jsx(OperatorContext.Provider, {
-      value: [nginxIngressOperator('1.15.1'), certManagerOperator('1.14.0')],
+      value: [nginxIngressOperator('1.15.1'), operators['cert-manager']('1.14.0')],
       children: jsx(Endpoint, {
         name: 'test',
         host: 'test.example.com',
@@ -277,7 +277,7 @@ describe('Endpoint — gateway mode', () => {
     const element = jsx(RoutingContext.Provider, {
       value: { mode: 'gateway' },
       children: jsx(OperatorContext.Provider, {
-        value: [envoyGatewayOperator('1.7.0'), certManagerOperator('1.14.0')],
+        value: [operators['envoy-gateway']('1.7.0'), operators['cert-manager']('1.14.0')],
         children: jsx(Endpoint, {
           name: 'api',
           host: 'api.example.com',

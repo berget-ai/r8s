@@ -3,7 +3,7 @@ import { Ingress } from '@r8s/k8s-types'
 import type { BaseRouteProps, RouteTarget, TLSConfig } from '@r8s/k8s-types'
 import { OperatorContext } from '@r8s/core/defaults'
 import { nginxIngressOperator } from './operators'
-import { certManagerOperator } from '@r8s/cert-manager'
+import { operators } from '@r8s/crds'
 
 export interface IngressProps extends BaseRouteProps {
   /** Service name to route to */
@@ -114,7 +114,7 @@ export function Ingress(props: IngressProps) {
 
   // Declare cert-manager operator if TLS is enabled and not already provided
   if (tls && !hasCertManager) {
-    resources.push(declareOperator(certManagerOperator(certManagerVersion)))
+    resources.push(declareOperator(operators['cert-manager'](certManagerVersion)))
   }
 
   resources.push(jsx('Ingress', ingress))

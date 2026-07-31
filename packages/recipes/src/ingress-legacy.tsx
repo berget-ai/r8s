@@ -2,7 +2,7 @@ import { jsx, declareOperator, useContext } from '@r8s/core'
 import { Ingress } from '@r8s/k8s-types'
 import { OperatorContext } from '@r8s/core/defaults'
 import { nginxIngressOperator } from './operators'
-import { certManagerOperator } from '@r8s/cert-manager'
+import { operators } from '@r8s/crds'
 
 export interface CustomIngressProps {
   /** Resource name */
@@ -101,7 +101,7 @@ export function CustomIngress(props: CustomIngressProps) {
   }
 
   if (tlsSecretName && !hasCertManager) {
-    resources.push(declareOperator(certManagerOperator()))
+    resources.push(declareOperator(operators['cert-manager']()))
   }
 
   resources.push(jsx('Ingress', ingress))

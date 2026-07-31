@@ -3,8 +3,7 @@ import { Ingress } from '@r8s/k8s-types'
 import type { BaseRouteProps } from '@r8s/k8s-types'
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
 import { nginxIngressOperator } from './operators'
-import { certManagerOperator, ManagedCertificate } from '@r8s/cert-manager'
-import { Gateway, HTTPRoute, envoyGatewayOperator } from '@r8s/envoy'
+import { operators } from '@r8s/crds'
 
 export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   /** Hostname for the endpoint (required) */
@@ -70,20 +69,29 @@ export function Endpoint(props: EndpointProps) {
     const hasEnvoyGateway = sharedOperators.some((op) => op.name === 'envoy-gateway')
 
     if (tls && !hasCertManager) {
-      resources.push(declareOperator(certManagerOperator(certManagerVersion)))
+      resources.push(declareOperator(operators['cert-manager'](certManagerVersion)))
     }
     if (!hasEnvoyGateway) {
-      resources.push(declareOperator(envoyGatewayOperator(envoyGatewayVersion)))
+      resources.push(declareOperator(operators['envoy-gateway'](envoyGatewayVersion)))
     }
 
     if (tls) {
       resources.push(
-        jsx(ManagedCertificate, {
-          name: `${name}-tls`,
-          namespace,
-          secretName,
-          dnsNames: [host],
-          issuerName,
+        jsx('Certificate', {
+          apiVersion: 'cert-manager.io/v1',
+          kind: 'Certificate',
+          metadata: {
+            name: `${name}-tls`,
+            namespace,
+          },
+          spec: {
+            secretName,
+            dnsNames: [host],
+            issuerRef: {
+              name: issuerName,
+              kind: 'ClusterIssuer',
+            },
+          },
         })
       )
     }
@@ -91,38 +99,47 @@ export function Endpoint(props: EndpointProps) {
     // HTTPS listener with TLS, HTTP listener without
     const useHttps = !!tls
     resources.push(
-      jsx(Gateway, {
-        name: `${name}-gateway`,
-        namespace,
-        gatewayClassName,
-        listeners: [
-          {
-            name: useHttps ? 'https' : 'http',
-            protocol: useHttps ? 'HTTPS' : 'HTTP',
-            port: useHttps ? 443 : 80,
-            hostname: host,
-            ...(tls && {
-              tls: {
-                mode: 'Terminate',
-                certificateRefs: [{ name: secretName }],
-              },
-            }),
-          },
-        ],
+      jsx('Gateway', {
+        apiVersion: 'gateway.networking.k8s.io/v1',
+        kind: 'Gateway',
+        metadata: {
+          name: `${name}-gateway`,
+          namespace,
+        },
+        spec: {
+          gatewayClassName,
+          listeners: [
+            {
+              name: useHttps ? 'https' : 'http',
+              protocol: useHttps ? 'HTTPS' : 'HTTP',
+              port: useHttps ? 443 : 80,
+              hostname: host,
+              ...(tls && {
+                tls: {
+                  mode: 'Terminate',
+                  certificateRefs: [{ name: secretName }],
+                },
+              }),
+            },
+          ],
+        },
       })
     )
 
     resources.push(
-      jsx(HTTPRoute, {
-        name: `${name}-route`,
-        namespace,
-        parentRefs: [{ name: `${name}-gateway` }],
-        hostnames: [host],
-        rules: [
-          {
-            backendRefs: [{ name: serviceName, port: servicePort }],
-          },
-        ],
+      jsx('HTTPRoute', {
+        apiVersion: 'gateway.networking.k8s.io/v1',
+        kind: 'HTTPRoute',
+        metadata: { name: `${name}-route`, namespace },
+        spec: {
+          parentRefs: [{ name: `${name}-gateway` }],
+          hostnames: [host],
+          rules: [
+            {
+              backendRefs: [{ name: serviceName, port: servicePort }],
+            },
+          ],
+        },
       })
     )
   } else {
@@ -133,7 +150,7 @@ export function Endpoint(props: EndpointProps) {
       resources.push(declareOperator(nginxIngressOperator(nginxIngressVersion)))
     }
     if (tls && !hasCertManager) {
-      resources.push(declareOperator(certManagerOperator(certManagerVersion)))
+      resources.push(declareOperator(operators['cert-manager'](certManagerVersion)))
     }
 
     const ingress: Ingress = {
