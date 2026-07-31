@@ -46,6 +46,10 @@ export interface ServiceMonitorProps {
 /**
  * ServiceMonitor for Prometheus scraping.
  *
+ * Tells Prometheus which services to scrape and how — selector picks the
+ * Service, endpoints define the metrics ports and paths. The standard way
+ * to get your application's metrics into Prometheus.
+ *
  * Requires Prometheus Operator to be installed.
  *
  * @example

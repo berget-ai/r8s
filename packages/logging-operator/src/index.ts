@@ -46,7 +46,11 @@ export interface LoggingProps {
 }
 
 /**
- * Logging resource using Logging Operator.
+ * Logging stack powered by the Logging Operator (Kube-logging / Banzai Cloud).
+ *
+ * Creates the central Logging resource that deploys Fluent Bit and Fluentd
+ * for cluster-wide log collection. Compose with `<Flow />` and `<Output />`
+ * to route selected logs to destinations like Loki or S3.
  *
  * @example
  * <Logging

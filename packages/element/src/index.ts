@@ -1,7 +1,9 @@
 import { jsx, Fragment } from '@r8s/core'
 
 export interface ElementProps {
+  /** Resource name */
   name?: string
+  /** Kubernetes namespace */
   namespace?: string
   /** Element Web version (default: latest) */
   version?: string

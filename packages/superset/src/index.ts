@@ -1,7 +1,9 @@
 import { jsx, Fragment } from '@r8s/core'
 
 export interface SupersetProps {
+  /** Resource name */
   name?: string
+  /** Kubernetes namespace */
   namespace?: string
   /** Superset version (default: 4.0.0) */
   version?: string
