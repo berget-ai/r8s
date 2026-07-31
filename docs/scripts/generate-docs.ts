@@ -467,6 +467,14 @@ async function extractComponents(
           imports.push("import { RoutingContext } from '@r8s/core/defaults';")
         }
 
+        // Operator factories used in examples (e.g. <Platform operators={[...]}>)
+        if (code.match(/\b(cnpgOperator|nginxIngressOperator)\s*\(/)) {
+          imports.push("import { cnpgOperator, nginxIngressOperator } from '@r8s/recipes';")
+        }
+        if (code.match(/\bcertManagerOperator\s*\(/)) {
+          imports.push("import { certManagerOperator } from '@r8s/cert-manager';")
+        }
+
         // Wrap in a default export with imports
         const fullCode = `${imports.join('\n')}\n\nexport default ${code};`
         const formattedTsx = await formatTsx(fullCode)

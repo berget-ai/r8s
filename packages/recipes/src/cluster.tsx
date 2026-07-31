@@ -25,16 +25,19 @@ export interface ClusterProps {
  *
  * @example
  * // Shared cluster with multiple databases
+ * // (password required per database — shared clusters materialize their own secrets)
  * <Cluster name="main" storage="100Gi">
- *   <Database name="user-db" />
- *   <Database name="order-db" />
- *   <Database name="inventory-db" />
+ *   <Database name="user-db" password="change-me" />
+ *   <Database name="order-db" password="change-me" />
+ *   <Database name="inventory-db" password="change-me" />
  * </Cluster>
  *
  * @example
  * // Each app gets its own cluster (default behavior)
- * <Database name="user-db" storage="10Gi" />
- * <Database name="order-db" storage="10Gi" />
+ * <>
+ *   <Database name="user-db" storage="10Gi" />
+ *   <Database name="order-db" storage="10Gi" />
+ * </>
  */
 export function Cluster(props: ClusterProps) {
   const { name, namespace = 'default', storage = '50Gi', children } = props
