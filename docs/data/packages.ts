@@ -155,7 +155,8 @@ export const packages: Package[] = [
     components: [
       {
         name: 'ClickHouseCluster',
-        description: 'ClickHouse cluster using ClickHouse Operator.',
+        description:
+          'ClickHouse OLAP database cluster via the Altinity ClickHouse Operator. Creates a ClickHouseInstallation with configurable shard/replica topology, ZooKeeper coordination, users, profiles, and quotas. Use for analytics workloads that need columnar storage and horizontal scaling.',
         props: [
           { name: 'name', type: 'string', required: true, description: 'Resource name' },
           {
@@ -225,8 +226,13 @@ export const packages: Package[] = [
         description:
           'Element Matrix chat client (web UI). Deploys without operator — native Kubernetes resources only.',
         props: [
-          { name: 'name', type: 'string', required: false, description: '' },
-          { name: 'namespace', type: 'string', required: false, description: '' },
+          { name: 'name', type: 'string', required: false, description: 'Resource name' },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace',
+          },
           {
             name: 'version',
             type: 'string',
@@ -480,10 +486,16 @@ export const packages: Package[] = [
     components: [
       {
         name: 'Grafana',
-        description: 'Grafana deployment with persistent storage.',
+        description:
+          'Grafana deployment with persistent storage. Standalone Grafana (Deployment + Service + PVC) with optional datasource provisioning via ConfigMap and TLS ingress. Dashboards are kept in the PVC; point `datasources` at your Prometheus/Loki instances to have them available on first login.',
         props: [
-          { name: 'name', type: 'string', required: false, description: '' },
-          { name: 'namespace', type: 'string', required: false, description: '' },
+          { name: 'name', type: 'string', required: false, description: 'Resource name' },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace',
+          },
           {
             name: 'version',
             type: 'string',
@@ -678,7 +690,8 @@ export const packages: Package[] = [
     components: [
       {
         name: 'Logging',
-        description: 'Logging resource using Logging Operator.',
+        description:
+          'Logging stack powered by the Logging Operator (Kube-logging / Banzai Cloud). Creates the central Logging resource that deploys Fluent Bit and Fluentd for cluster-wide log collection. Compose with `<Flow />` and `<Output />` to route selected logs to destinations like Loki or S3.',
         props: [
           { name: 'name', type: 'string', required: true, description: 'Resource name' },
           {
@@ -797,7 +810,8 @@ export const packages: Package[] = [
     components: [
       {
         name: 'LokiStack',
-        description: 'LokiStack for log aggregation.',
+        description:
+          'Grafana Loki log aggregation stack. Creates a LokiStack resource with object storage (S3/GCS/Azure) or filesystem backend, replication factor, ingestion rate limits, and retention policy. Pair with a Flow/Output from',
         props: [
           { name: 'name', type: 'string', required: true, description: 'Resource name' },
           {
@@ -835,7 +849,7 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: "import { LokiStack, AlertingRule } from '@r8s/loki';\n\nexport default <LokiStack\n  name=\"loki\"\n  namespace=\"loki\"\n  storage={{ type: 's3', bucket: 'my-loki-bucket', region: 'eu-north-1' }}\n/>;",
+            tsx: "import { LokiStack, AlertingRule } from '@r8s/loki';\n\nexport default <LokiStack\nname=\"loki\"\nnamespace=\"loki\"\nstorage={{ type: 's3', bucket: 'my-loki-bucket', region: 'eu-north-1' }}\n/>;",
             yaml: "apiVersion: loki.grafana.com/v1\nkind: LokiStack\nmetadata:\n  name: loki\n  namespace: loki\nspec:\n  size: 1x.extra-small\n  storage:\n    schemas:\n      - version: v13\n        effectiveDate: '2024-01-01'\n    type: s3\n    bucket: my-loki-bucket\n    region: eu-north-1\n",
           },
         ],
@@ -1096,7 +1110,7 @@ export const packages: Package[] = [
       {
         name: 'ServiceMonitor',
         description:
-          'ServiceMonitor for Prometheus scraping. Requires Prometheus Operator to be installed.',
+          "ServiceMonitor for Prometheus scraping. Tells Prometheus which services to scrape and how — selector picks the Service, endpoints define the metrics ports and paths. The standard way to get your application's metrics into Prometheus. Requires Prometheus Operator to be installed.",
         props: [
           { name: 'name', type: 'string', required: true, description: 'Resource name' },
           {
@@ -1327,8 +1341,13 @@ export const packages: Package[] = [
         description:
           'RustFS S3-compatible object storage cluster. Deploys without operator — native Kubernetes resources only.',
         props: [
-          { name: 'name', type: 'string', required: false, description: '' },
-          { name: 'namespace', type: 'string', required: false, description: '' },
+          { name: 'name', type: 'string', required: false, description: 'Resource name' },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace',
+          },
           {
             name: 'instances',
             type: 'number',
@@ -1384,8 +1403,13 @@ export const packages: Package[] = [
         description:
           'Apache Superset analytics and visualization platform. Deploys without operator — native Kubernetes resources only.',
         props: [
-          { name: 'name', type: 'string', required: false, description: '' },
-          { name: 'namespace', type: 'string', required: false, description: '' },
+          { name: 'name', type: 'string', required: false, description: 'Resource name' },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace',
+          },
           {
             name: 'version',
             type: 'string',
@@ -1457,10 +1481,16 @@ export const packages: Package[] = [
     components: [
       {
         name: 'Backup',
-        description: 'Velero on-demand backup.',
+        description:
+          'Velero on-demand backup. Creates a one-off Backup resource that snapshots cluster resources and persistent volumes to the configured storage location. For recurring backups, use `<Schedule />` instead.',
         props: [
-          { name: 'name', type: 'string', required: true, description: '' },
-          { name: 'namespace', type: 'string', required: false, description: '' },
+          { name: 'name', type: 'string', required: true, description: 'Resource name' },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace (defaults to .velero.)',
+          },
           {
             name: 'includedNamespaces',
             type: 'string[]',
@@ -1525,10 +1555,16 @@ export const packages: Package[] = [
       },
       {
         name: 'Schedule',
-        description: 'Velero scheduled backup.',
+        description:
+          'Velero scheduled backup. Creates a Schedule resource that runs backups on a cron expression. The backupTemplate accepts the same options as `<Backup />` — namespaces, label selectors, TTL, and snapshot settings.',
         props: [
-          { name: 'name', type: 'string', required: true, description: '' },
-          { name: 'namespace', type: 'string', required: false, description: '' },
+          { name: 'name', type: 'string', required: true, description: 'Resource name' },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace (defaults to .velero.)',
+          },
           {
             name: 'schedule',
             type: 'string',
@@ -1546,10 +1582,16 @@ export const packages: Package[] = [
       },
       {
         name: 'BackupStorageLocation',
-        description: 'Velero backup storage location.',
+        description:
+          'Velero backup storage location. Configures where backups are stored — an S3-compatible bucket (AWS, MinIO, RustFS) with optional prefix, region, and credentials. Reference the location by name from `<Backup />` or `<Schedule />`.',
         props: [
-          { name: 'name', type: 'string', required: true, description: '' },
-          { name: 'namespace', type: 'string', required: false, description: '' },
+          { name: 'name', type: 'string', required: true, description: 'Resource name' },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace (defaults to .velero.)',
+          },
           {
             name: 'provider',
             type: 'string',
@@ -1595,8 +1637,13 @@ export const packages: Package[] = [
         description:
           'WireGuard VPN server (wg-easy). Deploys without operator — native Kubernetes resources only.',
         props: [
-          { name: 'name', type: 'string', required: false, description: '' },
-          { name: 'namespace', type: 'string', required: false, description: '' },
+          { name: 'name', type: 'string', required: false, description: 'Resource name' },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace',
+          },
           {
             name: 'version',
             type: 'string',
