@@ -13,7 +13,7 @@ describe('Generated docs data', () => {
   describe('packages.ts', () => {
     it('should have no duplicate package slugs', () => {
       const content = fs.readFileSync(path.join(ROOT, 'docs', 'data', 'packages.ts'), 'utf-8')
-      const slugMatches = content.matchAll(/slug: "([^"]+)"/g)
+      const slugMatches = content.matchAll(/slug: ["']([^"']+)["']/g)
       const slugs = [...slugMatches].map((m) => m[1])
       const duplicates = slugs.filter((slug, i) => slugs.indexOf(slug) !== i)
 
@@ -25,7 +25,7 @@ describe('Generated docs data', () => {
       // Parse the packages array structure
       const packageBlocks = content.split(/(?=\s{4}slug: ")/)
       for (const block of packageBlocks) {
-        const nameMatches = block.matchAll(/name: "([A-Z][^"]+)"/g)
+        const nameMatches = block.matchAll(/name: ["']([A-Z][^"']+)["']/g)
         const names = [...nameMatches].map((m) => m[1])
         const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
         expect(duplicates).toEqual([])
@@ -36,7 +36,7 @@ describe('Generated docs data', () => {
   describe('recipes.ts', () => {
     it('should have no duplicate recipe slugs', () => {
       const content = fs.readFileSync(path.join(ROOT, 'docs', 'data', 'recipes.ts'), 'utf-8')
-      const slugMatches = content.matchAll(/slug: "([^"]+)"/g)
+      const slugMatches = content.matchAll(/slug: ["']([^"']+)["']/g)
       const slugs = [...slugMatches].map((m) => m[1])
       const duplicates = slugs.filter((slug, i) => slugs.indexOf(slug) !== i)
 
@@ -45,7 +45,7 @@ describe('Generated docs data', () => {
 
     it('should have no duplicate recipe titles', () => {
       const content = fs.readFileSync(path.join(ROOT, 'docs', 'data', 'recipes.ts'), 'utf-8')
-      const titleMatches = content.matchAll(/title: "([^"]+)"/g)
+      const titleMatches = content.matchAll(/title: ["']([^"']+)["']/g)
       const titles = [...titleMatches].map((m) => m[1])
       const duplicates = titles.filter((title, i) => titles.indexOf(title) !== i)
 
@@ -54,14 +54,14 @@ describe('Generated docs data', () => {
 
     it('should not include Ingress as a recipe', () => {
       const content = fs.readFileSync(path.join(ROOT, 'docs', 'data', 'recipes.ts'), 'utf-8')
-      expect(content).not.toMatch(/slug: "ingress"/)
+      expect(content).not.toMatch(/slug: ["']ingress["']/)
     })
 
     it('should include Platform, Endpoint, and App recipes', () => {
       const content = fs.readFileSync(path.join(ROOT, 'docs', 'data', 'recipes.ts'), 'utf-8')
-      expect(content).toMatch(/slug: "platform"/)
-      expect(content).toMatch(/slug: "endpoint"/)
-      expect(content).toMatch(/slug: "app"/)
+      expect(content).toMatch(/slug: ["']platform["']/)
+      expect(content).toMatch(/slug: ["']endpoint["']/)
+      expect(content).toMatch(/slug: ["']app["']/)
     })
   })
 })
