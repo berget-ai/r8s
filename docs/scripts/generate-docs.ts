@@ -84,6 +84,12 @@ async function renderToYaml(code: string): Promise<string | null> {
             '@r8s/openbao': [path.join(ROOT, 'packages/openbao/src/index.ts')],
             '@r8s/external-dns': [path.join(ROOT, 'packages/external-dns/src/index.ts')],
             '@r8s/k8s-types': [path.join(ROOT, 'packages/k8s-types/src/index.ts')],
+            '@r8s/element': [path.join(ROOT, 'packages/element/src/index.ts')],
+            '@r8s/grafana': [path.join(ROOT, 'packages/grafana/src/index.ts')],
+            '@r8s/rustfs': [path.join(ROOT, 'packages/rustfs/src/index.ts')],
+            '@r8s/superset': [path.join(ROOT, 'packages/superset/src/index.ts')],
+            '@r8s/velero': [path.join(ROOT, 'packages/velero/src/index.ts')],
+            '@r8s/wireguard': [path.join(ROOT, 'packages/wireguard/src/index.ts')],
           },
         },
       }),
@@ -462,6 +468,27 @@ async function extractComponents(
         }
         if (code.match(/<(ExternalDNSRecord)\b/)) {
           imports.push("import { ExternalDNSRecord } from '@r8s/external-dns';")
+        }
+        if (code.match(/<(Element)\b/)) {
+          imports.push("import { Element } from '@r8s/element';")
+        }
+        if (code.match(/<(Grafana)\b/)) {
+          imports.push("import { Grafana } from '@r8s/grafana';")
+        }
+        if (code.match(/<(RustFS)\b/)) {
+          imports.push("import { RustFS } from '@r8s/rustfs';")
+        }
+        if (code.match(/<(Superset)\b/)) {
+          imports.push("import { Superset } from '@r8s/superset';")
+        }
+        if (code.match(/<(Backup|Schedule|BackupStorageLocation)\b/)) {
+          imports.push("import { Backup, Schedule, BackupStorageLocation } from '@r8s/velero';")
+        }
+        if (code.match(/<(WireGuard)\b/)) {
+          imports.push("import { WireGuard } from '@r8s/wireguard';")
+        }
+        if (code.match(/<(EnvoyIngress)\b/)) {
+          imports.push("import { EnvoyIngress } from '@r8s/recipes';")
         }
         if (code.match(/<RoutingContext\.Provider\b/)) {
           imports.push("import { RoutingContext } from '@r8s/core/defaults';")

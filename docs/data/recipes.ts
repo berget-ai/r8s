@@ -266,6 +266,70 @@ export const recipes: Recipe[] = [
     },
   },
   {
+    slug: 'envoy-ingress',
+    title: 'Envoy Ingress',
+    description: 'Simple Envoy Gateway ingress — one host → one service.',
+    category: 'Networking',
+    keywords: [],
+    component: {
+      name: 'EnvoyIngress',
+      description: 'Simple Envoy Gateway ingress — one host → one service.',
+      props: [
+        { name: 'name', type: 'string', required: true, description: '' },
+        { name: 'namespace', type: 'string', required: false, description: '' },
+        { name: 'host', type: 'string', required: true, description: 'Hostname for routing' },
+        {
+          name: 'serviceName',
+          type: 'string',
+          required: true,
+          description: 'Service name to route to',
+        },
+        {
+          name: 'servicePort',
+          type: 'number',
+          required: false,
+          description: 'Service port (default: 80)',
+        },
+        { name: 'path', type: 'string', required: false, description: 'Path prefix (default: /)' },
+        { name: 'tls', type: 'TLSConfig', required: false, description: 'TLS configuration' },
+        {
+          name: 'gatewayName',
+          type: 'string',
+          required: false,
+          description: 'Gateway name (default: shared-gateway)',
+        },
+        {
+          name: 'gatewayNamespace',
+          type: 'string',
+          required: false,
+          description: 'Gateway namespace (default: envoy-gateway-system)',
+        },
+        {
+          name: 'envoyGatewayVersion',
+          type: 'string',
+          required: false,
+          description: 'Envoy Gateway version override',
+        },
+        {
+          name: 'certManagerVersion',
+          type: 'string',
+          required: false,
+          description: 'cert-manager version override',
+        },
+      ],
+      examples: [
+        {
+          tsx: 'import { EnvoyIngress } from \'@r8s/recipes\';\n\nexport default <EnvoyIngress\n  name="app"\n  host="app.example.com"\n  serviceName="frontend"\n/>;',
+          yaml: 'apiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: shared-gateway\n  namespace: envoy-gateway-system\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: http\n      protocol: HTTP\n      port: 80\n      hostname: app.example.com\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: app\n  namespace: default\nspec:\n  parentRefs:\n    - name: shared-gateway\n      namespace: envoy-gateway-system\n  hostnames:\n    - app.example.com\n  rules:\n    - matches:\n        - path:\n            type: PathPrefix\n            value: /\n      backendRefs:\n        - name: frontend\n          port: 80\n',
+        },
+        {
+          tsx: 'import { EnvoyIngress } from \'@r8s/recipes\';\n\nexport default <EnvoyIngress\n  name="api"\n  host="api.example.com"\n  serviceName="api"\n  servicePort={8080}\n  tls={{ secretName: "api-tls", clusterIssuer: "letsencrypt" }}\n/>;',
+          yaml: 'apiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: shared-gateway\n  namespace: envoy-gateway-system\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: http\n      protocol: HTTP\n      port: 80\n      hostname: api.example.com\n    - name: https\n      protocol: HTTPS\n      port: 443\n      hostname: api.example.com\n      tls:\n        mode: Terminate\n        certificateRefs:\n          - name: api-tls\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: api\n  namespace: default\nspec:\n  parentRefs:\n    - name: shared-gateway\n      namespace: envoy-gateway-system\n  hostnames:\n    - api.example.com\n  rules:\n    - matches:\n        - path:\n            type: PathPrefix\n            value: /\n      backendRefs:\n        - name: api\n          port: 8080\n',
+        },
+      ],
+    },
+  },
+  {
     slug: 'platform',
     title: 'Platform',
     description: 'Platform — cluster-level configuration wrapper.',

@@ -1,0 +1,218 @@
+import { jsx, Fragment } from '@r8s/core'
+
+export interface GrafanaProps {
+  name?: string
+  namespace?: string
+  /** Grafana version (default: 10.3.0) */
+  version?: string
+  /** Admin password secret name */
+  adminSecretName?: string
+  /** Data source configurations */
+  datasources?: Array<{
+    name: string
+    type: string
+    url: string
+    access?: string
+  }>
+  /** Persistent storage (default: 10Gi) */
+  storage?: string
+  /** Ingress host */
+  host?: string
+  /** TLS config */
+  tls?: {
+    secretName: string
+    clusterIssuer: string
+  }
+}
+
+/**
+ * Grafana deployment with persistent storage.
+ *
+ * @example
+ * <Grafana
+ *   name="grafana"
+ *   namespace="monitoring"
+ *   host="grafana.example.com"
+ *   datasources={[{ name: 'Prometheus', type: 'prometheus', url: 'http://prometheus:9090' }]}
+ * />
+ */
+export function Grafana(props: GrafanaProps) {
+  const {
+    name = 'grafana',
+    namespace = 'monitoring',
+    version = '10.3.0',
+    adminSecretName = `${name}-admin`,
+    datasources = [],
+    storage = '10Gi',
+    host,
+    tls,
+  } = props
+
+  const resources: ReturnType<typeof jsx>[] = []
+
+  // ConfigMap for datasources
+  if (datasources.length > 0) {
+    resources.push(
+      jsx('ConfigMap', {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: { name: `${name}-datasources`, namespace },
+        data: {
+          'datasources.yaml': JSON.stringify(
+            {
+              apiVersion: 1,
+              datasources: datasources.map((ds) => ({
+                name: ds.name,
+                type: ds.type,
+                url: ds.url,
+                access: ds.access || 'proxy',
+                isDefault: false,
+              })),
+            },
+            null,
+            2
+          ),
+        },
+      })
+    )
+  }
+
+  // Deployment
+  const volumeMounts: Array<{ name: string; mountPath: string }> = [
+    { name: 'storage', mountPath: '/var/lib/grafana' },
+  ]
+  const volumes: Array<{ name: string; persistentVolumeClaim?: { claimName: string } }> = [
+    { name: 'storage', persistentVolumeClaim: { claimName: `${name}-pvc` } },
+  ]
+
+  if (datasources.length > 0) {
+    volumeMounts.push({ name: 'datasources', mountPath: '/etc/grafana/provisioning/datasources' })
+    volumes.push({ name: 'datasources' })
+  }
+
+  resources.push(
+    jsx('Deployment', {
+      apiVersion: 'apps/v1',
+      kind: 'Deployment',
+      metadata: { name, namespace },
+      spec: {
+        replicas: 1,
+        selector: { matchLabels: { app: name } },
+        template: {
+          metadata: { labels: { app: name } },
+          spec: {
+            containers: [
+              {
+                name: 'grafana',
+                image: `grafana/grafana:${version}`,
+                ports: [{ containerPort: 3000, name: 'http' }],
+                env: [
+                  {
+                    name: 'GF_SECURITY_ADMIN_PASSWORD__FILE',
+                    value: `/etc/grafana/admin/password`,
+                  },
+                  { name: 'GF_INSTALL_PLUGINS', value: 'grafana-clock-panel' },
+                ],
+                volumeMounts: [
+                  ...volumeMounts,
+                  ...(adminSecretName ? [{ name: 'admin', mountPath: '/etc/grafana/admin' }] : []),
+                ],
+                resources: {
+                  requests: { memory: '256Mi', cpu: '250m' },
+                  limits: { memory: '512Mi', cpu: '500m' },
+                },
+              },
+            ],
+            volumes: [
+              ...volumes,
+              ...(adminSecretName
+                ? [
+                    {
+                      name: 'admin',
+                      secret: { secretName: adminSecretName },
+                    },
+                  ]
+                : []),
+            ],
+          },
+        },
+      },
+    })
+  )
+
+  // Service
+  resources.push(
+    jsx('Service', {
+      apiVersion: 'v1',
+      kind: 'Service',
+      metadata: { name, namespace },
+      spec: {
+        selector: { app: name },
+        ports: [{ port: 80, targetPort: 3000 }],
+      },
+    })
+  )
+
+  // PVC
+  resources.push(
+    jsx('PersistentVolumeClaim', {
+      apiVersion: 'v1',
+      kind: 'PersistentVolumeClaim',
+      metadata: { name: `${name}-pvc`, namespace },
+      spec: {
+        accessModes: ['ReadWriteOnce'],
+        resources: { requests: { storage } },
+      },
+    })
+  )
+
+  // Ingress
+  if (host) {
+    const ingressSpec: Record<string, unknown> = {
+      rules: [
+        {
+          host,
+          http: {
+            paths: [
+              {
+                path: '/',
+                pathType: 'Prefix',
+                backend: {
+                  service: { name, port: { number: 80 } },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }
+
+    if (tls) {
+      ingressSpec.tls = [
+        {
+          hosts: [host],
+          secretName: tls.secretName,
+        },
+      ]
+    }
+
+    resources.push(
+      jsx('Ingress', {
+        apiVersion: 'networking.k8s.io/v1',
+        kind: 'Ingress',
+        metadata: {
+          name,
+          namespace,
+          annotations: tls
+            ? {
+                'cert-manager.io/cluster-issuer': tls.clusterIssuer,
+              }
+            : undefined,
+        },
+        spec: ingressSpec,
+      })
+    )
+  }
+
+  return jsx(Fragment, { children: resources })
+}
