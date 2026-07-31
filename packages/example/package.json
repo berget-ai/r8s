@@ -1,0 +1,37 @@
+{
+  "name": "@r8s/example",
+  "version": "0.1.0",
+  "description": "Template package for new r8s operator integrations. Copy this directory as a starting point — see https://r8s.berget.ai/adding-packages",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/example"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "private": true,
+  "keywords": [
+    "example",
+    "template"
+  ],
+  "r8s": {
+    "category": "Uncategorized"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@r8s/core": "*",
+    "@r8s/k8s-types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

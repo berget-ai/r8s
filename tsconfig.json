@@ -30,7 +30,8 @@
       "@r8s/prometheus": ["./packages/prometheus/src/index.ts"],
       "@r8s/clickhouse": ["./packages/clickhouse/src/index.ts"],
       "@r8s/logging-operator": ["./packages/logging-operator/src/index.ts"],
-      "@r8s/loki": ["./packages/loki/src/index.ts"]
+      "@r8s/loki": ["./packages/loki/src/index.ts"],
+      "@r8s/example": ["./packages/example/src/index.ts"]
     }
   },
   "files": [],
@@ -49,6 +50,7 @@
     { "path": "./packages/clickhouse" },
     { "path": "./packages/logging-operator" },
     { "path": "./packages/loki" },
-    { "path": "./packages/cli" }
+    { "path": "./packages/cli" },
+    { "path": "./packages/example" }
   ]
 }
