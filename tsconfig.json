@@ -31,7 +31,13 @@
       "@r8s/clickhouse": ["./packages/clickhouse/src/index.ts"],
       "@r8s/logging-operator": ["./packages/logging-operator/src/index.ts"],
       "@r8s/loki": ["./packages/loki/src/index.ts"],
-      "@r8s/example": ["./packages/example/src/index.ts"]
+      "@r8s/example": ["./packages/example/src/index.ts"],
+      "@r8s/element": ["./packages/element/src/index.ts"],
+      "@r8s/grafana": ["./packages/grafana/src/index.ts"],
+      "@r8s/rustfs": ["./packages/rustfs/src/index.ts"],
+      "@r8s/superset": ["./packages/superset/src/index.ts"],
+      "@r8s/velero": ["./packages/velero/src/index.ts"],
+      "@r8s/wireguard": ["./packages/wireguard/src/index.ts"]
     }
   },
   "files": [],
@@ -51,6 +57,12 @@
     { "path": "./packages/logging-operator" },
     { "path": "./packages/loki" },
     { "path": "./packages/cli" },
-    { "path": "./packages/example" }
+    { "path": "./packages/example" },
+    { "path": "./packages/element" },
+    { "path": "./packages/grafana" },
+    { "path": "./packages/rustfs" },
+    { "path": "./packages/superset" },
+    { "path": "./packages/velero" },
+    { "path": "./packages/wireguard" }
   ]
 }

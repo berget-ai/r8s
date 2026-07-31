@@ -59,6 +59,12 @@ metadata:
 | `@r8s/clickhouse` | ClickHouse database | clickhouse-operator |
 | `@r8s/logging-operator` | Log aggregation (Banzai Cloud) | logging-operator |
 | `@r8s/loki` | Grafana Loki | loki |
+| `@r8s/velero` | Backup and disaster recovery | velero |
+| `@r8s/element` | Element Matrix chat client (web UI) | — |
+| `@r8s/grafana` | Grafana dashboards (standalone deployment) | — |
+| `@r8s/rustfs` | RustFS S3-compatible object storage | — |
+| `@r8s/superset` | Apache Superset analytics platform | — |
+| `@r8s/wireguard` | WireGuard VPN server (wg-easy) | — |
 | `@r8s/r8s-controller` | In-cluster TSX rendering controller | — |
 | `@r8s/flux-controller` | FluxCD source controller | — |
 
