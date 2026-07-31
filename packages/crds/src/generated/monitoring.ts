@@ -3,6 +3,7 @@
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { ObjectMeta } from '@r8s/k8s-types'
+import { jsx } from '@r8s/core'
 
 export interface PodMonitor {
   apiVersion: 'monitoring.coreos.com/v1'
@@ -18,13 +19,13 @@ export interface PodMonitorProps {
 }
 
 /** Render a PodMonitor (monitoring.coreos.com/v1) exactly as defined by its CRD. */
-export function PodMonitorComponent(props: PodMonitorProps): PodMonitor {
-  return {
+export function PodMonitorComponent(props: PodMonitorProps) {
+  return jsx('PodMonitor', {
     apiVersion: 'monitoring.coreos.com/v1',
     kind: 'PodMonitor',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface PrometheusRule {
@@ -41,13 +42,13 @@ export interface PrometheusRuleProps {
 }
 
 /** Render a PrometheusRule (monitoring.coreos.com/v1) exactly as defined by its CRD. */
-export function PrometheusRuleComponent(props: PrometheusRuleProps): PrometheusRule {
-  return {
+export function PrometheusRuleComponent(props: PrometheusRuleProps) {
+  return jsx('PrometheusRule', {
     apiVersion: 'monitoring.coreos.com/v1',
     kind: 'PrometheusRule',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface ServiceMonitor {
@@ -64,13 +65,13 @@ export interface ServiceMonitorProps {
 }
 
 /** Render a ServiceMonitor (monitoring.coreos.com/v1) exactly as defined by its CRD. */
-export function ServiceMonitorComponent(props: ServiceMonitorProps): ServiceMonitor {
-  return {
+export function ServiceMonitorComponent(props: ServiceMonitorProps) {
+  return jsx('ServiceMonitor', {
     apiVersion: 'monitoring.coreos.com/v1',
     kind: 'ServiceMonitor',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface AttachMetadata {

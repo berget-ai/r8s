@@ -12,6 +12,7 @@
 
 - name: cert-manager
   description: cert-manager for TLS certificate automation
+  category: Security & Identity
   source:
     type: manifest
     url: https://github.com/cert-manager/cert-manager/releases/download/v{version}/cert-manager.yaml
@@ -25,6 +26,7 @@
 
 - name: clickhouse-operator
   description: ClickHouse Operator for Kubernetes by Altinity
+  category: Data & Analytics
   source:
     type: helm
     chart: clickhouse-operator-helm
@@ -38,6 +40,7 @@
 
 - name: cnpg
   description: CloudNativePG PostgreSQL operator
+  category: Data & Analytics
   source:
     type: manifest
     url: https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-{minor}/releases/cnpg-{version}.yaml
@@ -50,6 +53,7 @@
 
 - name: envoy-gateway
   description: Envoy Gateway — Kubernetes Gateway API implementation
+  category: Networking
   source:
     type: helm
     chart: gateway-helm
@@ -68,6 +72,7 @@
 
 - name: external-dns
   description: ExternalDNS for automatic DNS management
+  category: Networking
   source:
     type: manifest
     url: https://raw.githubusercontent.com/kubernetes-sigs/external-dnsv{version}/docs/sources/manifest.yaml
@@ -78,6 +83,7 @@
 
 - name: keycloak-operator
   description: Keycloak identity and access management operator
+  category: Security & Identity
   source:
     type: olm
     package: keycloak-operator
@@ -89,6 +95,7 @@
 
 - name: logging-operator
   description: Logging Operator for Kubernetes by Banzai Cloud
+  category: Observability
   source:
     type: helm
     chart: logging-operator
@@ -104,6 +111,7 @@
 
 - name: loki
   description: Grafana Loki — horizontally-scalable, highly-available log aggregation
+  category: Observability
   source:
     type: helm
     chart: loki
@@ -117,6 +125,7 @@
 
 - name: prometheus
   description: Prometheus monitoring stack (kube-prometheus-stack)
+  category: Observability
   source:
     type: helm
     chart: kube-prometheus-stack
@@ -134,6 +143,7 @@
 
 - name: redis-operator
   description: Redis Operator for Kubernetes by OT-Container-Kit
+  category: Data & Analytics
   source:
     type: helm
     chart: redis-operator
@@ -146,6 +156,7 @@
 
 - name: vault-secrets-operator
   description: HashiCorp Vault Secrets Operator
+  category: Security & Identity
   source:
     type: manifest
     url: https://raw.githubusercontent.com/hashicorp/vault-secrets-operator/v{version}/config/default/deploy.yaml
@@ -159,6 +170,7 @@
 
 - name: velero
   description: Velero backup and disaster recovery
+  category: Security & Identity
   source:
     type: manifest
     url: https://raw.githubusercontent.com/vmware-tanzu/velero/v{version}/config/crd/v1/bases/velero.io_backups.yaml

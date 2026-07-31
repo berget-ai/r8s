@@ -3,6 +3,7 @@
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { ObjectMeta } from '@r8s/k8s-types'
+import { jsx } from '@r8s/core'
 
 export interface Certificate {
   apiVersion: 'cert-manager.io/v1'
@@ -19,13 +20,13 @@ export interface CertificateProps {
 }
 
 /** Render a Certificate (cert-manager.io/v1) exactly as defined by its CRD. */
-export function CertificateComponent(props: CertificateProps): Certificate {
-  return {
+export function CertificateComponent(props: CertificateProps) {
+  return jsx('Certificate', {
     apiVersion: 'cert-manager.io/v1',
     kind: 'Certificate',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface ClusterIssuer {
@@ -43,13 +44,13 @@ export interface ClusterIssuerProps {
 }
 
 /** Render a ClusterIssuer (cert-manager.io/v1) exactly as defined by its CRD. */
-export function ClusterIssuerComponent(props: ClusterIssuerProps): ClusterIssuer {
-  return {
+export function ClusterIssuerComponent(props: ClusterIssuerProps) {
+  return jsx('ClusterIssuer', {
     apiVersion: 'cert-manager.io/v1',
     kind: 'ClusterIssuer',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface AdditionalOutputFormatsItem {

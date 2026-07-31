@@ -100,3 +100,101 @@ export const operators: Record<string, (version?: string) => Operator> = {
     crds: ["backups.velero.io","restores.velero.io","schedules.velero.io","backupstoragelocations.velero.io","volumesnapshotlocations.velero.io","deletebackuprequests.velero.io","downloadrequests.velero.io"],
   }),
 }
+
+/**
+ * GENERATED operator metadata for docs — do not edit by hand.
+ */
+export interface OperatorMeta {
+  name: string
+  description: string
+  category: string
+  version: string
+  crds: string[]
+}
+
+export const operatorMetadata: OperatorMeta[] = [
+  {
+    name: "cert-manager",
+    description: "cert-manager for TLS certificate automation",
+    category: "Security & Identity",
+    version: "1.18.0",
+    crds: ["certificates.cert-manager.io","certificaterequests.cert-manager.io","issuers.cert-manager.io","clusterissuers.cert-manager.io"],
+  },
+  {
+    name: "clickhouse-operator",
+    description: "ClickHouse Operator for Kubernetes by Altinity",
+    category: "Data & Analytics",
+    version: "0.25.0",
+    crds: ["clickhouseinstallations.clickhouse.altinity.com","clickhouseinstallationtemplates.clickhouse.altinity.com","clickhouseoperatorconfigurations.clickhouse.altinity.com"],
+  },
+  {
+    name: "cnpg",
+    description: "CloudNativePG PostgreSQL operator",
+    category: "Data & Analytics",
+    version: "1.27.0",
+    crds: ["clusters.postgresql.cnpg.io","poolers.postgresql.cnpg.io","scheduledbackups.postgresql.cnpg.io"],
+  },
+  {
+    name: "envoy-gateway",
+    description: "Envoy Gateway — Kubernetes Gateway API implementation",
+    category: "Networking",
+    version: "1.7.0",
+    crds: ["gatewayclasses.gateway.networking.k8s.io","gateways.gateway.networking.k8s.io","httproutes.gateway.networking.k8s.io","grpcroutes.gateway.networking.k8s.io","tlsroutes.gateway.networking.k8s.io","tcproutes.gateway.networking.k8s.io","udproutes.gateway.networking.k8s.io","envoyproxies.gateway.envoyproxy.io"],
+  },
+  {
+    name: "external-dns",
+    description: "ExternalDNS for automatic DNS management",
+    category: "Networking",
+    version: "0.14.0",
+    crds: ["dnsendpoints.externaldns.k8s.io"],
+  },
+  {
+    name: "keycloak-operator",
+    description: "Keycloak identity and access management operator",
+    category: "Security & Identity",
+    version: "24.0.0",
+    crds: ["keycloaks.k8s.keycloak.org","keycloakrealmimports.k8s.keycloak.org"],
+  },
+  {
+    name: "logging-operator",
+    description: "Logging Operator for Kubernetes by Banzai Cloud",
+    category: "Observability",
+    version: "4.2.3",
+    crds: ["loggings.logging.banzaicloud.io","flows.logging.banzaicloud.io","clusterflows.logging.banzaicloud.io","outputs.logging.banzaicloud.io","clusteroutputs.logging.banzaicloud.io"],
+  },
+  {
+    name: "loki",
+    description: "Grafana Loki — horizontally-scalable, highly-available log aggregation",
+    category: "Observability",
+    version: "5.47.0",
+    crds: ["alertingrules.loki.grafana.com","recordingrules.loki.grafana.com","rulerconfigs.loki.grafana.com"],
+  },
+  {
+    name: "prometheus",
+    description: "Prometheus monitoring stack (kube-prometheus-stack)",
+    category: "Observability",
+    version: "58.4.0",
+    crds: ["alertmanagers.monitoring.coreos.com","podmonitors.monitoring.coreos.com","probes.monitoring.coreos.com","prometheuses.monitoring.coreos.com","prometheusrules.monitoring.coreos.com","servicemonitors.monitoring.coreos.com","thanosrulers.monitoring.coreos.com"],
+  },
+  {
+    name: "redis-operator",
+    description: "Redis Operator for Kubernetes by OT-Container-Kit",
+    category: "Data & Analytics",
+    version: "0.22.0",
+    crds: ["redisclusters.redis.redis.opstreelabs.in","redisreplications.redis.redis.opstreelabs.in"],
+  },
+  {
+    name: "vault-secrets-operator",
+    description: "HashiCorp Vault Secrets Operator",
+    category: "Security & Identity",
+    version: "0.5.0",
+    crds: ["vaultstaticsecrets.secrets.hashicorp.com","vaultdynamicsecrets.secrets.hashicorp.com","vaultauths.secrets.hashicorp.com","vaultconnections.secrets.hashicorp.com"],
+  },
+  {
+    name: "velero",
+    description: "Velero backup and disaster recovery",
+    category: "Security & Identity",
+    version: "1.13.0",
+    crds: ["backups.velero.io","restores.velero.io","schedules.velero.io","backupstoragelocations.velero.io","volumesnapshotlocations.velero.io","deletebackuprequests.velero.io","downloadrequests.velero.io"],
+  },
+]

@@ -3,6 +3,7 @@
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { ObjectMeta } from '@r8s/k8s-types'
+import { jsx } from '@r8s/core'
 
 export interface DNSEndpoint {
   apiVersion: 'externaldns.k8s.io/v1alpha1'
@@ -19,13 +20,13 @@ export interface DNSEndpointProps {
 }
 
 /** Render a DNSEndpoint (externaldns.k8s.io/v1alpha1) exactly as defined by its CRD. */
-export function DNSEndpointComponent(props: DNSEndpointProps): DNSEndpoint {
-  return {
+export function DNSEndpointComponent(props: DNSEndpointProps) {
+  return jsx('DNSEndpoint', {
     apiVersion: 'externaldns.k8s.io/v1alpha1',
     kind: 'DNSEndpoint',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface ProviderSpecificItem {

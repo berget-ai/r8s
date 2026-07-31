@@ -3,6 +3,7 @@
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { ObjectMeta } from '@r8s/k8s-types'
+import { jsx } from '@r8s/core'
 
 export interface EnvoyProxy {
   apiVersion: 'gateway.envoyproxy.io/v1alpha1'
@@ -19,13 +20,13 @@ export interface EnvoyProxyProps {
 }
 
 /** Render a EnvoyProxy (gateway.envoyproxy.io/v1alpha1) exactly as defined by its CRD. */
-export function EnvoyProxyComponent(props: EnvoyProxyProps): EnvoyProxy {
-  return {
+export function EnvoyProxyComponent(props: EnvoyProxyProps) {
+  return jsx('EnvoyProxy', {
     apiVersion: 'gateway.envoyproxy.io/v1alpha1',
     kind: 'EnvoyProxy',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface Gateway {
@@ -43,13 +44,13 @@ export interface GatewayProps {
 }
 
 /** Render a Gateway (gateway.networking.k8s.io/v1) exactly as defined by its CRD. */
-export function GatewayComponent(props: GatewayProps): Gateway {
-  return {
+export function GatewayComponent(props: GatewayProps) {
+  return jsx('Gateway', {
     apiVersion: 'gateway.networking.k8s.io/v1',
     kind: 'Gateway',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface HTTPRoute {
@@ -67,13 +68,13 @@ export interface HTTPRouteProps {
 }
 
 /** Render a HTTPRoute (gateway.networking.k8s.io/v1) exactly as defined by its CRD. */
-export function HTTPRouteComponent(props: HTTPRouteProps): HTTPRoute {
-  return {
+export function HTTPRouteComponent(props: HTTPRouteProps) {
+  return jsx('HTTPRoute', {
     apiVersion: 'gateway.networking.k8s.io/v1',
     kind: 'HTTPRoute',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface ClientCertificateRef {

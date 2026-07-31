@@ -31,183 +31,350 @@ export interface Package {
 export const packages: Package[] = [
   {
     slug: 'cert-manager',
-    name: '@r8s/cert-manager',
+    name: '@r8s/crds/cert-manager',
     title: 'cert-manager',
-    description:
-      "TLS certificate automation components for Kubernetes. Declares the cert-manager operator and provides Let's Encrypt issuers and managed certificates.",
+    description: 'cert-manager for TLS certificate automation',
     category: 'Security & Identity',
-    operator: 'certManager',
-    operatorVersion: '1.14.0',
-    keywords: [
-      'cert-manager',
-      'tls',
-      'certificate',
-      'letsencrypt',
-      'acme',
-      'cluster-issuer',
-      'security',
-    ],
+    operator: 'cert-manager',
+    operatorVersion: '1.18.0',
+    keywords: ['cert-manager'],
     components: [
       {
-        name: 'LetsEncryptIssuer',
-        description: "Creates a Let's Encrypt ClusterIssuer for automatic TLS certificates.",
+        name: 'Certificate',
+        description: 'Render a Certificate (cert-manager.io/v1) exactly as defined by its CRD.',
         props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'email',
-            type: 'string',
-            required: true,
-            description: "Email address used by Let's Encrypt for certificate expiry notices",
-          },
-          {
-            name: 'server',
-            type: "'production' | 'staging'",
-            required: false,
-            description:
-              "Let's Encrypt environment to use — 'production' (real, rate-limited certs) or 'staging' (test certs)",
-          },
-          {
-            name: 'ingressClass',
-            type: 'string',
-            required: false,
-            description:
-              "Ingress controller class (e.g., 'nginx') that cert-manager should use for HTTP-01 challenges",
-          },
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'CertificateSpec', required: true, description: '' },
         ],
         examples: [
           {
-            tsx: 'import { LetsEncryptIssuer, ManagedCertificate } from \'@r8s/cert-manager\';\n\nexport default <LetsEncryptIssuer name="letsencrypt" email="admin@example.com" server="production" />;',
-            yaml: 'apiVersion: cert-manager.io/v1\nkind: ClusterIssuer\nmetadata:\n  name: letsencrypt\nspec:\n  acme:\n    server: https://acme-v02.api.letsencrypt.org/directory\n    email: admin@example.com\n    privateKeySecretRef:\n      name: letsencrypt-account-key\n    solvers:\n      - http01:\n          ingress:\n            class: nginx\n',
+            tsx: "\nimport { CertificateComponent } from '@r8s/crds/cert-manager'\n\n<CertificateComponent\n  metadata={{ name: 'app-tls', namespace: 'default' }}\n  spec={{\n    secretName: 'app-tls',\n    dnsNames: ['app.example.com'],\n    issuerRef: { name: 'letsencrypt-prod', kind: 'ClusterIssuer' },\n  }}\n/>\n",
+            yaml: 'apiVersion: cert-manager.io/v1\nkind: Certificate\nmetadata:\n  name: app-tls\n  namespace: default\nspec:\n  secretName: app-tls\n  dnsNames:\n    - app.example.com\n  issuerRef:\n    name: letsencrypt-prod\n    kind: ClusterIssuer\n',
           },
         ],
       },
       {
-        name: 'ManagedCertificate',
-        description:
-          'Creates a cert-manager Certificate resource that automatically provisions and renews a TLS certificate from the specified ClusterIssuer.',
+        name: 'ClusterIssuer',
+        description: 'Render a ClusterIssuer (cert-manager.io/v1) exactly as defined by its CRD.',
         props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'secretName',
-            type: 'string',
-            required: true,
-            description: 'Name of the Kubernetes Secret holding the TLS certificate',
-          },
-          {
-            name: 'issuerName',
-            type: 'string',
-            required: true,
-            description:
-              'Name of the cert-manager Issuer or ClusterIssuer to request the certificate from',
-          },
-          {
-            name: 'dnsNames',
-            type: 'string[]',
-            required: true,
-            description: 'Domain names the certificate should be valid for',
-          },
-          {
-            name: 'duration',
-            type: 'string',
-            required: false,
-            description: "How long the certificate is valid (e.g., '2160h' for 90 days)",
-          },
-          {
-            name: 'renewBefore',
-            type: 'string',
-            required: false,
-            description:
-              "When cert-manager should start renewing the certificate before it expires (e.g., '360h' for 15 days)",
-          },
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'ClusterIssuerSpec', required: true, description: '' },
         ],
         examples: [
           {
-            tsx: 'import { LetsEncryptIssuer, ManagedCertificate } from \'@r8s/cert-manager\';\n\nexport default <ManagedCertificate name="app-tls" secretName="app-tls" issuerName="letsencrypt-prod" dnsNames={["app.example.com"]} />;',
-            yaml: 'apiVersion: cert-manager.io/v1\nkind: Certificate\nmetadata:\n  name: app-tls\n  namespace: default\nspec:\n  secretName: app-tls\n  issuerRef:\n    name: letsencrypt-prod\n    kind: ClusterIssuer\n  dnsNames:\n    - app.example.com\n  duration: 2160h\n  renewBefore: 360h\n',
+            tsx: "\nimport { ClusterIssuerComponent } from '@r8s/crds/cert-manager'\n\n<ClusterIssuerComponent\n  metadata={{ name: 'letsencrypt-prod' }}\n  spec={{\n    acme: {\n      server: 'https://acme-v02.api.letsencrypt.org/directory',\n      email: 'admin@example.com',\n      privateKeySecretRef: { name: 'letsencrypt-prod-key' },\n      solvers: [{ http01: { ingress: { class: 'nginx' } } }],\n    },\n  }}\n/>\n",
+            yaml: 'apiVersion: cert-manager.io/v1\nkind: ClusterIssuer\nmetadata:\n  name: letsencrypt-prod\nspec:\n  acme:\n    server: https://acme-v02.api.letsencrypt.org/directory\n    email: admin@example.com\n    privateKeySecretRef:\n      name: letsencrypt-prod-key\n    solvers:\n      - http01:\n          ingress:\n            class: nginx\n',
           },
         ],
       },
     ],
   },
   {
-    slug: 'clickhouse',
-    name: '@r8s/clickhouse',
-    title: 'clickhouse',
-    description:
-      'ClickHouse OLAP database components powered by the Altinity ClickHouse Operator. Declares clickhouse-operator and provisions sharded, replicated clusters with ZooKeeper.',
-    category: 'Data & Analytics',
-    operator: 'clickhouse',
-    operatorVersion: '0.23.0',
-    keywords: [
-      'clickhouse',
-      'olap',
-      'analytics database',
-      'clickhouse-operator',
-      'altinity',
-      'data',
-    ],
+    slug: 'externaldns',
+    name: '@r8s/crds/externaldns',
+    title: 'externaldns',
+    description: 'ExternalDNS for automatic DNS management',
+    category: 'Networking',
+    operator: 'external-dns',
+    operatorVersion: '0.14.0',
+    keywords: ['externaldns'],
     components: [
       {
-        name: 'ClickHouseCluster',
+        name: 'DNSEndpoint',
         description:
-          'ClickHouse OLAP database cluster via the Altinity ClickHouse Operator. Creates a ClickHouseInstallation with configurable shard/replica topology, ZooKeeper coordination, users, profiles, and quotas. Use for analytics workloads that need columnar storage and horizontal scaling.',
+          'Render a DNSEndpoint (externaldns.k8s.io/v1alpha1) exactly as defined by its CRD.',
         props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'cluster',
-            type: '{ layout?: { shardsCount?: number, replicasCount?: number } }',
-            required: false,
-            description: 'Cluster topology — number of shards and replicas per shard',
-          },
-          {
-            name: 'zookeeper',
-            type: '{ nodes?: Array }',
-            required: false,
-            description: 'ZooKeeper cluster used for ClickHouse replication and coordination',
-          },
-          {
-            name: 'users',
-            type: 'Record',
-            required: false,
-            description:
-              'ClickHouse users to create, keyed by username (each can have password, profile, quota, and grants)',
-          },
-          {
-            name: 'profiles',
-            type: 'Record',
-            required: false,
-            description: 'ClickHouse user profiles (settings) keyed by profile name',
-          },
-          {
-            name: 'quotas',
-            type: 'Record',
-            required: false,
-            description: 'ClickHouse quotas keyed by quota name',
-          },
-          {
-            name: 'templates',
-            type: '{ podTemplates?: Array, volumeClaimTemplates?: Array }',
-            required: false,
-            description:
-              'Pod and persistent-volume templates for customizing how ClickHouse pods run and store data',
-          },
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'DNSEndpointSpec', required: true, description: '' },
         ],
         examples: [
           {
-            tsx: 'import { ClickHouseCluster } from \'@r8s/clickhouse\';\n\nexport default <ClickHouseCluster\n  name="analytics"\n  namespace="production"\n  cluster={{\n    layout: { shardsCount: 2, replicasCount: 2 }\n  }}\n/>;',
-            yaml: 'apiVersion: clickhouse.altinity.com/v1\nkind: ClickHouseInstallation\nmetadata:\n  name: analytics\n  namespace: production\nspec:\n  configuration:\n    clusters:\n      - name: cluster\n        layout:\n          shardsCount: 2\n          replicasCount: 2\n',
+            tsx: "\nimport { DNSEndpointComponent } from '@r8s/crds/externaldns'\n\n<DNSEndpointComponent\n  metadata={{ name: 'app-dns', namespace: 'default' }}\n  spec={{\n    endpoints: [\n      { dnsName: 'app.example.com', recordType: 'A', targets: ['10.0.0.1'], ttl: 300 },\n    ],\n  }}\n/>\n",
+            yaml: 'apiVersion: externaldns.k8s.io/v1alpha1\nkind: DNSEndpoint\nmetadata:\n  name: app-dns\n  namespace: default\nspec:\n  endpoints:\n    - dnsName: app.example.com\n      recordType: A\n      targets:\n        - 10.0.0.1\n      ttl: 300\n',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'gateway',
+    name: '@r8s/crds/gateway',
+    title: 'gateway',
+    description: 'Envoy Gateway — Kubernetes Gateway API implementation',
+    category: 'Networking',
+    operator: 'envoy-gateway',
+    operatorVersion: '1.7.0',
+    keywords: ['gateway'],
+    components: [
+      {
+        name: 'EnvoyProxy',
+        description:
+          'Render a EnvoyProxy (gateway.envoyproxy.io/v1alpha1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'EnvoyProxySpec', required: true, description: '' },
+        ],
+        examples: [],
+      },
+      {
+        name: 'Gateway',
+        description:
+          'Render a Gateway (gateway.networking.k8s.io/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'GatewaySpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { GatewayComponent } from '@r8s/crds/gateway'\n\n<GatewayComponent\n  metadata={{ name: 'public-gateway', namespace: 'envoy-gateway-system' }}\n  spec={{\n    gatewayClassName: 'eg',\n    listeners: [\n      { name: 'https', protocol: 'HTTPS', port: 443, hostname: 'api.example.com' },\n    ],\n  }}\n/>\n",
+            yaml: 'apiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: public-gateway\n  namespace: envoy-gateway-system\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: https\n      protocol: HTTPS\n      port: 443\n      hostname: api.example.com\n',
+          },
+        ],
+      },
+      {
+        name: 'HTTPRoute',
+        description:
+          'Render a HTTPRoute (gateway.networking.k8s.io/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'HTTPRouteSpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { HTTPRouteComponent } from '@r8s/crds/gateway'\n\n<HTTPRouteComponent\n  metadata={{ name: 'api-route', namespace: 'default' }}\n  spec={{\n    parentRefs: [{ name: 'public-gateway', namespace: 'envoy-gateway-system' }],\n    hostnames: ['api.example.com'],\n    rules: [{ backendRefs: [{ name: 'api', port: 80 }] }],\n  }}\n/>\n",
+            yaml: 'apiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: api-route\n  namespace: default\nspec:\n  parentRefs:\n    - name: public-gateway\n      namespace: envoy-gateway-system\n  hostnames:\n    - api.example.com\n  rules:\n    - backendRefs:\n        - name: api\n          port: 80\n',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'keycloak',
+    name: '@r8s/crds/keycloak',
+    title: 'keycloak',
+    description: 'Keycloak identity and access management operator',
+    category: 'Security & Identity',
+    operator: 'keycloak-operator',
+    operatorVersion: '24.0.0',
+    keywords: ['keycloak'],
+    components: [
+      {
+        name: 'Keycloak',
+        description: 'Render a Keycloak (k8s.keycloak.org/v2alpha1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'KeycloakSpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { KeycloakComponent } from '@r8s/crds/keycloak'\n\n<KeycloakComponent\n  metadata={{ name: 'keycloak', namespace: 'default' }}\n  spec={{\n    instances: 1,\n    hostname: { hostname: 'auth.example.com' },\n    proxy: { headers: 'xforwarded' },\n  }}\n/>\n",
+            yaml: 'apiVersion: k8s.keycloak.org/v2alpha1\nkind: Keycloak\nmetadata:\n  name: keycloak\n  namespace: default\nspec:\n  instances: 1\n  hostname:\n    hostname: auth.example.com\n  proxy:\n    headers: xforwarded\n',
+          },
+        ],
+      },
+      {
+        name: 'KeycloakRealmImport',
+        description:
+          'Render a KeycloakRealmImport (k8s.keycloak.org/v2alpha1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'KeycloakRealmImportSpec', required: true, description: '' },
+        ],
+        examples: [],
+      },
+    ],
+  },
+  {
+    slug: 'monitoring',
+    name: '@r8s/crds/monitoring',
+    title: 'monitoring',
+    description: 'Prometheus monitoring stack (kube-prometheus-stack)',
+    category: 'Observability',
+    operator: 'prometheus',
+    operatorVersion: '58.4.0',
+    keywords: ['monitoring'],
+    components: [
+      {
+        name: 'PodMonitor',
+        description:
+          'Render a PodMonitor (monitoring.coreos.com/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'PodMonitorSpec', required: true, description: '' },
+        ],
+        examples: [],
+      },
+      {
+        name: 'PrometheusRule',
+        description:
+          'Render a PrometheusRule (monitoring.coreos.com/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'PrometheusRuleSpec', required: true, description: '' },
+        ],
+        examples: [],
+      },
+      {
+        name: 'ServiceMonitor',
+        description:
+          'Render a ServiceMonitor (monitoring.coreos.com/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'ServiceMonitorSpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { ServiceMonitorComponent } from '@r8s/crds/monitoring'\n\n<ServiceMonitorComponent\n  metadata={{ name: 'app-monitor', namespace: 'default', labels: { app: 'api' } }}\n  spec={{\n    selector: { matchLabels: { app: 'api' } },\n    endpoints: [{ port: 'metrics', path: '/metrics', interval: '30s' }],\n  }}\n/>\n",
+            yaml: 'apiVersion: monitoring.coreos.com/v1\nkind: ServiceMonitor\nmetadata:\n  name: app-monitor\n  namespace: default\n  labels:\n    app: api\nspec:\n  selector:\n    matchLabels:\n      app: api\n  endpoints:\n    - port: metrics\n      path: /metrics\n      interval: 30s\n',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'postgresql',
+    name: '@r8s/crds/postgresql',
+    title: 'postgresql',
+    description: 'CloudNativePG PostgreSQL operator',
+    category: 'Data & Analytics',
+    operator: 'cnpg',
+    operatorVersion: '1.27.0',
+    keywords: ['postgresql'],
+    components: [
+      {
+        name: 'Cluster',
+        description: 'Render a Cluster (postgresql.cnpg.io/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'ClusterSpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { ClusterComponent } from '@r8s/crds/postgresql'\n\n<ClusterComponent\n  metadata={{ name: 'app-db', namespace: 'default' }}\n  spec={{\n    instances: 3,\n    storage: { size: '10Gi' },\n    bootstrap: { initdb: { database: 'app' } },\n  }}\n/>\n",
+            yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app\n',
+          },
+          {
+            tsx: "\nimport { ClusterComponent, ScheduledBackupComponent } from '@r8s/crds/postgresql'\n\n<>\n  <ClusterComponent\n    metadata={{ name: 'prod-db', namespace: 'default' }}\n    spec={{\n      instances: 3,\n      storage: { size: '50Gi' },\n      bootstrap: { initdb: { database: 'app' } },\n      backup: { barmanObjectStore: { destinationPath: 's3://backups/' } },\n    }}\n  />\n  <ScheduledBackupComponent\n    metadata={{ name: 'prod-db-backup', namespace: 'default' }}\n    spec={{\n      schedule: '0 2 * * *',\n      cluster: { name: 'prod-db' },\n    }}\n  />\n</>\n",
+            yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: prod-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 50Gi\n  bootstrap:\n    initdb:\n      database: app\n  backup:\n    barmanObjectStore:\n      destinationPath: s3://backups/\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: prod-db-backup\n  namespace: default\nspec:\n  schedule: 0 2 * * *\n  cluster:\n    name: prod-db\n',
+          },
+          {
+            tsx: "\nimport { ClusterComponent, PoolerComponent } from '@r8s/crds/postgresql'\n\n<>\n  <ClusterComponent\n    metadata={{ name: 'app-db', namespace: 'default' }}\n    spec={{\n      instances: 3,\n      storage: { size: '10Gi' },\n      bootstrap: { initdb: { database: 'app' } },\n    }}\n  />\n  <PoolerComponent\n    metadata={{ name: 'app-db-pooler', namespace: 'default' }}\n    spec={{\n      cluster: { name: 'app-db' },\n      instances: 2,\n      type: 'rw',\n      pgbouncer: { poolMode: 'transaction' },\n    }}\n  />\n</>\n",
+            yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Pooler\nmetadata:\n  name: app-db-pooler\n  namespace: default\nspec:\n  cluster:\n    name: app-db\n  instances: 2\n  type: rw\n  pgbouncer:\n    poolMode: transaction\n',
+          },
+        ],
+      },
+      {
+        name: 'Pooler',
+        description: 'Render a Pooler (postgresql.cnpg.io/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'PoolerSpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { ClusterComponent, PoolerComponent } from '@r8s/crds/postgresql'\n\n<>\n  <ClusterComponent\n    metadata={{ name: 'app-db', namespace: 'default' }}\n    spec={{\n      instances: 3,\n      storage: { size: '10Gi' },\n      bootstrap: { initdb: { database: 'app' } },\n    }}\n  />\n  <PoolerComponent\n    metadata={{ name: 'app-db-pooler', namespace: 'default' }}\n    spec={{\n      cluster: { name: 'app-db' },\n      instances: 2,\n      type: 'rw',\n      pgbouncer: { poolMode: 'transaction' },\n    }}\n  />\n</>\n",
+            yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Pooler\nmetadata:\n  name: app-db-pooler\n  namespace: default\nspec:\n  cluster:\n    name: app-db\n  instances: 2\n  type: rw\n  pgbouncer:\n    poolMode: transaction\n',
+          },
+        ],
+      },
+      {
+        name: 'ScheduledBackup',
+        description:
+          'Render a ScheduledBackup (postgresql.cnpg.io/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'ScheduledBackupSpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { ClusterComponent, ScheduledBackupComponent } from '@r8s/crds/postgresql'\n\n<>\n  <ClusterComponent\n    metadata={{ name: 'prod-db', namespace: 'default' }}\n    spec={{\n      instances: 3,\n      storage: { size: '50Gi' },\n      bootstrap: { initdb: { database: 'app' } },\n      backup: { barmanObjectStore: { destinationPath: 's3://backups/' } },\n    }}\n  />\n  <ScheduledBackupComponent\n    metadata={{ name: 'prod-db-backup', namespace: 'default' }}\n    spec={{\n      schedule: '0 2 * * *',\n      cluster: { name: 'prod-db' },\n    }}\n  />\n</>\n",
+            yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: prod-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 50Gi\n  bootstrap:\n    initdb:\n      database: app\n  backup:\n    barmanObjectStore:\n      destinationPath: s3://backups/\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: prod-db-backup\n  namespace: default\nspec:\n  schedule: 0 2 * * *\n  cluster:\n    name: prod-db\n',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'redis',
+    name: '@r8s/crds/redis',
+    title: 'redis',
+    description: 'Redis Operator for Kubernetes by OT-Container-Kit',
+    category: 'Data & Analytics',
+    operator: 'redis-operator',
+    operatorVersion: '0.22.0',
+    keywords: ['redis'],
+    components: [
+      {
+        name: 'RedisCluster',
+        description:
+          'Render a RedisCluster (redis.redis.opstreelabs.in/v1beta2) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'RedisClusterSpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { RedisClusterComponent } from '@r8s/crds/redis'\n\n<RedisClusterComponent\n  metadata={{ name: 'cache', namespace: 'default' }}\n  spec={{\n    size: 3,\n    kubernetesConfig: { image: 'quay.io/opstree/redis:v7.0.12' },\n    storage: { volumeClaimTemplate: { spec: { resources: { requests: { storage: '5Gi' } } } } },\n  }}\n/>\n",
+            yaml: 'apiVersion: redis.redis.opstreelabs.in/v1beta2\nkind: RedisCluster\nmetadata:\n  name: cache\n  namespace: default\nspec:\n  size: 3\n  kubernetesConfig:\n    image: quay.io/opstree/redis:v7.0.12\n  storage:\n    volumeClaimTemplate:\n      spec:\n        resources:\n          requests:\n            storage: 5Gi\n',
+          },
+        ],
+      },
+      {
+        name: 'RedisReplication',
+        description:
+          'Render a RedisReplication (redis.redis.opstreelabs.in/v1beta2) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'RedisReplicationSpec', required: true, description: '' },
+        ],
+        examples: [],
+      },
+    ],
+  },
+  {
+    slug: 'velero',
+    name: '@r8s/crds/velero',
+    title: 'velero',
+    description: 'Velero backup and disaster recovery',
+    category: 'Security & Identity',
+    operator: 'velero',
+    operatorVersion: '1.13.0',
+    keywords: ['velero'],
+    components: [
+      {
+        name: 'Backup',
+        description: 'Render a Backup (velero.io/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'BackupSpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { BackupComponent } from '@r8s/crds/velero'\n\n<BackupComponent\n  metadata={{ name: 'app-backup', namespace: 'velero' }}\n  spec={{\n    includedNamespaces: ['default', 'production'],\n    storageLocation: 'default',\n  }}\n/>\n",
+            yaml: 'apiVersion: velero.io/v1\nkind: Backup\nmetadata:\n  name: app-backup\n  namespace: velero\nspec:\n  includedNamespaces:\n    - default\n    - production\n  storageLocation: default\n',
+          },
+        ],
+      },
+      {
+        name: 'BackupStorageLocation',
+        description: 'Render a BackupStorageLocation (velero.io/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'BackupStorageLocationSpec', required: true, description: '' },
+        ],
+        examples: [],
+      },
+      {
+        name: 'Schedule',
+        description: 'Render a Schedule (velero.io/v1) exactly as defined by its CRD.',
+        props: [
+          { name: 'metadata', type: 'ObjectMeta', required: true, description: '' },
+          { name: 'spec', type: 'ScheduleSpec', required: true, description: '' },
+        ],
+        examples: [
+          {
+            tsx: "\nimport { ScheduleComponent } from '@r8s/crds/velero'\n\n<ScheduleComponent\n  metadata={{ name: 'daily-backup', namespace: 'velero' }}\n  spec={{\n    schedule: '0 2 * * *',\n    template: {\n      includedNamespaces: ['default'],\n      storageLocation: 'default',\n    },\n  }}\n/>\n",
+            yaml: 'apiVersion: velero.io/v1\nkind: Schedule\nmetadata:\n  name: daily-backup\n  namespace: velero\nspec:\n  schedule: 0 2 * * *\n  template:\n    includedNamespaces:\n      - default\n    storageLocation: default\n',
           },
         ],
       },
@@ -259,220 +426,6 @@ export const packages: Package[] = [
             yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: element\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: element-config\n  namespace: element\ndata:\n  config.json: |-\n    {\n      "default_server_config": {\n        "m.homeserver": {\n          "base_url": "https://matrix.example.com",\n          "server_name": "chat.example.com"\n        }\n      },\n      "brand": "Element",\n      "integrations_ui_url": "https://scalar.vector.im/",\n      "integrations_rest_url": "https://scalar.vector.im/api",\n      "integrations_widgets_urls": [\n        "https://scalar.vector.im/_matrix/integrations/v1",\n        "https://scalar.vector.im/api",\n        "https://scalar-staging.vector.im/_matrix/integrations/v1",\n        "https://scalar-staging.vector.im/api"\n      ],\n      "bug_report_endpoint_url": "https://element.io/bugreports/submit",\n      "uisi_autorageshared_sigs": true,\n      "show_labs_settings": true,\n      "room_directory": {\n        "servers": [\n          "chat.example.com"\n        ]\n      }\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: element\n  namespace: element\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: element\n  template:\n    metadata:\n      labels:\n        app: element\n    spec:\n      containers:\n        - name: element\n          image: vectorim/element-web:latest\n          ports:\n            - containerPort: 80\n              name: http\n          volumeMounts:\n            - name: config\n              mountPath: /app/config.json\n              subPath: config.json\n              readOnly: true\n          resources:\n            requests:\n              memory: 64Mi\n              cpu: 50m\n            limits:\n              memory: 256Mi\n              cpu: 200m\n      volumes:\n        - name: config\n          configMap:\n            name: element-config\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: element\n  namespace: element\nspec:\n  selector:\n    app: element\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: element\n  namespace: element\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  rules:\n    - host: chat.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: element\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - chat.example.com\n      secretName: element-tls\n',
           },
         ],
-      },
-    ],
-  },
-  {
-    slug: 'envoy',
-    name: '@r8s/envoy',
-    title: 'envoy',
-    description:
-      'Envoy Gateway components implementing the Kubernetes Gateway API. Declares envoy-gateway and provisions Gateways, HTTPRoutes, and EnvoyProxy configurations.',
-    category: 'Networking',
-    operator: 'envoyGateway',
-    operatorVersion: '1.7.0',
-    keywords: [
-      'gateway',
-      'envoy',
-      'envoy-gateway',
-      'gateway api',
-      'httproute',
-      'ingress',
-      'networking',
-    ],
-    components: [
-      {
-        name: 'Gateway',
-        description:
-          'Gateway resource using Gateway API (Envoy Gateway). Requires Envoy Gateway operator to be installed.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'gatewayClassName',
-            type: 'string',
-            required: false,
-            description: "GatewayClass name (e.g., 'eg' for Envoy Gateway)",
-          },
-          {
-            name: 'listeners',
-            type: 'ListenerConfig[]',
-            required: true,
-            description: 'Gateway listeners (protocol, port, hostname, TLS)',
-          },
-          {
-            name: 'addresses',
-            type: 'Array',
-            required: false,
-            description: 'Optional static addresses the Gateway can be reached on',
-          },
-        ],
-        examples: [
-          {
-            tsx: "import { Gateway, HTTPRoute, EnvoyProxy } from '@r8s/envoy';\n\nexport default <Gateway\n  name=\"public-gateway\"\n  namespace=\"envoy-gateway-system\"\n  gatewayClassName=\"eg\"\n  listeners={[\n    { name: 'https', protocol: 'HTTPS', port: 443, hostname: 'api.example.com' },\n  ]}\n/>;",
-            yaml: 'apiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: public-gateway\n  namespace: envoy-gateway-system\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: https\n      protocol: HTTPS\n      port: 443\n      hostname: api.example.com\n',
-          },
-        ],
-      },
-      {
-        name: 'HTTPRoute',
-        description:
-          'Creates an HTTPRoute that attaches to a parent Gateway and routes HTTP traffic to backend services.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'parentRefs',
-            type: 'Array',
-            required: true,
-            description:
-              'Gateways this route attaches to (by name, optional sectionName to pin a listener)',
-          },
-          {
-            name: 'hostnames',
-            type: 'string[]',
-            required: false,
-            description: "Hostnames this route matches (a request's Host header must match one)",
-          },
-          {
-            name: 'rules',
-            type: 'Array',
-            required: true,
-            description:
-              'Routing rules — each rule has optional matches (path/method/headers) and backend targets',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { Gateway, HTTPRoute, EnvoyProxy } from \'@r8s/envoy\';\n\nexport default <HTTPRoute name="api-route" parentRefs={[{ name: "public-gateway" }]} hostnames={["api.example.com"]} rules={[{ backendRefs: [{ name: "api", port: 80 }] }]} />;',
-            yaml: 'apiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: api-route\n  namespace: default\nspec:\n  parentRefs:\n    - name: public-gateway\n  hostnames:\n    - api.example.com\n  rules:\n    - backendRefs:\n        - name: api\n          port: 80\n',
-          },
-        ],
-      },
-      {
-        name: 'EnvoyProxy',
-        description:
-          'Configures the EnvoyProxy data plane — service type, node ports, and multi-Gateway merging.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: 'Kubernetes namespace where the Envoy Proxy pods will run',
-          },
-          {
-            name: 'mergeGateways',
-            type: 'boolean',
-            required: false,
-            description: 'Whether multiple Gateway resources share a single Envoy Proxy instance',
-          },
-          {
-            name: 'serviceType',
-            type: "'LoadBalancer' | 'NodePort' | 'ClusterIP'",
-            required: false,
-            description: 'Kubernetes Service type exposing the Envoy Proxy externally',
-          },
-          {
-            name: 'nodePort',
-            type: 'number',
-            required: false,
-            description: "Static host port (used when serviceType is 'NodePort')",
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { Gateway, HTTPRoute, EnvoyProxy } from \'@r8s/envoy\';\n\nexport default <EnvoyProxy name="envoy-proxy" namespace="envoy-gateway-system" serviceType="LoadBalancer" />;',
-            yaml: 'apiVersion: gateway.envoyproxy.io/v1alpha1\nkind: EnvoyProxy\nmetadata:\n  name: envoy-proxy\n  namespace: envoy-gateway-system\nspec:\n  provider:\n    type: Kubernetes\n    kubernetes:\n      envoyService: {}\n',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'external-dns',
-    name: '@r8s/external-dns',
-    title: 'external-dns',
-    description:
-      'DNS management components. Declares the external-dns operator and creates DNSEndpoint resources plus annotation helpers for ingress-based DNS routing.',
-    category: 'Networking',
-    operator: 'externalDNS',
-    operatorVersion: '0.14.0',
-    keywords: ['external-dns', 'dns', 'dnsendpoints', 'networking'],
-    components: [
-      {
-        name: 'ExternalDNSRecord',
-        description:
-          'Creates a DNSEndpoint resource managed by ExternalDNS, supporting A, CNAME, and other DNS record types.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'dnsName',
-            type: 'string',
-            required: true,
-            description: "DNS name to create (e.g., 'api.example.com')",
-          },
-          {
-            name: 'targets',
-            type: 'string[]',
-            required: true,
-            description: 'DNS targets — IPs or hostnames that the record should point to',
-          },
-          {
-            name: 'recordType',
-            type: 'string',
-            required: false,
-            description: "DNS record type (e.g., 'A', 'CNAME', 'TXT') — defaults to 'A'",
-          },
-          {
-            name: 'ttl',
-            type: 'number',
-            required: false,
-            description: 'Time-to-live for the DNS record in seconds (defaults to 300)',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { ExternalDNSRecord } from \'@r8s/external-dns\';\n\nexport default <ExternalDNSRecord name="app-dns" dnsName="app.example.com" targets={["1.2.3.4"]} recordType="A" />;',
-            yaml: 'apiVersion: externaldns.k8s.io/v1alpha1\nkind: DNSEndpoint\nmetadata:\n  name: app-dns\n  namespace: default\nspec:\n  endpoints:\n    - dnsName: app.example.com\n      recordType: A\n      targets:\n        - 1.2.3.4\n      recordTTL: 300\n',
-          },
-        ],
-      },
-      {
-        name: 'ExternalDNSIngressAnnotation',
-        description:
-          'Helper that returns DNS annotations for an Ingress, telling ExternalDNS to create DNS records for the specified domain and targets.',
-        props: [
-          {
-            name: 'domain',
-            type: 'string',
-            required: true,
-            description: "Domain name ExternalDNS should manage (e.g., 'api.example.com')",
-          },
-          {
-            name: 'targets',
-            type: 'string[]',
-            required: true,
-            description: 'DNS targets that should receive traffic for the domain',
-          },
-        ],
-        examples: [],
       },
     ],
   },
@@ -532,797 +485,6 @@ export const packages: Package[] = [
           {
             tsx: "import { Grafana } from '@r8s/grafana';\n\nexport default <Grafana\n  name=\"grafana\"\n  namespace=\"monitoring\"\n  host=\"grafana.example.com\"\n  datasources={[{ name: 'Prometheus', type: 'prometheus', url: 'http://prometheus:9090' }]}\n/>;",
             yaml: 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: grafana-datasources\n  namespace: monitoring\ndata:\n  datasources.yaml: |-\n    {\n      "apiVersion": 1,\n      "datasources": [\n        {\n          "name": "Prometheus",\n          "type": "prometheus",\n          "url": "http://prometheus:9090",\n          "access": "proxy",\n          "isDefault": false\n        }\n      ]\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: grafana\n  template:\n    metadata:\n      labels:\n        app: grafana\n    spec:\n      containers:\n        - name: grafana\n          image: grafana/grafana:10.3.0\n          ports:\n            - containerPort: 3000\n              name: http\n          env:\n            - name: GF_SECURITY_ADMIN_PASSWORD__FILE\n              value: /etc/grafana/admin/password\n            - name: GF_INSTALL_PLUGINS\n              value: grafana-clock-panel\n          volumeMounts:\n            - name: storage\n              mountPath: /var/lib/grafana\n            - name: datasources\n              mountPath: /etc/grafana/provisioning/datasources\n            - name: admin\n              mountPath: /etc/grafana/admin\n          resources:\n            requests:\n              memory: 256Mi\n              cpu: 250m\n            limits:\n              memory: 512Mi\n              cpu: 500m\n      volumes:\n        - name: storage\n          persistentVolumeClaim:\n            claimName: grafana-pvc\n        - name: datasources\n        - name: admin\n          secret:\n            secretName: grafana-admin\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  selector:\n    app: grafana\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: grafana-pvc\n  namespace: monitoring\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 10Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  rules:\n    - host: grafana.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: grafana\n                port:\n                  number: 80\n',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'keycloak',
-    name: '@r8s/keycloak',
-    title: 'keycloak',
-    description:
-      'Identity and access management components powered by the Keycloak Operator. Declares keycloak-operator and provisions Keycloak instances and realm imports.',
-    category: 'Security & Identity',
-    operator: 'keycloak',
-    operatorVersion: '24.0.0',
-    keywords: ['keycloak', 'iam', 'sso', 'oauth', 'openid', 'identity', 'security'],
-    components: [
-      {
-        name: 'KeycloakInstance',
-        description:
-          'Provisions a Keycloak identity provider instance with optional database and ingress configuration.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'hostname',
-            type: 'string',
-            required: true,
-            description: "Public hostname users reach Keycloak on (e.g., 'auth.example.com')",
-          },
-          {
-            name: 'instances',
-            type: 'number',
-            required: false,
-            description: 'Number of Keycloak pod replicas',
-          },
-          {
-            name: 'tlsSecretName',
-            type: 'string',
-            required: false,
-            description: 'Name of the Kubernetes Secret holding the Keycloak TLS certificate',
-          },
-          {
-            name: 'dbHost',
-            type: 'string',
-            required: false,
-            description:
-              'Hostname of the external PostgreSQL database; auto-wired when wrapped in a Database component',
-          },
-          {
-            name: 'dbName',
-            type: 'string',
-            required: false,
-            description: "PostgreSQL database name (defaults to 'keycloak')",
-          },
-          {
-            name: 'dbUsernameSecret',
-            type: '{ name: string, key: string }',
-            required: false,
-            description: 'Kubernetes Secret holding the database username (used as { name, key })',
-          },
-          {
-            name: 'dbPasswordSecret',
-            type: '{ name: string, key: string }',
-            required: false,
-            description: 'Kubernetes Secret holding the database password (used as { name, key })',
-          },
-          {
-            name: 'ingressClassName',
-            type: 'string',
-            required: false,
-            description: "Ingress controller class (e.g., 'nginx') used to expose Keycloak",
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { KeycloakInstance, KeycloakRealm } from \'@r8s/keycloak\';\n\nexport default <KeycloakInstance name="keycloak" hostname="auth.example.com" instances={2} />;',
-            yaml: 'apiVersion: k8s.keycloak.org/v2alpha1\nkind: Keycloak\nmetadata:\n  name: keycloak\n  namespace: default\nspec:\n  instances: 2\n  hostname:\n    hostname: auth.example.com\n    strict: false\n    strictBackchannel: false\n  proxy:\n    headers: xforwarded\n  ingress:\n    enabled: true\n    className: nginx\n  transaction:\n    xaEnabled: false\n',
-          },
-        ],
-      },
-      {
-        name: 'KeycloakRealm',
-        description:
-          'Creates a KeycloakRealmImport to bootstrap a realm with clients, users, and roles into an existing Keycloak instance.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: true,
-            description: 'Kubernetes namespace for the realm import — required',
-          },
-          {
-            name: 'keycloakName',
-            type: 'string',
-            required: true,
-            description: 'Name of the Keycloak instance this realm is imported into',
-          },
-          {
-            name: 'realmName',
-            type: 'string',
-            required: true,
-            description: "Realm name inside Keycloak (e.g., 'my-company')",
-          },
-          {
-            name: 'displayName',
-            type: 'string',
-            required: false,
-            description: 'Human-readable name shown in the Keycloak UI',
-          },
-          {
-            name: 'clients',
-            type: 'Array',
-            required: false,
-            description: 'Clients (applications) created inside this realm',
-          },
-          {
-            name: 'users',
-            type: 'Array',
-            required: false,
-            description: 'User accounts created inside this realm',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { KeycloakInstance, KeycloakRealm } from \'@r8s/keycloak\';\n\nexport default <KeycloakRealm name="my-realm" keycloakCRName="keycloak" realm="myapp" />;',
-            yaml: 'apiVersion: k8s.keycloak.org/v2alpha1\nkind: KeycloakRealmImport\nmetadata:\n  name: my-realm\nspec:\n  realm:\n    enabled: true\n    clients: []\n    users: []\n',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'logging-operator',
-    name: '@r8s/logging-operator',
-    title: 'logging-operator',
-    description:
-      "Log aggregation components powered by Banzai Cloud's Logging Operator. Declares logging-operator and provisions Logging, Flow, and Output resources.",
-    category: 'Observability',
-    operator: 'logging',
-    operatorVersion: '4.2.3',
-    keywords: [
-      'logging',
-      'logs',
-      'fluentd',
-      'fluentbit',
-      'banzai',
-      'logging-operator',
-      'observability',
-    ],
-    components: [
-      {
-        name: 'Logging',
-        description:
-          'Logging stack powered by the Logging Operator (Kube-logging / Banzai Cloud). Creates the central Logging resource that deploys Fluent Bit and Fluentd for cluster-wide log collection. Compose with `<Flow />` and `<Output />` to route selected logs to destinations like Loki or S3.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'fluentd',
-            type: '{ replicas?: number, resources?: { requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } } }',
-            required: false,
-            description: 'Fluentd aggregator configuration (replicas and resources)',
-          },
-          {
-            name: 'fluentbit',
-            type: '{ resources?: { requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } } }',
-            required: false,
-            description: 'Fluentbit agent configuration (typically runs on every node)',
-          },
-          {
-            name: 'controlNamespace',
-            type: 'string',
-            required: false,
-            description: 'Namespace where logging CRDs and shared resources live',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { Logging, Flow, Output } from \'@r8s/logging-operator\';\n\nexport default <Logging\n  name="platform-logs"\n  namespace="logging"\n  fluentd={{ replicas: 2 }}\n/>;',
-            yaml: 'apiVersion: logging.banzaicloud.io/v1beta1\nkind: Logging\nmetadata:\n  name: platform-logs\n  namespace: logging\nspec:\n  fluentd:\n    replicas: 2\n',
-          },
-        ],
-      },
-      {
-        name: 'Flow',
-        description:
-          'Creates a Flow that selects logs by label, applies filters, and routes them to one or more Output references.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'match',
-            type: 'Array',
-            required: false,
-            description: 'Selector-like match rules that decide which logs this Flow handles',
-          },
-          {
-            name: 'filters',
-            type: 'Array',
-            required: false,
-            description: 'Filters applied to matching log lines (parser, grep, etc.)',
-          },
-          {
-            name: 'outputRefs',
-            type: 'string[]',
-            required: true,
-            description: 'Names of Output resources that should receive the filtered logs',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { Logging, Flow, Output } from \'@r8s/logging-operator\';\n\nexport default <Flow name="app-flow" match={[{ select: { labels: { app: "api" } } }]} outputRefs={["loki-output"]} />;',
-            yaml: 'apiVersion: logging.banzaicloud.io/v1beta1\nkind: Flow\nmetadata:\n  name: app-flow\n  namespace: default\nspec:\n  match:\n    - select:\n        labels:\n          app: api\n  outputRefs:\n    - loki-output\n',
-          },
-        ],
-      },
-      {
-        name: 'Output',
-        description: 'Creates an Output destination (Loki or S3) that Flows can reference.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'loki',
-            type: '{ url: string, configureKubernetesLabels?: boolean, labels?: Record }',
-            required: false,
-            description: 'Send logs to a Loki aggregation endpoint',
-          },
-          {
-            name: 's3',
-            type: '{ bucket: string, region: string, path: string }',
-            required: false,
-            description: 'Send logs to an S3 bucket',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { Logging, Flow, Output } from \'@r8s/logging-operator\';\n\nexport default <Output name="loki-output" loki={{ url: "http://loki.loki:3100", configureKubernetesLabels: true }} />;',
-            yaml: 'apiVersion: logging.banzaicloud.io/v1beta1\nkind: Output\nmetadata:\n  name: loki-output\n  namespace: default\nspec:\n  loki:\n    url: http://loki.loki:3100\n    configure_kubernetes_labels: true\n',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'loki',
-    name: '@r8s/loki',
-    title: 'loki',
-    description:
-      'Loki log aggregation stack components. Declares the loki operator and provisions LokiStack and AlertingRule resources.',
-    category: 'Observability',
-    operator: 'loki',
-    operatorVersion: '5.47.0',
-    keywords: ['loki', 'logs', 'log aggregation', 'grafana', 'observability'],
-    components: [
-      {
-        name: 'LokiStack',
-        description:
-          'Grafana Loki log aggregation stack. Creates a LokiStack resource with object storage (S3/GCS/Azure) or filesystem backend, replication factor, ingestion rate limits, and retention policy. Pair with a Flow/Output from',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace where Loki resources live (defaults to 'loki')",
-          },
-          {
-            name: 'storage',
-            type: "{ type: 's3' | 'gcs' | 'azure' | 'filesystem', bucket?: string, region?: string, endpoint?: string }",
-            required: false,
-            description:
-              'Where logs are stored — object storage (S3/GCS/Azure) or local filesystem',
-          },
-          {
-            name: 'replication',
-            type: '{ factor?: number }',
-            required: false,
-            description:
-              'Replication settings — how many copies of each log stream to keep for durability',
-          },
-          {
-            name: 'limits',
-            type: '{ ingestion?: { rate?: string, burstSize?: string }, retention?: { period?: string } }',
-            required: false,
-            description: 'Ingestion rate-limits and retention policy',
-          },
-          {
-            name: 'resources',
-            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
-            required: false,
-            description: 'CPU and memory requests/limits for Loki pods',
-          },
-        ],
-        examples: [
-          {
-            tsx: "import { LokiStack, AlertingRule } from '@r8s/loki';\n\nexport default <LokiStack\nname=\"loki\"\nnamespace=\"loki\"\nstorage={{ type: 's3', bucket: 'my-loki-bucket', region: 'eu-north-1' }}\n/>;",
-            yaml: "apiVersion: loki.grafana.com/v1\nkind: LokiStack\nmetadata:\n  name: loki\n  namespace: loki\nspec:\n  size: 1x.extra-small\n  storage:\n    schemas:\n      - version: v13\n        effectiveDate: '2024-01-01'\n    type: s3\n    bucket: my-loki-bucket\n    region: eu-north-1\n",
-          },
-        ],
-      },
-      {
-        name: 'AlertingRule',
-        description: 'Creates a Loki alerting rule group evaluated by the Loki ruler.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace where the rules live (defaults to 'loki')",
-          },
-          {
-            name: 'groups',
-            type: 'Array',
-            required: true,
-            description:
-              'Alert groups — each group contains named rules with LogQL expressions and labels',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { LokiStack, AlertingRule } from \'@r8s/loki\';\n\nexport default <AlertingRule name="high-error-rate" groups={[{ name: "errors", rules: [{ alert: "HighErrorRate", expr: \'rate({app="api"}[5m]) > 0.1\', for: "5m" }] }]} />;',
-            yaml: 'apiVersion: loki.grafana.com/v1\nkind: AlertingRule\nmetadata:\n  name: high-error-rate\n  namespace: loki\nspec:\n  groups:\n    - name: errors\n      rules:\n        - alert: HighErrorRate\n          expr: rate({app="api"}[5m]) > 0.1\n          for: 5m\n',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'openbao',
-    name: '@r8s/openbao',
-    title: 'openbao',
-    description:
-      'Secret management components powered by the Vault Secrets Operator (OpenBao fork). Declares vault-secrets-operator and provisions VaultConnection, VaultAuth, and VaultStaticSecret resources.',
-    category: 'Security & Identity',
-    operator: 'vaultSecrets',
-    operatorVersion: '0.5.0',
-    keywords: ['openbao', 'vault', 'secrets', 'vault-secrets-operator', 'security'],
-    components: [
-      {
-        name: 'VaultConnectionConfig',
-        description:
-          'Creates a VaultConnection resource telling the Vault Secrets Operator how to reach the OpenBao/Vault server.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'address',
-            type: 'string',
-            required: true,
-            description: "Vault/OpenBao server address, e.g. 'https://vault.example.com:8200'",
-          },
-          {
-            name: 'caCertSecretRef',
-            type: 'string',
-            required: false,
-            description:
-              'Name of the Kubernetes Secret containing the CA certificate used to verify Vault TLS',
-          },
-          {
-            name: 'skipTLSVerify',
-            type: 'boolean',
-            required: false,
-            description: "Skip TLS certificate verification (insecure — don't use in production)",
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { VaultConnectionConfig, VaultKubernetesAuth, VaultDatabaseSecret, VaultKVSecret } from \'@r8s/openbao\';\n\nexport default <VaultConnectionConfig name="default" address="https://vault.example.com:8200" />;',
-            yaml: 'apiVersion: secrets.hashicorp.com/v1beta1\nkind: VaultConnection\nmetadata:\n  name: default\n  namespace: default\nspec:\n  address: https://vault.example.com:8200\n  skipTLSVerify: false\n',
-          },
-        ],
-      },
-      {
-        name: 'VaultKubernetesAuth',
-        description:
-          'Creates a VaultAuth resource configuring Kubernetes-based authentication for the Vault Secrets Operator.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: true,
-            description: 'Kubernetes namespace for the VaultAuth — required',
-          },
-          {
-            name: 'vaultConnectionRef',
-            type: 'string',
-            required: false,
-            description:
-              "Name of the VaultConnection resource this auth uses (defaults to 'default' on Vault side)",
-          },
-          {
-            name: 'role',
-            type: 'string',
-            required: true,
-            description: 'Vault role this Kubernetes service account is allowed to assume',
-          },
-          {
-            name: 'serviceAccount',
-            type: 'string',
-            required: true,
-            description: 'Kubernetes service account used to authenticate to Vault',
-          },
-          {
-            name: 'mount',
-            type: 'string',
-            required: false,
-            description: "Vault auth method mount path (defaults to 'kubernetes')",
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { VaultConnectionConfig, VaultKubernetesAuth, VaultDatabaseSecret, VaultKVSecret } from \'@r8s/openbao\';\n\nexport default <VaultKubernetesAuth name="default" mount="kubernetes" role="secrets" serviceAccount="default" />;',
-            yaml: 'apiVersion: secrets.hashicorp.com/v1beta1\nkind: VaultAuth\nmetadata:\n  name: default\nspec:\n  method: kubernetes\n  mount: kubernetes\n  kubernetes:\n    role: secrets\n    serviceAccount: default\n',
-          },
-        ],
-      },
-      {
-        name: 'VaultDatabaseSecret',
-        description:
-          'Creates a VaultDynamicSecret that dynamically provisions short-lived credentials (e.g., database passwords) from OpenBao/Vault.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: true,
-            description: 'Kubernetes namespace for the VaultDynamicSecret — required',
-          },
-          {
-            name: 'vaultAuthRef',
-            type: 'string',
-            required: true,
-            description: 'Name of the VaultAuth resource used to authenticate to Vault',
-          },
-          {
-            name: 'mount',
-            type: 'string',
-            required: true,
-            description: "Vault mount path of the database secrets engine (e.g., 'database')",
-          },
-          {
-            name: 'path',
-            type: 'string',
-            required: true,
-            description: 'Vault role/path describing the database credential to lease',
-          },
-          {
-            name: 'secretName',
-            type: 'string',
-            required: true,
-            description:
-              'Name of the Kubernetes Secret Vault will write the leased credentials into',
-          },
-          {
-            name: 'rolloutRestartTarget',
-            type: '{ kind: string, name: string }',
-            required: false,
-            description:
-              'When credentials rotate, the operator restarts this target (kind + name) so pods pick up the new secret',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { VaultConnectionConfig, VaultKubernetesAuth, VaultDatabaseSecret, VaultKVSecret } from \'@r8s/openbao\';\n\nexport default <VaultDatabaseSecret name="db-creds" vaultAuthRef="default" mount="database" path="postgres/creds/app" destination={{ create: true, name: "db-creds" }} />;',
-            yaml: 'apiVersion: secrets.hashicorp.com/v1beta1\nkind: VaultDynamicSecret\nmetadata:\n  name: db-creds\nspec:\n  vaultAuthRef: default\n  mount: database\n  path: postgres/creds/app\n  destination:\n    create: true\n',
-          },
-        ],
-      },
-      {
-        name: 'VaultKVSecret',
-        description:
-          'Creates a VaultStaticSecret that syncs a static key-value secret from OpenBao/Vault into a Kubernetes Secret.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: true,
-            description: 'Kubernetes namespace for the VaultStaticSecret — required',
-          },
-          {
-            name: 'vaultAuthRef',
-            type: 'string',
-            required: true,
-            description: 'Name of the VaultAuth resource used to authenticate to Vault',
-          },
-          {
-            name: 'mount',
-            type: 'string',
-            required: true,
-            description: "Vault KV mount path (e.g., 'secret' or 'kv')",
-          },
-          {
-            name: 'path',
-            type: 'string',
-            required: true,
-            description: "Path within the mount to the KV secret (e.g., 'myapp/config')",
-          },
-          {
-            name: 'secretName',
-            type: 'string',
-            required: true,
-            description: 'Name of the Kubernetes Secret Vault will create with the KV values',
-          },
-          {
-            name: 'type',
-            type: "'kv-v1' | 'kv-v2'",
-            required: false,
-            description: "KV engine version — 'kv-v1' or 'kv-v2' (defaults to 'kv-v2')",
-          },
-          {
-            name: 'rolloutRestartTarget',
-            type: '{ kind: string, name: string }',
-            required: false,
-            description:
-              'When the KV secret changes, the operator restarts this target (kind + name) so pods pick up the new secret',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { VaultConnectionConfig, VaultKubernetesAuth, VaultDatabaseSecret, VaultKVSecret } from \'@r8s/openbao\';\n\nexport default <VaultKVSecret name="api-key" vaultAuthRef="default" mount="secret" path="api/key" destination={{ create: true, name: "api-key" }} />;',
-            yaml: 'apiVersion: secrets.hashicorp.com/v1beta1\nkind: VaultStaticSecret\nmetadata:\n  name: api-key\nspec:\n  vaultAuthRef: default\n  mount: secret\n  type: kv-v2\n  path: api/key\n  destination:\n    create: true\n',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'prometheus',
-    name: '@r8s/prometheus',
-    title: 'prometheus',
-    description:
-      'Prometheus stack components powered by kube-prometheus-stack. Declares the prometheus operator and provides ServiceMonitors, PrometheusRules, and PodMonitors.',
-    category: 'Observability',
-    operator: 'prometheus',
-    operatorVersion: '0.72.0',
-    keywords: [
-      'monitoring',
-      'prometheus',
-      'grafana',
-      'alertmanager',
-      'servicemonitor',
-      'podmonitor',
-      'observability',
-    ],
-    components: [
-      {
-        name: 'ServiceMonitor',
-        description:
-          "ServiceMonitor for Prometheus scraping. Tells Prometheus which services to scrape and how — selector picks the Service, endpoints define the metrics ports and paths. The standard way to get your application's metrics into Prometheus. Requires Prometheus Operator to be installed.",
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'labels',
-            type: 'Record',
-            required: false,
-            description:
-              'Extra labels attached to the ServiceMonitor (often used for Prometheus discovery)',
-          },
-          {
-            name: 'selector',
-            type: '{ matchLabels: Record }',
-            required: true,
-            description:
-              'Label selector that picks the Service(s) whose endpoints should be scraped',
-          },
-          {
-            name: 'endpoints',
-            type: 'Array',
-            required: true,
-            description: 'Endpoints to scrape — each entry names a port and optional path/interval',
-          },
-        ],
-        examples: [
-          {
-            tsx: "import { ServiceMonitor, PrometheusRule, PodMonitor } from '@r8s/prometheus';\n\nexport default <ServiceMonitor\n  name=\"api-metrics\"\n  namespace=\"production\"\n  selector={{ matchLabels: { app: 'api' } }}\n  endpoints={[{ port: 'metrics', path: '/metrics' }]}\n/>;",
-            yaml: 'apiVersion: monitoring.coreos.com/v1\nkind: ServiceMonitor\nmetadata:\n  name: api-metrics\n  namespace: production\nspec:\n  selector:\n    matchLabels:\n      app: api\n  endpoints:\n    - port: metrics\n      path: /metrics\n',
-          },
-        ],
-      },
-      {
-        name: 'PrometheusRule',
-        description:
-          'Creates a PrometheusRule with alerting groups and rules evaluated by Prometheus.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'groups',
-            type: 'Array',
-            required: true,
-            description:
-              'Alert groups — each contains a name, optional interval, and a list of alerting rules',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { ServiceMonitor, PrometheusRule, PodMonitor } from \'@r8s/prometheus\';\n\nexport default <PrometheusRule name="api-alerts" groups={[{ name: "api", rules: [{ alert: "HighErrorRate", expr: \'rate(http_requests_total{status=~"5.."}[5m]) > 0.1\', for: "5m" }] }]} />;',
-            yaml: 'apiVersion: monitoring.coreos.com/v1\nkind: PrometheusRule\nmetadata:\n  name: api-alerts\n  namespace: default\nspec:\n  groups:\n    - name: api\n      rules:\n        - alert: HighErrorRate\n          expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1\n          for: 5m\n',
-          },
-        ],
-      },
-      {
-        name: 'PodMonitor',
-        description: 'Creates a PodMonitor that tells Prometheus to scrape pod metrics directly.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'labels',
-            type: 'Record',
-            required: false,
-            description:
-              'Extra labels attached to the PodMonitor (often used for Prometheus discovery)',
-          },
-          {
-            name: 'selector',
-            type: '{ matchLabels: Record }',
-            required: true,
-            description: 'Label selector that picks which pods should be scraped',
-          },
-          {
-            name: 'podMetricsEndpoints',
-            type: 'Array',
-            required: true,
-            description:
-              'Pod metric endpoints to scrape — each names a port and optional path/interval',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { ServiceMonitor, PrometheusRule, PodMonitor } from \'@r8s/prometheus\';\n\nexport default <PodMonitor name="worker-metrics" selector={{ matchLabels: { app: "worker" } }} podMetricsEndpoints={[{ port: "metrics", path: "/metrics", interval: "30s" }]} />;',
-            yaml: 'apiVersion: monitoring.coreos.com/v1\nkind: PodMonitor\nmetadata:\n  name: worker-metrics\n  namespace: default\nspec:\n  selector:\n    matchLabels:\n      app: worker\n  podMetricsEndpoints:\n    - port: metrics\n      path: /metrics\n      interval: 30s\n',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'redis',
-    name: '@r8s/redis',
-    title: 'redis',
-    description:
-      'Redis cluster and replication components powered by the Redis Operator. Declares redis-operator and provisions RedisCluster and RedisReplication resources.',
-    category: 'Data & Analytics',
-    operator: 'redis',
-    operatorVersion: '0.22.0',
-    keywords: ['redis', 'cache', 'redis-operator', 'data', 'cluster'],
-    components: [
-      {
-        name: 'RedisCluster',
-        description:
-          'Redis Cluster using OT-Container-Kit Redis Operator. Declares redis-operator dependency automatically.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'clusterSize',
-            type: 'number',
-            required: false,
-            description: 'Number of Redis pods in the cluster (must match a valid cluster quorum)',
-          },
-          {
-            name: 'redisExporter',
-            type: 'boolean',
-            required: false,
-            description: 'Whether to enable the Redis exporter sidecar for Prometheus metrics',
-          },
-          {
-            name: 'storage',
-            type: 'string',
-            required: false,
-            description: "Storage size (e.g., '10Gi')",
-          },
-          {
-            name: 'storageClassName',
-            type: 'string',
-            required: false,
-            description: 'Kubernetes StorageClass to use for the Redis data volume',
-          },
-          {
-            name: 'redisSecret',
-            type: '{ name: string, key: string }',
-            required: false,
-            description: 'Kubernetes Secret (name + key) holding the Redis authentication password',
-          },
-          {
-            name: 'resources',
-            type: '{ limits?: { cpu?: string, memory?: string }, requests?: { cpu?: string, memory?: string } }',
-            required: false,
-            description: 'CPU and memory requests/limits for Redis pods',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { RedisCluster, RedisReplication } from \'@r8s/redis\';\n\nexport default <RedisCluster\n  name="cache"\n  namespace="production"\n  clusterSize={3}\n  storage="10Gi"\n/>;',
-            yaml: 'apiVersion: redis.redis.opstreelabs.in/v1beta1\nkind: RedisCluster\nmetadata:\n  name: cache\n  namespace: production\nspec:\n  clusterSize: 3\n  kubernetesConfig:\n    image: quay.io/opstree/redis:v7.0.12\n    imagePullPolicy: IfNotPresent\n    resources:\n      limits:\n        cpu: 100m\n        memory: 128Mi\n      requests:\n        cpu: 100m\n        memory: 128Mi\n  redisExporter:\n    enabled: true\n    image: quay.io/opstree/redis-exporter:v1.44.0\n  storage:\n    volumeClaimTemplate:\n      spec:\n        accessModes:\n          - ReadWriteOnce\n        resources:\n          requests:\n            storage: 10Gi\n',
-          },
-        ],
-      },
-      {
-        name: 'RedisReplication',
-        description:
-          'Creates a Redis replication setup (primary + replicas) for read scaling and failover.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
-          },
-          {
-            name: 'clusterSize',
-            type: 'number',
-            required: false,
-            description: 'Number of Redis pods in the master-replica replication setup',
-          },
-          {
-            name: 'redisExporter',
-            type: 'boolean',
-            required: false,
-            description: 'Whether to enable the Redis exporter sidecar for Prometheus metrics',
-          },
-          {
-            name: 'storage',
-            type: 'string',
-            required: false,
-            description: "Storage size (e.g., '10Gi')",
-          },
-          {
-            name: 'storageClassName',
-            type: 'string',
-            required: false,
-            description: 'Kubernetes StorageClass to use for the Redis data volume',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { RedisCluster, RedisReplication } from \'@r8s/redis\';\n\nexport default <RedisReplication name="cache" replicas={3} storage="5Gi" />;',
-            yaml: 'apiVersion: redis.redis.opstreelabs.in/v1beta1\nkind: RedisReplication\nmetadata:\n  name: cache\n  namespace: default\nspec:\n  clusterSize: 2\n  kubernetesConfig:\n    image: quay.io/opstree/redis:v7.0.12\n    imagePullPolicy: IfNotPresent\n  redisExporter:\n    enabled: true\n    image: quay.io/opstree/redis-exporter:v1.44.0\n  storage:\n    volumeClaimTemplate:\n      spec:\n        accessModes:\n          - ReadWriteOnce\n        resources:\n          requests:\n            storage: 5Gi\n',
           },
         ],
       },
@@ -1464,161 +626,6 @@ export const packages: Package[] = [
           {
             tsx: 'import { Superset } from \'@r8s/superset\';\n\nexport default <Superset\n  host="superset.example.com"\n  database={{ host: "superset-db-rw", database: "superset", user: "superset", passwordSecret: "superset-db-credentials" }}\n  redis={{ host: "redis-master" }}\n  adminSecret="superset-admin"\n  tls={{ secretName: "superset-tls", clusterIssuer: "letsencrypt" }}\n/>;',
             yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: superset\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: superset-config\n  namespace: superset\ndata:\n  superset_config.py: |\n\n    import os\n\n    SECRET_KEY = os.environ.get('SUPERSET_SECRET_KEY', 'change-me')\n    SQLALCHEMY_DATABASE_URI = f\"postgresql://{os.environ['DB_USER']}:{os.environ['DB_PASS']}@{os.environ['DB_HOST']}/{os.environ['DB_NAME']}\"\n    CACHE_CONFIG = {\n        'CACHE_TYPE': 'RedisCache',\n        'CACHE_DEFAULT_TIMEOUT': 300,\n        'CACHE_KEY_PREFIX': 'superset_',\n        'CACHE_REDIS_HOST': os.environ.get('REDIS_HOST', 'localhost'),\n        'CACHE_REDIS_PORT': int(os.environ.get('REDIS_PORT', '6379')),\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: superset\n  template:\n    metadata:\n      labels:\n        app: superset\n    spec:\n      containers:\n        - name: superset\n          image: apache/superset:4.0.0\n          ports:\n            - containerPort: 8088\n              name: http\n          env:\n            - name: SUPERSET_SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: superset-admin\n                  key: secretKey\n            - name: DB_HOST\n              value: superset-db-rw\n            - name: DB_NAME\n              value: superset\n            - name: DB_USER\n              value: superset\n            - name: DB_PASS\n              valueFrom:\n                secretKeyRef:\n                  name: superset-db-credentials\n                  key: password\n            - name: REDIS_HOST\n              value: redis-master\n            - name: REDIS_PORT\n              value: '6379'\n          volumeMounts:\n            - name: config\n              mountPath: /app/pythonpath\n              readOnly: true\n          resources:\n            requests:\n              cpu: 250m\n              memory: 1Gi\n            limits:\n              cpu: 1000m\n              memory: 2Gi\n      volumes:\n        - name: config\n          configMap:\n            name: superset-config\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  selector:\n    app: superset\n  ports:\n    - port: 80\n      targetPort: 8088\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: superset\n  namespace: superset\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\n    nginx.ingress.kubernetes.io/proxy-body-size: 50m\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'\nspec:\n  rules:\n    - host: superset.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: superset\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - superset.example.com\n      secretName: superset-tls\n",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'velero',
-    name: '@r8s/velero',
-    title: 'velero',
-    description: 'Velero backup and disaster recovery components for r8s',
-    category: 'Data & Analytics',
-    operator: 'velero',
-    operatorVersion: '1.13.0',
-    keywords: ['velero', 'backup', 'disaster-recovery', 'kubernetes-backup'],
-    components: [
-      {
-        name: 'Backup',
-        description:
-          'Velero on-demand backup. Creates a one-off Backup resource that snapshots cluster resources and persistent volumes to the configured storage location. For recurring backups, use `<Schedule />` instead.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: 'Kubernetes namespace (defaults to .velero.)',
-          },
-          {
-            name: 'includedNamespaces',
-            type: 'string[]',
-            required: false,
-            description: 'Included namespaces (default: all)',
-          },
-          {
-            name: 'excludedNamespaces',
-            type: 'string[]',
-            required: false,
-            description: 'Excluded namespaces',
-          },
-          {
-            name: 'includedResources',
-            type: 'string[]',
-            required: false,
-            description: 'Included resources (default: all)',
-          },
-          {
-            name: 'excludedResources',
-            type: 'string[]',
-            required: false,
-            description: 'Excluded resources',
-          },
-          {
-            name: 'snapshotVolumes',
-            type: 'boolean',
-            required: false,
-            description: 'Snapshot volumes (default: true)',
-          },
-          {
-            name: 'ttl',
-            type: 'string',
-            required: false,
-            description: 'TTL for backup (default: 720h = 30 days)',
-          },
-          {
-            name: 'storageLocation',
-            type: 'string',
-            required: false,
-            description: 'Storage location name',
-          },
-          {
-            name: 'volumeSnapshotLocations',
-            type: 'string[]',
-            required: false,
-            description: 'Volume snapshot location',
-          },
-          {
-            name: 'labelSelector',
-            type: 'Record',
-            required: false,
-            description: 'Labels to include',
-          },
-        ],
-        examples: [
-          {
-            tsx: "import { Backup, Schedule, BackupStorageLocation } from '@r8s/velero';\n\nexport default <Backup name=\"daily-backup\" includedNamespaces={['default']} />;",
-            yaml: 'apiVersion: velero.io/v1\nkind: Backup\nmetadata:\n  name: daily-backup\n  namespace: velero\nspec:\n  snapshotVolumes: true\n  ttl: 720h\n  storageLocation: default\n  includedNamespaces:\n    - default\n',
-          },
-        ],
-      },
-      {
-        name: 'Schedule',
-        description:
-          'Velero scheduled backup. Creates a Schedule resource that runs backups on a cron expression. The backupTemplate accepts the same options as `<Backup />` — namespaces, label selectors, TTL, and snapshot settings.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: 'Kubernetes namespace (defaults to .velero.)',
-          },
-          {
-            name: 'schedule',
-            type: 'string',
-            required: true,
-            description: 'Cron expression for schedule',
-          },
-          { name: 'backupTemplate', type: 'Omit', required: true, description: 'Backup template' },
-        ],
-        examples: [
-          {
-            tsx: 'import { Backup, Schedule, BackupStorageLocation } from \'@r8s/velero\';\n\nexport default <Schedule\n  name="daily-backup"\n  schedule="0 2 * * *"\n  backupTemplate={{ includedNamespaces: [\'default\'] }}\n/>;',
-            yaml: 'apiVersion: velero.io/v1\nkind: Schedule\nmetadata:\n  name: daily-backup\n  namespace: velero\nspec:\n  schedule: 0 2 * * *\n  template:\n    snapshotVolumes: true\n    ttl: 720h\n    storageLocation: default\n    includedNamespaces:\n      - default\n',
-          },
-        ],
-      },
-      {
-        name: 'BackupStorageLocation',
-        description:
-          'Velero backup storage location. Configures where backups are stored — an S3-compatible bucket (AWS, MinIO, RustFS) with optional prefix, region, and credentials. Reference the location by name from `<Backup />` or `<Schedule />`.',
-        props: [
-          { name: 'name', type: 'string', required: true, description: 'Resource name' },
-          {
-            name: 'namespace',
-            type: 'string',
-            required: false,
-            description: 'Kubernetes namespace (defaults to .velero.)',
-          },
-          {
-            name: 'provider',
-            type: 'string',
-            required: true,
-            description: "Provider (e.g., 'aws', 'azure', 'gcp', 'minio')",
-          },
-          { name: 'bucket', type: 'string', required: true, description: 'Bucket name' },
-          { name: 'prefix', type: 'string', required: false, description: 'Prefix for backups' },
-          { name: 'region', type: 'string', required: false, description: 'Region' },
-          {
-            name: 's3Url',
-            type: 'string',
-            required: false,
-            description: 'S3 URL endpoint (for MinIO)',
-          },
-          { name: 'config', type: 'Record', required: false, description: 'Config object' },
-          {
-            name: 'credential',
-            type: '{ name: string, key: string }',
-            required: false,
-            description: 'Credential secret reference',
-          },
-        ],
-        examples: [
-          {
-            tsx: 'import { Backup, Schedule, BackupStorageLocation } from \'@r8s/velero\';\n\nexport default <BackupStorageLocation\n  name="default"\n  provider="aws"\n  bucket="my-backups"\n  region="eu-north-1"\n/>;',
-            yaml: 'apiVersion: velero.io/v1\nkind: BackupStorageLocation\nmetadata:\n  name: default\n  namespace: velero\nspec:\n  provider: aws\n  objectStorage:\n    bucket: my-backups\n  config:\n    region: eu-north-1\n',
           },
         ],
       },

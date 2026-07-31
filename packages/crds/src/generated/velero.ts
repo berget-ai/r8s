@@ -3,6 +3,7 @@
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { ObjectMeta } from '@r8s/k8s-types'
+import { jsx } from '@r8s/core'
 
 export interface Backup {
   apiVersion: 'velero.io/v1'
@@ -19,13 +20,13 @@ export interface BackupProps {
 }
 
 /** Render a Backup (velero.io/v1) exactly as defined by its CRD. */
-export function BackupComponent(props: BackupProps): Backup {
-  return {
+export function BackupComponent(props: BackupProps) {
+  return jsx('Backup', {
     apiVersion: 'velero.io/v1',
     kind: 'Backup',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface BackupStorageLocation {
@@ -43,13 +44,13 @@ export interface BackupStorageLocationProps {
 }
 
 /** Render a BackupStorageLocation (velero.io/v1) exactly as defined by its CRD. */
-export function BackupStorageLocationComponent(props: BackupStorageLocationProps): BackupStorageLocation {
-  return {
+export function BackupStorageLocationComponent(props: BackupStorageLocationProps) {
+  return jsx('BackupStorageLocation', {
     apiVersion: 'velero.io/v1',
     kind: 'BackupStorageLocation',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface Schedule {
@@ -67,13 +68,13 @@ export interface ScheduleProps {
 }
 
 /** Render a Schedule (velero.io/v1) exactly as defined by its CRD. */
-export function ScheduleComponent(props: ScheduleProps): Schedule {
-  return {
+export function ScheduleComponent(props: ScheduleProps) {
+  return jsx('Schedule', {
     apiVersion: 'velero.io/v1',
     kind: 'Schedule',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface MatchExpressionsItem {

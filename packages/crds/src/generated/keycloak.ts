@@ -3,6 +3,7 @@
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { ObjectMeta } from '@r8s/k8s-types'
+import { jsx } from '@r8s/core'
 
 export interface Keycloak {
   apiVersion: 'k8s.keycloak.org/v2alpha1'
@@ -19,13 +20,13 @@ export interface KeycloakProps {
 }
 
 /** Render a Keycloak (k8s.keycloak.org/v2alpha1) exactly as defined by its CRD. */
-export function KeycloakComponent(props: KeycloakProps): Keycloak {
-  return {
+export function KeycloakComponent(props: KeycloakProps) {
+  return jsx('Keycloak', {
     apiVersion: 'k8s.keycloak.org/v2alpha1',
     kind: 'Keycloak',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface KeycloakRealmImport {
@@ -43,13 +44,13 @@ export interface KeycloakRealmImportProps {
 }
 
 /** Render a KeycloakRealmImport (k8s.keycloak.org/v2alpha1) exactly as defined by its CRD. */
-export function KeycloakRealmImportComponent(props: KeycloakRealmImportProps): KeycloakRealmImport {
-  return {
+export function KeycloakRealmImportComponent(props: KeycloakRealmImportProps) {
+  return jsx('KeycloakRealmImport', {
     apiVersion: 'k8s.keycloak.org/v2alpha1',
     kind: 'KeycloakRealmImport',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface Secret {

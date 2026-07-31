@@ -224,13 +224,13 @@ export interface ${kind}Props {
 }
 
 /** Render a ${kind} (${apiVersion}) exactly as defined by its CRD. */
-export function ${kind}Component(props: ${kind}Props): ${kind} {
-  return {
+export function ${kind}Component(props: ${kind}Props) {
+  return jsx('${kind}', {
     apiVersion: '${apiVersion}',
     kind: '${kind}',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 `
   return { kind, code: root }
@@ -290,6 +290,7 @@ for (const [groupKey, { kinds, roots, emitter }] of groups) {
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { ObjectMeta } from '@r8s/k8s-types'
+import { jsx } from '@r8s/core'
 
 `
   const code = header + roots.join('\n') + '\n' + emitter.interfaces.join('\n\n') + '\n'
@@ -299,7 +300,8 @@ import type { ObjectMeta } from '@r8s/k8s-types'
     `  wrote ${groupKey}.ts: ${kinds.join(', ')} (${emitter.interfaces.length} interfaces)`
   )
 }
-indexLines.push(`export { operators } from './operators'`)
+indexLines.push(`export { operators, operatorMetadata } from './operators'`)
+indexLines.push(`export type { OperatorMeta } from './operators'`)
 writeFileSync(join(outDir, 'index.ts'), indexLines.join('\n') + '\n')
 console.log(`\nGenerated ${groups.size} group files in src/generated/`)
 
@@ -310,6 +312,7 @@ console.log(`\nGenerated ${groups.size} group files in src/generated/`)
 interface OperatorEntry {
   name: string
   description?: string
+  category?: string
   source:
     | { type: 'manifest'; url: string }
     | { type: 'helm'; chart: string; repository: string }
@@ -360,5 +363,36 @@ for (const op of operatorsYaml) {
 }
 opsLines.push('}')
 
-writeFileSync(join(outDir, 'operators.ts'), opsLines.filter(Boolean).join('\n') + '\n')
+// Operator metadata for docs generation — description, category, version per operator.
+const metaLines: string[] = [
+  '/**',
+  ' * GENERATED operator metadata for docs — do not edit by hand.',
+  ' */',
+  'export interface OperatorMeta {',
+  '  name: string',
+  '  description: string',
+  '  category: string',
+  '  version: string',
+  '  crds: string[]',
+  '}',
+  '',
+  'export const operatorMetadata: OperatorMeta[] = [',
+]
+for (const op of operatorsYaml) {
+  metaLines.push(
+    '  {',
+    `    name: ${JSON.stringify(op.name)},`,
+    `    description: ${JSON.stringify(op.description ?? '')},`,
+    `    category: ${JSON.stringify(op.category ?? 'Uncategorized')},`,
+    `    version: ${JSON.stringify(op.version)},`,
+    `    crds: ${JSON.stringify(op.crds ?? [])},`,
+    '  },'
+  )
+}
+metaLines.push(']')
+
+writeFileSync(
+  join(outDir, 'operators.ts'),
+  opsLines.filter(Boolean).join('\n') + '\n\n' + metaLines.join('\n') + '\n'
+)
 console.log(`  wrote operators.ts: ${operatorsYaml.length} operators`)

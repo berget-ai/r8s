@@ -3,6 +3,7 @@
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { ObjectMeta } from '@r8s/k8s-types'
+import { jsx } from '@r8s/core'
 
 export interface RedisCluster {
   apiVersion: 'redis.redis.opstreelabs.in/v1beta2'
@@ -19,13 +20,13 @@ export interface RedisClusterProps {
 }
 
 /** Render a RedisCluster (redis.redis.opstreelabs.in/v1beta2) exactly as defined by its CRD. */
-export function RedisClusterComponent(props: RedisClusterProps): RedisCluster {
-  return {
+export function RedisClusterComponent(props: RedisClusterProps) {
+  return jsx('RedisCluster', {
     apiVersion: 'redis.redis.opstreelabs.in/v1beta2',
     kind: 'RedisCluster',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface RedisReplication {
@@ -43,13 +44,13 @@ export interface RedisReplicationProps {
 }
 
 /** Render a RedisReplication (redis.redis.opstreelabs.in/v1beta2) exactly as defined by its CRD. */
-export function RedisReplicationComponent(props: RedisReplicationProps): RedisReplication {
-  return {
+export function RedisReplicationComponent(props: RedisReplicationProps) {
+  return jsx('RedisReplication', {
     apiVersion: 'redis.redis.opstreelabs.in/v1beta2',
     kind: 'RedisReplication',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface ItemsItem {

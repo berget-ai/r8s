@@ -48,10 +48,12 @@ export interface PlatformProps {
  *
  * @example
  * // With shared operators
+ * import { operators } from '@r8s/crds'
+ *
  * <Platform
  *   routing="gateway"
  *   namespace="production"
- *   operators={[cnpgOperator(), certManagerOperator()]}
+ *   operators={[cnpgOperator(), operators['cert-manager']()]}
  * >
  *   <Database name="app-db" storage="10Gi" />
  *   <App name="api" image="myapp/api:v1" host="api.example.com" />

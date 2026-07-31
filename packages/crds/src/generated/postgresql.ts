@@ -3,6 +3,7 @@
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { ObjectMeta } from '@r8s/k8s-types'
+import { jsx } from '@r8s/core'
 
 export interface Cluster {
   apiVersion: 'postgresql.cnpg.io/v1'
@@ -19,13 +20,13 @@ export interface ClusterProps {
 }
 
 /** Render a Cluster (postgresql.cnpg.io/v1) exactly as defined by its CRD. */
-export function ClusterComponent(props: ClusterProps): Cluster {
-  return {
+export function ClusterComponent(props: ClusterProps) {
+  return jsx('Cluster', {
     apiVersion: 'postgresql.cnpg.io/v1',
     kind: 'Cluster',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface Pooler {
@@ -43,13 +44,13 @@ export interface PoolerProps {
 }
 
 /** Render a Pooler (postgresql.cnpg.io/v1) exactly as defined by its CRD. */
-export function PoolerComponent(props: PoolerProps): Pooler {
-  return {
+export function PoolerComponent(props: PoolerProps) {
+  return jsx('Pooler', {
     apiVersion: 'postgresql.cnpg.io/v1',
     kind: 'Pooler',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface ScheduledBackup {
@@ -67,13 +68,13 @@ export interface ScheduledBackupProps {
 }
 
 /** Render a ScheduledBackup (postgresql.cnpg.io/v1) exactly as defined by its CRD. */
-export function ScheduledBackupComponent(props: ScheduledBackupProps): ScheduledBackup {
-  return {
+export function ScheduledBackupComponent(props: ScheduledBackupProps) {
+  return jsx('ScheduledBackup', {
     apiVersion: 'postgresql.cnpg.io/v1',
     kind: 'ScheduledBackup',
     metadata: props.metadata,
     spec: props.spec,
-  }
+  })
 }
 
 export interface MatchExpressionsItem {

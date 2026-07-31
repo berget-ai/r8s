@@ -42,8 +42,8 @@ export interface DatabaseProps {
  *
  * @example
  * // With child components that auto-connect
- * <Database name="keycloak-db" storage="10Gi">
- *   <KeycloakInstance name="keycloak" hostname="auth.example.com" />
+ * <Database name="app-db" storage="10Gi">
+ *   <WebService name="api" image="myapp/api:v1" />
  * </Database>
  */
 export function Database(props: DatabaseProps) {
