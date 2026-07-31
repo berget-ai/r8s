@@ -64,15 +64,34 @@ r8s/
 
 ## Adding a New Operator Package
 
-1. Create `packages/my-operator/` following the structure of an existing
-   package (e.g. `packages/redis/`).
-2. Export your operator with `declareOperator()`.
-3. Export components as TSX functions.
-4. Add tests in `__tests__/`.
-5. Add the package to the table in `README.md` and a page in `docs/`.
+The full walkthrough lives in the docs:
+**[r8s.berget.ai/adding-packages](https://r8s.berget.ai/adding-packages)**
+(it covers new packages, new CRD components in existing packages, and new
+recipes).
 
-See `packages/redis` or `packages/prometheus` for minimal reference
-implementations.
+Short version:
+
+1. Copy the annotated template: `cp -r packages/example packages/my-operator`
+2. Replace the operator declaration and components in `src/index.ts`
+3. Write tests in `__tests__/` (operator declaration, rendering, context dedup)
+4. Register the package: root `tsconfig.json` (paths + references),
+   `docs/scripts/generate-docs.ts` (path alias), `README.md` (packages table)
+5. Open a PR — we review within 24 hours on weekdays
+
+### Acceptance checklist
+
+A new package is accepted when:
+
+- [ ] Operator version is pinned as a default parameter (tested upstream release)
+- [ ] `crds` array lists every CRD the components render
+- [ ] Every exported prop has JSDoc (docs tables are generated from these)
+- [ ] Every component has a runnable `@example` block (executed by the docs generator)
+- [ ] Components check `OperatorContext` before declaring operators (deduplication)
+- [ ] Tests cover: operator declaration, rendering with defaults and full props, context dedup
+- [ ] `package.json` complete: `description`, `keywords`, `r8s.category`, no `"private": true`
+- [ ] Registered in root `tsconfig.json` and `generate-docs.ts` aliases
+- [ ] `README.md` packages table row added
+- [ ] CI green: build, tests, format check
 
 ## Committing Generated Files
 
