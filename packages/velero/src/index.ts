@@ -24,7 +24,9 @@ export const veleroOperator = (version = '1.13.0') =>
   )
 
 export interface BackupProps {
+  /** Resource name */
   name: string
+  /** Kubernetes namespace (defaults to .velero.) */
   namespace?: string
   /** Included namespaces (default: all) */
   includedNamespaces?: string[]
@@ -48,6 +50,10 @@ export interface BackupProps {
 
 /**
  * Velero on-demand backup.
+ *
+ * Creates a one-off Backup resource that snapshots cluster resources and
+ * persistent volumes to the configured storage location. For recurring
+ * backups, use `<Schedule />` instead.
  *
  * @example
  * <Backup name="daily-backup" includedNamespaces={['default']} />
@@ -98,7 +104,9 @@ export function Backup(props: BackupProps) {
 }
 
 export interface ScheduleProps {
+  /** Resource name */
   name: string
+  /** Kubernetes namespace (defaults to .velero.) */
   namespace?: string
   /** Cron expression for schedule */
   schedule: string
@@ -108,6 +116,10 @@ export interface ScheduleProps {
 
 /**
  * Velero scheduled backup.
+ *
+ * Creates a Schedule resource that runs backups on a cron expression.
+ * The backupTemplate accepts the same options as `<Backup />` — namespaces,
+ * label selectors, TTL, and snapshot settings.
  *
  * @example
  * <Schedule
@@ -165,7 +177,9 @@ export function Schedule(props: ScheduleProps) {
 }
 
 export interface BackupStorageLocationProps {
+  /** Resource name */
   name: string
+  /** Kubernetes namespace (defaults to .velero.) */
   namespace?: string
   /** Provider (e.g., 'aws', 'azure', 'gcp', 'minio') */
   provider: string
@@ -188,6 +202,10 @@ export interface BackupStorageLocationProps {
 
 /**
  * Velero backup storage location.
+ *
+ * Configures where backups are stored — an S3-compatible bucket (AWS,
+ * MinIO, RustFS) with optional prefix, region, and credentials. Reference
+ * the location by name from `<Backup />` or `<Schedule />`.
  *
  * @example
  * <BackupStorageLocation

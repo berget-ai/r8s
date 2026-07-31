@@ -47,7 +47,12 @@ export interface LokiStackProps {
 }
 
 /**
- * LokiStack for log aggregation.
+ * Grafana Loki log aggregation stack.
+ *
+ * Creates a LokiStack resource with object storage (S3/GCS/Azure) or
+ * filesystem backend, replication factor, ingestion rate limits, and
+ * retention policy. Pair with a Flow/Output from @r8s/logging-operator
+ * or a Grafana datasource to query logs.
  *
  * @example
  * <LokiStack

@@ -78,7 +78,11 @@ export interface ClickHouseClusterProps {
 }
 
 /**
- * ClickHouse cluster using ClickHouse Operator.
+ * ClickHouse OLAP database cluster via the Altinity ClickHouse Operator.
+ *
+ * Creates a ClickHouseInstallation with configurable shard/replica topology,
+ * ZooKeeper coordination, users, profiles, and quotas. Use for analytics
+ * workloads that need columnar storage and horizontal scaling.
  *
  * @example
  * <ClickHouseCluster
