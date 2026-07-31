@@ -68,7 +68,16 @@ jobs:
 
       - run: npm ci
       - run: npx tsc -b
-      - run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
+
+      # IMAGE_TAG is read by k8s/r8s.tsx and set directly on the App
+      # component. The image is a function of the source: same commit →
+      # same tag → GHCR serves it from cache; new commit → new tag →
+      # new build. Without a changing tag the manifest always says
+      # :latest, Flux sees no diff, and the cluster never rolls.
+      - name: Render manifests with pinned image tag
+        run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
+        env:
+          IMAGE_TAG: ${{ github.sha }}
 
       - name: Commit rendered manifests
         run: |

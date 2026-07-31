@@ -38,8 +38,13 @@ jobs:
       - name: Build packages
         run: npx tsc -b
 
+      # IMAGE_TAG is read by k8s/r8s.tsx — same mechanism as deploy.yaml.
+      # Without it this workflow would write :latest back over the
+      # SHA-pinned manifest the deploy workflow produces (flip-flop).
       - name: Render Kubernetes manifests
         run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
+        env:
+          IMAGE_TAG: ${{ github.sha }}
 
       - name: Check for changes
         id: git-check
