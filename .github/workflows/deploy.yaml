@@ -19,6 +19,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +34,13 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The exact short SHA that metadata-action will tag the image with
+      # (type=sha,format=short → 7 chars). Exported as a job output so the
+      # render job pins the manifest to the very same tag.
+      - name: Resolve image tag
+        id: tag
+        run: echo "image_tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Extract metadata
         id: meta
@@ -70,13 +79,15 @@ jobs:
       - run: npx tsc -b
 
       # IMAGE_TAG is read by k8s/r8s.tsx and set directly on the App
-      # component — the same short SHA the build job tagged the image
-      # with. Without a changing tag the manifest always says :latest,
-      # Flux sees no diff, and the cluster never rolls to the new image.
+      # component. It comes from the build job's metadata output — the
+      # exact tag that was just pushed — so manifest and image can never
+      # drift apart, regardless of git state or new commits mid-run.
+      # Without a changing tag the manifest always says :latest, Flux
+      # sees no diff, and the cluster never rolls to the new image.
       - name: Render manifests with pinned image tag
         run: node packages/cli/dist/cli.js render --entry k8s/r8s.tsx --out k8s/rendered/manifest.yaml
         env:
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
 
       - name: Commit rendered manifests
         run: |
