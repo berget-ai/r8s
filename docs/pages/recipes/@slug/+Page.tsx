@@ -94,8 +94,7 @@ export default function Page() {
                 </span>
                 <h3 className="text-xl">Example {index + 1}</h3>
               </div>
-              <CodeBlock code={example.tsx} language="tsx" />
-              {example.yaml && <CodeBlock code={example.yaml} language="yaml" />}
+              <CodeBlock code={example.tsx} yaml={example.yaml ?? undefined} language="tsx" />
             </div>
           ))}
         </div>

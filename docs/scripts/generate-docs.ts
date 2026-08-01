@@ -29,7 +29,7 @@ async function formatTsx(code: string): Promise<string> {
     const { format } = await import('prettier')
     return await format(code, {
       parser: 'tsx',
-      semi: true,
+      semi: false,
       singleQuote: true,
       trailingComma: 'all' as const,
       printWidth: 80,
@@ -293,8 +293,22 @@ function typeNodeToString(typeNode: ts.TypeNode | undefined): string {
   return typeNode.getText()
 }
 
-function extractProps(interfaceDecl: ts.InterfaceDeclaration): ComponentProp[] {
+function extractProps(
+  interfaceDecl: ts.InterfaceDeclaration,
+  sourceFile: ts.SourceFile
+): ComponentProp[] {
   const props: ComponentProp[] = []
+
+  // Build a lookup of all interfaces in the file so we can expand
+  // spec: SomeSpecType into its fields inline.
+  const interfaceMap = new Map<string, ts.InterfaceDeclaration>()
+  function collectInterfaces(node: ts.Node) {
+    if (ts.isInterfaceDeclaration(node)) {
+      interfaceMap.set(node.name.text, node)
+    }
+    ts.forEachChild(node, collectInterfaces)
+  }
+  collectInterfaces(sourceFile)
 
   for (const member of interfaceDecl.members) {
     if (!ts.isPropertySignature(member)) continue
@@ -315,6 +329,20 @@ function extractProps(interfaceDecl: ts.InterfaceDeclaration): ComponentProp[] {
         }
       }
     }
+
+    // For CRD components, expand `spec: SomeSpec` into its fields
+    // so the docs show the actual CRD fields, not just "spec: ClusterSpec".
+    if (name === 'spec' && type) {
+      const specInterface = interfaceMap.get(type)
+      if (specInterface) {
+        const specProps = extractProps(specInterface, sourceFile)
+        props.push(...specProps)
+        continue
+      }
+    }
+
+    // Skip metadata — it's always ObjectMeta and adds noise.
+    if (name === 'metadata' && type === 'ObjectMeta') continue
 
     props.push({ name, type, required, default: defaultVal, description })
   }
@@ -368,7 +396,7 @@ async function extractComponents(
     // Find interface declarations with "Props" suffix
     if (ts.isInterfaceDeclaration(node) && node.name.text.endsWith('Props')) {
       const componentName = node.name.text.replace('Props', '')
-      const props = extractProps(node)
+      const props = extractProps(node, sourceFile)
 
       // Find matching component from the function declaration
       const existing = components.find((c) => c.name === componentName)
@@ -427,48 +455,45 @@ async function extractComponents(
 
         // Detect which imports are needed based on component names
         const imports: string[] = []
-        if (code.match(/<(App|Database|WebService|Endpoint|Platform|Cluster|Ingress)\b/)) {
+        if (
+          code.match(/<(App|Database|WebService|Endpoint|Platform|Cluster|Ingress|EnvoyIngress)\b/)
+        ) {
           imports.push(
-            "import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';"
+            "import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress, EnvoyIngress } from '@r8s/recipes';"
           )
         }
         if (code.match(/<(Gateway|HTTPRoute|EnvoyProxy)\b/)) {
-          imports.push("import { Gateway, HTTPRoute, EnvoyProxy } from '@r8s/envoy';")
+          imports.push(
+            "import { GatewayComponent, HTTPRouteComponent, EnvoyProxyComponent } from '@r8s/crds/gateway';"
+          )
         }
-        if (code.match(/<(LetsEncryptIssuer|ManagedCertificate)\b/)) {
-          imports.push("import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager';")
+        if (code.match(/<(Certificate|ClusterIssuer)\b/)) {
+          imports.push(
+            "import { CertificateComponent, ClusterIssuerComponent } from '@r8s/crds/cert-manager';"
+          )
         }
         if (code.match(/<(ServiceMonitor|PrometheusRule|PodMonitor)\b/)) {
           imports.push(
-            "import { ServiceMonitor, PrometheusRule, PodMonitor } from '@r8s/prometheus';"
+            "import { ServiceMonitorComponent, PrometheusRuleComponent, PodMonitorComponent } from '@r8s/crds/monitoring';"
           )
-        }
-        if (code.match(/<(Logging|Flow|Output)\b/)) {
-          imports.push("import { Logging, Flow, Output } from '@r8s/logging-operator';")
-        }
-        if (code.match(/<(LokiStack|AlertingRule)\b/)) {
-          imports.push("import { LokiStack, AlertingRule } from '@r8s/loki';")
         }
         if (code.match(/<(RedisCluster|RedisReplication)\b/)) {
-          imports.push("import { RedisCluster, RedisReplication } from '@r8s/redis';")
-        }
-        if (code.match(/<(ClickHouseCluster)\b/)) {
-          imports.push("import { ClickHouseCluster } from '@r8s/clickhouse';")
-        }
-        if (code.match(/<(KeycloakInstance|KeycloakRealm)\b/)) {
-          imports.push("import { KeycloakInstance, KeycloakRealm } from '@r8s/keycloak';")
-        }
-        if (
-          code.match(
-            /<(VaultConnectionConfig|VaultKubernetesAuth|VaultDatabaseSecret|VaultKVSecret)\b/
-          )
-        ) {
           imports.push(
-            "import { VaultConnectionConfig, VaultKubernetesAuth, VaultDatabaseSecret, VaultKVSecret } from '@r8s/openbao';"
+            "import { RedisClusterComponent, RedisReplicationComponent } from '@r8s/crds/redis';"
           )
         }
-        if (code.match(/<(ExternalDNSRecord)\b/)) {
-          imports.push("import { ExternalDNSRecord } from '@r8s/external-dns';")
+        if (code.match(/<(Keycloak|KeycloakRealmImport)\b/)) {
+          imports.push(
+            "import { KeycloakComponent, KeycloakRealmImportComponent } from '@r8s/crds/keycloak';"
+          )
+        }
+        if (code.match(/<(DNSEndpoint)\b/)) {
+          imports.push("import { DNSEndpointComponent } from '@r8s/crds/externaldns';")
+        }
+        if (code.match(/<(Backup|Schedule|BackupStorageLocation)\b/)) {
+          imports.push(
+            "import { BackupComponent, ScheduleComponent, BackupStorageLocationComponent } from '@r8s/crds/velero';"
+          )
         }
         if (code.match(/<(Element)\b/)) {
           imports.push("import { Element } from '@r8s/element';")
@@ -482,14 +507,8 @@ async function extractComponents(
         if (code.match(/<(Superset)\b/)) {
           imports.push("import { Superset } from '@r8s/superset';")
         }
-        if (code.match(/<(Backup|Schedule|BackupStorageLocation)\b/)) {
-          imports.push("import { Backup, Schedule, BackupStorageLocation } from '@r8s/velero';")
-        }
         if (code.match(/<(WireGuard)\b/)) {
           imports.push("import { WireGuard } from '@r8s/wireguard';")
-        }
-        if (code.match(/<(EnvoyIngress)\b/)) {
-          imports.push("import { EnvoyIngress } from '@r8s/recipes';")
         }
         if (code.match(/<RoutingContext\.Provider\b/)) {
           imports.push("import { RoutingContext } from '@r8s/core/defaults';")
@@ -499,12 +518,12 @@ async function extractComponents(
         if (code.match(/\b(cnpgOperator|nginxIngressOperator)\s*\(/)) {
           imports.push("import { cnpgOperator, nginxIngressOperator } from '@r8s/recipes';")
         }
-        if (code.match(/\bcertManagerOperator\s*\(/)) {
-          imports.push("import { certManagerOperator } from '@r8s/cert-manager';")
+        if (code.match(/\boperators\[/)) {
+          imports.push("import { operators } from '@r8s/crds';")
         }
 
         // Wrap in a default export with imports
-        const fullCode = `${imports.join('\n')}\n\nexport default ${code};`
+        const fullCode = `${imports.join('\n')}\n\nexport default ${code}`
         const formattedTsx = await formatTsx(fullCode)
         const yamlOutput = await renderToYaml(fullCode)
         comp.examples.push({ tsx: formattedTsx.trim(), yaml: yamlOutput })

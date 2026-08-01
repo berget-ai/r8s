@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
 import { validateResource } from '@r8s/core'
-import { Database, App, WebService, Ingress, Cluster } from '../src/index'
+import { Database, App, WebService, Endpoint } from '../src/index'
 import { OperatorContext } from '@r8s/core/defaults'
 import { cnpgOperator, nginxIngressOperator } from '../src/operators'
 
@@ -19,7 +19,6 @@ describe('Recipes Error Cases', () => {
       const element = jsx(Database, { name: '' })
       const result = render(element)
 
-      // Empty name should be caught by validation
       const validationErrors = validateResource(result.resources[0])
       expect(validationErrors.some((e) => e.code === 'MISSING_NAME')).toBe(true)
     })
@@ -39,7 +38,6 @@ describe('Recipes Error Cases', () => {
       const element = jsx(Database, { name: 'test-db_123' })
       const result = render(element)
 
-      // Names with underscores are invalid in Kubernetes
       const validationErrors = validateResource(result.resources[0])
       expect(validationErrors.some((e) => e.code === 'INVALID_NAME')).toBe(true)
     })
@@ -108,10 +106,10 @@ describe('Recipes Error Cases', () => {
     })
   })
 
-  describe('Ingress', () => {
+  describe('Endpoint', () => {
     it('should handle TLS configuration', () => {
-      const element = jsx(Ingress, {
-        name: 'test-ingress',
+      const element = jsx(Endpoint, {
+        name: 'test-endpoint',
         host: 'test.example.com',
         serviceName: 'test-service',
         servicePort: 80,
@@ -123,8 +121,8 @@ describe('Recipes Error Cases', () => {
     })
 
     it('should handle missing TLS gracefully', () => {
-      const element = jsx(Ingress, {
-        name: 'test-ingress',
+      const element = jsx(Endpoint, {
+        name: 'test-endpoint',
         host: 'test.example.com',
         serviceName: 'test-service',
         servicePort: 80,
@@ -133,31 +131,6 @@ describe('Recipes Error Cases', () => {
 
       expect(result.resources).toHaveLength(1)
       expect(result.operators).toHaveLength(1) // nginx-ingress only
-    })
-  })
-
-  describe('Cluster', () => {
-    it('should handle missing storage with default', () => {
-      const element = jsx(Cluster, { name: 'main' })
-      const result = render(element)
-
-      expect(result.resources).toHaveLength(1)
-      expect((result.resources[0] as any).spec.storage.size).toBe('50Gi')
-    })
-
-    it('should handle children databases', () => {
-      const element = jsx(Cluster, {
-        name: 'main',
-        children: jsx(Fragment, {
-          children: [
-            jsx(Database, { name: 'db1', password: 'test-pass-1' }),
-            jsx(Database, { name: 'db2', password: 'test-pass-2' }),
-          ],
-        }),
-      })
-      const result = render(element)
-
-      expect(result.resources.length).toBeGreaterThan(1)
     })
   })
 
@@ -186,9 +159,10 @@ describe('Recipes Error Cases', () => {
     it('should handle nested contexts', () => {
       const element = jsx(OperatorContext.Provider, {
         value: [cnpgOperator('1.22.5')],
-        children: jsx(Cluster, {
-          name: 'main',
-          children: jsx(Database, { name: 'app-db', password: 'test-pass' }),
+        children: jsx(Database, {
+          name: 'app-db',
+          storage: '10Gi',
+          password: 'test-pass',
         }),
       })
 

@@ -24,21 +24,13 @@ export interface DatabaseProps {
  * @title Database
  * @category Data & Analytics
  *
- * By default, creates a dedicated 3-instance HA cluster for this database.
- * When wrapped in a `<Cluster>` component, reuses the shared cluster's
- * connection info instead of creating a dedicated cluster.
+ * Creates a dedicated 3-instance HA CloudNativePG cluster for this database.
+ * When wrapped in a `<Database>` component, child components receive the
+ * connection info via DatabaseContext automatically.
  *
  * @example
- * // Dedicated cluster (default)
+ * // Basic database
  * <Database name="app-db" storage="10Gi" />
- *
- * @example
- * // Shared cluster - reuses connection, does not provision a new database
- * // (password required per database — shared clusters materialize their own secrets)
- * <Cluster name="main" storage="100Gi">
- *   <Database name="user-db" password="change-me" />
- *   <Database name="order-db" password="change-me" />
- * </Cluster>
  *
  * @example
  * // With child components that auto-connect

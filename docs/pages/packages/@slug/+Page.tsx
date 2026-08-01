@@ -95,10 +95,12 @@ export default function Page() {
             {component.examples.length > 0 && (
               <div className="space-y-6">
                 {component.examples.map((example, i) => (
-                  <div key={i} className="space-y-3">
-                    <CodeBlock code={example.tsx} language="tsx" />
-                    {example.yaml && <CodeBlock code={example.yaml} language="yaml" />}
-                  </div>
+                  <CodeBlock
+                    key={i}
+                    code={example.tsx}
+                    yaml={example.yaml ?? undefined}
+                    language="tsx"
+                  />
                 ))}
               </div>
             )}
