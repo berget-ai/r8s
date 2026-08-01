@@ -7,7 +7,7 @@ export interface MonitoringProps {
   name: string
   /** Kubernetes namespace where the app runs (defaults to 'default') */
   namespace?: string
-  /** Labels matching the app pods to monitor (e.g., { app: 'api' }) */
+  /** Labels matching the Kubernetes Service to monitor (e.g., { app: 'api' }) */
   selector: Record<string, string>
   /** Metrics endpoint port name (defaults to 'metrics') */
   port?: string

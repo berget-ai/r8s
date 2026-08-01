@@ -214,7 +214,7 @@ import { DNSEndpointComponent } from '@r8s/crds/externaldns'
   metadata={{ name: 'app-dns', namespace: 'default' }}
   spec={{
     endpoints: [
-      { dnsName: 'app.example.com', recordType: 'A', targets: ['10.0.0.1'], ttl: 300 },
+      { dnsName: 'app.example.com', recordType: 'A', targets: ['10.0.0.1'], recordTTL: 300 },
     ],
   }}
 />

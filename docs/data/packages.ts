@@ -274,8 +274,8 @@ export const packages: Package[] = [
         props: [{ name: '"endpoints"', type: 'EndpointsItem[]', required: false, description: '' }],
         examples: [
           {
-            tsx: "\nimport { DNSEndpointComponent } from '@r8s/crds/externaldns'\n\n<DNSEndpointComponent\n  metadata={{ name: 'app-dns', namespace: 'default' }}\n  spec={{\n    endpoints: [\n      { dnsName: 'app.example.com', recordType: 'A', targets: ['10.0.0.1'], ttl: 300 },\n    ],\n  }}\n/>\n",
-            yaml: 'apiVersion: externaldns.k8s.io/v1alpha1\nkind: DNSEndpoint\nmetadata:\n  name: app-dns\n  namespace: default\nspec:\n  endpoints:\n    - dnsName: app.example.com\n      recordType: A\n      targets:\n        - 10.0.0.1\n      ttl: 300\n',
+            tsx: "\nimport { DNSEndpointComponent } from '@r8s/crds/externaldns'\n\n<DNSEndpointComponent\n  metadata={{ name: 'app-dns', namespace: 'default' }}\n  spec={{\n    endpoints: [\n      { dnsName: 'app.example.com', recordType: 'A', targets: ['10.0.0.1'], recordTTL: 300 },\n    ],\n  }}\n/>\n",
+            yaml: 'apiVersion: externaldns.k8s.io/v1alpha1\nkind: DNSEndpoint\nmetadata:\n  name: app-dns\n  namespace: default\nspec:\n  endpoints:\n    - dnsName: app.example.com\n      recordType: A\n      targets:\n        - 10.0.0.1\n      recordTTL: 300\n',
           },
         ],
       },

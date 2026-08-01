@@ -75,7 +75,7 @@
   category: Networking
   source:
     type: manifest
-    url: https://raw.githubusercontent.com/kubernetes-sigs/external-dnsv{version}/docs/sources/manifest.yaml
+    url: https://raw.githubusercontent.com/kubernetes-sigs/external-dns/v{version}/docs/sources/manifest.yaml
   version: '0.14.0'
   namespace: external-dns
   crds:

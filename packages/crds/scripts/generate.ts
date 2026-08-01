@@ -338,14 +338,19 @@ const opsLines: string[] = [
   ' */',
   "import type { Operator } from '@r8s/k8s-types'",
   '',
+  'function expandVersion(url: string, version: string): string {',
+  "  const minor = version.split('.').slice(0, 2).join('.')",
+  "  return url.replaceAll('{version}', version).replaceAll('{minor}', minor)",
+  '}',
+  '',
   `export const operators: Record<string, (version?: string) => Operator> = {`,
 ]
 
 for (const op of operatorsYaml) {
-  const url = 'url' in op.source ? expandVersion(op.source.url, op.version) : undefined
+  const urlTemplate = 'url' in op.source ? op.source.url : undefined
   const sourceObj =
     op.source.type === 'manifest'
-      ? `{ type: 'manifest', url: ${JSON.stringify(url)}, version, namespace: ${JSON.stringify(op.namespace)} }`
+      ? `{ type: 'manifest', url: expandVersion(${JSON.stringify(urlTemplate)}, version), version, namespace: ${JSON.stringify(op.namespace)} }`
       : op.source.type === 'helm'
         ? `{ type: 'helm', chart: ${JSON.stringify(op.source.chart)}, repository: ${JSON.stringify(op.source.repository)}, version, namespace: ${JSON.stringify(op.namespace)} }`
         : `{ type: 'olm', package: ${JSON.stringify(op.source.package)}, channel: ${JSON.stringify(op.source.channel)}, version }`

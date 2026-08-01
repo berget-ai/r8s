@@ -5,7 +5,7 @@ import { operators } from '@r8s/crds'
 export interface BackupProps {
   /** Resource name */
   name: string
-  /** Kubernetes namespace (defaults to 'default') */
+  /** Default namespace to back up (used when `namespaces` is not set) */
   namespace?: string
   /** Cron schedule for backups (defaults to daily at 2 AM) */
   schedule?: string

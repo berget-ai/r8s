@@ -194,7 +194,7 @@ export const recipes: Recipe[] = [
           name: 'namespace',
           type: 'string',
           required: false,
-          description: "Kubernetes namespace (defaults to 'default')",
+          description: 'Default namespace to back up (used when `namespaces` is not set)',
         },
         {
           name: 'schedule',
@@ -361,7 +361,7 @@ export const recipes: Recipe[] = [
           name: 'selector',
           type: 'Record',
           required: true,
-          description: "Labels matching the app pods to monitor (e.g., { app: 'api' })",
+          description: "Labels matching the Kubernetes Service to monitor (e.g., { app: 'api' })",
         },
         {
           name: 'port',

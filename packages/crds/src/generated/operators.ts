@@ -3,11 +3,15 @@
  * Regenerate with: npm run generate -w @r8s/crds
  */
 import type { Operator } from '@r8s/k8s-types'
+function expandVersion(url: string, version: string): string {
+  const minor = version.split('.').slice(0, 2).join('.')
+  return url.replaceAll('{version}', version).replaceAll('{minor}', minor)
+}
 export const operators: Record<string, (version?: string) => Operator> = {
   "cert-manager": (version = "1.18.0") => ({
     name: "cert-manager",
     description: "cert-manager for TLS certificate automation",
-    source: { type: 'manifest', url: "https://github.com/cert-manager/cert-manager/releases/download/v1.18.0/cert-manager.yaml", version, namespace: "cert-manager" },
+    source: { type: 'manifest', url: expandVersion("https://github.com/cert-manager/cert-manager/releases/download/v{version}/cert-manager.yaml", version), version, namespace: "cert-manager" },
     version,
     namespace: "cert-manager",
     crds: ["certificates.cert-manager.io","certificaterequests.cert-manager.io","issuers.cert-manager.io","clusterissuers.cert-manager.io"],
@@ -23,7 +27,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
   "cnpg": (version = "1.27.0") => ({
     name: "cnpg",
     description: "CloudNativePG PostgreSQL operator",
-    source: { type: 'manifest', url: "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.27/releases/cnpg-1.27.0.yaml", version, namespace: "cnpg-system" },
+    source: { type: 'manifest', url: expandVersion("https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-{minor}/releases/cnpg-{version}.yaml", version), version, namespace: "cnpg-system" },
     version,
     namespace: "cnpg-system",
     crds: ["clusters.postgresql.cnpg.io","poolers.postgresql.cnpg.io","scheduledbackups.postgresql.cnpg.io"],
@@ -39,7 +43,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
   "external-dns": (version = "0.14.0") => ({
     name: "external-dns",
     description: "ExternalDNS for automatic DNS management",
-    source: { type: 'manifest', url: "https://raw.githubusercontent.com/kubernetes-sigs/external-dnsv0.14.0/docs/sources/manifest.yaml", version, namespace: "external-dns" },
+    source: { type: 'manifest', url: expandVersion("https://raw.githubusercontent.com/kubernetes-sigs/external-dns/v{version}/docs/sources/manifest.yaml", version), version, namespace: "external-dns" },
     version,
     namespace: "external-dns",
     crds: ["dnsendpoints.externaldns.k8s.io"],
@@ -86,7 +90,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
   "vault-secrets-operator": (version = "0.5.0") => ({
     name: "vault-secrets-operator",
     description: "HashiCorp Vault Secrets Operator",
-    source: { type: 'manifest', url: "https://raw.githubusercontent.com/hashicorp/vault-secrets-operator/v0.5.0/config/default/deploy.yaml", version, namespace: "vault-secrets-operator" },
+    source: { type: 'manifest', url: expandVersion("https://raw.githubusercontent.com/hashicorp/vault-secrets-operator/v{version}/config/default/deploy.yaml", version), version, namespace: "vault-secrets-operator" },
     version,
     namespace: "vault-secrets-operator",
     crds: ["vaultstaticsecrets.secrets.hashicorp.com","vaultdynamicsecrets.secrets.hashicorp.com","vaultauths.secrets.hashicorp.com","vaultconnections.secrets.hashicorp.com"],
@@ -94,7 +98,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
   "velero": (version = "1.13.0") => ({
     name: "velero",
     description: "Velero backup and disaster recovery",
-    source: { type: 'manifest', url: "https://raw.githubusercontent.com/vmware-tanzu/velero/v1.13.0/config/crd/v1/bases/velero.io_backups.yaml", version, namespace: "velero" },
+    source: { type: 'manifest', url: expandVersion("https://raw.githubusercontent.com/vmware-tanzu/velero/v{version}/config/crd/v1/bases/velero.io_backups.yaml", version), version, namespace: "velero" },
     version,
     namespace: "velero",
     crds: ["backups.velero.io","restores.velero.io","schedules.velero.io","backupstoragelocations.velero.io","volumesnapshotlocations.velero.io","deletebackuprequests.velero.io","downloadrequests.velero.io"],
