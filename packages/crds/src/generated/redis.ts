@@ -251,7 +251,7 @@ export interface Additional {
   "enabled"?: boolean
   /** IncludeBusPort when set to true, it will add bus port to the service, such as 16379. This field is only used for Redis cluster mode. */
   "includeBusPort"?: boolean
-  "type"?: string
+  "type"?: "LoadBalancer" | "NodePort" | "ClusterIP"
 }
 
 export interface Headless {
@@ -259,7 +259,7 @@ export interface Headless {
   "enabled"?: boolean
   /** IncludeBusPort when set to true, it will add bus port to the service, such as 16379. This field is only used for Redis cluster mode. */
   "includeBusPort"?: boolean
-  "type"?: string
+  "type"?: "LoadBalancer" | "NodePort" | "ClusterIP"
 }
 
 export interface Service {
@@ -270,7 +270,7 @@ export interface Service {
   "headless"?: Headless
   /** IncludeBusPort when set to true, it will add bus port to the service, such as 16379. This field is only used for Redis cluster mode. */
   "includeBusPort"?: boolean
-  "serviceType"?: string
+  "serviceType"?: "LoadBalancer" | "NodePort" | "ClusterIP"
 }
 
 export interface RollingUpdate {

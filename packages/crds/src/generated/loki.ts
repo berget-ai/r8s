@@ -33,14 +33,14 @@ export interface Memberlist {
   /** EnableIPv6 enables IPv6 support for the memberlist based hash ring. Currently this also forces the instanceAddrType to podIP to avoid local address lookup for the memberlist. */
   "enableIPv6"?: boolean
   /** InstanceAddrType defines the type of address to use to advertise to the ring. Defaults to the first address from any private network interfaces of the current pod. Alternatively the public pod IP can be used in case private networks (RFC 1918 and RFC 6598) are not available. */
-  "instanceAddrType"?: string
+  "instanceAddrType"?: "default" | "podIP"
 }
 
 export interface HashRing {
   /** MemberList configuration spec */
   "memberlist"?: Memberlist
   /** Type of hash ring implementation that should be used */
-  "type": string
+  "type": "memberlist"
 }
 
 export interface Ingestion {
@@ -159,7 +159,7 @@ export interface Limits {
 
 export interface NetworkPolicies {
   /** RuleSet determines which of the pre-defined sets of NetworkPolicy rules is used for this LokiStack. */
-  "ruleSet": string
+  "ruleSet": "None" | "RestrictIngressEgress"
 }
 
 export interface Proxy {
@@ -221,16 +221,16 @@ export interface SchemasItem {
   /** EffectiveDate contains a date in YYYY-MM-DD format which is interpreted in the UTC time zone. The configuration always needs at least one schema that is currently valid. This means that when creating a new LokiStack it is recommended to add a schema with the latest available version and an effective date of "yesterday". New schema versions added to the configuration always needs to be placed "in the future", so that Loki can start using it once the day rolls over. */
   "effectiveDate": string
   /** Version for writing and reading logs. */
-  "version": string
+  "version": "v11" | "v12" | "v13"
 }
 
 export interface Secret {
   /** CredentialMode can be used to set the desired credential mode for authenticating with the object storage. If this is not set, then the operator tries to infer the credential mode from the provided secret and its own configuration. */
-  "credentialMode"?: string
+  "credentialMode"?: "static" | "token" | "token-cco"
   /** Name of a secret in the namespace configured for object storage secrets. */
   "name": string
   /** Type of object storage that should be used */
-  "type": string
+  "type": "azure" | "gcs" | "s3" | "swift" | "alibabacloud"
 }
 
 export interface Tls {
@@ -471,7 +471,7 @@ export interface Opa {
 
 export interface SubjectsItem {
   /** SubjectKind is a kind of LokiStack Gateway RBAC subject. */
-  "kind": string
+  "kind": "user" | "group"
   "name": string
 }
 
@@ -483,7 +483,7 @@ export interface RoleBindingsItem {
 
 export interface RolesItem {
   "name": string
-  "permissions": string[]
+  "permissions": ("read" | "write")[]
   "resources": string[]
   "tenants": string[]
 }
@@ -565,7 +565,7 @@ export interface Tenants {
   /** Gateway defines the configuration specific to Gateway server */
   "gateway"?: Gateway2
   /** Mode defines the mode in which lokistack-gateway component will be configured. */
-  "mode": string
+  "mode": "static" | "dynamic" | "openshift-logging" | "openshift-network" | "passthrough"
   /** Openshift defines the configuration specific to Openshift modes. */
   "openshift"?: Openshift
   /** Passthrough defines the configuration specific to Passthrough mode. */
@@ -578,7 +578,7 @@ export interface LokiStackSpec {
   /** Limits defines the limits to be applied to log stream processing. */
   "limits"?: Limits
   /** ManagementState defines if the CR should be managed by the operator or not. Default is managed. */
-  "managementState"?: string
+  "managementState"?: "Managed" | "Unmanaged"
   /** NetworkPolicies defines the NetworkPolicies configuration for LokiStack components. When enabled, the operator creates NetworkPolicies to control ingress/egress between Loki components and related services. */
   "networkPolicies"?: NetworkPolicies
   /** Proxy defines the spec for the object proxy to configure cluster proxy information. */
@@ -590,7 +590,7 @@ export interface LokiStackSpec {
   /** Rules defines the spec for the ruler component. */
   "rules"?: Rules
   /** Size defines one of the support Loki deployment scale out sizes. */
-  "size": string
+  "size": "1x.demo" | "1x.pico" | "1x.extra-small" | "1x.small" | "1x.medium"
   /** Storage defines the spec for the object storage endpoint to store logs. */
   "storage": Storage
   /** Storage class name defines the storage class for ingester/querier PVCs. */
@@ -630,14 +630,14 @@ export interface ConditionsItem {
   /** reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty. */
   "reason": string
   /** status of the condition, one of True, False, Unknown. */
-  "status": string
+  "status": "True" | "False" | "Unknown"
   /** type of condition in CamelCase or in foo.example.com/CamelCase. */
   "type": string
 }
 
 export interface Storage2 {
   /** CredentialMode contains the authentication mode used for accessing the object storage. */
-  "credentialMode"?: string
+  "credentialMode"?: "static" | "token" | "token-cco"
   /** Schemas is a list of schemas which have been applied to the LokiStack. */
   "schemas"?: SchemasItem[]
 }
@@ -648,7 +648,7 @@ export interface LokiStackStatus {
   /** Conditions of the Loki deployment health. */
   "conditions"?: ConditionsItem[]
   /** NetworkPolicyRuleSet indicates which NetworkPolicies ruleset was applied by the operator for this LokiStack. */
-  "networkPolicyRuleSet"?: string
+  "networkPolicyRuleSet"?: "None" | "RestrictIngressEgress"
   /** Storage provides summary of all changes that have occurred to the storage configuration. */
   "storage"?: Storage2
 }

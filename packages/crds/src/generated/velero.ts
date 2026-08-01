@@ -99,7 +99,7 @@ export interface Exec {
   /** Container is the container in the pod where the command should be executed. If not specified, the pod's first container is used. */
   "container"?: string
   /** OnError specifies how Velero should behave if it encounters an error executing this hook. */
-  "onError"?: string
+  "onError"?: "Continue" | "Fail"
   /** Timeout defines the maximum amount of time Velero should wait for the hook to complete before considering the execution a failure. */
   "timeout"?: string
 }
@@ -255,7 +255,7 @@ export interface BackupStatus {
   /** HookStatus contains information about the status of the hooks. */
   "hookStatus"?: HookStatus | null
   /** Phase is the current state of the Backup. */
-  "phase"?: string
+  "phase"?: "New" | "FailedValidation" | "InProgress" | "WaitingForPluginOperations" | "WaitingForPluginOperationsPartiallyFailed" | "Finalizing" | "FinalizingPartiallyFailed" | "Completed" | "PartiallyFailed" | "Failed" | "Deleting"
   /** Progress contains information about the backup's execution progress. Note that this information is best-effort only -- if Velero fails to update it during a backup for any reason, it may be inaccurate/stale. */
   "progress"?: Progress | null
   /** StartTimestamp records the time a backup was started. Separate from CreationTimestamp, since that value changes on restores. The server's time is used for StartTimestamps */
@@ -292,7 +292,7 @@ export interface ObjectStorage {
 
 export interface BackupStorageLocationSpec {
   /** AccessMode defines the permissions for the backup storage location. */
-  "accessMode"?: string
+  "accessMode"?: "ReadOnly" | "ReadWrite"
   /** BackupSyncPeriod defines how frequently to sync backup API objects from object storage. A value of 0 disables sync. */
   "backupSyncPeriod"?: string | null
   /** Config is for provider-specific configuration fields. */
@@ -311,7 +311,7 @@ export interface BackupStorageLocationSpec {
 
 export interface BackupStorageLocationStatus {
   /** AccessMode is an unused field.   Deprecated: there is now an AccessMode field on the Spec and this field will be removed entirely as of v2.0. */
-  "accessMode"?: string
+  "accessMode"?: "ReadOnly" | "ReadWrite"
   /** LastSyncedRevision is the value of the `metadata/revision` file in the backup storage location the last time the BSL's contents were synced into the cluster.   Deprecated: this field is no longer updated or used for detecting changes to the location's contents and will be removed entirely in v2.0. */
   "lastSyncedRevision"?: string
   /** LastSyncedTime is the last time the contents of the location were synced into the cluster. */
@@ -321,7 +321,7 @@ export interface BackupStorageLocationStatus {
   /** Message is a message about the backup storage location's status. */
   "message"?: string
   /** Phase is the current state of the BackupStorageLocation. */
-  "phase"?: string
+  "phase"?: "Available" | "Unavailable"
 }
 
 export interface Template {
@@ -397,7 +397,7 @@ export interface ScheduleStatus {
   /** LastSkipped is the last time a Schedule was skipped */
   "lastSkipped"?: string | null
   /** Phase is the current phase of the Schedule */
-  "phase"?: string
+  "phase"?: "New" | "Enabled" | "FailedValidation"
   /** ValidationErrors is a slice of all validation errors (if applicable) */
   "validationErrors"?: string[]
 }

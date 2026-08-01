@@ -31,31 +31,31 @@ export function ClickHouseInstallationComponent(props: ClickHouseInstallationPro
 
 export interface Templating {
   /** When defined as `auto` inside ClickhouseInstallationTemplate, this ClickhouseInstallationTemplate will be auto-added into ClickHouseInstallation, selectable by `chiSelector`. Default value is `manual`, meaning ClickHouseInstallation should request this ClickhouseInstallationTemplate explicitly.  */
-  "policy"?: string
+  "policy"?: "" | "Auto" | "auto" | "Manual" | "manual"
   /** Optional, defines selector for ClickHouseInstallation(s) to be templated with ClickhouseInstallationTemplate */
   "chiSelector"?: Record<string, unknown>
 }
 
 export interface UnknownObjects {
   /** Behavior policy for unknown StatefulSet, `Delete` by default (case-insensitive) */
-  "statefulSet"?: string
+  "statefulSet"?: "" | "Retain" | "retain" | "Delete" | "delete"
   /** Behavior policy for unknown PVC, `Delete` by default */
-  "pvc"?: string
+  "pvc"?: "" | "Retain" | "retain" | "Delete" | "delete"
   /** Behavior policy for unknown ConfigMap, `Delete` by default */
-  "configMap"?: string
+  "configMap"?: "" | "Retain" | "retain" | "Delete" | "delete"
   /** Behavior policy for unknown Service, `Delete` by default */
-  "service"?: string
+  "service"?: "" | "Retain" | "retain" | "Delete" | "delete"
 }
 
 export interface ReconcileFailedObjects {
   /** Behavior policy for failed StatefulSet, `Retain` by default */
-  "statefulSet"?: string
+  "statefulSet"?: "" | "Retain" | "retain" | "Delete" | "delete"
   /** Behavior policy for failed PVC, `Retain` by default */
-  "pvc"?: string
+  "pvc"?: "" | "Retain" | "retain" | "Delete" | "delete"
   /** Behavior policy for failed ConfigMap, `Retain` by default */
-  "configMap"?: string
+  "configMap"?: "" | "Retain" | "retain" | "Delete" | "delete"
   /** Behavior policy for failed Service, `Retain` by default */
-  "service"?: string
+  "service"?: "" | "Retain" | "retain" | "Delete" | "delete"
 }
 
 export interface Cleanup {
@@ -117,7 +117,7 @@ export interface Runtime {
 
 export interface Create {
   /** What to do in case created StatefulSet is not in 'Ready' after `reconcile.statefulSet.update.timeout` seconds. Possible options: 1. abort - abort the process, do nothing with the problematic StatefulSet, leave it as it is. 2. delete - delete newly created problematic StatefulSet and follow 'abort' path afterwards. 3. ignore - ignore an error, pretend nothing happened, continue reconcile and move on to the next StatefulSet.  */
-  "onFailure"?: string
+  "onFailure"?: "" | "Abort" | "abort" | "Delete" | "delete" | "Ignore" | "ignore"
 }
 
 export interface Update {
@@ -126,14 +126,14 @@ export interface Update {
   /** How many seconds to wait between checks for StatefulSet status during update */
   "pollInterval"?: number
   /** What to do in case updated StatefulSet is not in 'Ready' after `reconcile.statefulSet.update.timeout` seconds. Possible options: 1. abort - abort the process, do nothing with the problematic StatefulSet, leave it as it is. 2. rollback - delete Pod and rollback StatefulSet to previous Generation. Follow 'abort' path afterwards. 3. ignore - ignore an error, pretend nothing happened, continue reconcile and move on to the next StatefulSet.  */
-  "onFailure"?: string
+  "onFailure"?: "" | "Abort" | "abort" | "Rollback" | "rollback" | "Ignore" | "ignore"
 }
 
 export interface Recreate {
   /** What to do in case operator needs to recreate StatefulSet due to PVC data loss or missing volumes. Possible options: 1. abort - abort the process, do nothing with the problematic StatefulSet. 2. recreate - proceed and recreate StatefulSet.  */
-  "onDataLoss"?: string
+  "onDataLoss"?: "" | "Abort" | "abort" | "Recreate" | "recreate"
   /** What to do in case operator needs to recreate StatefulSet due to update failure or StatefulSet not ready. Possible options: 1. abort - abort the process, do nothing with the problematic StatefulSet. 2. recreate - proceed and recreate StatefulSet.  */
-  "onUpdateFailure"?: string
+  "onUpdateFailure"?: "" | "Abort" | "abort" | "Recreate" | "recreate"
 }
 
 export interface StatefulSet {
@@ -207,11 +207,11 @@ export interface PreItem {
   "shell"?: Shell
   "http"?: Http
   /** where to execute hook for cluster-level hooks: FirstHost (default), AllHosts, AllShards */
-  "target"?: string
+  "target"?: "" | "FirstHost" | "firsthost" | "AllHosts" | "allhosts" | "AllShards" | "allshards"
   /** Reconcile lifecycle events that trigger this hook. Required, must be non-empty. The hook is skipped on any reconcile whose classifier does not emit at least one of the listed events. Supported values:   Any               - wildcard match: fires on every hook-evaluation point,                       including the pre-delete sweep on the dying host   HostCreate        - first reconcile that creates a host (no ancestor); best                       paired with POST hooks because PRE hooks on first creation                       are skipped (no live pod yet)   HostUpdate        - reconcile that has prior state for the host; catch-all                       for ongoing reconciles   HostStart         - host transitions from stopped to running   HostStop          - host is being stopped (current spec marks it stopped)   HostConfigRestart - in-place software restart for a configuration change   HostRollout       - pod-template change forces a StatefulSet rollout   HostShutdown      - aggregate: fires whenever the pod is going down for any                       reason (Stop, ConfigRestart, Rollout, or Delete)   HostDelete        - host is being removed from the cluster (downsize); fires                       on the dying host before tear-down. Always emitted                       alongside HostShutdown.  */
-  "events": string[]
+  "events": ("Any" | "any" | "HostCreate" | "hostcreate" | "HostDelete" | "hostdelete" | "HostUpdate" | "hostupdate" | "HostStart" | "hoststart" | "HostStop" | "hoststop" | "HostConfigRestart" | "hostconfigrestart" | "HostRollout" | "hostrollout" | "HostShutdown" | "hostshutdown")[]
   /** Controls what happens when this hook returns an error. Fail (default): error propagates — pre-hook aborts reconcile / host deletion. Ignore: error is logged and the reconcile continues.  */
-  "failurePolicy"?: string
+  "failurePolicy"?: "Fail" | "fail" | "Ignore" | "ignore"
 }
 
 export interface PostItem {
@@ -219,11 +219,11 @@ export interface PostItem {
   "shell"?: Shell
   "http"?: Http
   /** where to execute hook for cluster-level hooks: FirstHost (default), AllHosts, AllShards */
-  "target"?: string
+  "target"?: "" | "FirstHost" | "firsthost" | "AllHosts" | "allhosts" | "AllShards" | "allshards"
   /** Reconcile lifecycle events that trigger this hook. Required, must be non-empty. The hook is skipped on any reconcile whose classifier does not emit at least one of the listed events. Supported values:   Any               - wildcard match: fires on every hook-evaluation point,                       including the pre-delete sweep on the dying host   HostCreate        - first reconcile that creates a host (no ancestor); best                       paired with POST hooks because PRE hooks on first creation                       are skipped (no live pod yet)   HostUpdate        - reconcile that has prior state for the host; catch-all                       for ongoing reconciles   HostStart         - host transitions from stopped to running   HostStop          - host is being stopped (current spec marks it stopped)   HostConfigRestart - in-place software restart for a configuration change   HostRollout       - pod-template change forces a StatefulSet rollout   HostShutdown      - aggregate: fires whenever the pod is going down for any                       reason (Stop, ConfigRestart, Rollout, or Delete)   HostDelete        - host is being removed from the cluster (downsize); fires                       on the dying host before tear-down. Always emitted                       alongside HostShutdown.  */
-  "events": string[]
+  "events": ("Any" | "any" | "HostCreate" | "hostcreate" | "HostDelete" | "hostdelete" | "HostUpdate" | "hostupdate" | "HostStart" | "hoststart" | "HostStop" | "hoststop" | "HostConfigRestart" | "hostconfigrestart" | "HostRollout" | "hostrollout" | "HostShutdown" | "hostshutdown")[]
   /** Controls what happens when this hook returns an error. Fail (default): error propagates — pre-hook aborts reconcile / host deletion. Ignore: error is logged and the reconcile continues.  */
-  "failurePolicy"?: string
+  "failurePolicy"?: "Fail" | "fail" | "Ignore" | "ignore"
 }
 
 export interface Hooks {
@@ -247,7 +247,7 @@ export interface Cluster {
 
 export interface Reconciling {
   /** DISCUSSED TO BE DEPRECATED Syntax sugar Overrides all three 'reconcile.host.wait.{exclude, queries, include}' values from the operator's config Possible values:  - wait - should wait to exclude host, complete queries and include host back into the cluster  - nowait - should NOT wait to exclude host, complete queries and include host back into the cluster (case-insensitive)  */
-  "policy"?: string
+  "policy"?: "" | "Wait" | "wait" | "NoWait" | "nowait"
   /** Timeout in seconds for `clickhouse-operator` to wait for modified `ConfigMap` to propagate into the `Pod` More details: https://kubernetes.io/docs/concepts/configuration/configmap/#mounted-configmaps-are-updated-automatically  */
   "configMapPropagationTimeout"?: number
   /** Optional, defines behavior for cleanup Kubernetes resources during reconcile cycle */
@@ -266,7 +266,7 @@ export interface Reconciling {
 
 export interface Reconcile {
   /** DISCUSSED TO BE DEPRECATED Syntax sugar Overrides all three 'reconcile.host.wait.{exclude, queries, include}' values from the operator's config Possible values:  - wait - should wait to exclude host, complete queries and include host back into the cluster  - nowait - should NOT wait to exclude host, complete queries and include host back into the cluster (case-insensitive)  */
-  "policy"?: string
+  "policy"?: "" | "Wait" | "wait" | "NoWait" | "nowait"
   /** Timeout in seconds for `clickhouse-operator` to wait for modified `ConfigMap` to propagate into the `Pod` More details: https://kubernetes.io/docs/concepts/configuration/configmap/#mounted-configmaps-are-updated-automatically  */
   "configMapPropagationTimeout"?: number
   /** Optional, defines behavior for cleanup Kubernetes resources during reconcile cycle */
@@ -290,9 +290,9 @@ export interface DistributedDDL {
 
 export interface StorageManagement {
   /** defines `PVC` provisioner - be it StatefulSet or the Operator (case-insensitive) */
-  "provisioner"?: string
+  "provisioner"?: "" | "StatefulSet" | "statefulset" | "Operator" | "operator"
   /** defines behavior of `PVC` deletion (case-insensitive). `Delete` by default, if `Retain` specified then `PVC` will be kept when deleting StatefulSet  */
-  "reclaimPolicy"?: string
+  "reclaimPolicy"?: "" | "Retain" | "retain" | "Delete" | "delete"
 }
 
 export interface Templates {
@@ -346,7 +346,7 @@ export interface Keeper {
   /** namespace of the CHK resource, defaults to the CHI namespace if omitted */
   "namespace"?: string
   /** how to discover keeper endpoints (case-insensitive):   Replicas (default) — enumerate per-host services, one ZK node per keeper replica   Service — use the CR-level headless service as a single ZK node entry  */
-  "serviceType"?: string
+  "serviceType"?: "" | "Replicas" | "replicas" | "Service" | "service"
 }
 
 export interface Zookeeper {
@@ -368,9 +368,9 @@ export interface Zookeeper {
 
 export interface SchemaPolicy {
   /** how schema is propagated within a replica (case-insensitive) */
-  "replica"?: string
+  "replica"?: "" | "None" | "none" | "All" | "all"
   /** how schema is propagated between shards (case-insensitive) */
-  "shard"?: string
+  "shard"?: "" | "None" | "none" | "All" | "all" | "DistributedTablesOnly" | "distributedtablesonly"
 }
 
 export interface SecretKeyRef {
@@ -548,7 +548,7 @@ export interface Configuration {
 
 export interface PortDistributionItem {
   /** type of distribution, when `Unspecified` (default value) then all listen ports on clickhouse-server configuration in all Pods will have the same value, when `ClusterScopeIndex` then ports will increment to offset from base value depends on shard and replica index inside cluster with combination of `chi.spec.templates.podTemlates.spec.HostNetwork` it allows setup ClickHouse cluster inside Kubernetes and provide access via external network bypass Kubernetes internal network */
-  "type"?: string
+  "type"?: "" | "Unspecified" | "unspecified" | "ClusterScopeIndex" | "clusterscopeindex"
 }
 
 export interface Spec {
@@ -591,9 +591,9 @@ export interface Zone {
 
 export interface PodDistributionItem {
   /** you can define multiple affinity policy types */
-  "type"?: string
+  "type"?: "" | "Unspecified" | "unspecified" | "ClickHouseAntiAffinity" | "clickhouseantiaffinity" | "ShardAntiAffinity" | "shardantiaffinity" | "ReplicaAntiAffinity" | "replicaantiaffinity" | "AnotherNamespaceAntiAffinity" | "anothernamespaceantiaffinity" | "AnotherClickHouseInstallationAntiAffinity" | "anotherclickhouseinstallationantiaffinity" | "AnotherClusterAntiAffinity" | "anotherclusterantiaffinity" | "MaxNumberPerNode" | "maxnumberpernode" | "NamespaceAffinity" | "namespaceaffinity" | "ClickHouseInstallationAffinity" | "clickhouseinstallationaffinity" | "ClusterAffinity" | "clusteraffinity" | "ShardAffinity" | "shardaffinity" | "ReplicaAffinity" | "replicaaffinity" | "PreviousTailAffinity" | "previoustailaffinity" | "CircularReplication" | "circularreplication"
   /** scope for apply each podDistribution */
-  "scope"?: string
+  "scope"?: "" | "Unspecified" | "unspecified" | "Shard" | "shard" | "Replica" | "replica" | "Cluster" | "cluster" | "ClickHouseInstallation" | "clickhouseinstallation" | "Namespace" | "namespace"
   /** define, how much ClickHouse Pods could be inside selected scope with selected distribution type */
   "number"?: number
   /** use for inter-pod affinity look to `pod.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.topologyKey`, more info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity"  */
@@ -608,7 +608,7 @@ export interface PodTemplatesItem {
   /** allows define custom zone name and will separate ClickHouse `Pods` between nodes, shortcut for `chi.spec.templates.podTemplates.spec.affinity.podAntiAffinity` */
   "zone"?: Zone
   /** DEPRECATED, shortcut for `chi.spec.templates.podTemplates.spec.affinity.podAntiAffinity` */
-  "distribution"?: string
+  "distribution"?: "" | "Unspecified" | "unspecified" | "OnePerHost" | "oneperhost"
   /** define ClickHouse Pod distribution policy between Kubernetes Nodes inside Shard, Replica, Namespace, CHI, another ClickHouse cluster */
   "podDistribution"?: PodDistributionItem[]
   /** allows pass standard object's metadata from template to Pod More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata  */
@@ -621,9 +621,9 @@ export interface VolumeClaimTemplatesItem {
   /** template name, could use to link inside top-level `chi.spec.defaults.templates.dataVolumeClaimTemplate` or `chi.spec.defaults.templates.logVolumeClaimTemplate`, cluster-level `chi.spec.configuration.clusters.templates.dataVolumeClaimTemplate` or `chi.spec.configuration.clusters.templates.logVolumeClaimTemplate`, shard-level `chi.spec.configuration.clusters.layout.shards.temlates.dataVolumeClaimTemplate` or `chi.spec.configuration.clusters.layout.shards.temlates.logVolumeClaimTemplate` replica-level `chi.spec.configuration.clusters.layout.replicas.templates.dataVolumeClaimTemplate` or `chi.spec.configuration.clusters.layout.replicas.templates.logVolumeClaimTemplate`  */
   "name"?: string
   /** defines `PVC` provisioner - be it StatefulSet or the Operator (case-insensitive) */
-  "provisioner"?: string
+  "provisioner"?: "" | "StatefulSet" | "statefulset" | "Operator" | "operator"
   /** defines behavior of `PVC` deletion (case-insensitive). `Delete` by default, if `Retain` specified then `PVC` will be kept when deleting StatefulSet  */
-  "reclaimPolicy"?: string
+  "reclaimPolicy"?: "" | "Retain" | "retain" | "Delete" | "delete"
   /** allows to pass standard object's metadata from template to PVC More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata  */
   "metadata"?: Record<string, unknown>
   /** allows define all aspects of `PVC` resource More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims  */
@@ -658,7 +658,7 @@ export interface UseTemplatesItem {
   /** Kubernetes namespace where need search `chit` resource, depending on `watchNamespaces` settings in `clickhouse-operator` */
   "namespace"?: string
   /** optional, current strategy is only merge, and current `chi` settings have more priority than merged template `chit` (case-insensitive) */
-  "useType"?: string
+  "useType"?: "" | "Merge" | "merge"
 }
 
 export interface ClickHouseInstallationSpec {
@@ -667,7 +667,7 @@ export interface ClickHouseInstallationSpec {
   /** Allows to stop all ClickHouse clusters defined in a CHI. Works as the following:  - When `stop` is `1` operator sets `Replicas: 0` in each StatefulSet. Thie leads to having all `Pods` and `Service` deleted. All PVCs are kept intact.  - When `stop` is `0` operator sets `Replicas: 1` and `Pod`s and `Service`s will created again and all retained PVCs will be attached to `Pod`s.  */
   "stop"?: Record<string, unknown>
   /** In case 'RollingUpdate' specified, the operator will always restart ClickHouse pods during reconcile. This options is used in rare cases when force restart is required and is typically removed after the use in order to avoid unneeded restarts.  */
-  "restart"?: string
+  "restart"?: "" | "RollingUpdate" | "rollingupdate"
   /** Suspend reconciliation of resources managed by a ClickHouse Installation. Works as the following:  - When `suspend` is `true` operator stops reconciling all resources.  - When `suspend` is `false` or not set, operator reconciles all resources.  */
   "suspend"?: Record<string, unknown>
   /** Allows to troubleshoot Pods during CrashLoopBack state. This may happen when wrong configuration applied, in this case `clickhouse-server` wouldn't start. Command within ClickHouse container is modified with `sleep` in order to avoid quick restarts and give time to troubleshoot via CLI. Liveness and Readiness probes are disabled as well.  */

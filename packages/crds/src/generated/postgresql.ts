@@ -272,9 +272,9 @@ export interface Data {
   /** AdditionalCommandArgs represents additional arguments that can be appended to the 'barman-cloud-backup' command-line invocation. These arguments provide flexibility to customize the backup process further according to specific requirements or configurations. Example: In a scenario where specialized backup options are required, such as setting a specific timeout or defining custom behavior, users can use this field to specify additional command arguments. Note: It's essential to ensure that the provided arguments are valid and supported by the 'barman-cloud-backup' command, to avoid potential errors or unintended behavior during execution. */
   "additionalCommandArgs"?: string[]
   /** Compress a backup file (a tar file per tablespace) while streaming it to the object store. Available options are empty string (no compression, default), `gzip`, `bzip2`, and `snappy`. */
-  "compression"?: string
+  "compression"?: "bzip2" | "gzip" | "snappy"
   /** Whenever to force the encryption of files (if the bucket is not already configured for that). Allowed options are empty string (use the bucket policy, default), `AES256` and `aws:kms` */
-  "encryption"?: string
+  "encryption"?: "AES256" | "aws:kms"
   /** Control whether the I/O workload for the backup initial checkpoint will be limited, according to the `checkpoint_completion_target` setting on the PostgreSQL server. If set to true, an immediate checkpoint will be used, meaning PostgreSQL will complete the checkpoint as soon as possible. `false` by default. */
   "immediateCheckpoint"?: boolean
   /** The number of parallel jobs to be used to upload the backup, defaults to 2 */
@@ -347,9 +347,9 @@ export interface Wal {
   /** Additional arguments that can be appended to the 'barman-cloud-wal-archive' command-line invocation. These arguments provide flexibility to customize the WAL archive process further, according to specific requirements or configurations. Example: In a scenario where specialized backup options are required, such as setting a specific timeout or defining custom behavior, users can use this field to specify additional command arguments. Note: It's essential to ensure that the provided arguments are valid and supported by the 'barman-cloud-wal-archive' command, to avoid potential errors or unintended behavior during execution. */
   "archiveAdditionalCommandArgs"?: string[]
   /** Compress a WAL file before sending it to the object store. Available options are empty string (no compression, default), `gzip`, `bzip2`, `lz4`, `snappy`, `xz`, and `zstd`. */
-  "compression"?: string
+  "compression"?: "bzip2" | "gzip" | "lz4" | "snappy" | "xz" | "zstd"
   /** Whenever to force the encryption of files (if the bucket is not already configured for that). Allowed options are empty string (use the bucket policy, default), `AES256` and `aws:kms` */
-  "encryption"?: string
+  "encryption"?: "AES256" | "aws:kms"
   /** Number of WAL files to be either archived in parallel (when the PostgreSQL instance is archiving to a backup object store) or restored in parallel (when a PostgreSQL standby is fetching WAL files from a recovery object store). If not specified, WAL files will be processed one at a time. It accepts a positive integer as a value - with 1 being the minimum accepted value. */
   "maxParallel"?: number
   /** Additional arguments that can be appended to the 'barman-cloud-wal-restore' command-line invocation. These arguments provide flexibility to customize the WAL restore process further, according to specific requirements or configurations. Example: In a scenario where specialized backup options are required, such as setting a specific timeout or defining custom behavior, users can use this field to specify additional command arguments. Note: It's essential to ensure that the provided arguments are valid and supported by the 'barman-cloud-wal-restore' command, to avoid potential errors or unintended behavior during execution. */
@@ -400,7 +400,7 @@ export interface VolumeSnapshot {
   /** Configuration parameters to control the online/hot backup with volume snapshots */
   "onlineConfiguration"?: OnlineConfiguration
   /** SnapshotOwnerReference indicates the type of owner reference the snapshot should have */
-  "snapshotOwnerReference"?: string
+  "snapshotOwnerReference"?: "none" | "cluster" | "backup"
   /** TablespaceClassName specifies the Snapshot Class to be used for the tablespaces. defaults to the PGDATA Snapshot Class, if set */
   "tablespaceClassName"?: Record<string, unknown>
   /** WalClassName specifies the Snapshot Class to be used for the PG_WAL PersistentVolumeClaim. */
@@ -413,7 +413,7 @@ export interface Backup {
   /** RetentionPolicy is the retention policy to be used for backups and WALs (i.e. '60d'). The retention policy is expressed in the form of `XXu` where `XX` is a positive integer and `u` is in `[dwm]` - days, weeks, months. It's currently only applicable when using the BarmanObjectStore method. */
   "retentionPolicy"?: string
   /** The policy to decide which instance should perform backups. Available options are empty string, which will default to `prefer-standby` policy, `primary` to have backups run always on primary instances, `prefer-standby` to have backups run preferably on the most updated standby, if available. */
-  "target"?: string
+  "target"?: "primary" | "prefer-standby"
   /** VolumeSnapshot provides the configuration for the execution of volume snapshot backups. */
   "volumeSnapshot"?: VolumeSnapshot
 }
@@ -439,7 +439,7 @@ export interface Import {
   /** The source of the import */
   "source": Source
   /** The import type. Can be `microservice` or `monolith`. */
-  "type": string
+  "type": "microservice" | "monolith"
 }
 
 export interface ConfigMapRefsItem {
@@ -900,7 +900,7 @@ export interface RolesItem {
   /** DisablePassword indicates that a role's password should be set to NULL in Postgres */
   "disablePassword"?: boolean
   /** Ensure the role is `present` or `absent` - defaults to "present" */
-  "ensure"?: string
+  "ensure"?: "present" | "absent"
   /** List of one or more existing roles to which this role will be immediately added as a new member. Default empty. */
   "inRoles"?: string[]
   /** Whether a role "inherits" the privileges of roles it is a member of. Defaults is `true`. */
@@ -1005,18 +1005,18 @@ export interface ServiceTemplate {
 
 export interface AdditionalItem {
   /** SelectorType specifies the type of selectors that the service will have. Valid values are "rw", "r", and "ro", representing read-write, read, and read-only services. */
-  "selectorType": string
+  "selectorType": "rw" | "r" | "ro"
   /** ServiceTemplate is the template specification for the service. */
   "serviceTemplate": ServiceTemplate
   /** UpdateStrategy describes how the service differences should be reconciled */
-  "updateStrategy"?: string
+  "updateStrategy"?: "patch" | "replace"
 }
 
 export interface Services {
   /** Additional is a list of additional managed services specified by the user. */
   "additional"?: AdditionalItem[]
   /** DisabledDefaultServices is a list of service types that are disabled by default. Valid values are "r", and "ro", representing read, and read-only services. */
-  "disabledDefaultServices"?: string[]
+  "disabledDefaultServices"?: ("rw" | "r" | "ro")[]
 }
 
 export interface Managed {
@@ -1042,7 +1042,7 @@ export interface CustomQueriesSecretItem {
 
 export interface PodMonitorMetricRelabelingsItem {
   /** action to perform based on the regex matching. `Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0. `DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0. Default: "Replace" */
-  "action"?: string
+  "action"?: "replace" | "Replace" | "keep" | "Keep" | "drop" | "Drop" | "hashmod" | "HashMod" | "labelmap" | "LabelMap" | "labeldrop" | "LabelDrop" | "labelkeep" | "LabelKeep" | "lowercase" | "Lowercase" | "uppercase" | "Uppercase" | "keepequal" | "KeepEqual" | "dropequal" | "DropEqual"
   /** modulus to take of the hash of the source label values. Only applicable when the action is `HashMod`. */
   "modulus"?: number
   /** regex defines the regular expression against which the extracted value is matched. */
@@ -1059,7 +1059,7 @@ export interface PodMonitorMetricRelabelingsItem {
 
 export interface PodMonitorRelabelingsItem {
   /** action to perform based on the regex matching. `Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0. `DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0. Default: "Replace" */
-  "action"?: string
+  "action"?: "replace" | "Replace" | "keep" | "Keep" | "drop" | "Drop" | "hashmod" | "HashMod" | "labelmap" | "LabelMap" | "labeldrop" | "LabelDrop" | "labelkeep" | "LabelKeep" | "lowercase" | "Lowercase" | "uppercase" | "Uppercase" | "keepequal" | "KeepEqual" | "dropequal" | "DropEqual"
   /** modulus to take of the hash of the source label values. Only applicable when the action is `HashMod`. */
   "modulus"?: number
   /** regex defines the regular expression against which the extracted value is matched. */
@@ -1182,7 +1182,7 @@ export interface Ldap {
   /** LDAP server port */
   "port"?: number
   /** LDAP schema to be used, possible options are `ldap` and `ldaps` */
-  "scheme"?: string
+  "scheme"?: "ldap" | "ldaps"
   /** LDAP hostname or IP address */
   "server"?: string
   /** Set to 'true' to enable LDAP over TLS. 'false' is default */
@@ -1198,11 +1198,11 @@ export interface SyncReplicaElectionConstraint {
 
 export interface Synchronous {
   /** If set to "required", data durability is strictly enforced. Write operations with synchronous commit settings (`on`, `remote_write`, or `remote_apply`) will block if there are insufficient healthy replicas, ensuring data persistence. If set to "preferred", data durability is maintained when healthy replicas are available, but the required number of instances will adjust dynamically if replicas become unavailable. This setting relaxes strict durability enforcement to allow for operational continuity. This setting is only applicable if both `standbyNamesPre` and `standbyNamesPost` are unset (empty). */
-  "dataDurability"?: string
+  "dataDurability"?: "required" | "preferred"
   /** Specifies the maximum number of local cluster pods that can be automatically included in the `synchronous_standby_names` option in PostgreSQL. */
   "maxStandbyNamesFromCluster"?: number
   /** Method to select synchronous replication standbys from the listed servers, accepting 'any' (quorum-based synchronous replication) or 'first' (priority-based synchronous replication) as values. */
-  "method": string
+  "method": "any" | "first"
   /** Specifies the number of synchronous standby servers that transactions must wait for responses from. */
   "number": number
   /** A user-defined list of application names to be added to `synchronous_standby_names` after local cluster pods (the order is only useful for priority-based synchronous replication). */
@@ -1276,7 +1276,7 @@ export interface Readiness {
   /** Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes */
   "timeoutSeconds"?: number
   /** The probe strategy */
-  "type"?: string
+  "type"?: "pg_isready" | "streaming" | "query"
 }
 
 export interface Startup {
@@ -1295,7 +1295,7 @@ export interface Startup {
   /** Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes */
   "timeoutSeconds"?: number
   /** The probe strategy */
-  "type"?: string
+  "type"?: "pg_isready" | "streaming" | "query"
 }
 
 export interface Probes {
@@ -1603,7 +1603,7 @@ export interface ClusterSpec {
   /** LivenessProbeTimeout is the time (in seconds) that is allowed for a PostgreSQL instance to successfully respond to the liveness probe (default 30). The Liveness probe failure threshold is derived from this value using the formula: ceiling(livenessProbe / 10). */
   "livenessProbeTimeout"?: number
   /** The instances' log level, one of the following values: error, warning, info (default), debug, trace */
-  "logLevel"?: string
+  "logLevel"?: "error" | "warning" | "info" | "debug" | "trace"
   /** The configuration that is used by the portions of PostgreSQL that are managed by the instance manager */
   "managed"?: Managed
   /** The target value for the synchronous replication quorum, that can be decreased if the number of ready standbys is lower than this. Undefined or 0 disable synchronous replication. */
@@ -1623,9 +1623,9 @@ export interface ClusterSpec {
   /** Configuration of the PostgreSQL server */
   "postgresql"?: Postgresql
   /** Method to follow to upgrade the primary server during a rolling update procedure, after all replicas have been successfully updated: it can be with a switchover (`switchover`) or in-place (`restart` - default) */
-  "primaryUpdateMethod"?: string
+  "primaryUpdateMethod"?: "switchover" | "restart"
   /** Deployment strategy to follow to upgrade the primary server during a rolling update procedure, after all replicas have been successfully updated: it can be automated (`unsupervised` - default) or manual (`supervised`) */
-  "primaryUpdateStrategy"?: string
+  "primaryUpdateStrategy"?: "unsupervised" | "supervised"
   /** Name of the priority class which will be used in every generated Pod, if the PriorityClass specified does not exist, the pod will not be able to schedule.  Please refer to https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass for more information */
   "priorityClassName"?: string
   /** The configuration of the probes to be injected in the PostgreSQL Pods. */
@@ -1696,7 +1696,7 @@ export interface ConditionsItem {
   /** reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty. */
   "reason": string
   /** status of the condition, one of True, False, Unknown. */
-  "status": string
+  "status": "True" | "False" | "Unknown"
   /** type of condition in CamelCase or in foo.example.com/CamelCase. */
   "type": string
 }
@@ -1942,7 +1942,7 @@ export interface Pgbouncer {
   /** PostgreSQL Host Based Authentication rules (lines to be appended to the pg_hba.conf file) */
   "pg_hba"?: string[]
   /** The pool mode. Default: `session`. */
-  "poolMode"?: string
+  "poolMode"?: "session" | "transaction"
 }
 
 export interface PodAffinity {
@@ -3000,7 +3000,7 @@ export interface PoolerSpec {
   /** The template of the Pod to be created */
   "template"?: Template
   /** Type of service to forward traffic to. Default: `rw`. */
-  "type"?: string
+  "type"?: "rw" | "ro" | "r"
 }
 
 export interface ClientCA {
@@ -3063,13 +3063,13 @@ export interface PluginConfiguration {
 
 export interface ScheduledBackupSpec {
   /** Indicates which ownerReference should be put inside the created backup resources.<br /> - none: no owner reference for created backup objects (same behavior as before the field was introduced)<br /> - self: sets the Scheduled backup object as owner of the backup<br /> - cluster: set the cluster as owner of the backup<br /> */
-  "backupOwnerReference"?: string
+  "backupOwnerReference"?: "none" | "self" | "cluster"
   /** The cluster to backup */
   "cluster": Cluster2
   /** If the first backup has to be immediately start after creation or not */
   "immediate"?: boolean
   /** The backup method to be used, possible options are `barmanObjectStore`, `volumeSnapshot` or `plugin`. Defaults to: `barmanObjectStore`. */
-  "method"?: string
+  "method"?: "barmanObjectStore" | "volumeSnapshot" | "plugin"
   /** Whether the default type of backup with volume snapshots is online/hot (`true`, default) or offline/cold (`false`) Overrides the default setting specified in the cluster field '.spec.backup.volumeSnapshot.online' */
   "online"?: boolean
   /** Configuration parameters to control the online/hot backup with volume snapshots Overrides the default settings specified in the cluster '.backup.volumeSnapshot.onlineConfiguration' stanza */
@@ -3081,7 +3081,7 @@ export interface ScheduledBackupSpec {
   /** If this backup is suspended or not */
   "suspend"?: boolean
   /** The policy to decide which instance should perform this backup. If empty, it defaults to `cluster.spec.backup.target`. Available options are empty string, `primary` and `prefer-standby`. `primary` to have backups run always on primary instances, `prefer-standby` to have backups run preferably on the most updated standby, if available. */
-  "target"?: string
+  "target"?: "primary" | "prefer-standby"
 }
 
 export interface ScheduledBackupStatus {

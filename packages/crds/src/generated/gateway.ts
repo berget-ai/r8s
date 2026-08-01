@@ -98,9 +98,9 @@ export interface BackendTLS {
   /** ECDHCurves specifies the set of supported ECDH curves. In non-FIPS Envoy Proxy builds the default curves are: - X25519 - P-256 In builds using BoringSSL FIPS the default curve is: - P-256 */
   "ecdhCurves"?: string[]
   /** Max specifies the maximal TLS protocol version to allow The default is TLS 1.3 if this is not specified. */
-  "maxVersion"?: string
+  "maxVersion"?: "Auto" | "1.0" | "1.1" | "1.2" | "1.3"
   /** Min specifies the minimal TLS protocol version to allow. The default is TLS 1.2 if this is not specified. */
-  "minVersion"?: string
+  "minVersion"?: "Auto" | "1.0" | "1.1" | "1.2" | "1.3"
   /** SignatureAlgorithms specifies which signature algorithms the listener should support. */
   "signatureAlgorithms"?: string[]
 }
@@ -111,7 +111,7 @@ export interface JsonPatchesItem {
   /** JSONPath is a JSONPath expression. Refer to https://datatracker.ietf.org/doc/rfc9535/ for more details. It produces one or more JSONPointer expressions based on the given JSON document. If no JSONPointer is found, it will result in an error. If the 'Path' property is also set, it will be appended to the resulting JSONPointer expressions from the JSONPath evaluation. This is useful when creating a property that does not yet exist in the JSON document. The final JSONPointer expressions specifies the locations in the target document/field where the operation will be applied. */
   "jsonPath"?: string
   /** Op is the type of operation to perform */
-  "op": string
+  "op": "add" | "remove" | "replace" | "move" | "copy" | "test"
   /** Path is a JSONPointer expression. Refer to https://datatracker.ietf.org/doc/html/rfc6901 for more details. It specifies the location of the target document/field where the operation will be performed */
   "path"?: string
   /** Value is the new value of the path location. The value is only used by the `add` and `replace` operations. */
@@ -122,18 +122,18 @@ export interface Bootstrap {
   /** JSONPatches is an array of JSONPatches to be applied to the default bootstrap. Patches are applied in the order in which they are defined. */
   "jsonPatches"?: JsonPatchesItem[]
   /** Type is the type of the bootstrap configuration, it should be either **Replace**,  **Merge**, or **JSONPatch**. If unspecified, it defaults to Replace. */
-  "type"?: string
+  "type"?: "Merge" | "Replace" | "JSONPatch"
   /** Value is a YAML string of the bootstrap. */
   "value"?: string
 }
 
 export interface FilterOrderItem {
   /** After defines the filter that should come after the filter. Only one of Before or After must be set. */
-  "after"?: string
+  "after"?: "envoy.filters.http.custom_response" | "envoy.filters.http.health_check" | "envoy.filters.http.fault" | "envoy.filters.http.cors" | "envoy.filters.http.header_mutation" | "envoy.filters.http.ext_authz" | "envoy.filters.http.api_key_auth" | "envoy.filters.http.basic_auth" | "envoy.filters.http.oauth2" | "envoy.filters.http.jwt_authn" | "envoy.filters.http.stateful_session" | "envoy.filters.http.buffer" | "envoy.filters.http.lua" | "envoy.filters.http.ext_proc" | "envoy.filters.http.wasm" | "envoy.filters.http.rbac" | "envoy.filters.http.local_ratelimit" | "envoy.filters.http.ratelimit" | "envoy.filters.http.grpc_web" | "envoy.filters.http.grpc_stats" | "envoy.filters.http.credential_injector" | "envoy.filters.http.compressor" | "envoy.filters.http.dynamic_forward_proxy"
   /** Before defines the filter that should come before the filter. Only one of Before or After must be set. */
-  "before"?: string
+  "before"?: "envoy.filters.http.custom_response" | "envoy.filters.http.health_check" | "envoy.filters.http.fault" | "envoy.filters.http.cors" | "envoy.filters.http.header_mutation" | "envoy.filters.http.ext_authz" | "envoy.filters.http.api_key_auth" | "envoy.filters.http.basic_auth" | "envoy.filters.http.oauth2" | "envoy.filters.http.jwt_authn" | "envoy.filters.http.stateful_session" | "envoy.filters.http.buffer" | "envoy.filters.http.lua" | "envoy.filters.http.ext_proc" | "envoy.filters.http.wasm" | "envoy.filters.http.rbac" | "envoy.filters.http.local_ratelimit" | "envoy.filters.http.ratelimit" | "envoy.filters.http.grpc_web" | "envoy.filters.http.grpc_stats" | "envoy.filters.http.credential_injector" | "envoy.filters.http.compressor" | "envoy.filters.http.dynamic_forward_proxy"
   /** Name of the filter. */
-  "name": string
+  "name": "envoy.filters.http.custom_response" | "envoy.filters.http.health_check" | "envoy.filters.http.fault" | "envoy.filters.http.cors" | "envoy.filters.http.header_mutation" | "envoy.filters.http.ext_authz" | "envoy.filters.http.api_key_auth" | "envoy.filters.http.basic_auth" | "envoy.filters.http.oauth2" | "envoy.filters.http.jwt_authn" | "envoy.filters.http.stateful_session" | "envoy.filters.http.buffer" | "envoy.filters.http.lua" | "envoy.filters.http.ext_proc" | "envoy.filters.http.wasm" | "envoy.filters.http.rbac" | "envoy.filters.http.local_ratelimit" | "envoy.filters.http.ratelimit" | "envoy.filters.http.grpc_web" | "envoy.filters.http.grpc_stats" | "envoy.filters.http.credential_injector" | "envoy.filters.http.compressor" | "envoy.filters.http.dynamic_forward_proxy"
 }
 
 export interface Logging {
@@ -1585,7 +1585,7 @@ export interface EnvoyService {
   /** Annotations that should be appended to the service. By default, no annotations are appended. */
   "annotations"?: Record<string, unknown>
   /** ExternalTrafficPolicy determines the externalTrafficPolicy for the Envoy Service. Valid options are Local and Cluster. Default is "Local". "Local" means traffic will only go to pods on the node receiving the traffic. "Cluster" means connections are loadbalanced to all pods in the cluster. */
-  "externalTrafficPolicy"?: string
+  "externalTrafficPolicy"?: "Local" | "Cluster"
   /** Labels that should be appended to the service. By default, no labels are appended. */
   "labels"?: Record<string, unknown>
   /** LoadBalancerClass, when specified, allows for choosing the LoadBalancer provider implementation if more than one are available or is otherwise expected to be specified */
@@ -1599,7 +1599,7 @@ export interface EnvoyService {
   /** Patch defines how to perform the patch operation to the service */
   "patch"?: Patch
   /** Type determines how the Service is exposed. Defaults to LoadBalancer. Valid options are ClusterIP, LoadBalancer and NodePort. "LoadBalancer" means a service will be exposed via an external load balancer (if the cloud provider supports it). "ClusterIP" means a service will only be accessible inside the cluster, via the cluster IP. "NodePort" means a service will be exposed on a static Port on all Nodes of the cluster. */
-  "type"?: string
+  "type"?: "ClusterIP" | "LoadBalancer" | "NodePort"
 }
 
 export interface EnvoyServiceAccount {
@@ -1630,7 +1630,7 @@ export interface Provider {
   /** Kubernetes defines the desired state of the Kubernetes resource provider. Kubernetes provides infrastructure resources for running the data plane, e.g. Envoy proxy. If unspecified and type is "Kubernetes", default settings for managed Kubernetes resources are applied. */
   "kubernetes"?: Kubernetes
   /** Type is the type of resource provider to use. A resource provider provides infrastructure resources for running the data plane, e.g. Envoy proxy, and optional auxiliary control planes. Supported types are "Kubernetes"and "Host". */
-  "type": string
+  "type": "Kubernetes" | "Host"
 }
 
 export interface Shutdown {
@@ -1646,7 +1646,7 @@ export interface Format {
   /** Text defines the text accesslog format, following Envoy accesslog formatting, It's required when the format type is "Text". Envoy [command operators](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#command-operators) may be used in the format. The [format string documentation](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#config-access-log-format-strings) provides more information. */
   "text"?: string
   /** Type defines the type of accesslog format. When unset, both text and json can be specified. */
-  "type"?: string
+  "type"?: "Text" | "JSON"
 }
 
 export interface BackendRef {
@@ -1719,7 +1719,7 @@ export interface Dns {
   /** DNSRefreshRate specifies the rate at which DNS records should be refreshed. Defaults to 30 seconds. */
   "dnsRefreshRate"?: string
   /** LookupFamily determines how Envoy would resolve DNS for Routes where the backend is specified as a fully qualified domain name (FQDN). If set, this configuration overrides other defaults. */
-  "lookupFamily"?: string
+  "lookupFamily"?: "IPv4" | "IPv6" | "IPv4Preferred" | "IPv6Preferred" | "IPv4AndIPv6"
   /** RespectDNSTTL indicates whether the DNS Time-To-Live (TTL) should be respected. If the value is set to true, the DNS refresh rate will be set to the resource record’s TTL. Defaults to true. */
   "respectDnsTtl"?: boolean
 }
@@ -1872,7 +1872,7 @@ export interface ConsistentHash {
   /** The table size for consistent hashing, must be prime number limited to 5000011. */
   "tableSize"?: number
   /** ConsistentHashType defines the type of input to hash on. Valid Type values are "SourceIP", "Header", "Headers", "Cookie". "QueryParams". */
-  "type": string
+  "type": "SourceIP" | "Header" | "Headers" | "Cookie" | "QueryParams"
 }
 
 export interface ExtractFromItem {
@@ -1917,14 +1917,14 @@ export interface LoadBalancer {
   /** SlowStart defines the configuration related to the slow start load balancer policy. If set, during slow start window, traffic sent to the newly added hosts will gradually increase. Currently this is only supported for RoundRobin and LeastRequest load balancers */
   "slowStart"?: SlowStart
   /** Type decides the type of Load Balancer policy. Valid LoadBalancerType values are "ConsistentHash", "LeastRequest", "Random", "RoundRobin". */
-  "type": string
+  "type": "ConsistentHash" | "LeastRequest" | "Random" | "RoundRobin"
   /** ZoneAware defines the configuration related to the distribution of requests between locality zones. */
   "zoneAware"?: ZoneAware
 }
 
 export interface ProxyProtocol {
   /** Version of ProxyProtol Valid ProxyProtocolVersion values are "V1" "V2" */
-  "version": string
+  "version": "V1" | "V2"
 }
 
 export interface BackOff {
@@ -1945,7 +1945,7 @@ export interface RetryOn {
   /** HttpStatusCodes specifies the http status codes to be retried. The retriable-status-codes trigger must also be configured for these status codes to trigger a retry. */
   "httpStatusCodes"?: number[]
   /** Triggers specifies the retry trigger condition(Http/Grpc). */
-  "triggers"?: string[]
+  "triggers"?: ("5xx" | "gateway-error" | "reset" | "reset-before-request" | "connect-failure" | "retriable-4xx" | "refused-stream" | "retriable-status-codes" | "cancelled" | "deadline-exceeded" | "internal" | "resource-exhausted" | "unavailable")[]
 }
 
 export interface Retry {
@@ -2035,7 +2035,7 @@ export interface Als {
   /** LogName defines the friendly name of the access log to be returned in StreamAccessLogsMessage.Identifier. This allows the access log server to differentiate between different access logs coming from the same Envoy. */
   "logName"?: string
   /** Type defines the type of accesslog. Supported types are "HTTP" and "TCP". */
-  "type": string
+  "type": "HTTP" | "TCP"
 }
 
 export interface File {
@@ -2077,7 +2077,7 @@ export interface SinksItem {
   /** OpenTelemetry defines the OpenTelemetry accesslog sink. */
   "openTelemetry"?: OpenTelemetry
   /** Type defines the type of accesslog sink. */
-  "type"?: string
+  "type"?: "ALS" | "File" | "OpenTelemetry"
 }
 
 export interface SettingsItem {
@@ -2088,7 +2088,7 @@ export interface SettingsItem {
   /** Sinks defines the sinks of accesslog. */
   "sinks": SinksItem[]
   /** Type defines the component emitting the accesslog, such as Listener and Route. If type not defined, the setting would apply to: (1) All Routes. (2) Listeners if and only if Envoy does not find a matching route for a request. If type is defined, the accesslog settings would apply to the relevant component (as-is). */
-  "type"?: string
+  "type"?: "Listener" | "Route"
 }
 
 export interface AccessLog {
@@ -2100,7 +2100,7 @@ export interface AccessLog {
 
 export interface MatchesItem {
   /** Type specifies how to match against a string. */
-  "type"?: string
+  "type"?: "Exact" | "Prefix" | "Suffix" | "RegularExpression"
   /** Value specifies the string value that the match must have. */
   "value": string
 }
@@ -2113,7 +2113,7 @@ export interface Compression {
   /** MinContentLength defines the minimum response size in bytes to apply compression. Responses smaller than this threshold will not be compressed. Must be at least 30 bytes as enforced by Envoy Proxy. Note that when the suffix is not provided, the value is interpreted as bytes. Default: 30 bytes */
   "minContentLength"?: number | string
   /** CompressorType defines the compressor type to use for compression. */
-  "type": string
+  "type": "Gzip" | "Brotli" | "Zstd"
   /** The configuration for Zstd compressor. */
   "zstd"?: Record<string, unknown>
 }
@@ -2150,7 +2150,7 @@ export interface SinksItem2 {
   /** OpenTelemetry defines the configuration for OpenTelemetry sink. It's required if the sink type is OpenTelemetry. */
   "openTelemetry"?: OpenTelemetry2
   /** Type defines the metric sink type. EG currently only supports OpenTelemetry. */
-  "type": string
+  "type": "OpenTelemetry"
 }
 
 export interface Metrics {
@@ -2172,7 +2172,7 @@ export interface Metrics {
 
 export interface RequestID {
   /** Tracing configures Envoy's behavior for the UUID request ID extension, including whether the trace sampling decision is packed into the UUID and whether `X-Request-ID` is used for trace sampling decisions. When omitted, the default behavior is `PackAndSample`, which alters the UUID to contain the trace sampling decision and uses `X-Request-ID` for stable trace sampling. */
-  "tracing"?: string
+  "tracing"?: "PackAndSample" | "Sample" | "Pack" | "Disable"
 }
 
 export interface OpenTelemetry3 {
@@ -2205,7 +2205,7 @@ export interface Provider2 {
   /** ServiceName defines the service name to use in tracing configuration. If not set, Envoy Gateway will use a default service name set as "name.namespace" (e.g., "my-gateway.default"). Note: This field is only supported for OpenTelemetry and Datadog tracing providers. For Zipkin, the service name in traces is always derived from the Envoy --service-cluster flag (typically "namespace/name" format). Setting this field has no effect for Zipkin. */
   "serviceName"?: string
   /** Type defines the tracing provider type. */
-  "type": string
+  "type": "OpenTelemetry" | "Zipkin" | "Datadog"
   /** Zipkin defines the Zipkin tracing provider configuration */
   "zipkin"?: Zipkin
 }
@@ -2260,11 +2260,11 @@ export interface EnvoyProxySpec {
   /** FilterOrder defines the order of filters in the Envoy proxy's HTTP filter chain. The FilterPosition in the list will be applied in the order they are defined. If unspecified, the default filter order is applied. Default filter order is: - envoy.filters.http.custom_response - envoy.filters.http.health_check - envoy.filters.http.fault - envoy.filters.http.cors - envoy.filters.http.header_mutation - envoy.filters.http.ext_authz - envoy.filters.http.api_key_auth - envoy.filters.http.basic_auth - envoy.filters.http.oauth2 - envoy.filters.http.jwt_authn - envoy.filters.http.stateful_session - envoy.filters.http.buffer - envoy.filters.http.lua - envoy.filters.http.ext_proc - envoy.filters.http.wasm - envoy.filters.http.rbac - envoy.filters.http.local_ratelimit - envoy.filters.http.ratelimit - envoy.filters.http.grpc_web - envoy.filters.http.grpc_stats - envoy.filters.http.credential_injector - envoy.filters.http.compressor - envoy.filters.http.dynamic_forward_proxy - envoy.filters.http.router Note: "envoy.filters.http.router" cannot be reordered, it's always the last filter in the chain. */
   "filterOrder"?: FilterOrderItem[]
   /** IPFamily specifies the IP family for the EnvoyProxy fleet. This setting only affects the Gateway listener port and does not impact other aspects of the Envoy proxy configuration. If not specified, the system will operate as follows: - It defaults to IPv4 only. - IPv6 and dual-stack environments are not supported in this default configuration. Note: To enable IPv6 or dual-stack functionality, explicit configuration is required. */
-  "ipFamily"?: string
+  "ipFamily"?: "IPv4" | "IPv6" | "DualStack"
   /** Logging defines logging parameters for managed proxies. */
   "logging"?: Logging
   /** LuaValidation determines strictness of the Lua script validation for Lua EnvoyExtensionPolicies Default: Strict */
-  "luaValidation"?: string
+  "luaValidation"?: "Strict" | "InsecureSyntax" | "Disabled"
   /** MergeGateways defines if Gateway resources should be merged onto the same Envoy Proxy Infrastructure. Setting this field to true would merge all Gateway Listeners under the parent Gateway Class. This means that the port, protocol and hostname tuple must be unique for every listener. If a duplicate listener is detected, the newer listener (based on timestamp) will be rejected and its status will be updated with a "Accepted=False" condition. */
   "mergeGateways"?: boolean
   /** PreserveRouteOrder determines if the order of matching for HTTPRoutes is determined by Gateway-API specification (https://gateway-api.sigs.k8s.io/reference/1.4/spec/#httprouterule) or preserves the order defined by users in the HTTPRoute's HTTPRouteRule list. Default: False */
@@ -2304,7 +2304,7 @@ export interface ConditionsItem {
   /** reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty. */
   "reason": string
   /** status of the condition, one of True, False, Unknown. */
-  "status": string
+  "status": "True" | "False" | "Unknown"
   /** type of condition in CamelCase or in foo.example.com/CamelCase. */
   "type": string
 }
@@ -2355,7 +2355,7 @@ export interface KindsItem {
 
 export interface Namespaces {
   /** From indicates where Routes will be selected for this Gateway. Possible values are: * All: Routes in all namespaces may be used by this Gateway. * Selector: Routes in namespaces selected by the selector may be used by   this Gateway. * Same: Only Routes in the same namespace may be used by this Gateway. Support: Core */
-  "from"?: string
+  "from"?: "All" | "Selector" | "Same"
   /** Selector must be specified when From is set to "Selector". In that case, only Routes in Namespaces matching this Selector will be selected by this Gateway. This field is ignored for other values of "From". Support: Core */
   "selector"?: Selector
 }
@@ -2382,7 +2382,7 @@ export interface Tls {
   /** CertificateRefs contains a series of references to Kubernetes objects that contains TLS certificates and private keys. These certificates are used to establish a TLS handshake for requests that match the hostname of the associated listener. A single CertificateRef to a Kubernetes Secret has "Core" support. Implementations MAY choose to support attaching multiple certificates to a Listener, but this behavior is implementation-specific. References to a resource in different namespace are invalid UNLESS there is a ReferenceGrant in the target namespace that allows the certificate to be attached. If a ReferenceGrant does not allow this reference, the "ResolvedRefs" condition MUST be set to False for this listener with the "RefNotPermitted" reason. This field is required to have at least one element when the mode is set to "Terminate" (default) and is optional otherwise. CertificateRefs can reference to standard Kubernetes resources, i.e. Secret, or implementation-specific custom resources. Support: Core - A single reference to a Kubernetes Secret of type kubernetes.io/tls Support: Implementation-specific (More than one reference or other resource types) */
   "certificateRefs"?: CertificateRefsItem[]
   /** Mode defines the TLS behavior for the TLS session initiated by the client. There are two possible modes: - Terminate: The TLS session between the downstream client and the   Gateway is terminated at the Gateway. This mode requires certificates   to be specified in some way, such as populating the certificateRefs   field. - Passthrough: The TLS session is NOT terminated by the Gateway. This   implies that the Gateway can't decipher the TLS stream except for   the ClientHello message of the TLS protocol. The certificateRefs field   is ignored in this mode. Support: Core */
-  "mode"?: string
+  "mode"?: "Terminate" | "Passthrough"
   /** Options are a list of key/value pairs to enable extended TLS configuration for each implementation. For example, configuring the minimum TLS version or supported cipher suites. A set of common keys MAY be defined by the API in the future. To avoid any ambiguity, implementation-specific definitions MUST use domain-prefixed names, such as `example.com/my-custom-option`. Un-prefixed names are reserved for key names defined by Gateway API. Support: Implementation-specific */
   "options"?: Record<string, unknown>
 }
@@ -2507,7 +2507,7 @@ export interface Path {
   /** ReplacePrefixMatch specifies the value with which to replace the prefix match of a request during a rewrite or redirect. For example, a request to "/foo/bar" with a prefix match of "/foo" and a ReplacePrefixMatch of "/xyz" would be modified to "/xyz/bar". Note that this matches the behavior of the PathPrefix match type. This matches full path elements. A path element refers to the list of labels in the path split by the `/` separator. When specified, a trailing `/` is ignored. For example, the paths `/abc`, `/abc/`, and `/abc/def` would all match the prefix `/abc`, but the path `/abcd` would not. ReplacePrefixMatch is only compatible with a `PathPrefix` HTTPRouteMatch. Using any other HTTPRouteMatch type on the same HTTPRouteRule will result in the implementation setting the Accepted Condition for the Route to `status: False`. Request Path | Prefix Match | Replace Prefix | Modified Path */
   "replacePrefixMatch"?: string
   /** Type defines the type of path modifier. Additional types may be added in a future release of the API. Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. */
-  "type": string
+  "type": "ReplaceFullPath" | "ReplacePrefixMatch"
 }
 
 export interface RequestRedirect {
@@ -2518,9 +2518,9 @@ export interface RequestRedirect {
   /** Port is the port to be used in the value of the `Location` header in the response. If no port is specified, the redirect port MUST be derived using the following rules: * If redirect scheme is not-empty, the redirect port MUST be the well-known   port associated with the redirect scheme. Specifically "http" to port 80   and "https" to port 443. If the redirect scheme does not have a   well-known port, the listener port of the Gateway SHOULD be used. * If redirect scheme is empty, the redirect port MUST be the Gateway   Listener port. Implementations SHOULD NOT add the port number in the 'Location' header in the following cases: * A Location header that will use HTTP (whether that is determined via   the Listener protocol or the Scheme field) _and_ use port 80. * A Location header that will use HTTPS (whether that is determined via   the Listener protocol or the Scheme field) _and_ use port 443. Support: Extended */
   "port"?: number
   /** Scheme is the scheme to be used in the value of the `Location` header in the response. When empty, the scheme of the request is used. Scheme redirects can affect the port of the redirect, for more information, refer to the documentation for the port field of this filter. Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. Support: Extended */
-  "scheme"?: string
+  "scheme"?: "http" | "https"
   /** StatusCode is the HTTP status code to be used in response. Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. Support: Core */
-  "statusCode"?: number
+  "statusCode"?: 301 | 302
 }
 
 export interface ResponseHeaderModifier {
@@ -2551,7 +2551,7 @@ export interface FiltersItem {
   /** ResponseHeaderModifier defines a schema for a filter that modifies response headers. Support: Extended */
   "responseHeaderModifier"?: ResponseHeaderModifier
   /** Type identifies the type of filter to apply. As with other API fields, types are classified into three conformance levels: - Core: Filter types and their corresponding configuration defined by   "Support: Core" in this package, e.g. "RequestHeaderModifier". All   implementations must support core filters. - Extended: Filter types and their corresponding configuration defined by   "Support: Extended" in this package, e.g. "RequestMirror". Implementers   are encouraged to support extended filters. - Implementation-specific: Filters that are defined and supported by   specific vendors.   In the future, filters showing convergence in behavior across multiple   implementations will be considered for inclusion in extended or core   conformance levels. Filter-specific configuration for such filters   is specified using the ExtensionRef field. `Type` should be set to   "ExtensionRef" for custom filters. Implementers are encouraged to define custom implementation types to extend the core API with implementation-specific behavior. If a reference to a custom filter type cannot be resolved, the filter MUST NOT be skipped. Instead, requests that would have been processed by that filter MUST receive a HTTP error response. Note that values may be added to this enum, implementations must ensure that unknown values will not cause a crash. Unknown values here must result in the implementation setting the Accepted Condition for the Route to `status: False`, with a Reason of `UnsupportedValue`. */
-  "type": string
+  "type": "RequestHeaderModifier" | "ResponseHeaderModifier" | "RequestMirror" | "RequestRedirect" | "URLRewrite" | "ExtensionRef"
   /** URLRewrite defines a schema for a filter that modifies a request during forwarding. Support: Extended */
   "urlRewrite"?: UrlRewrite
 }
@@ -2577,14 +2577,14 @@ export interface HeadersItem3 {
   /** Name is the name of the HTTP Header to be matched. Name matching MUST be case-insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2). If multiple entries specify equivalent header names, only the first entry with an equivalent name MUST be considered for a match. Subsequent entries with an equivalent header name MUST be ignored. Due to the case-insensitivity of header names, "foo" and "Foo" are considered equivalent. When a header is repeated in an HTTP request, it is implementation-specific behavior as to how this is represented. Generally, proxies should follow the guidance from the RFC: https://www.rfc-editor.org/rfc/rfc7230.html#section-3.2.2 regarding processing a repeated header, with special handling for "Set-Cookie". */
   "name": string
   /** Type specifies how to match against the value of the header. Support: Core (Exact) Support: Implementation-specific (RegularExpression) Since RegularExpression HeaderMatchType has implementation-specific conformance, implementations can support POSIX, PCRE or any other dialects of regular expressions. Please read the implementation's documentation to determine the supported dialect. */
-  "type"?: string
+  "type"?: "Exact" | "RegularExpression"
   /** Value is the value of HTTP Header to be matched. */
   "value": string
 }
 
 export interface Path2 {
   /** Type specifies how to match against the path Value. Support: Core (Exact, PathPrefix) Support: Implementation-specific (RegularExpression) */
-  "type"?: string
+  "type"?: "Exact" | "PathPrefix" | "RegularExpression"
   /** Value of the HTTP path to match against. */
   "value"?: string
 }
@@ -2593,7 +2593,7 @@ export interface QueryParamsItem2 {
   /** Name is the name of the HTTP query param to be matched. This must be an exact string match. (See https://tools.ietf.org/html/rfc7230#section-2.7.3). If multiple entries specify equivalent query param names, only the first entry with an equivalent name MUST be considered for a match. Subsequent entries with an equivalent query param name MUST be ignored. If a query param is repeated in an HTTP request, the behavior is purposely left undefined, since different data planes have different capabilities. However, it is *recommended* that implementations should match against the first value of the param if the data plane supports it, as this behavior is expected in other load balancing contexts outside of the Gateway API. Users SHOULD NOT route traffic based on repeated query params to guard themselves against potential differences in the implementations. */
   "name": string
   /** Type specifies how to match against the value of the query parameter. Support: Extended (Exact) Support: Implementation-specific (RegularExpression) Since RegularExpression QueryParamMatchType has Implementation-specific conformance, implementations can support POSIX, PCRE or any other dialects of regular expressions. Please read the implementation's documentation to determine the supported dialect. */
-  "type"?: string
+  "type"?: "Exact" | "RegularExpression"
   /** Value is the value of HTTP query param to be matched. */
   "value": string
 }
@@ -2602,7 +2602,7 @@ export interface MatchesItem2 {
   /** Headers specifies HTTP request header matchers. Multiple match values are ANDed together, meaning, a request must match all the specified headers to select the route. */
   "headers"?: HeadersItem3[]
   /** Method specifies HTTP method matcher. When specified, this route will be matched only if the request has the specified method. Support: Extended */
-  "method"?: string
+  "method"?: "GET" | "HEAD" | "POST" | "PUT" | "DELETE" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH"
   /** Path specifies a HTTP request path matcher. If this field is not specified, a default prefix match on the "/" path is provided. */
   "path"?: Path2
   /** QueryParams specifies HTTP query parameter matchers. Multiple match values are ANDed together, meaning, a request must match all the specified query parameters to select the route. Support: Extended */

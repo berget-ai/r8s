@@ -2,6 +2,7 @@ import { usePageContext } from 'vike-react/usePageContext'
 import { useConfig } from 'vike-react/useConfig'
 import type { Package } from '../../../data/packages'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { Markdown } from '../../../components/Markdown'
 
 export default function Page() {
   const pageContext = usePageContext()
@@ -119,7 +120,7 @@ export default function Page() {
                       <span className="text-cloud/40 text-sm truncate">{prop.default || '—'}</span>
                     </div>
                     {prop.description && (
-                      <p className="text-cloud/70 text-sm leading-relaxed pl-0">{prop.description}</p>
+                      <Markdown content={prop.description} className="text-cloud/70 text-sm leading-relaxed" />
                     )}
                   </div>
                 ))}

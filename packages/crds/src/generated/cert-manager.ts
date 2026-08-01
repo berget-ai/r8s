@@ -55,7 +55,7 @@ export function ClusterIssuerComponent(props: ClusterIssuerProps) {
 
 export interface AdditionalOutputFormatsItem {
   /** Type is the name of the format type that should be written to the Certificate's target Secret. */
-  "type": string
+  "type": "DER" | "CombinedPEM"
 }
 
 export interface IssuerRef {
@@ -93,7 +93,7 @@ export interface Pkcs12 {
   /** PasswordSecretRef is a reference to a non-empty key in a Secret resource containing the password used to encrypt the PKCS#12 keystore. Mutually exclusive with password. One of password or passwordSecretRef must provide a password with a non-zero length. */
   "passwordSecretRef"?: PasswordSecretRef
   /** Profile specifies the key and certificate encryption algorithms and the HMAC algorithm used to create the PKCS12 keystore. Default value is `LegacyRC2` for backward compatibility. If provided, allowed values are: `LegacyRC2`: Deprecated. Not supported by default in OpenSSL 3 or Java 20. `LegacyDES`: Less secure algorithm. Use this option for maximal compatibility. `Modern2023`: Secure algorithm. Use this option in case you have to always use secure algorithms (e.g., because of company policy). Please note that the security of the algorithm is not that important in reality, because the unencrypted certificate and private key are also stored in the Secret. */
-  "profile"?: string
+  "profile"?: "LegacyRC2" | "LegacyDES" | "Modern2023"
 }
 
 export interface Keystores {
@@ -143,11 +143,11 @@ export interface OtherNamesItem {
 
 export interface PrivateKey {
   /** Algorithm is the private key algorithm of the corresponding private key for this certificate. If provided, allowed values are either `RSA`, `ECDSA` or `Ed25519`. If `algorithm` is specified and `size` is not provided, key size of 2048 will be used for `RSA` key algorithm and key size of 256 will be used for `ECDSA` key algorithm. key size is ignored when using the `Ed25519` key algorithm. */
-  "algorithm"?: string
+  "algorithm"?: "RSA" | "ECDSA" | "Ed25519"
   /** The private key cryptography standards (PKCS) encoding for this certificate's private key to be encoded in. If provided, allowed values are `PKCS1` and `PKCS8` standing for PKCS#1 and PKCS#8, respectively. Defaults to `PKCS1` if not specified. */
-  "encoding"?: string
+  "encoding"?: "PKCS1" | "PKCS8"
   /** RotationPolicy controls how private keys should be regenerated when a re-issuance is being processed. If set to `Never`, a private key will only be generated if one does not already exist in the target `spec.secretName`. If one does exist but it does not have the correct algorithm or size, a warning will be raised to await user intervention. If set to `Always`, a private key matching the specified requirements will be generated whenever a re-issuance occurs. Default is `Always`. The default was changed from `Never` to `Always` in cert-manager >=v1.18.0. The new default can be disabled by setting the `--feature-gates=DefaultPrivateKeyRotationPolicyAlways=false` option on the controller component. */
-  "rotationPolicy"?: string
+  "rotationPolicy"?: "Never" | "Always"
   /** Size is the key bit size of the corresponding private key for this certificate. If `algorithm` is set to `RSA`, valid values are `2048`, `4096` or `8192`, and will default to `2048` if not specified. If `algorithm` is set to `ECDSA`, valid values are `256`, `384` or `521`, and will default to `256` if not specified. If `algorithm` is set to `Ed25519`, Size is ignored. No other values are allowed. */
   "size"?: number
 }
@@ -218,13 +218,13 @@ export interface CertificateSpec {
   /** Defines annotations and labels to be copied to the Certificate's Secret. Labels and annotations on the Secret will be changed as they appear on the SecretTemplate when added or removed. SecretTemplate annotations are added in conjunction with, and cannot overwrite, the base set of annotations cert-manager sets on the Certificate's Secret. */
   "secretTemplate"?: SecretTemplate
   /** Signature algorithm to use. Allowed values for RSA keys: SHA256WithRSA, SHA384WithRSA, SHA512WithRSA. Allowed values for ECDSA keys: ECDSAWithSHA256, ECDSAWithSHA384, ECDSAWithSHA512. Allowed values for Ed25519 keys: PureEd25519. */
-  "signatureAlgorithm"?: string
+  "signatureAlgorithm"?: "SHA256WithRSA" | "SHA384WithRSA" | "SHA512WithRSA" | "ECDSAWithSHA256" | "ECDSAWithSHA384" | "ECDSAWithSHA512" | "PureEd25519"
   /** Requested set of X509 certificate subject attributes. More info: https://datatracker.ietf.org/doc/html/rfc5280#section-4.1.2.6 The common name attribute is specified separately in the `commonName` field. Cannot be set if the `literalSubject` field is set. */
   "subject"?: Subject
   /** Requested URI subject alternative names. */
   "uris"?: string[]
   /** Requested key usages and extended key usages. These usages are used to set the `usages` field on the created CertificateRequest resources. If `encodeUsagesInRequest` is unset or set to `true`, the usages will additionally be encoded in the `request` field which contains the CSR blob. If unset, defaults to `digital signature` and `key encipherment`. */
-  "usages"?: string[]
+  "usages"?: ("signing" | "digital signature" | "content commitment" | "key encipherment" | "key agreement" | "data encipherment" | "cert sign" | "crl sign" | "encipher only" | "decipher only" | "any" | "server auth" | "client auth" | "code signing" | "email protection" | "s/mime" | "ipsec end system" | "ipsec tunnel" | "ipsec user" | "timestamping" | "ocsp signing" | "microsoft sgc" | "netscape sgc")[]
 }
 
 export interface ConditionsItem {
@@ -237,7 +237,7 @@ export interface ConditionsItem {
   /** Reason is a brief machine readable explanation for the condition's last transition. */
   "reason"?: string
   /** Status of the condition, one of (`True`, `False`, `Unknown`). */
-  "status": string
+  "status": "True" | "False" | "Unknown"
   /** Type of the condition, known values are (`Ready`, `Issuing`). */
   "type": string
 }
@@ -270,7 +270,7 @@ export interface KeySecretRef {
 
 export interface ExternalAccountBinding {
   /** Deprecated: keyAlgorithm field exists for historical compatibility reasons and should not be used. The algorithm is now hardcoded to HS256 in golang/x/crypto/acme. */
-  "keyAlgorithm"?: string
+  "keyAlgorithm"?: "HS256" | "HS384" | "HS512"
   /** keyID is the ID of the CA key that the External Account is bound to. */
   "keyID": string
   /** keySecretRef is a Secret Key Selector referencing a data item in a Kubernetes Secret which holds the symmetric MAC key of the External Account Binding. The `key` is the index string that is paired with the key data in the Secret and should not be confused with the key data itself, or indeed with the External Account Binding keyID above. The secret key stored in the Secret **must** be un-padded, base64 URL encoded data. */
@@ -343,7 +343,7 @@ export interface AzureDNS {
   /** Auth: Azure Service Principal: A reference to a Secret containing the password associated with the Service Principal. If set, ClientID and TenantID must also be set. */
   "clientSecretSecretRef"?: ClientSecretSecretRef
   /** name of the Azure environment (default AzurePublicCloud) */
-  "environment"?: string
+  "environment"?: "AzurePublicCloud" | "AzureChinaCloud" | "AzureGermanCloud" | "AzureUSGovernmentCloud"
   /** name of the DNS zone that should be used */
   "hostedZoneName"?: string
   /** Auth: Azure Workload Identity or Azure Managed Service Identity: Settings to enable Azure Workload Identity or Azure Managed Service Identity If set, ClientID, ClientSecret and TenantID must not be set. */
@@ -493,7 +493,7 @@ export interface Dns01 {
   /** Use the Cloudflare API to manage DNS01 challenge records. */
   "cloudflare"?: Cloudflare
   /** CNAMEStrategy configures how the DNS01 provider should handle CNAME records when found in DNS zones. */
-  "cnameStrategy"?: string
+  "cnameStrategy"?: "None" | "Follow"
   /** Use the DigitalOcean DNS API to manage DNS01 challenge records. */
   "digitalocean"?: Digitalocean
   /** Use RFC2136 ("Dynamic Updates in the Domain Name System") (https://datatracker.ietf.org/doc/rfc2136/) to manage DNS01 challenge records. */

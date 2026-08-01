@@ -677,7 +677,7 @@ export interface PrometheusRulesOverrideItem {
 }
 
 export interface MetricRelabelingsItem {
-  "action"?: string
+  "action"?: "replace" | "Replace" | "keep" | "Keep" | "drop" | "Drop" | "hashmod" | "HashMod" | "labelmap" | "LabelMap" | "labeldrop" | "LabelDrop" | "labelkeep" | "LabelKeep" | "lowercase" | "Lowercase" | "uppercase" | "Uppercase" | "keepequal" | "KeepEqual" | "dropequal" | "DropEqual"
   "modulus"?: number
   "regex"?: string
   "replacement"?: string
@@ -687,7 +687,7 @@ export interface MetricRelabelingsItem {
 }
 
 export interface RelabelingsItem {
-  "action"?: string
+  "action"?: "replace" | "Replace" | "keep" | "Keep" | "drop" | "Drop" | "hashmod" | "HashMod" | "labelmap" | "LabelMap" | "labeldrop" | "LabelDrop" | "labelkeep" | "LabelKeep" | "lowercase" | "Lowercase" | "uppercase" | "Uppercase" | "keepequal" | "KeepEqual" | "dropequal" | "DropEqual"
   "modulus"?: number
   "regex"?: string
   "replacement"?: string
@@ -732,8 +732,8 @@ export interface TlsConfig {
   "insecureSkipVerify"?: boolean
   "keyFile"?: string
   "keySecret"?: KeySecret
-  "maxVersion"?: string
-  "minVersion"?: string
+  "maxVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
+  "minVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
   "serverName"?: string
 }
 
@@ -859,7 +859,7 @@ export interface FilterAws {
 
 export interface FilterGrep {
   "Exclude"?: string[]
-  "LogicalOp"?: string
+  "LogicalOp"?: "legacy" | "AND" | "OR"
   "Match"?: string
   "Regex"?: string[]
 }
@@ -2522,7 +2522,7 @@ export interface Endpoint {
 export interface Format {
   "add_newline"?: boolean
   "message_key"?: string
-  "type"?: string
+  "type"?: "out_file" | "json" | "ltsv" | "csv" | "msgpack" | "hash" | "single_value"
 }
 
 export interface Password {
@@ -3750,7 +3750,7 @@ export interface Format2 {
   "proc_id_field"?: string
   "rfc6587_message_size"?: boolean
   "structured_data_field"?: string
-  "type"?: string
+  "type"?: "out_file" | "json" | "ltsv" | "csv" | "msgpack" | "hash" | "single_value"
 }
 
 export interface PrivateKeyPassphrase {
@@ -3792,7 +3792,7 @@ export interface Syslog {
 
 export interface VmwareLogInsight {
   "agent_id"?: string
-  "authentication"?: string
+  "authentication"?: "nil" | "basic"
   "buffer"?: Buffer
   "ca_file"?: CaFile
   "config_param"?: Record<string, unknown>
@@ -3800,7 +3800,7 @@ export interface VmwareLogInsight {
   "flatten_hashes_separator"?: string
   "host"?: string
   "http_conn_debug"?: boolean
-  "http_method"?: string
+  "http_method"?: "post"
   "log_text_keys"?: string[]
   "max_batch_size"?: number
   "password"?: Password
@@ -3810,8 +3810,8 @@ export interface VmwareLogInsight {
   "rate_limit_msec"?: number
   "request_retries"?: number
   "request_timeout"?: number
-  "scheme"?: string
-  "serializer"?: string
+  "scheme"?: "http" | "https"
+  "serializer"?: "json"
   "shorten_keys"?: Record<string, unknown>
   "ssl_verify"?: boolean
   "username"?: Username

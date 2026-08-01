@@ -87,15 +87,25 @@ function tsType(
 
   switch (schema.type) {
     case 'string':
+      if (schema.enum && schema.enum.length > 0) {
+        return schema.enum.map((v) => JSON.stringify(v)).join(' | ')
+      }
       if (schema.format === 'date-time') return 'string'
       return 'string'
     case 'integer':
     case 'number':
+      if (schema.enum && schema.enum.length > 0) {
+        return schema.enum.map((v) => JSON.stringify(v)).join(' | ')
+      }
       return 'number'
     case 'boolean':
       return 'boolean'
-    case 'array':
-      return schema.items ? `${tsType(schema.items, name + 'Item', emit)}[]` : 'unknown[]'
+    case 'array': {
+      if (!schema.items) return 'unknown[]'
+      const itemType = tsType(schema.items, name + 'Item', emit)
+      // Wrap union types in parentheses: "read" | "write"[] → ("read" | "write")[]
+      return itemType.includes(' | ') ? `(${itemType})[]` : `${itemType}[]`
+    }
     case 'object': {
       if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
         return `Record<string, ${tsType(schema.additionalProperties, name + 'Value', emit)}>`

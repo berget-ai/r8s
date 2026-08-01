@@ -1135,10 +1135,10 @@ export interface ScopesDataItem {
 
 export interface PoliciesItem {
   "config"?: Record<string, unknown>
-  "decisionStrategy"?: string
+  "decisionStrategy"?: "AFFIRMATIVE" | "CONSENSUS" | "UNANIMOUS"
   "description"?: string
   "id"?: string
-  "logic"?: string
+  "logic"?: "NEGATIVE" | "POSITIVE"
   "name"?: string
   "owner"?: string
   "policies"?: string[]
@@ -1165,11 +1165,11 @@ export interface ResourcesItem {
 export interface AuthorizationSettings {
   "allowRemoteResourceManagement"?: boolean
   "clientId"?: string
-  "decisionStrategy"?: string
+  "decisionStrategy"?: "AFFIRMATIVE" | "CONSENSUS" | "UNANIMOUS"
   "id"?: string
   "name"?: string
   "policies"?: PoliciesItem[]
-  "policyEnforcementMode"?: string
+  "policyEnforcementMode"?: "DISABLED" | "ENFORCING" | "PERMISSIVE"
   "resources"?: ResourcesItem[]
   "scopes"?: ScopesItem[]
 }

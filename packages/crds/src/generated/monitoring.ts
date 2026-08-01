@@ -305,7 +305,7 @@ export interface Affinity {
 
 export interface AlertmanagerConfigMatcherStrategy {
   /** type defines the strategy used by AlertmanagerConfig objects to match alerts in the routes and inhibition rules. The default value is `OnNamespace`. */
-  "type"?: string
+  "type"?: "OnNamespace" | "OnNamespaceExceptForAlertmanagerNamespace" | "None"
 }
 
 export interface AlertmanagerConfigNamespaceSelector {
@@ -439,9 +439,9 @@ export interface TlsConfig {
   /** keySecret defines the Secret containing the client key file for the targets. */
   "keySecret"?: KeySecret
   /** maxVersion defines the maximum acceptable TLS version. It requires Prometheus >= v2.41.0 or Thanos >= v0.31.0. */
-  "maxVersion"?: string
+  "maxVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
   /** minVersion defines the minimum acceptable TLS version. It requires Prometheus >= v2.35.0 or Thanos >= v0.28.0. */
-  "minVersion"?: string
+  "minVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
   /** serverName is used to verify the hostname for the targets. */
   "serverName"?: string
 }
@@ -716,9 +716,9 @@ export interface Client {
   /** keySecret defines the Secret containing the client key file for the targets. */
   "keySecret"?: KeySecret
   /** maxVersion defines the maximum acceptable TLS version. It requires Prometheus >= v2.41.0 or Thanos >= v0.31.0. */
-  "maxVersion"?: string
+  "maxVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
   /** minVersion defines the minimum acceptable TLS version. It requires Prometheus >= v2.35.0 or Thanos >= v0.28.0. */
-  "minVersion"?: string
+  "minVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
   /** serverName is used to verify the hostname for the targets. */
   "serverName"?: string
 }
@@ -1524,7 +1524,7 @@ export interface UpdateStrategy {
   /** rollingUpdate is used to communicate parameters when type is RollingUpdate. */
   "rollingUpdate"?: RollingUpdate
   /** type indicates the type of the StatefulSetUpdateStrategy. Default is RollingUpdate. */
-  "type": string
+  "type": "OnDelete" | "RollingUpdate"
 }
 
 export interface AwsElasticBlockStore {
@@ -2029,9 +2029,9 @@ export interface Headers {
   /** strictTransportSecurity defines the Strict-Transport-Security header to HTTP responses. Unset if blank. Please make sure that you use this with care as this header might force browsers to load Prometheus and the other applications hosted on the same domain and subdomains over HTTPS. https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security */
   "strictTransportSecurity"?: string
   /** xContentTypeOptions defines the X-Content-Type-Options header to HTTP responses. Unset if blank. Accepted value is nosniff. https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options */
-  "xContentTypeOptions"?: string
+  "xContentTypeOptions"?: "" | "NoSniff"
   /** xFrameOptions defines the X-Frame-Options header to HTTP responses. Unset if blank. Accepted values are deny and sameorigin. https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options */
-  "xFrameOptions"?: string
+  "xFrameOptions"?: "" | "Deny" | "SameOrigin"
   /** xXSSProtection defines the X-XSS-Protection header to all responses. Unset if blank. https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection */
   "xXSSProtection"?: string
 }
@@ -2121,7 +2121,7 @@ export interface AlertmanagerSpec {
   /** dnsConfig defines the DNS configuration for the pods. */
   "dnsConfig"?: DnsConfig
   /** dnsPolicy defines the DNS policy for the pods. */
-  "dnsPolicy"?: string
+  "dnsPolicy"?: "ClusterFirstWithHostNet" | "ClusterFirst" | "Default" | "None"
   /** enableFeatures defines the Alertmanager's feature flags. By default, no features are enabled. Enabling features which are disabled by default is entirely outside the scope of what the maintainers will support and by doing so, you accept that this behaviour may break at any time without notice. It requires Alertmanager >= 0.27.0. */
   "enableFeatures"?: string[]
   /** enableServiceLinks defines whether information about services should be injected into pod's environment variables */
@@ -2139,7 +2139,7 @@ export interface AlertmanagerSpec {
   /** image if specified has precedence over baseImage, tag and sha combinations. Specifying the version is still necessary to ensure the Prometheus Operator knows what version of Alertmanager is being configured. */
   "image"?: string
   /** imagePullPolicy for the 'alertmanager', 'init-config-reloader' and 'config-reloader' containers. See https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for more details. */
-  "imagePullPolicy"?: string
+  "imagePullPolicy"?: "" | "Always" | "Never" | "IfNotPresent"
   /** imagePullSecrets An optional list of references to secrets in the same namespace to use for pulling prometheus and alertmanager images from registries see https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/ */
   "imagePullSecrets"?: ImagePullSecretsItem[]
   /** initContainers allows injecting initContainers to the Pod definition. Those can be used to e.g.  fetch secrets for injection into the Prometheus configuration from external sources. Any errors during the execution of an initContainer will lead to a restart of the Pod. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/ InitContainers described here modify an operator generated init containers if they share the same name and modifications are done via a strategic merge patch. The names of init container name managed by the operator are: * `init-config-reloader`. Overriding init containers which are managed by the operator require careful testing, especially when upgrading to a new version of the operator. */
@@ -2149,9 +2149,9 @@ export interface AlertmanagerSpec {
   /** listenLocal defines the Alertmanager server listen on loopback, so that it does not bind against the Pod IP. Note this is only for the Alertmanager UI, not the gossip communication. */
   "listenLocal"?: boolean
   /** logFormat for Alertmanager to be configured with. */
-  "logFormat"?: string
+  "logFormat"?: "" | "logfmt" | "json"
   /** logLevel for Alertmanager to be configured with. */
-  "logLevel"?: string
+  "logLevel"?: "" | "debug" | "info" | "warn" | "error"
   /** minReadySeconds defines the minimum number of seconds for which a newly created pod should be ready without any of its container crashing for it to be considered available. If unset, pods will be considered available as soon as they are ready. When the Alertmanager version is greater than or equal to v0.30.0, the duration is also used to delay the first flush of the aggregation groups. This delay helps ensuring that all alerts have been resent by the Prometheus instances to Alertmanager after a roll-out. It is possible to override this behavior passing a custom value via `.spec.additionalArgs`. */
   "minReadySeconds"?: number
   /** nodeSelector defines which Nodes the Pods are scheduled on. */
@@ -2161,7 +2161,7 @@ export interface AlertmanagerSpec {
   /** persistentVolumeClaimRetentionPolicy controls if and how PVCs are deleted during the lifecycle of a StatefulSet. The default behavior is all PVCs are retained. This is an alpha field from kubernetes 1.23 until 1.26 and a beta field from 1.26. It requires enabling the StatefulSetAutoDeletePVC feature gate. */
   "persistentVolumeClaimRetentionPolicy"?: PersistentVolumeClaimRetentionPolicy
   /** podManagementPolicy defines the policy for creating/deleting pods when scaling up and down. Unlike the default StatefulSet behavior, the default policy is `Parallel` to avoid manual intervention in case a pod gets stuck during a rollout. Note that updating this value implies the recreation of the StatefulSet which incurs a service outage. */
-  "podManagementPolicy"?: string
+  "podManagementPolicy"?: "OrderedReady" | "Parallel"
   /** podMetadata defines labels and annotations which are propagated to the Alertmanager pods. The following items are reserved and cannot be overridden: * "alertmanager" label, set to the name of the Alertmanager instance. * "app.kubernetes.io/instance" label, set to the name of the Alertmanager instance. * "app.kubernetes.io/managed-by" label, set to "prometheus-operator". * "app.kubernetes.io/name" label, set to "alertmanager". * "app.kubernetes.io/version" label, set to the Alertmanager version. * "kubectl.kubernetes.io/default-container" annotation, set to "alertmanager". */
   "podMetadata"?: PodMetadata
   /** portName defines the port's name for the pods and governing service. Defaults to `web`. */
@@ -2256,7 +2256,7 @@ export interface NamespaceSelector2 {
 
 export interface MetricRelabelingsItem {
   /** Action to perform based on the regex matching.   `Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0. `DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.   Default: "Replace" */
-  "action"?: string
+  "action"?: "replace" | "Replace" | "keep" | "Keep" | "drop" | "Drop" | "hashmod" | "HashMod" | "labelmap" | "LabelMap" | "labeldrop" | "LabelDrop" | "labelkeep" | "LabelKeep" | "lowercase" | "Lowercase" | "uppercase" | "Uppercase" | "keepequal" | "KeepEqual" | "dropequal" | "DropEqual"
   /** Modulus to take of the hash of the source label values.   Only applicable when the action is `HashMod`. */
   "modulus"?: number
   /** Regular expression against which the extracted value is matched. */
@@ -2286,7 +2286,7 @@ export interface Oauth22 {
 
 export interface RelabelingsItem {
   /** Action to perform based on the regex matching.   `Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0. `DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.   Default: "Replace" */
-  "action"?: string
+  "action"?: "replace" | "Replace" | "keep" | "Keep" | "drop" | "Drop" | "hashmod" | "HashMod" | "labelmap" | "LabelMap" | "labeldrop" | "LabelDrop" | "labelkeep" | "LabelKeep" | "lowercase" | "Lowercase" | "uppercase" | "Uppercase" | "keepequal" | "KeepEqual" | "dropequal" | "DropEqual"
   /** Modulus to take of the hash of the source label values.   Only applicable when the action is `HashMod`. */
   "modulus"?: number
   /** Regular expression against which the extracted value is matched. */
@@ -2348,7 +2348,7 @@ export interface PodMetricsEndpointsItem {
   /** `relabelings` configures the relabeling rules to apply the target's metadata labels.   The Operator automatically adds relabelings for a few standard Kubernetes fields.   The original scrape job's name is available via the `__tmp_prometheus_job_name` label.   More info: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config */
   "relabelings"?: RelabelingsItem[]
   /** HTTP scheme to use for scraping.   `http` and `https` are the expected values unless you rewrite the `__scheme__` label via relabeling.   If empty, Prometheus uses the default value `http`. */
-  "scheme"?: string
+  "scheme"?: "http" | "https"
   /** Timeout after which Prometheus considers the scrape to be failed.   If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. */
   "scrapeTimeout"?: string
   /** Name or number of the target port of the `Pod` object behind the Service, the port must be specified with container port property.   Deprecated: use 'port' instead. */
@@ -2383,7 +2383,7 @@ export interface PodMonitorSpec {
   /** The scrape class to apply. */
   "scrapeClass"?: string
   /** `scrapeProtocols` defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred).   If unset, Prometheus uses its default value.   It requires Prometheus >= v2.49.0. */
-  "scrapeProtocols"?: string[]
+  "scrapeProtocols"?: ("PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4")[]
   /** Label selector to select the Kubernetes `Pod` objects. */
   "selector": Selector
   /** `targetLimit` defines a limit on the number of scraped targets that will be accepted. */
@@ -2419,7 +2419,7 @@ export interface AdditionalScrapeConfigs {
 
 export interface AlertRelabelingsItem {
   /** action to perform based on the regex matching. `Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0. `DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0. Default: "Replace" */
-  "action"?: string
+  "action"?: "replace" | "Replace" | "keep" | "Keep" | "drop" | "Drop" | "hashmod" | "HashMod" | "labelmap" | "LabelMap" | "labeldrop" | "LabelDrop" | "labelkeep" | "LabelKeep" | "lowercase" | "Lowercase" | "uppercase" | "Uppercase" | "keepequal" | "KeepEqual" | "dropequal" | "DropEqual"
   /** modulus to take of the hash of the source label values. Only applicable when the action is `HashMod`. */
   "modulus"?: number
   /** regex defines the regular expression against which the extracted value is matched. */
@@ -2485,9 +2485,9 @@ export interface TlsConfig4 {
   /** keySecret defines the Secret containing the client key file for the targets. */
   "keySecret"?: KeySecret
   /** maxVersion defines the maximum acceptable TLS version. It requires Prometheus >= v2.41.0 or Thanos >= v0.31.0. */
-  "maxVersion"?: string
+  "maxVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
   /** minVersion defines the minimum acceptable TLS version. It requires Prometheus >= v2.35.0 or Thanos >= v0.28.0. */
-  "minVersion"?: string
+  "minVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
   /** serverName is used to verify the hostname for the targets. */
   "serverName"?: string
 }
@@ -2496,7 +2496,7 @@ export interface AlertmanagersItem {
   /** alertRelabelings defines the relabeling configs applied before sending alerts to a specific Alertmanager. It requires Prometheus >= v2.51.0. */
   "alertRelabelings"?: AlertRelabelingsItem[]
   /** apiVersion defines the version of the Alertmanager API that Prometheus uses to send alerts. It can be "V1" or "V2". The field has no effect for Prometheus >= v3.0.0 because only the v2 API is supported. */
-  "apiVersion"?: string
+  "apiVersion"?: "v1" | "V1" | "v2" | "V2"
   /** authorization section for Alertmanager. Cannot be set at the same time as `basicAuth`, `bearerTokenFile` or `sigv4`. */
   "authorization"?: Authorization
   /** basicAuth configuration for Alertmanager. Cannot be set at the same time as `bearerTokenFile`, `authorization` or `sigv4`. */
@@ -2524,7 +2524,7 @@ export interface AlertmanagersItem {
   /** relabelings defines the relabel configuration applied to the discovered Alertmanagers. */
   "relabelings"?: RelabelingsItem[]
   /** scheme defines the HTTP scheme to use when sending alerts. */
-  "scheme"?: string
+  "scheme"?: "http" | "https" | "HTTP" | "HTTPS"
   /** sigv4 defines AWS's Signature Verification 4 for the URL. It requires Prometheus >= v2.48.0. Cannot be set at the same time as `basicAuth`, `bearerTokenFile` or `authorization`. */
   "sigv4"?: Sigv4
   /** timeout defines a per-target Alertmanager timeout when pushing alerts. */
@@ -2577,13 +2577,13 @@ export interface ArbitraryFSAccessThroughSMs {
 
 export interface ExcludedFromEnforcementItem {
   /** group of the referent. When not specified, it defaults to `monitoring.coreos.com` */
-  "group"?: string
+  "group"?: "monitoring.coreos.com"
   /** name of the referent. When not set, all resources in the namespace are matched. */
   "name"?: string
   /** namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/ */
   "namespace": string
   /** resource of the referent. */
-  "resource": string
+  "resource": "prometheusrules" | "servicemonitors" | "podmonitors" | "probes" | "scrapeconfigs"
 }
 
 export interface Exemplars {
@@ -2609,7 +2609,7 @@ export interface Otlp {
   /** promoteScopeMetadata controls whether to promote OpenTelemetry scope metadata (i.e. name, version, schema URL, and attributes) to metric labels. As per the OpenTelemetry specification, the aforementioned scope metadata should be identifying, i.e. made into metric labels. It requires Prometheus >= v3.6.0. */
   "promoteScopeMetadata"?: boolean
   /** translationStrategy defines how the OTLP receiver endpoint translates the incoming metrics. It requires Prometheus >= v3.0.0. */
-  "translationStrategy"?: string
+  "translationStrategy"?: "NoUTF8EscapingWithSuffixes" | "UnderscoreEscapingWithSuffixes" | "NoTranslation" | "UnderscoreEscapingWithoutSuffixes"
 }
 
 export interface PodMonitorNamespaceSelector {
@@ -2725,7 +2725,7 @@ export interface WorkloadIdentity {
 
 export interface AzureAd {
   /** cloud defines the Azure Cloud. Options are 'AzurePublic', 'AzureChina', or 'AzureGovernment'. */
-  "cloud"?: string
+  "cloud"?: "AzureChina" | "AzureGovernment" | "AzurePublic"
   /** managedIdentity defines the Azure User-assigned Managed identity. Cannot be set at the same time as `oauth`, `sdk` or `workloadIdentity`. */
   "managedIdentity"?: ManagedIdentity
   /** oauth defines the oauth config that is being used to authenticate. Cannot be set at the same time as `managedIdentity`, `sdk` or `workloadIdentity`. It requires Prometheus >= v2.48.0 or Thanos >= v0.31.0. */
@@ -2772,7 +2772,7 @@ export interface QueueConfig {
 
 export interface WriteRelabelConfigsItem {
   /** action to perform based on the regex matching. `Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0. `DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0. Default: "Replace" */
-  "action"?: string
+  "action"?: "replace" | "Replace" | "keep" | "Keep" | "drop" | "Drop" | "hashmod" | "HashMod" | "labelmap" | "LabelMap" | "labeldrop" | "LabelDrop" | "labelkeep" | "LabelKeep" | "lowercase" | "Lowercase" | "uppercase" | "Uppercase" | "keepequal" | "KeepEqual" | "dropequal" | "DropEqual"
   /** modulus to take of the hash of the source label values. Only applicable when the action is `HashMod`. */
   "modulus"?: number
   /** regex defines the regular expression against which the extracted value is matched. */
@@ -2805,7 +2805,7 @@ export interface RemoteWriteItem {
   /** headers defines the custom HTTP headers to be sent along with each remote write request. Be aware that headers that are set by Prometheus itself can't be overwritten. It requires Prometheus >= v2.25.0 or Thanos >= v0.24.0. */
   "headers"?: Record<string, unknown>
   /** messageVersion defines the Remote Write message's version to use when writing to the endpoint. `Version1.0` corresponds to the `prometheus.WriteRequest` protobuf message introduced in Remote Write 1.0. `Version2.0` corresponds to the `io.prometheus.write.v2.Request` protobuf message introduced in Remote Write 2.0. When `Version2.0` is selected, Prometheus will automatically be configured to append the metadata of scraped metrics to the WAL. Before setting this field, consult with your remote storage provider what message version it supports. It requires Prometheus >= v2.54.0 or Thanos >= v0.37.0. */
-  "messageVersion"?: string
+  "messageVersion"?: "V1.0" | "V2.0"
   /** metadataConfig defines how to send a series metadata to the remote storage. When the field is empty, **no metadata** is sent. But when the field is null, metadata is sent. */
   "metadataConfig"?: MetadataConfig
   /** name of the remote write queue, it must be unique if specified. The name is used in metrics and logging in order to differentiate queues. It requires Prometheus >= v2.15.0 or Thanos >= 0.24.0. */
@@ -2881,7 +2881,7 @@ export interface ScrapeClassesItem {
   /** default defines that the scrape applies to all scrape objects that don't configure an explicit scrape class name. Only one scrape class can be set as the default. */
   "default"?: boolean
   /** fallbackScrapeProtocol defines the protocol to use if a scrape returns blank, unparseable, or otherwise invalid Content-Type. It will only apply if the scrape resource doesn't specify any FallbackScrapeProtocol It requires Prometheus >= v3.0.0. */
-  "fallbackScrapeProtocol"?: string
+  "fallbackScrapeProtocol"?: "PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4" | "PrometheusText1.0.0"
   /** metricRelabelings defines the relabeling rules to apply to all samples before ingestion. The Operator adds the scrape class metric relabelings defined here. Then the Operator adds the target-specific metric relabelings defined in ServiceMonitors, PodMonitors, Probes and ScrapeConfigs. Then the Operator adds namespace enforcement relabeling rule, specified in '.spec.enforcedNamespaceLabel'. More info: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#metric_relabel_configs */
   "metricRelabelings"?: MetricRelabelingsItem[]
   /** name of the scrape class. */
@@ -2929,7 +2929,7 @@ export interface ShardRetentionPolicy {
   /** retain defines the config for retention when the retention policy is set to `Retain`. If not defined, the operator will use the retention duration configured for the Prometheus data. If the resource uses size-based retention, the shard(s) are kept forever (unless manually deleted). */
   "retain"?: Retain
   /** whenScaled defines the retention policy when the Prometheus shards are scaled down. * `Delete`, the operator will delete the pods from the scaled-down shard(s). * `Retain`, the operator will keep the pods from the scaled-down shard(s), so the data can still be queried. If not defined, the operator assumes the `Delete` value. */
-  "whenScaled"?: string
+  "whenScaled"?: "Retain" | "Delete"
 }
 
 export interface Topology {
@@ -2941,7 +2941,7 @@ export interface Topology {
 
 export interface ShardingStrategy {
   /** mode defines the sharding mode. Can be 'Address' or 'Topology'. 'Address' is the default mode and distributes targets across shards based on a hash of the target address. 'Topology' enables zone-aware sharding where each shard is assigned to a specific topology zone and only scrapes targets in that zone. (Alpha) Using the 'Topology' mode requires the `PrometheusTopologySharding` feature gate to be enabled. */
-  "mode"?: string
+  "mode"?: "Address" | "Topology"
   /** topology defines the configuration for topology-aware sharding. This field is only valid when mode is set to 'Topology'. */
   "topology"?: Topology
 }
@@ -2966,9 +2966,9 @@ export interface GrpcServerTlsConfig {
   /** keySecret defines the Secret containing the client key file for the targets. */
   "keySecret"?: KeySecret
   /** maxVersion defines the maximum acceptable TLS version. It requires Prometheus >= v2.41.0 or Thanos >= v0.31.0. */
-  "maxVersion"?: string
+  "maxVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
   /** minVersion defines the minimum acceptable TLS version. It requires Prometheus >= v2.35.0 or Thanos >= v0.28.0. */
-  "minVersion"?: string
+  "minVersion"?: "TLS10" | "TLS11" | "TLS12" | "TLS13"
   /** serverName is used to verify the hostname for the targets. */
   "serverName"?: string
 }
@@ -3013,9 +3013,9 @@ export interface Thanos {
   /** listenLocal is deprecated: use `grpcListenLocal` and `httpListenLocal` instead. */
   "listenLocal"?: boolean
   /** logFormat for the Thanos sidecar. */
-  "logFormat"?: string
+  "logFormat"?: "" | "logfmt" | "json"
   /** logLevel for the Thanos sidecar. */
-  "logLevel"?: string
+  "logLevel"?: "" | "debug" | "info" | "warn" | "error"
   /** minTime defines the start of time range limit served by the Thanos sidecar's StoreAPI. The field's value should be a constant time in RFC3339 format or a time duration relative to current time, such as -1d or 2h45m. Valid duration units are ms, s, m, h, d, w, y. */
   "minTime"?: string
   /** objectStorageConfig defines the Thanos sidecar's configuration to upload TSDB blocks to object storage. More info: https://thanos.io/tip/thanos/storage.md/ objectStorageConfigFile takes precedence over this field. */
@@ -3042,7 +3042,7 @@ export interface Thanos {
 
 export interface TopologySpreadConstraintsItem2 {
   /** additionalLabelSelectors Defines what Prometheus Operator managed labels should be added to labelSelector on the topologySpreadConstraint. */
-  "additionalLabelSelectors"?: string
+  "additionalLabelSelectors"?: "OnResource" | "OnShard"
   /** LabelSelector is used to find matching pods. Pods that match this label selector are counted to determine the number of pods in their corresponding topology domain. */
   "labelSelector"?: LabelSelector
   /** MatchLabelKeys is a set of pod label keys to select the pods over which spreading will be calculated. The keys are used to lookup values from the incoming pod labels, those key-value labels are ANDed with labelSelector to select the group of existing pods over which spreading will be calculated for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. MatchLabelKeys cannot be set when LabelSelector isn't set. Keys that don't exist in the incoming pod labels will be ignored. A null or empty list means only match against labelSelector. This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default). */
@@ -3063,9 +3063,9 @@ export interface TopologySpreadConstraintsItem2 {
 
 export interface TracingConfig2 {
   /** clientType defines the client used to export the traces. Supported values are `HTTP` and `GRPC`. */
-  "clientType"?: string
+  "clientType"?: "http" | "grpc" | "HTTP" | "GRPC"
   /** compression key for supported compression types. The only supported value is `Gzip`. */
-  "compression"?: string
+  "compression"?: "gzip" | "Gzip"
   /** endpoint to send the traces to. Should be provided in format <host>:<port>. */
   "endpoint": string
   /** headers defines the key-value pairs to be used as headers associated with gRPC or HTTP requests. */
@@ -3082,7 +3082,7 @@ export interface TracingConfig2 {
 
 export interface ChunkEncoding {
   /** floats selects the encoding used for float chunks. Valid values are "Xor" and "Xor2". Notice:  * Setting "Xor" is incompatible with --enable-feature=st-storage (XOR chunks do not store start timestamps).  * Setting "Xor2" automatically adds the `xor2-encoding` feature flag. It requires Prometheus >= v3.13.0. */
-  "floats"?: string
+  "floats"?: "Xor" | "Xor2"
 }
 
 export interface Tsdb {
@@ -3141,7 +3141,7 @@ export interface PrometheusSpec {
   /** dnsConfig defines the DNS configuration for the pods. */
   "dnsConfig"?: DnsConfig
   /** dnsPolicy defines the DNS policy for the pods. */
-  "dnsPolicy"?: string
+  "dnsPolicy"?: "ClusterFirstWithHostNet" | "ClusterFirst" | "Default" | "None"
   /** enableAdminAPI defines access to the Prometheus web admin API. WARNING: Enabling the admin APIs enables mutating endpoints, to delete data, shutdown Prometheus, and more. Enabling this should be done with care and the user is advised to add additional authentication authorization via a proxy to ensure only clients authorized to perform these actions can do so. For more information: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis */
   "enableAdminAPI"?: boolean
   /** enableFeatures enables access to Prometheus feature flags. By default, no features are enabled. Enabling features which are disabled by default is entirely outside the scope of what the maintainers will support and by doing so, you accept that this behaviour may break at any time without notice. For more information see https://prometheus.io/docs/prometheus/latest/feature_flags/ */
@@ -3189,7 +3189,7 @@ export interface PrometheusSpec {
   /** image defines the container image name for Prometheus. If specified, it takes precedence over the `spec.baseImage`, `spec.tag` and `spec.sha` fields. Specifying `spec.version` is still necessary to ensure the Prometheus Operator knows which version of Prometheus is being configured. If neither `spec.image` nor `spec.baseImage` are defined, the operator will use the latest upstream version of Prometheus available at the time when the operator was released. */
   "image"?: string
   /** imagePullPolicy defines the image pull policy for the 'prometheus', 'init-config-reloader' and 'config-reloader' containers. See https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for more details. */
-  "imagePullPolicy"?: string
+  "imagePullPolicy"?: "" | "Always" | "Never" | "IfNotPresent"
   /** imagePullSecrets defines an optional list of references to Secrets in the same namespace to use for pulling images from registries. See http://kubernetes.io/docs/user-guide/images#specifying-imagepullsecrets-on-a-pod */
   "imagePullSecrets"?: ImagePullSecretsItem[]
   /** initContainers allows injecting initContainers to the Pod definition. Those can be used to e.g. fetch secrets for injection into the Prometheus configuration from external sources. Any errors during the execution of an initContainer will lead to a restart of the Pod. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/ InitContainers described here modify an operator generated init containers if they share the same name and modifications are done via a strategic merge patch. The names of init container name managed by the operator are: * `init-config-reloader`. Overriding init containers which are managed by the operator require careful testing, especially when upgrading to a new version of the operator. */
@@ -3205,17 +3205,17 @@ export interface PrometheusSpec {
   /** listenLocal when true, the Prometheus server listens on the loopback address instead of the Pod IP's address. */
   "listenLocal"?: boolean
   /** logFormat for Log level for Prometheus and the config-reloader sidecar. */
-  "logFormat"?: string
+  "logFormat"?: "" | "logfmt" | "json"
   /** logLevel for Prometheus and the config-reloader sidecar. */
-  "logLevel"?: string
+  "logLevel"?: "" | "debug" | "info" | "warn" | "error"
   /** maximumStartupDurationSeconds defines the maximum time that the `prometheus` container's startup probe will wait before being considered failed. The startup probe will return success after the WAL replay is complete. If set, the value should be greater than 60 (seconds). Otherwise it will be equal to 900 seconds (15 minutes). */
   "maximumStartupDurationSeconds"?: number
   /** minReadySeconds defines the minimum number of seconds for which a newly created Pod should be ready without any of its container crashing for it to be considered available. If unset, pods will be considered available as soon as they are ready. */
   "minReadySeconds"?: number
   /** nameEscapingScheme defines the character escaping scheme that will be requested when scraping for metric and label names that do not conform to the legacy Prometheus character set. It requires Prometheus >= v3.4.0. */
-  "nameEscapingScheme"?: string
+  "nameEscapingScheme"?: "AllowUTF8" | "Underscores" | "Dots" | "Values"
   /** nameValidationScheme defines the validation scheme for metric and label names. It requires Prometheus >= v2.55.0. */
-  "nameValidationScheme"?: string
+  "nameValidationScheme"?: "UTF8" | "Legacy"
   /** nodeSelector defines on which Nodes the Pods are scheduled. */
   "nodeSelector"?: Record<string, unknown>
   /** otlp defines the settings related to the OTLP receiver feature. It requires Prometheus >= v2.55.0. */
@@ -3229,7 +3229,7 @@ export interface PrometheusSpec {
   /** persistentVolumeClaimRetentionPolicy defines the field controls if and how PVCs are deleted during the lifecycle of a StatefulSet. The default behavior is all PVCs are retained. This is an alpha field from kubernetes 1.23 until 1.26 and a beta field from 1.26. It requires enabling the StatefulSetAutoDeletePVC feature gate. */
   "persistentVolumeClaimRetentionPolicy"?: PersistentVolumeClaimRetentionPolicy
   /** podManagementPolicy defines the policy for creating/deleting pods when scaling up and down. Unlike the default StatefulSet behavior, the default policy is `Parallel` to avoid manual intervention in case a pod gets stuck during a rollout. Note that updating this value implies the recreation of the StatefulSet which incurs a service outage. */
-  "podManagementPolicy"?: string
+  "podManagementPolicy"?: "OrderedReady" | "Parallel"
   /** podMetadata defines labels and annotations which are propagated to the Prometheus pods. The following items are reserved and cannot be overridden: * "prometheus" label, set to the name of the Prometheus object. * "app.kubernetes.io/instance" label, set to the name of the Prometheus object. * "app.kubernetes.io/managed-by" label, set to "prometheus-operator". * "app.kubernetes.io/name" label, set to "prometheus". * "app.kubernetes.io/version" label, set to the Prometheus version. * "operator.prometheus.io/name" label, set to the name of the Prometheus object. * "operator.prometheus.io/shard" label, set to the shard number of the Prometheus object. * "kubectl.kubernetes.io/default-container" annotation, set to "prometheus". */
   "podMetadata"?: PodMetadata
   /** podMonitorNamespaceSelector defines the namespaces to match for PodMonitors discovery. An empty label selector matches all namespaces. A null label selector (default value) matches the current namespace only. */
@@ -3255,13 +3255,13 @@ export interface PrometheusSpec {
   /** queryLogFile specifies where the file to which PromQL queries are logged. If the filename has an empty path, e.g. 'query.log', The Prometheus Pods will mount the file into an emptyDir volume at `/var/log/prometheus`. If a full path is provided, e.g. '/var/log/prometheus/query.log', you must mount a volume in the specified directory and it must be writable. This is because the prometheus container runs with a read-only root filesystem for security reasons. Alternatively, the location can be set to a standard I/O stream, e.g. `/dev/stdout`, to log query information to the default Prometheus log stream. */
   "queryLogFile"?: string
   /** reloadStrategy defines the strategy used to reload the Prometheus configuration. If not specified, the configuration is reloaded using the /-/reload HTTP endpoint. */
-  "reloadStrategy"?: string
+  "reloadStrategy"?: "HTTP" | "ProcessSignal"
   /** remoteRead defines the list of remote read configurations. */
   "remoteRead"?: RemoteReadItem[]
   /** remoteWrite defines the list of remote write configurations. */
   "remoteWrite"?: RemoteWriteItem[]
   /** remoteWriteReceiverMessageVersions list of the protobuf message versions to accept when receiving the remote writes. It requires Prometheus >= v2.54.0. */
-  "remoteWriteReceiverMessageVersions"?: string[]
+  "remoteWriteReceiverMessageVersions"?: ("V1.0" | "V2.0")[]
   /** replicaExternalLabelName defines the name of Prometheus external label used to denote the replica name. The external label will _not_ be added when the field is set to the empty string (`""`). Default: "prometheus_replica" */
   "replicaExternalLabelName"?: string
   /** replicas defines the number of replicas of each shard to deploy for a Prometheus deployment. `spec.replicas` multiplied by `spec.shards` is the total number of Pods created. Default: 1 */
@@ -3303,7 +3303,7 @@ export interface PrometheusSpec {
   /** scrapeNativeHistograms defines whether to enable scraping of native histograms. It requires Prometheus >= v3.8.0. */
   "scrapeNativeHistograms"?: boolean
   /** scrapeProtocols defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred). If unset, Prometheus uses its default value. It requires Prometheus >= v2.49.0. `PrometheusText1.0.0` requires Prometheus >= v3.0.0. */
-  "scrapeProtocols"?: string[]
+  "scrapeProtocols"?: ("PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4" | "PrometheusText1.0.0")[]
   /** scrapeTimeout defines the number of seconds to wait until a scrape request times out. The value cannot be greater than the scrape interval otherwise the operator will reject the resource. */
   "scrapeTimeout"?: string
   /** secrets defines a list of Secrets in the same namespace as the Prometheus object, which shall be mounted into the Prometheus Pods. Each Secret is added to the StatefulSet definition as a volume named `secret-<secret-name>`. The Secrets are mounted into /etc/prometheus/secrets/<secret-name> in the 'prometheus' container. */
@@ -3313,7 +3313,7 @@ export interface PrometheusSpec {
   /** serviceAccountName is the name of the ServiceAccount to use to run the Prometheus Pods. */
   "serviceAccountName"?: string
   /** serviceDiscoveryRole defines the service discovery role used to discover targets from `ServiceMonitor` objects and Alertmanager endpoints. If set, the value should be either "Endpoints" or "EndpointSlice". If unset, the operator assumes the "Endpoints" role. */
-  "serviceDiscoveryRole"?: string
+  "serviceDiscoveryRole"?: "Endpoints" | "EndpointSlice"
   /** serviceMonitorNamespaceSelector defines the namespaces to match for ServicedMonitors discovery. An empty label selector matches all namespaces. A null label selector (default value) matches the current namespace only. */
   "serviceMonitorNamespaceSelector"?: ServiceMonitorNamespaceSelector
   /** serviceMonitorSelector defines the serviceMonitors to be selected for target discovery. An empty label selector matches all objects. A null label selector matches no objects. If `spec.serviceMonitorSelector`, `spec.podMonitorSelector`, `spec.probeSelector` and `spec.scrapeConfigSelector` are null, the Prometheus configuration is unmanaged. The Prometheus operator will ensure that the Prometheus configuration's Secret exists, but it is the responsibility of the user to provide the raw gzipped Prometheus configuration under the `prometheus.yaml.gz` key. This behavior is *deprecated* and will be removed in the next major version of the custom resource definition. It is recommended to use `spec.additionalScrapeConfigs` instead. */
@@ -3437,13 +3437,13 @@ export interface BindingsItem {
   /** conditions defines the current state of the configuration resource when bound to the referenced Workload object. */
   "conditions"?: ConditionsItem2[]
   /** group defines the group of the referenced resource. */
-  "group": string
+  "group": "monitoring.coreos.com"
   /** name defines the name of the referenced object. */
   "name": string
   /** namespace defines the namespace of the referenced object. */
   "namespace": string
   /** resource defines the type of resource being referenced (e.g. Prometheus, PrometheusAgent, ThanosRuler or Alertmanager). */
-  "resource": string
+  "resource": "prometheuses" | "prometheusagents" | "thanosrulers" | "alertmanagers"
 }
 
 export interface PrometheusRuleStatus {
@@ -3453,7 +3453,7 @@ export interface PrometheusRuleStatus {
 
 export interface AzureSDConfigsItem {
   /** authenticationMethod defines the authentication method, either `OAuth` or `ManagedIdentity` or `SDK`. See https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview SDK authentication method uses environment variables by default. See https://learn.microsoft.com/en-us/azure/developer/go/azure-sdk-authentication */
-  "authenticationMethod"?: string
+  "authenticationMethod"?: "OAuth" | "ManagedIdentity" | "SDK" | "WorkloadIdentity"
   /** authorization defines the authorization header configuration to authenticate against the target HTTP endpoint. Cannot be set at the same time as `oAuth2`, or `basicAuth`. */
   "authorization"?: Authorization
   /** basicAuth defines the information to authenticate against the target HTTP endpoint. More info: https://prometheus.io/docs/operating/configuration/#endpoints Cannot be set at the same time as `authorization`, or `oAuth2`. */
@@ -3539,7 +3539,7 @@ export interface ConsulSDConfigsItem {
   /** refreshInterval defines the time after which the provided names are refreshed. If not set, Prometheus uses its default value. */
   "refreshInterval"?: string
   /** scheme defines the HTTP Scheme. */
-  "scheme"?: string
+  "scheme"?: "http" | "https" | "HTTP" | "HTTPS"
   /** server defines the consul server address. A valid string consisting of a hostname or IP followed by an optional port number. */
   "server": string
   /** services defines a list of services for which targets are retrieved. If omitted, all services are scraped. */
@@ -3587,7 +3587,7 @@ export interface DnsSDConfigsItem {
   /** refreshInterval defines the time after which the provided names are refreshed. If not set, Prometheus uses its default value. */
   "refreshInterval"?: string
   /** type defines the type of DNS query to perform. One of SRV, A, AAAA, MX or NS. If not set, Prometheus uses its default value. When set to NS, it requires Prometheus >= v2.49.0. When set to MX, it requires Prometheus >= v2.38.0 */
-  "type"?: string
+  "type"?: "A" | "AAAA" | "MX" | "NS" | "SRV"
 }
 
 export interface FiltersItem {
@@ -3660,7 +3660,7 @@ export interface DockerSwarmSDConfigsItem {
   /** refreshInterval defines the time after which the provided names are refreshed. If not set, Prometheus uses its default value. */
   "refreshInterval"?: string
   /** role of the targets to retrieve. Must be `Services`, `Tasks`, or `Nodes`. */
-  "role": string
+  "role": "Services" | "Tasks" | "Nodes"
   /** tlsConfig defines the TLS configuration to connect to the Docker Swarm daemon. */
   "tlsConfig"?: TlsConfig
 }
@@ -3771,7 +3771,7 @@ export interface HetznerSDConfigsItem {
   /** refreshInterval defines the time after which the provided names are refreshed. If not set, Prometheus uses its default value. */
   "refreshInterval"?: string
   /** role defines the Hetzner role of entities that should be discovered. */
-  "role": string
+  "role": "hcloud" | "Hcloud" | "robot" | "Robot"
   /** tlsConfig defines the TLS configuration to connect to the Hetzner API. */
   "tlsConfig"?: TlsConfig
 }
@@ -3843,7 +3843,7 @@ export interface SelectorsItem {
   /** label defines an optional label selector to limit the service discovery to resources with specific labels and label values. e.g: `node.kubernetes.io/instance-type=master` */
   "label"?: string
   /** role defines the type of Kubernetes resource to limit the service discovery to. Accepted values are: Node, Pod, Endpoints, EndpointSlice, Service, Ingress. */
-  "role": string
+  "role": "Pod" | "Endpoints" | "Ingress" | "Service" | "Node" | "EndpointSlice"
 }
 
 export interface KubernetesSDConfigsItem {
@@ -3872,7 +3872,7 @@ export interface KubernetesSDConfigsItem {
   /** proxyUrl defines the HTTP proxy server to use. */
   "proxyUrl"?: string
   /** role defines the Kubernetes role of the entities that should be discovered. Role `Endpointslice` requires Prometheus >= v2.21.0 */
-  "role": string
+  "role": "Pod" | "Endpoints" | "Ingress" | "Service" | "Node" | "EndpointSlice"
   /** selectors defines the selector to select objects. It requires Prometheus >= v2.17.0 */
   "selectors"?: SelectorsItem[]
   /** tlsConfig defines the TLS configuration to connect to the Kubernetes API. */
@@ -4030,7 +4030,7 @@ export interface OpenstackSDConfigsItem {
   /** applicationCredentialSecret defines the required field if using an application credential to authenticate. */
   "applicationCredentialSecret"?: ApplicationCredentialSecret
   /** availability defines the availability of the endpoint to connect to. */
-  "availability"?: string
+  "availability"?: "Public" | "public" | "Admin" | "admin" | "Internal" | "internal"
   /** domainID defines The OpenStack domainID. */
   "domainID"?: string
   /** domainName defines at most one of domainId and domainName that must be provided if using username with Identity V3. Otherwise, either are optional. */
@@ -4050,7 +4050,7 @@ export interface OpenstackSDConfigsItem {
   /** region defines the OpenStack Region. */
   "region": string
   /** role defines the OpenStack role of entities that should be discovered. Note: The `LoadBalancer` role requires Prometheus >= v3.2.0. */
-  "role": string
+  "role": "Instance" | "Hypervisor" | "LoadBalancer"
   /** tlsConfig defines the TLS configuration applying to the target HTTP endpoint. */
   "tlsConfig"?: TlsConfig
   /** userid defines the OpenStack userid. */
@@ -4089,7 +4089,7 @@ export interface OvhcloudSDConfigsItem {
   /** refreshInterval defines the time after which the provided names are refreshed. If not set, Prometheus uses its default value. */
   "refreshInterval"?: string
   /** service defines the service type of the targets to retrieve. Must be either `VPS` or `DedicatedServer` to specify which OVHCloud resources to discover. */
-  "service": string
+  "service": "VPS" | "DedicatedServer"
 }
 
 export interface PuppetDBSDConfigsItem {
@@ -4151,7 +4151,7 @@ export interface ScalewaySDConfigsItem {
   /** refreshInterval defines the time after which the provided names are refreshed. If not set, Prometheus uses its default value. */
   "refreshInterval"?: string
   /** role defines the service of the targets to retrieve. Must be `Instance` or `Baremetal`. */
-  "role": string
+  "role": "Instance" | "Baremetal"
   /** secretKey defines the secret key to use when listing targets. */
   "secretKey": SecretKey
   /** tagsFilter defines a tag filter (a server needs to have all defined tags to be listed) to apply on the server listing request. */
@@ -4199,7 +4199,7 @@ export interface ScrapeConfigSpec {
   /** eurekaSDConfigs defines a list of Eureka service discovery configurations. */
   "eurekaSDConfigs"?: EurekaSDConfigsItem[]
   /** fallbackScrapeProtocol defines the protocol to use if a scrape returns blank, unparseable, or otherwise invalid Content-Type. It requires Prometheus >= v3.0.0. */
-  "fallbackScrapeProtocol"?: string
+  "fallbackScrapeProtocol"?: "PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4" | "PrometheusText1.0.0"
   /** fileSDConfigs defines a list of file service discovery configurations. */
   "fileSDConfigs"?: FileSDConfigsItem[]
   /** gceSDConfigs defines a list of GCE service discovery configurations. */
@@ -4237,9 +4237,9 @@ export interface ScrapeConfigSpec {
   /** metricsPath defines the HTTP path to scrape for metrics. If empty, Prometheus uses the default value (e.g. /metrics). */
   "metricsPath"?: string
   /** nameEscapingScheme defines the metric name escaping mode to request through content negotiation. It requires Prometheus >= v3.4.0. */
-  "nameEscapingScheme"?: string
+  "nameEscapingScheme"?: "AllowUTF8" | "Underscores" | "Dots" | "Values"
   /** nameValidationScheme defines the validation scheme for metric and label names. It requires Prometheus >= v3.0.0. */
-  "nameValidationScheme"?: string
+  "nameValidationScheme"?: "UTF8" | "Legacy"
   /** nativeHistogramBucketLimit defines ff there are more than this many buckets in a native histogram, buckets will be merged to stay within the limit. It requires Prometheus >= v2.45.0. */
   "nativeHistogramBucketLimit"?: number
   /** nativeHistogramMinBucketFactor defines if the growth factor of one bucket to the next is smaller than this, buckets will be merged to increase the factor sufficiently. It requires Prometheus >= v2.50.0. */
@@ -4271,7 +4271,7 @@ export interface ScrapeConfigSpec {
   /** scalewaySDConfigs defines a list of Scaleway instances and baremetal service discovery configurations. */
   "scalewaySDConfigs"?: ScalewaySDConfigsItem[]
   /** scheme defines the protocol scheme used for requests. */
-  "scheme"?: string
+  "scheme"?: "http" | "https" | "HTTP" | "HTTPS"
   /** scrapeClass defines the scrape class to apply. */
   "scrapeClass"?: string
   /** scrapeClassicHistograms defines whether to scrape a classic histogram that is also exposed as a native histogram. It requires Prometheus >= v2.45.0. Notice: `scrapeClassicHistograms` corresponds to the `always_scrape_classic_histograms` field in the Prometheus configuration. */
@@ -4281,7 +4281,7 @@ export interface ScrapeConfigSpec {
   /** scrapeNativeHistograms defines whether to enable scraping of native histograms. It requires Prometheus >= v3.8.0. */
   "scrapeNativeHistograms"?: boolean
   /** scrapeProtocols defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred). If unset, Prometheus uses its default value. It requires Prometheus >= v2.49.0. */
-  "scrapeProtocols"?: string[]
+  "scrapeProtocols"?: ("PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4" | "PrometheusText1.0.0")[]
   /** scrapeTimeout defines the number of seconds to wait until a scrape request times out. The value cannot be greater than the scrape interval otherwise the operator will reject the resource. */
   "scrapeTimeout"?: string
   /** staticConfigs defines a list of static targets with a common label set. */
@@ -4354,7 +4354,7 @@ export interface EndpointsItem {
   /** `relabelings` configures the relabeling rules to apply the target's metadata labels.   The Operator automatically adds relabelings for a few standard Kubernetes fields.   The original scrape job's name is available via the `__tmp_prometheus_job_name` label.   More info: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config */
   "relabelings"?: RelabelingsItem[]
   /** HTTP scheme to use for scraping.   `http` and `https` are the expected values unless you rewrite the `__scheme__` label via relabeling.   If empty, Prometheus uses the default value `http`. */
-  "scheme"?: string
+  "scheme"?: "http" | "https"
   /** Timeout after which Prometheus considers the scrape to be failed.   If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. */
   "scrapeTimeout"?: string
   /** Name or number of the target port of the `Pod` object behind the Service. The port must be specified with the container's port property. */
@@ -4389,7 +4389,7 @@ export interface ServiceMonitorSpec {
   /** The scrape class to apply. */
   "scrapeClass"?: string
   /** `scrapeProtocols` defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred).   If unset, Prometheus uses its default value.   It requires Prometheus >= v2.49.0. */
-  "scrapeProtocols"?: string[]
+  "scrapeProtocols"?: ("PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4")[]
   /** Label selector to select the Kubernetes `Endpoints` objects. */
   "selector": Selector
   /** `targetLabels` defines the labels which are transferred from the associated Kubernetes `Service` object onto the ingested metrics. */
@@ -4454,7 +4454,7 @@ export interface ThanosRulerSpec {
   /** dnsConfig defines Defines the DNS configuration for the pods. */
   "dnsConfig"?: DnsConfig
   /** dnsPolicy defines the DNS policy for the pods. */
-  "dnsPolicy"?: string
+  "dnsPolicy"?: "ClusterFirstWithHostNet" | "ClusterFirst" | "Default" | "None"
   /** enableFeatures defines how to setup Thanos Ruler feature flags. By default, no features are enabled. Enabling features which are disabled by default is entirely outside the scope of what the maintainers will support and by doing so, you accept that this behaviour may break at any time without notice. For more information see https://thanos.io/tip/components/rule.md/ It requires Thanos >= 0.39.0. */
   "enableFeatures"?: string[]
   /** enableServiceLinks defines whether information about services should be injected into pod's environment variables */
@@ -4476,7 +4476,7 @@ export interface ThanosRulerSpec {
   /** image defines Thanos container image URL. */
   "image"?: string
   /** imagePullPolicy defines for the 'thanos', 'init-config-reloader' and 'config-reloader' containers. See https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for more details. */
-  "imagePullPolicy"?: string
+  "imagePullPolicy"?: "" | "Always" | "Never" | "IfNotPresent"
   /** imagePullSecrets defines an optional list of references to secrets in the same namespace to use for pulling thanos images from registries see http://kubernetes.io/docs/user-guide/images#specifying-imagepullsecrets-on-a-pod */
   "imagePullSecrets"?: ImagePullSecretsItem[]
   /** initContainers allows injecting initContainers to the Pod definition. Those can be used to e.g. fetch secrets for injection into the configuration from external sources. Any errors during the execution of an initContainer will lead to a restart of the Pod. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/ */
@@ -4486,9 +4486,9 @@ export interface ThanosRulerSpec {
   /** listenLocal defines the Thanos ruler listen on loopback, so that it does not bind against the Pod IP. */
   "listenLocal"?: boolean
   /** logFormat for ThanosRuler to be configured with. */
-  "logFormat"?: string
+  "logFormat"?: "" | "logfmt" | "json"
   /** logLevel for ThanosRuler to be configured with. */
-  "logLevel"?: string
+  "logLevel"?: "" | "debug" | "info" | "warn" | "error"
   /** minReadySeconds defines the minimum number of seconds for which a newly created pod should be ready without any of its container crashing for it to be considered available. If unset, pods will be considered available as soon as they are ready. */
   "minReadySeconds"?: number
   /** nodeSelector defines which Nodes the Pods are scheduled on. */
@@ -4500,7 +4500,7 @@ export interface ThanosRulerSpec {
   /** paused defines when a ThanosRuler deployment is paused, no actions except for deletion will be performed on the underlying objects. */
   "paused"?: boolean
   /** podManagementPolicy defines the policy for creating/deleting pods when scaling up and down. Unlike the default StatefulSet behavior, the default policy is `Parallel` to avoid manual intervention in case a pod gets stuck during a rollout. Note that updating this value implies the recreation of the StatefulSet which incurs a service outage. */
-  "podManagementPolicy"?: string
+  "podManagementPolicy"?: "OrderedReady" | "Parallel"
   /** podMetadata defines labels and annotations which are propagated to the ThanosRuler pods. The following items are reserved and cannot be overridden: * "app.kubernetes.io/name" label, set to "thanos-ruler". * "app.kubernetes.io/managed-by" label, set to "prometheus-operator". * "app.kubernetes.io/instance" label, set to the name of the ThanosRuler instance. * "thanos-ruler" label, set to the name of the ThanosRuler instance. * "kubectl.kubernetes.io/default-container" annotation, set to "thanos-ruler". */
   "podMetadata"?: PodMetadata
   /** portName defines the port name used for the pods and governing service. Defaults to `web`. */
