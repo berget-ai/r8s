@@ -14,15 +14,6 @@ export {
   type VaultSecretRef,
 } from './web-service'
 export { Auth, type AuthProps } from './auth'
-export {
-  Realm,
-  Realms,
-  Clients,
-  Client,
-  type RealmConfig,
-  type ClientConfig,
-  type IdentityProviderConfig,
-} from './auth-components'
 export { Monitoring, type MonitoringProps } from './monitoring'
 export { Backup, type BackupProps } from './backup'
 

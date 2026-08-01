@@ -138,89 +138,6 @@ export const recipes: Recipe[] = [
     },
   },
   {
-    slug: 'realm',
-    title: 'Realm',
-    description: 'Realm — a security domain in Keycloak.',
-    category: 'Recipes',
-    keywords: [],
-    component: {
-      name: 'Realm',
-      description: 'Realm — a security domain in Keycloak.',
-      props: [
-        {
-          name: 'children',
-          type: 'unknown',
-          required: false,
-          description: 'Child components (Clients)',
-        },
-      ],
-      examples: [
-        {
-          tsx: 'import { Realm, Clients, Client } from \'@r8s/recipes\'\n\n<Realm id="company" displayName="Company">\n  <Clients>\n    <Client id="api" type="bearer-only" />\n    <Client id="web" type="public" redirectUris={[\'https://app.example.com/*\']} />\n  </Clients>\n</Realm>',
-          yaml: null,
-        },
-      ],
-    },
-  },
-  {
-    slug: 'clients',
-    title: 'Clients',
-    description: 'Clients — container for Client components.',
-    category: 'Recipes',
-    keywords: [],
-    component: {
-      name: 'Clients',
-      description: 'Clients — container for Client components.',
-      props: [
-        {
-          name: 'children',
-          type: 'unknown',
-          required: false,
-          description: 'Child components (Client)',
-        },
-      ],
-      examples: [],
-    },
-  },
-  {
-    slug: 'client',
-    title: 'Client',
-    description: 'Client — an application that authenticates via Keycloak.',
-    category: 'Recipes',
-    keywords: [],
-    component: {
-      name: 'Client',
-      description: 'Client — an application that authenticates via Keycloak.',
-      props: [],
-      examples: [
-        {
-          tsx: 'export default <Client id="api" type="bearer-only" />\n<Client id="web" type="public" redirectUris={[\'https://app.example.com/*\']} />\n<Client id="backend" type="confidential" secret="${env:BACKEND_SECRET}" />',
-          yaml: null,
-        },
-      ],
-    },
-  },
-  {
-    slug: 'realms',
-    title: 'Realms',
-    description: 'Realms — container for Realm components.',
-    category: 'Recipes',
-    keywords: [],
-    component: {
-      name: 'Realms',
-      description: 'Realms — container for Realm components.',
-      props: [
-        {
-          name: 'children',
-          type: 'unknown',
-          required: false,
-          description: 'Child components (Realm)',
-        },
-      ],
-      examples: [],
-    },
-  },
-  {
     slug: 'auth',
     title: 'Auth',
     description: 'Identity and access management — Keycloak with database, TLS, and routing.',
@@ -280,13 +197,13 @@ export const recipes: Recipe[] = [
           title: 'Keycloak with custom storage and TLS',
         },
         {
-          tsx: 'import { Auth, Realms, Realm, Clients, Client } from \'@r8s/recipes\'\n\nexport default (\n  <Auth name="auth" host="auth.example.com">\n    <Realms>\n      <Realm id="company" displayName="Company">\n        <Clients>\n          <Client id="web" type="public" redirectUris={[\'https://app.example.com/*\']} />\n          <Client id="api" type="bearer-only" />\n        </Clients>\n      </Realm>\n    </Realms>\n  </Auth>\n)',
-          yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: auth-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: auth-db\n      owner: auth-db\n      secret:\n        name: auth-db-db-credentials\n  monitoring:\n    enabled: true\n---\napiVersion: k8s.keycloak.org/v2alpha1\nkind: Keycloak\nmetadata:\n  name: auth\n  namespace: default\nspec:\n  instances: 1\n  hostname:\n    hostname: auth.example.com\n    strict: false\n    strictBackchannel: false\n  proxy:\n    headers: xforwarded\n  ingress:\n    enabled: false\n  transaction:\n    xaEnabled: false\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: auth-endpoint\n  namespace: default\n  annotations:\n    nginx.ingress.kubernetes.io/rewrite-target: /\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: auth.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: auth-service\n                port:\n                  number: 8080\n---\napiVersion: k8s.keycloak.org/v2alpha1\nkind: KeycloakRealmImport\nmetadata:\n  name: auth-company\n  namespace: default\nspec:\n  keycloakCRName: auth\n  realm:\n    realm: company\n    displayName: Company\n    enabled: true\n    clients:\n      - clientId: web\n        name: web\n        publicClient: true\n        standardFlowEnabled: true\n        bearerOnly: false\n        redirectUris:\n          - https://app.example.com/*\n        directAccessGrantsEnabled: false\n      - clientId: api\n        name: api\n        publicClient: false\n        standardFlowEnabled: false\n        bearerOnly: true\n        directAccessGrantsEnabled: false\n',
+          tsx: 'import { Auth } from \'@r8s/recipes\'\nimport { Realms, Realm, Clients, Client } from \'@r8s/recipes/auth\'\n\nexport default (\n  <Auth name="auth" host="auth.example.com">\n    <Realms>\n      <Realm id="company" displayName="Company">\n        <Clients>\n          <Client id="web" type="public" redirectUris={[\'https://app.example.com/*\']} />\n          <Client id="api" type="bearer-only" />\n        </Clients>\n      </Realm>\n    </Realms>\n  </Auth>\n)',
+          yaml: null,
           title: 'Keycloak with realms and clients',
         },
         {
-          tsx: 'import { Auth, Realms, Realm, Clients, Client } from \'@r8s/recipes\'\n\nexport default (\n  <Auth name="auth" host="auth.example.com">\n    <Realms>\n      <Realm\n        id="company"\n        displayName="Company"\n        identityProviders={[\n          {\n            alias: \'entra-id\',\n            displayName: \'Entra ID\',\n            providerId: \'oidc\',\n            enabled: true,\n            trustEmail: true,\n            config: {\n              clientId: \'${env:ENTRA_CLIENT_ID}\',\n              clientSecret: \'${env:ENTRA_CLIENT_SECRET}\',\n              tokenUrl: \'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/token\',\n              authorizationUrl: \'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/authorize\',\n            },\n          },\n        ]}\n      >\n        <Clients>\n          <Client id="web" type="public" redirectUris={[\'https://app.example.com/*\']} />\n          <Client id="backend" type="confidential" secret="${env:BACKEND_SECRET}" />\n        </Clients>\n      </Realm>\n    </Realms>\n  </Auth>\n)',
-          yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: auth-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: auth-db\n      owner: auth-db\n      secret:\n        name: auth-db-db-credentials\n  monitoring:\n    enabled: true\n---\napiVersion: k8s.keycloak.org/v2alpha1\nkind: Keycloak\nmetadata:\n  name: auth\n  namespace: default\nspec:\n  instances: 1\n  hostname:\n    hostname: auth.example.com\n    strict: false\n    strictBackchannel: false\n  proxy:\n    headers: xforwarded\n  ingress:\n    enabled: false\n  transaction:\n    xaEnabled: false\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: auth-endpoint\n  namespace: default\n  annotations:\n    nginx.ingress.kubernetes.io/rewrite-target: /\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: auth.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: auth-service\n                port:\n                  number: 8080\n---\napiVersion: k8s.keycloak.org/v2alpha1\nkind: KeycloakRealmImport\nmetadata:\n  name: auth-company\n  namespace: default\nspec:\n  keycloakCRName: auth\n  realm:\n    realm: company\n    displayName: Company\n    enabled: true\n    identityProviders:\n      - alias: entra-id\n        displayName: Entra ID\n        providerId: oidc\n        enabled: true\n        trustEmail: true\n        config:\n          clientId: ${env:ENTRA_CLIENT_ID}\n          clientSecret: ${env:ENTRA_CLIENT_SECRET}\n          tokenUrl: https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/token\n          authorizationUrl: https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/authorize\n    clients:\n      - clientId: web\n        name: web\n        publicClient: true\n        standardFlowEnabled: true\n        bearerOnly: false\n        redirectUris:\n          - https://app.example.com/*\n        directAccessGrantsEnabled: false\n      - clientId: backend\n        name: backend\n        publicClient: false\n        standardFlowEnabled: false\n        bearerOnly: false\n        serviceAccountsEnabled: true\n        secret: ${env:BACKEND_SECRET}\n        directAccessGrantsEnabled: false\n',
+          tsx: "import { Auth } from '@r8s/recipes'\nimport { Realms, Realm, Clients, Client } from '@r8s/recipes/auth'\n\nexport default (\n  <Auth name=\"auth\" host=\"auth.example.com\">\n    <Realms>\n      <Realm\n        id=\"company\"\n        displayName=\"Company\"\n        identityProviders={[\n          {\n            alias: 'entra-id',\n            displayName: 'Entra ID',\n            providerId: 'oidc',\n            enabled: true,\n            trustEmail: true,\n            config: {\n              clientId: '${env:ENTRA_CLIENT_ID}',\n              clientSecret: '${env:ENTRA_CLIENT_SECRET}',\n              tokenUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/token',\n              authorizationUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/authorize',\n            },\n          },\n        ]}\n      >\n        <Clients>\n          <Client id=\"web\" type=\"public\" redirectUris={['https://app.example.com/*']} />\n          <Client id=\"backend\" type=\"confidential\" secret=\"${env:BACKEND_SECRET}\" />\n        </Clients>\n      </Realm>\n    </Realms>\n  </Auth>\n)",
+          yaml: null,
           title: 'Keycloak with EntraID federation',
         },
       ],

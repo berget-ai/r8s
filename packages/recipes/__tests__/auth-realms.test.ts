@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import { Auth, Realm, Realms, Clients, Client } from '../src/index'
+import { Auth } from '../src/index'
+import { Realm, Realms, Clients, Client } from '../src/auth/index'
 
 describe('Auth with hierarchical realms', () => {
   it('should create Keycloak with default settings', () => {

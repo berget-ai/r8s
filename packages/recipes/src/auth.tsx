@@ -4,7 +4,7 @@ import { operators } from '@r8s/crds'
 import { Database } from './database'
 import { Endpoint } from './endpoint'
 import type { TLSConfig } from '@r8s/k8s-types'
-import { Realm, Realms, Clients, Client, type RealmConfig, type ClientConfig } from './auth-components'
+import { Realm, Realms, Clients, Client, type RealmConfig, type ClientConfig } from './auth/components'
 
 export interface AuthProps {
   /** Resource name */
@@ -58,7 +58,8 @@ export interface AuthProps {
  *
  * @example
  * // Keycloak with realms and clients
- * import { Auth, Realms, Realm, Clients, Client } from '@r8s/recipes'
+ * import { Auth } from '@r8s/recipes'
+ * import { Realms, Realm, Clients, Client } from '@r8s/recipes/auth'
  *
  * export default (
  *   <Auth name="auth" host="auth.example.com">
@@ -75,7 +76,8 @@ export interface AuthProps {
  *
  * @example
  * // Keycloak with EntraID federation
- * import { Auth, Realms, Realm, Clients, Client } from '@r8s/recipes'
+ * import { Auth } from '@r8s/recipes'
+ * import { Realms, Realm, Clients, Client } from '@r8s/recipes/auth'
  *
  * export default (
  *   <Auth name="auth" host="auth.example.com">
