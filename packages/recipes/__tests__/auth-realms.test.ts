@@ -111,10 +111,7 @@ describe('Auth with hierarchical realms', () => {
       name: 'auth',
       host: 'auth.example.com',
       children: jsx(Realms, {
-        children: [
-          jsx(Realm, { id: 'internal' }),
-          jsx(Realm, { id: 'customers' }),
-        ],
+        children: [jsx(Realm, { id: 'internal' }), jsx(Realm, { id: 'customers' })],
       }),
     })
 

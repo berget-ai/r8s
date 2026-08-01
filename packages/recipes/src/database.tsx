@@ -1,5 +1,5 @@
 import { jsx, useContext, declareOperator } from '@r8s/core'
-import { Cluster } from '@r8s/k8s-types'
+import { Cluster } from '@r8s/crds/postgresql'
 import { DatabaseContext, SecretContext, OperatorContext, ClusterContext } from '@r8s/core/defaults'
 import { cnpgOperator } from './operators'
 
@@ -112,7 +112,7 @@ export function Database(props: DatabaseProps) {
             secret: { name: secretName },
           },
         },
-        monitoring: { enabled: true },
+        monitoring: { enablePodMonitor: true },
       },
     }
 

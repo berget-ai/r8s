@@ -68,7 +68,7 @@ export function Endpoint(props: EndpointProps) {
   const dnsConfig = useContext(DnsContext)
 
   // DNS defaults to true when DnsProvider is set, unless explicitly disabled
-  const createDnsRecord = dns ?? (dnsConfig !== null)
+  const createDnsRecord = dns ?? dnsConfig !== null
 
   const resources: ReturnType<typeof jsx>[] = []
 

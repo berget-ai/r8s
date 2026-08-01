@@ -103,9 +103,9 @@ export default function Page() {
       <div className="space-y-6">
         <h2 className="text-2xl">Overview</h2>
         <p className="text-cloud/70 leading-relaxed max-w-3xl">
-          Providers configure cluster-level concerns that affect all child components. They follow
-          a hierarchical pattern: wrap your app (or part of it) in providers to set the context.
-          Each provider declares its required operators automatically.
+          Providers configure cluster-level concerns that affect all child components. They follow a
+          hierarchical pattern: wrap your app (or part of it) in providers to set the context. Each
+          provider declares its required operators automatically.
         </p>
         <div className="grid md:grid-cols-3 gap-6">
           <div className="p-6 rounded-lg border border-white/10">
@@ -143,10 +143,18 @@ export default function Page() {
         <div className="text-sm text-cloud/60">
           <p className="font-medium mb-2">Available providers:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><code>openbao</code> — OpenBao Vault Secrets Operator (recommended)</li>
-            <li><code>vault</code> — HashiCorp Vault Secrets Operator</li>
-            <li><code>sealed-secrets</code> — Bitnami Sealed Secrets</li>
-            <li><code>kubernetes</code> — Plain Kubernetes Secrets (CNPG-managed)</li>
+            <li>
+              <code>openbao</code> — OpenBao Vault Secrets Operator (recommended)
+            </li>
+            <li>
+              <code>vault</code> — HashiCorp Vault Secrets Operator
+            </li>
+            <li>
+              <code>sealed-secrets</code> — Bitnami Sealed Secrets
+            </li>
+            <li>
+              <code>kubernetes</code> — Plain Kubernetes Secrets (CNPG-managed)
+            </li>
           </ul>
         </div>
       </div>
@@ -158,18 +166,22 @@ export default function Page() {
           <h2 className="text-2xl">DnsProvider</h2>
         </div>
         <p className="text-cloud/70 leading-relaxed">
-          Configures DNS management via ExternalDNS. Supports RFC 2136 (TSIG) for secure updates
-          or cloud providers (Route53, Cloudflare, Google Cloud DNS).
+          Configures DNS management via ExternalDNS. Supports RFC 2136 (TSIG) for secure updates or
+          cloud providers (Route53, Cloudflare, Google Cloud DNS).
         </p>
         <CodeBlock code={dnsProviderExample} language="tsx" />
         <div className="text-sm text-cloud/60">
           <p className="font-medium mb-2">Available providers:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><code>external-dns</code> — ExternalDNS operator</li>
+            <li>
+              <code>external-dns</code> — ExternalDNS operator
+            </li>
           </ul>
           <p className="font-medium mt-4 mb-2">Configuration components:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><code>&lt;ExternalDns /&gt;</code> — RFC 2136 or cloud provider config</li>
+            <li>
+              <code>&lt;ExternalDns /&gt;</code> — RFC 2136 or cloud provider config
+            </li>
           </ul>
         </div>
       </div>
@@ -188,13 +200,21 @@ export default function Page() {
         <div className="text-sm text-cloud/60">
           <p className="font-medium mb-2">Available providers:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><code>nginx</code> — nginx Ingress (default)</li>
-            <li><code>envoy-gateway</code> — Envoy Gateway (Gateway API)</li>
+            <li>
+              <code>nginx</code> — nginx Ingress (default)
+            </li>
+            <li>
+              <code>envoy-gateway</code> — Envoy Gateway (Gateway API)
+            </li>
           </ul>
           <p className="font-medium mt-4 mb-2">Configuration components:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><code>&lt;Nginx /&gt;</code> — Custom ingress class, TLS</li>
-            <li><code>&lt;EnvoyGateway /&gt;</code> — Custom gateway class, TLS</li>
+            <li>
+              <code>&lt;Nginx /&gt;</code> — Custom ingress class, TLS
+            </li>
+            <li>
+              <code>&lt;EnvoyGateway /&gt;</code> — Custom gateway class, TLS
+            </li>
           </ul>
         </div>
       </div>
@@ -215,15 +235,15 @@ export default function Page() {
       {/* Compatibility */}
       <div className="space-y-6">
         <h2 className="text-2xl">Compatibility</h2>
-        <p className="text-cloud/70 leading-relaxed">
-          Which providers work with which recipes:
-        </p>
+        <p className="text-cloud/70 leading-relaxed">Which providers work with which recipes:</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10">
                 <th className="text-left py-3 px-4 text-cloud/60 font-medium">Provider</th>
-                <th className="text-left py-3 px-4 text-cloud/60 font-medium">Compatible Recipes</th>
+                <th className="text-left py-3 px-4 text-cloud/60 font-medium">
+                  Compatible Recipes
+                </th>
                 <th className="text-left py-3 px-4 text-cloud/60 font-medium">Notes</th>
               </tr>
             </thead>
@@ -231,25 +251,43 @@ export default function Page() {
               <tr className="border-b border-white/5">
                 <td className="py-3 px-4 font-mono text-moss">SecretProvider</td>
                 <td className="py-3 px-4">
-                  <a href="/recipes/database" className="text-moss hover:text-lichen">Database</a>,{' '}
-                  <a href="/recipes/auth" className="text-moss hover:text-lichen">Auth</a>,{' '}
-                  <a href="/recipes/app" className="text-moss hover:text-lichen">App</a>
+                  <a href="/recipes/database" className="text-moss hover:text-lichen">
+                    Database
+                  </a>
+                  ,{' '}
+                  <a href="/recipes/auth" className="text-moss hover:text-lichen">
+                    Auth
+                  </a>
+                  ,{' '}
+                  <a href="/recipes/app" className="text-moss hover:text-lichen">
+                    App
+                  </a>
                 </td>
                 <td className="py-3 px-4">Required for TSIG, Vault secrets</td>
               </tr>
               <tr className="border-b border-white/5">
                 <td className="py-3 px-4 font-mono text-moss">DnsProvider</td>
                 <td className="py-3 px-4">
-                  <a href="/recipes/endpoint" className="text-moss hover:text-lichen">Endpoint</a>,{' '}
-                  <a href="/recipes/app" className="text-moss hover:text-lichen">App</a>
+                  <a href="/recipes/endpoint" className="text-moss hover:text-lichen">
+                    Endpoint
+                  </a>
+                  ,{' '}
+                  <a href="/recipes/app" className="text-moss hover:text-lichen">
+                    App
+                  </a>
                 </td>
                 <td className="py-3 px-4">Auto-creates DNS records</td>
               </tr>
               <tr className="border-b border-white/5">
                 <td className="py-3 px-4 font-mono text-moss">EndpointProvider</td>
                 <td className="py-3 px-4">
-                  <a href="/recipes/endpoint" className="text-moss hover:text-lichen">Endpoint</a>,{' '}
-                  <a href="/recipes/app" className="text-moss hover:text-lichen">App</a>
+                  <a href="/recipes/endpoint" className="text-moss hover:text-lichen">
+                    Endpoint
+                  </a>
+                  ,{' '}
+                  <a href="/recipes/app" className="text-moss hover:text-lichen">
+                    App
+                  </a>
                 </td>
                 <td className="py-3 px-4">Routing (nginx/gateway)</td>
               </tr>

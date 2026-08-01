@@ -73,6 +73,7 @@ async function renderToYaml(code: string): Promise<string | null> {
             '@r8s/core': [path.join(ROOT, 'packages/core/src/index.ts')],
             '@r8s/core/*': [path.join(ROOT, 'packages/core/src/*')],
             '@r8s/recipes': [path.join(ROOT, 'packages/recipes/src/index.ts')],
+            '@r8s/recipes/*': [path.join(ROOT, 'packages/recipes/src/*')],
             '@r8s/crds': [path.join(ROOT, 'packages/crds/src/index.ts')],
             '@r8s/crds/*': [path.join(ROOT, 'packages/crds/src/generated/*')],
             '@r8s/k8s-types': [path.join(ROOT, 'packages/k8s-types/src/index.ts')],
@@ -100,6 +101,14 @@ async function renderToYaml(code: string): Promise<string | null> {
       external: [],
       absWorkingDir: ROOT,
       nodePaths: [path.join(ROOT, 'node_modules')],
+      alias: {
+        '@r8s/recipes/auth': path.join(ROOT, 'packages/recipes/src/auth/index.ts'),
+        '@r8s/element': path.join(ROOT, 'packages/element/src/index.ts'),
+        '@r8s/grafana': path.join(ROOT, 'packages/grafana/src/index.ts'),
+        '@r8s/rustfs': path.join(ROOT, 'packages/rustfs/src/index.ts'),
+        '@r8s/superset': path.join(ROOT, 'packages/superset/src/index.ts'),
+        '@r8s/wireguard': path.join(ROOT, 'packages/wireguard/src/index.ts'),
+      },
     })
 
     const bundledCode = result.outputFiles[0].text
@@ -643,11 +652,11 @@ async function generatePackages(): Promise<PackageDoc[]> {
     // Map CRD groups to provider interfaces they implement
     const providerInterfaceMap: Record<string, string[]> = {
       'cert-manager': ['cert'],
-      'externaldns': ['dns'],
-      'gateway': ['endpoint'],
-      'keycloak': ['secret'],
+      externaldns: ['dns'],
+      gateway: ['endpoint'],
+      keycloak: ['secret'],
       'vault-secrets-operator': ['secret'],
-      'openbao': ['secret'],
+      openbao: ['secret'],
     }
 
     packages.push({
@@ -674,6 +683,22 @@ async function generatePackages(): Promise<PackageDoc[]> {
     const pkg = readPackageJson(dir)
 
     if (components.length === 0) continue
+
+    // Read examples from packages/{dir}/examples/*.tsx
+    const examplesDir = path.join(ROOT, 'packages', dir, 'examples')
+    const exampleFiles = fs.existsSync(examplesDir)
+      ? fs.readdirSync(examplesDir).filter((f) => f.endsWith('.tsx'))
+      : []
+
+    for (const comp of components) {
+      comp.examples = []
+      for (const file of exampleFiles) {
+        const code = fs.readFileSync(path.join(examplesDir, file), 'utf-8')
+        const formattedTsx = await formatTsx(code)
+        const yamlOutput = await renderToYaml(code)
+        comp.examples.push({ tsx: formattedTsx, yaml: yamlOutput })
+      }
+    }
 
     packages.push({
       slug: dir,
@@ -953,7 +978,9 @@ async function writePackages(packages: PackageDoc[]) {
     if (pkg.operatorVersion) lines.push(`    operatorVersion: "${pkg.operatorVersion}",`)
     lines.push(`    keywords: [${pkg.keywords.map((k) => `"${k}"`).join(', ')}],`)
     if (pkg.providerInterfaces) {
-      lines.push(`    providerInterfaces: [${pkg.providerInterfaces.map((i) => `"${i}"`).join(', ')}],`)
+      lines.push(
+        `    providerInterfaces: [${pkg.providerInterfaces.map((i) => `"${i}"`).join(', ')}],`
+      )
     }
     lines.push('    components: [')
     for (const comp of pkg.components) {

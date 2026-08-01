@@ -4,7 +4,14 @@ import { operators } from '@r8s/crds'
 import { Database } from './database'
 import { Endpoint } from './endpoint'
 import type { TLSConfig } from '@r8s/k8s-types'
-import { Realm, Realms, Clients, Client, type RealmConfig, type ClientConfig } from './auth/components'
+import {
+  Realm,
+  Realms,
+  Clients,
+  Client,
+  type RealmConfig,
+  type ClientConfig,
+} from './auth/components'
 
 export interface AuthProps {
   /** Resource name */
@@ -77,33 +84,19 @@ export interface AuthProps {
  * @example
  * // Keycloak with EntraID federation
  * import { Auth } from '@r8s/recipes'
- * import { Realms, Realm, Clients, Client } from '@r8s/recipes/auth'
+ * import { Realms, Realm, Clients, Client, EntraID } from '@r8s/recipes/auth'
  *
  * export default (
  *   <Auth name="auth" host="auth.example.com">
  *     <Realms>
- *       <Realm
- *         id="company"
- *         displayName="Company"
- *         identityProviders={[
- *           {
- *             alias: 'entra-id',
- *             displayName: 'Entra ID',
- *             providerId: 'oidc',
- *             enabled: true,
- *             trustEmail: true,
- *             config: {
- *               clientId: '${env:ENTRA_CLIENT_ID}',
- *               clientSecret: '${env:ENTRA_CLIENT_SECRET}',
- *               tokenUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/token',
- *               authorizationUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/authorize',
- *             },
- *           },
- *         ]}
- *       >
+ *       <Realm id="company" displayName="Company">
+ *         <EntraID
+ *           tenantId="your-tenant-id"
+ *           clientId="your-client-id"
+ *           clientSecret="${env:ENTRA_CLIENT_SECRET}"
+ *         />
  *         <Clients>
  *           <Client id="web" type="public" redirectUris={['https://app.example.com/*']} />
- *           <Client id="backend" type="confidential" secret="${env:BACKEND_SECRET}" />
  *         </Clients>
  *       </Realm>
  *     </Realms>
@@ -111,7 +104,15 @@ export interface AuthProps {
  * )
  */
 export function Auth(props: AuthProps) {
-  const { name, host, namespace = 'default', instances = 1, storage = '10Gi', tls, children } = props
+  const {
+    name,
+    host,
+    namespace = 'default',
+    instances = 1,
+    storage = '10Gi',
+    tls,
+    children,
+  } = props
 
   const sharedOperators = useContext(OperatorContext)
   const hasKeycloak = sharedOperators.some((op) => op.name === 'keycloak-operator')
@@ -229,7 +230,12 @@ function collectRealms(children: unknown): RealmConfig[] {
           ? realmsProps.children
           : [realmsProps.children]
         for (const realmChild of realmChildren) {
-          if (realmChild && typeof realmChild === 'object' && 'type' in realmChild && realmChild.type === Realm) {
+          if (
+            realmChild &&
+            typeof realmChild === 'object' &&
+            'type' in realmChild &&
+            realmChild.type === Realm
+          ) {
             const realmProps = (realmChild as any).props
             const clients = collectClients(realmProps.children)
             realms.push({
@@ -273,7 +279,12 @@ function collectClients(children: unknown): ClientConfig[] {
           ? clientsProps.children
           : [clientsProps.children]
         for (const clientChild of clientChildren) {
-          if (clientChild && typeof clientChild === 'object' && 'type' in clientChild && clientChild.type === Client) {
+          if (
+            clientChild &&
+            typeof clientChild === 'object' &&
+            'type' in clientChild &&
+            clientChild.type === Client
+          ) {
             clients.push((clientChild as any).props)
           }
         }

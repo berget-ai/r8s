@@ -80,11 +80,7 @@ export function ManualSecrets(props: ManualSecretsProps): SecretProviderConfig {
 
 /** Union of all secret provider configurations */
 export type SecretProviderValue =
-  | 'openbao'
-  | 'vault'
-  | 'sealed-secrets'
-  | 'manual-secrets'
-  | SecretProviderConfig
+  'openbao' | 'vault' | 'sealed-secrets' | 'manual-secrets' | SecretProviderConfig
 
 export interface SecretProviderProps {
   /**
@@ -161,8 +157,28 @@ export function SecretProvider(props: SecretProviderProps) {
   const sharedOperators = useContext(OperatorContext)
 
   // Resolve provider config
-  const config: SecretProviderConfig =
-    typeof provider === 'string' ? { backend: provider } : provider
+  let config: SecretProviderConfig
+  if (typeof provider === 'string') {
+    config = { backend: provider }
+  } else if ('backend' in provider) {
+    config = provider
+  } else if (provider && typeof provider === 'object' && 'type' in provider) {
+    // r8s JSX element — call the component with its props
+    const component = (provider as any).type
+    if (component === OpenBao) {
+      config = OpenBao((provider as any).props)
+    } else if (component === Vault) {
+      config = Vault((provider as any).props)
+    } else if (component === SealedSecrets) {
+      config = SealedSecrets((provider as any).props)
+    } else if (component === ManualSecrets) {
+      config = ManualSecrets((provider as any).props)
+    } else {
+      throw new Error(`Unknown secret provider component: ${component.name || component}`)
+    }
+  } else {
+    throw new Error(`Invalid secret provider: ${JSON.stringify(provider)}`)
+  }
 
   const resources: ReturnType<typeof jsx>[] = []
 
@@ -175,9 +191,6 @@ export function SecretProvider(props: SecretProviderProps) {
   }
 
   return jsx(Fragment, {
-    children: [
-      ...resources,
-      jsx(SecretContext.Provider, { value: config, children }),
-    ],
+    children: [...resources, jsx(SecretContext.Provider, { value: config, children })],
   })
 }

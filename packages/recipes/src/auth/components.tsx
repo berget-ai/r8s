@@ -36,6 +36,70 @@ export interface IdentityProviderConfig {
   config: Record<string, string>
 }
 
+/**
+ * EntraID (Azure AD) identity provider configuration.
+ *
+ * @example
+ * import { Realm, EntraID } from '@r8s/recipes/auth'
+ *
+ * <Realm id="company">
+ *   <EntraID
+ *     tenantId="your-tenant-id"
+ *     clientId="your-client-id"
+ *     clientSecret="${env:ENTRA_CLIENT_SECRET}"
+ *   />
+ * </Realm>
+ */
+export interface EntraIDConfig {
+  /** Azure AD tenant ID */
+  tenantId: string
+  /** Application (client) ID */
+  clientId: string
+  /** Client secret (from secrets backend) */
+  clientSecret: string
+  /** Display name (defaults to 'Entra ID') */
+  displayName?: string
+  /** Whether the provider is enabled (defaults to true) */
+  enabled?: boolean
+  /** Trust email from this provider (defaults to true) */
+  trustEmail?: boolean
+}
+
+export interface EntraIDProps extends EntraIDConfig {}
+
+/**
+ * EntraID — Microsoft Entra ID (Azure AD) identity provider.
+ *
+ * Adds EntraID as an identity provider to the parent Realm.
+ */
+export function EntraID(props: EntraIDProps) {
+  return jsx(Fragment, {})
+}
+
+export interface GoogleConfig {
+  /** Google OAuth client ID */
+  clientId: string
+  /** Google OAuth client secret */
+  clientSecret: string
+  /** Display name (defaults to 'Google') */
+  displayName?: string
+  /** Whether the provider is enabled (defaults to true) */
+  enabled?: boolean
+  /** Trust email from this provider (defaults to true) */
+  trustEmail?: boolean
+}
+
+export interface GoogleProps extends GoogleConfig {}
+
+/**
+ * Google — Google OAuth identity provider.
+ *
+ * Adds Google as an identity provider to the parent Realm.
+ */
+export function Google(props: GoogleProps) {
+  return jsx(Fragment, {})
+}
+
 export const RealmContext = createContext<RealmConfig[]>([])
 
 export interface RealmProps extends RealmConfig {
@@ -57,21 +121,63 @@ export interface RealmProps extends RealmConfig {
  * </Realm>
  */
 export function Realm(props: RealmProps) {
-  const { id, displayName, enabled = true, identityProviders = [], children } = props
+  const { id, displayName, enabled = true, identityProviders: propIdentityProviders = [], clients: propClients = [], children } = props
 
-  // Collect clients from children
-  const clients: ClientConfig[] = []
+  // Collect clients and identity providers from children
+  const clients: ClientConfig[] = [...propClients]
+  const identityProviders: IdentityProviderConfig[] = [...propIdentityProviders]
   const childArray = Array.isArray(children) ? children : [children]
+
   for (const child of childArray) {
-    if (child && typeof child === 'object' && 'type' in child && child.type === Clients) {
-      const clientsProps = (child as any).props
-      const clientChildren = Array.isArray(clientsProps.children)
-        ? clientsProps.children
-        : [clientsProps.children]
-      for (const clientChild of clientChildren) {
-        if (clientChild && typeof clientChild === 'object' && 'type' in clientChild && clientChild.type === Client) {
-          clients.push((clientChild as any).props)
+    if (child && typeof child === 'object' && 'type' in child) {
+      // Collect Clients
+      if (child.type === Clients) {
+        const clientsProps = (child as any).props
+        const clientChildren = Array.isArray(clientsProps.children)
+          ? clientsProps.children
+          : [clientsProps.children]
+        for (const clientChild of clientChildren) {
+          if (
+            clientChild &&
+            typeof clientChild === 'object' &&
+            'type' in clientChild &&
+            clientChild.type === Client
+          ) {
+            clients.push((clientChild as any).props)
+          }
         }
+      }
+      // Collect EntraID
+      if (child.type === EntraID) {
+        const entraProps = (child as any).props as EntraIDProps
+        identityProviders.push({
+          alias: 'entra-id',
+          displayName: entraProps.displayName ?? 'Entra ID',
+          providerId: 'oidc',
+          enabled: entraProps.enabled ?? true,
+          trustEmail: entraProps.trustEmail ?? true,
+          config: {
+            clientId: entraProps.clientId,
+            clientSecret: entraProps.clientSecret,
+            tokenUrl: `https://login.microsoftonline.com/${entraProps.tenantId}/oauth2/v2.0/token`,
+            authorizationUrl: `https://login.microsoftonline.com/${entraProps.tenantId}/oauth2/v2.0/authorize`,
+          },
+        })
+      }
+      // Collect Google
+      if (child.type === Google) {
+        const googleProps = (child as any).props as GoogleProps
+        identityProviders.push({
+          alias: 'google',
+          displayName: googleProps.displayName ?? 'Google',
+          providerId: 'oidc',
+          enabled: googleProps.enabled ?? true,
+          trustEmail: googleProps.trustEmail ?? true,
+          config: {
+            clientId: googleProps.clientId,
+            clientSecret: googleProps.clientSecret,
+          },
+        })
       }
     }
   }

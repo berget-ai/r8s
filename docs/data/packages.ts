@@ -1467,7 +1467,12 @@ export const packages: Package[] = [
               'list of `ClickHouseInstallationTemplate` (chit) resource names which will merge with current `CHI` manifest during render Kubernetes resources to create related ClickHouse clusters"',
           },
         ],
-        examples: [],
+        examples: [
+          {
+            tsx: "\nimport { ClickHouseInstallationComponent } from '@r8s/crds/clickhouse'\n\n<ClickHouseInstallationComponent\n  metadata={{ name: 'clickhouse', namespace: 'default' }}\n  spec={{\n    configuration: {\n      clusters: [{ name: 'default', layout: { shardsCount: 1, replicasCount: 1 } }],\n    },\n  }}\n/>\n",
+            yaml: 'apiVersion: clickhouse.altinity.com/v1\nkind: ClickHouseInstallation\nmetadata:\n  name: clickhouse\n  namespace: default\nspec:\n  configuration:\n    clusters:\n      - name: default\n        layout:\n          shardsCount: 1\n          replicasCount: 1\n',
+          },
+        ],
         expandedTypes: [
           {
             name: 'Templating',
@@ -7302,7 +7307,12 @@ export const packages: Package[] = [
           { name: '"outputRefs"', type: 'string[]', required: false, description: '' },
           { name: '"selectors"', type: 'Record', required: false, description: '' },
         ],
-        examples: [],
+        examples: [
+          {
+            tsx: "\nimport { FlowComponent, OutputComponent } from '@r8s/crds/logging'\n\n<>\n  <OutputComponent\n    metadata={{ name: 'loki-output', namespace: 'default' }}\n    spec={{\n      loki: { url: 'http://loki:3100' },\n    }}\n  />\n  <FlowComponent\n    metadata={{ name: 'app-flow', namespace: 'default' }}\n    spec={{\n      match: [{ select: { labels: { app: 'api' } } }],\n      outputRefs: ['loki-output'],\n    }}\n  />\n</>\n",
+            yaml: 'apiVersion: logging.banzaicloud.io/v1beta1\nkind: Output\nmetadata:\n  name: loki-output\n  namespace: default\nspec:\n  loki:\n    url: http://loki:3100\n---\napiVersion: logging.banzaicloud.io/v1beta1\nkind: Flow\nmetadata:\n  name: app-flow\n  namespace: default\nspec:\n  match:\n    - select:\n        labels:\n          app: api\n  outputRefs:\n    - loki-output\n',
+          },
+        ],
         expandedTypes: [
           {
             name: 'FiltersItem',
@@ -12505,7 +12515,12 @@ export const packages: Package[] = [
             description: '',
           },
         ],
-        examples: [],
+        examples: [
+          {
+            tsx: "\nimport { FlowComponent, OutputComponent } from '@r8s/crds/logging'\n\n<>\n  <OutputComponent\n    metadata={{ name: 'loki-output', namespace: 'default' }}\n    spec={{\n      loki: { url: 'http://loki:3100' },\n    }}\n  />\n  <FlowComponent\n    metadata={{ name: 'app-flow', namespace: 'default' }}\n    spec={{\n      match: [{ select: { labels: { app: 'api' } } }],\n      outputRefs: ['loki-output'],\n    }}\n  />\n</>\n",
+            yaml: 'apiVersion: logging.banzaicloud.io/v1beta1\nkind: Output\nmetadata:\n  name: loki-output\n  namespace: default\nspec:\n  loki:\n    url: http://loki:3100\n---\napiVersion: logging.banzaicloud.io/v1beta1\nkind: Flow\nmetadata:\n  name: app-flow\n  namespace: default\nspec:\n  match:\n    - select:\n        labels:\n          app: api\n  outputRefs:\n    - loki-output\n',
+          },
+        ],
         expandedTypes: [
           {
             name: 'AwsElasticsearch',
@@ -18587,7 +18602,12 @@ export const packages: Package[] = [
               'Tenants defines the per-tenant authentication and authorization spec for the lokistack-gateway component.',
           },
         ],
-        examples: [],
+        examples: [
+          {
+            tsx: "\nimport { LokiStackComponent } from '@r8s/crds/loki'\n\n<LokiStackComponent\n  metadata={{ name: 'loki', namespace: 'monitoring' }}\n  spec={{\n    size: '1x.small',\n    storageClassName: 'standard',\n    storage: {\n      schemas: [{ version: 'v13', effectiveDate: '2024-01-01' }],\n      secret: { name: 'loki-storage', type: 's3' },\n    },\n  }}\n/>\n",
+            yaml: "apiVersion: loki.grafana.com/v1\nkind: LokiStack\nmetadata:\n  name: loki\n  namespace: monitoring\nspec:\n  size: 1x.small\n  storageClassName: standard\n  storage:\n    schemas:\n      - version: v13\n        effectiveDate: '2024-01-01'\n    secret:\n      name: loki-storage\n      type: s3\n",
+          },
+        ],
         expandedTypes: [
           {
             name: 'HashRing',
@@ -62537,8 +62557,8 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: "\nimport { RedisClusterComponent } from '@r8s/crds/redis'\n\n<RedisClusterComponent\n  metadata={{ name: 'cache', namespace: 'default' }}\n  spec={{\n    size: 3,\n    kubernetesConfig: { image: 'quay.io/opstree/redis:v7.0.12' },\n    storage: { volumeClaimTemplate: { spec: { resources: { requests: { storage: '5Gi' } } } } },\n  }}\n/>\n",
-            yaml: 'apiVersion: redis.redis.opstreelabs.in/v1beta2\nkind: RedisCluster\nmetadata:\n  name: cache\n  namespace: default\nspec:\n  size: 3\n  kubernetesConfig:\n    image: quay.io/opstree/redis:v7.0.12\n  storage:\n    volumeClaimTemplate:\n      spec:\n        resources:\n          requests:\n            storage: 5Gi\n',
+            tsx: "\nimport { RedisClusterComponent } from '@r8s/crds/redis'\n\n<RedisClusterComponent\n  metadata={{ name: 'cache', namespace: 'default' }}\n  spec={{\n    clusterSize: 3,\n    kubernetesConfig: { image: 'quay.io/opstree/redis:v7.0.12' },\n    storage: { volumeClaimTemplate: { spec: { resources: { requests: { storage: '5Gi' } } } } },\n  }}\n/>\n",
+            yaml: 'apiVersion: redis.redis.opstreelabs.in/v1beta2\nkind: RedisCluster\nmetadata:\n  name: cache\n  namespace: default\nspec:\n  clusterSize: 3\n  kubernetesConfig:\n    image: quay.io/opstree/redis:v7.0.12\n  storage:\n    volumeClaimTemplate:\n      spec:\n        resources:\n          requests:\n            storage: 5Gi\n',
           },
         ],
         expandedTypes: [
@@ -70423,8 +70443,8 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'export default <Element\n  host="chat.example.com"\n  homeserverUrl="https://matrix.example.com"\n  tls={{ secretName: "element-tls", clusterIssuer: "letsencrypt" }}\n/>',
-            yaml: null,
+            tsx: 'import { Element } from \'@r8s/element\'\n\nexport default (\n  <Element\n    host="chat.example.com"\n    homeserverUrl="https://matrix.example.com"\n    tls={{ secretName: "element-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
+            yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: element\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: element-config\n  namespace: element\ndata:\n  config.json: |-\n    {\n      "default_server_config": {\n        "m.homeserver": {\n          "base_url": "https://matrix.example.com",\n          "server_name": "chat.example.com"\n        }\n      },\n      "brand": "Element",\n      "integrations_ui_url": "https://scalar.vector.im/",\n      "integrations_rest_url": "https://scalar.vector.im/api",\n      "integrations_widgets_urls": [\n        "https://scalar.vector.im/_matrix/integrations/v1",\n        "https://scalar.vector.im/api",\n        "https://scalar-staging.vector.im/_matrix/integrations/v1",\n        "https://scalar-staging.vector.im/api"\n      ],\n      "bug_report_endpoint_url": "https://element.io/bugreports/submit",\n      "uisi_autorageshared_sigs": true,\n      "show_labs_settings": true,\n      "room_directory": {\n        "servers": [\n          "chat.example.com"\n        ]\n      }\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: element\n  namespace: element\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: element\n  template:\n    metadata:\n      labels:\n        app: element\n    spec:\n      containers:\n        - name: element\n          image: vectorim/element-web:latest\n          ports:\n            - containerPort: 80\n              name: http\n          volumeMounts:\n            - name: config\n              mountPath: /app/config.json\n              subPath: config.json\n              readOnly: true\n          resources:\n            requests:\n              memory: 64Mi\n              cpu: 50m\n            limits:\n              memory: 256Mi\n              cpu: 200m\n      volumes:\n        - name: config\n          configMap:\n            name: element-config\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: element\n  namespace: element\nspec:\n  selector:\n    app: element\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: element\n  namespace: element\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  rules:\n    - host: chat.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: element\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - chat.example.com\n      secretName: element-tls\n',
           },
         ],
       },
@@ -70484,8 +70504,8 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'export default <Grafana\n  name="grafana"\n  namespace="monitoring"\n  host="grafana.example.com"\n  datasources={[{ name: \'Prometheus\', type: \'prometheus\', url: \'http://prometheus:9090\' }]}\n/>',
-            yaml: null,
+            tsx: "import { Grafana } from '@r8s/grafana'\n\nexport default (\n  <Grafana\n    name=\"grafana\"\n    namespace=\"monitoring\"\n    host=\"grafana.example.com\"\n    datasources={[{ name: 'Prometheus', type: 'prometheus', url: 'http://prometheus:9090' }]}\n  />\n)\n",
+            yaml: 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: grafana-datasources\n  namespace: monitoring\ndata:\n  datasources.yaml: |-\n    {\n      "apiVersion": 1,\n      "datasources": [\n        {\n          "name": "Prometheus",\n          "type": "prometheus",\n          "url": "http://prometheus:9090",\n          "access": "proxy",\n          "isDefault": false\n        }\n      ]\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: grafana\n  template:\n    metadata:\n      labels:\n        app: grafana\n    spec:\n      containers:\n        - name: grafana\n          image: grafana/grafana:10.3.0\n          ports:\n            - containerPort: 3000\n              name: http\n          env:\n            - name: GF_SECURITY_ADMIN_PASSWORD__FILE\n              value: /etc/grafana/admin/password\n            - name: GF_INSTALL_PLUGINS\n              value: grafana-clock-panel\n          volumeMounts:\n            - name: storage\n              mountPath: /var/lib/grafana\n            - name: datasources\n              mountPath: /etc/grafana/provisioning/datasources\n            - name: admin\n              mountPath: /etc/grafana/admin\n          resources:\n            requests:\n              memory: 256Mi\n              cpu: 250m\n            limits:\n              memory: 512Mi\n              cpu: 500m\n      volumes:\n        - name: storage\n          persistentVolumeClaim:\n            claimName: grafana-pvc\n        - name: datasources\n        - name: admin\n          secret:\n            secretName: grafana-admin\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  selector:\n    app: grafana\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: grafana-pvc\n  namespace: monitoring\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 10Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  rules:\n    - host: grafana.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: grafana\n                port:\n                  number: 80\n',
           },
         ],
       },
@@ -70546,8 +70566,8 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'export default <RustFS\n  name="storage"\n  namespace="rustfs"\n  instances={4}\n  storage="500Gi"\n  host="s3.example.com"\n  tls={{ secretName: "s3-tls", clusterIssuer: "letsencrypt" }}\n/>',
-            yaml: null,
+            tsx: 'import { RustFS } from \'@r8s/rustfs\'\n\nexport default (\n  <RustFS\n    name="storage"\n    namespace="rustfs"\n    instances={4}\n    storage="500Gi"\n    host="s3.example.com"\n    tls={{ secretName: "s3-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
+            yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: rustfs\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: storage-headless\n  namespace: rustfs\nspec:\n  clusterIP: None\n  selector:\n    app: storage\n  ports:\n    - port: 9000\n      name: s3\n    - port: 9001\n      name: console\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: storage\n  namespace: rustfs\nspec:\n  selector:\n    app: storage\n  ports:\n    - port: 80\n      targetPort: 9000\n      name: s3\n    - port: 9001\n      targetPort: 9001\n      name: console\n---\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: storage\n  namespace: rustfs\nspec:\n  serviceName: storage-headless\n  replicas: 4\n  selector:\n    matchLabels:\n      app: storage\n  template:\n    metadata:\n      labels:\n        app: storage\n    spec:\n      containers:\n        - name: rustfs\n          image: rustfs/rustfs:latest\n          ports:\n            - containerPort: 9000\n              name: s3\n            - containerPort: 9001\n              name: console\n          env:\n            - name: RUSTFS_ROOT_USER\n              value: rustfs\n            - name: RUSTFS_ROOT_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: storage-root-password\n                  key: password\n          volumeMounts:\n            - name: data\n              mountPath: /data\n          resources:\n            requests:\n              memory: 1Gi\n              cpu: 500m\n            limits:\n              memory: 4Gi\n              cpu: 2000m\n  volumeClaimTemplates:\n    - metadata:\n        name: data\n      spec:\n        accessModes:\n          - ReadWriteOnce\n        resources:\n          requests:\n            storage: 500Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: storage\n  namespace: rustfs\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  rules:\n    - host: s3.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: storage\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - s3.example.com\n      secretName: s3-tls\n',
           },
         ],
       },
@@ -70625,8 +70645,8 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'export default <Superset\n  host="superset.example.com"\n  database={{ host: "superset-db-rw", database: "superset", user: "superset", passwordSecret: "superset-db-credentials" }}\n  redis={{ host: "redis-master" }}\n  adminSecret="superset-admin"\n  tls={{ secretName: "superset-tls", clusterIssuer: "letsencrypt" }}\n/>',
-            yaml: null,
+            tsx: 'import { Superset } from \'@r8s/superset\'\n\nexport default (\n  <Superset\n    host="superset.example.com"\n    database={{ host: "superset-db-rw", database: "superset", user: "superset", passwordSecret: "superset-db-credentials" }}\n    redis={{ host: "redis-master" }}\n    adminSecret="superset-admin"\n    tls={{ secretName: "superset-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
+            yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: superset\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: superset-config\n  namespace: superset\ndata:\n  superset_config.py: |\n\n    import os\n\n    SECRET_KEY = os.environ.get('SUPERSET_SECRET_KEY', 'change-me')\n    SQLALCHEMY_DATABASE_URI = f\"postgresql://{os.environ['DB_USER']}:{os.environ['DB_PASS']}@{os.environ['DB_HOST']}/{os.environ['DB_NAME']}\"\n    CACHE_CONFIG = {\n        'CACHE_TYPE': 'RedisCache',\n        'CACHE_DEFAULT_TIMEOUT': 300,\n        'CACHE_KEY_PREFIX': 'superset_',\n        'CACHE_REDIS_HOST': os.environ.get('REDIS_HOST', 'localhost'),\n        'CACHE_REDIS_PORT': int(os.environ.get('REDIS_PORT', '6379')),\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: superset\n  template:\n    metadata:\n      labels:\n        app: superset\n    spec:\n      containers:\n        - name: superset\n          image: apache/superset:4.0.0\n          ports:\n            - containerPort: 8088\n              name: http\n          env:\n            - name: SUPERSET_SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: superset-admin\n                  key: secretKey\n            - name: DB_HOST\n              value: superset-db-rw\n            - name: DB_NAME\n              value: superset\n            - name: DB_USER\n              value: superset\n            - name: DB_PASS\n              valueFrom:\n                secretKeyRef:\n                  name: superset-db-credentials\n                  key: password\n            - name: REDIS_HOST\n              value: redis-master\n            - name: REDIS_PORT\n              value: '6379'\n          volumeMounts:\n            - name: config\n              mountPath: /app/pythonpath\n              readOnly: true\n          resources:\n            requests:\n              cpu: 250m\n              memory: 1Gi\n            limits:\n              cpu: 1000m\n              memory: 2Gi\n      volumes:\n        - name: config\n          configMap:\n            name: superset-config\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  selector:\n    app: superset\n  ports:\n    - port: 80\n      targetPort: 8088\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: superset\n  namespace: superset\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\n    nginx.ingress.kubernetes.io/proxy-body-size: 50m\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'\nspec:\n  rules:\n    - host: superset.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: superset\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - superset.example.com\n      secretName: superset-tls\n",
           },
         ],
       },
@@ -70698,8 +70718,8 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'export default <WireGuard\n  host="vpn.example.com"\n  passwordSecret="wg-password"\n  nodePort={31820}\n  tls={{ secretName: "wg-tls", clusterIssuer: "letsencrypt" }}\n/>',
-            yaml: null,
+            tsx: 'import { WireGuard } from \'@r8s/wireguard\'\n\nexport default (\n  <WireGuard\n    host="vpn.example.com"\n    passwordSecret="wg-password"\n    nodePort={31820}\n    tls={{ secretName: "wg-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
+            yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: wireguard\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: wireguard\n  namespace: wireguard\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: wireguard\n  template:\n    metadata:\n      labels:\n        app: wireguard\n    spec:\n      containers:\n        - name: wg-easy\n          image: ghcr.io/wg-easy/wg-easy:latest\n          ports:\n            - containerPort: 51820\n              protocol: UDP\n              name: wg\n            - containerPort: 51821\n              name: web\n          env:\n            - name: WG_HOST\n              value: vpn.example.com\n            - name: PASSWORD_HASH\n              valueFrom:\n                secretKeyRef:\n                  name: wg-password\n                  key: password\n            - name: WG_PORT\n              value: '51820'\n            - name: WG_DEFAULT_ADDRESS\n              value: 10.8.0.x\n            - name: WG_DEFAULT_DNS\n              value: 1.1.1.1, 8.8.8.8\n            - name: UI_TRAFFIC_STATS\n              value: 'true'\n            - name: UI_CHART_TYPE\n              value: '2'\n          volumeMounts:\n            - name: data\n              mountPath: /etc/wireguard\n          securityContext:\n            capabilities:\n              add:\n                - NET_ADMIN\n                - SYS_MODULE\n          resources:\n            requests:\n              memory: 64Mi\n              cpu: 50m\n            limits:\n              memory: 256Mi\n              cpu: 200m\n      volumes:\n        - name: data\n          persistentVolumeClaim:\n            claimName: wireguard-pvc\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: wireguard\n  namespace: wireguard\nspec:\n  type: NodePort\n  selector:\n    app: wireguard\n  ports:\n    - port: 51820\n      targetPort: 51820\n      protocol: UDP\n      name: wg\n      nodePort: 31820\n    - port: 51821\n      targetPort: 51821\n      name: web\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: wireguard-pvc\n  namespace: wireguard\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 1Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: wireguard\n  namespace: wireguard\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  rules:\n    - host: vpn.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: wireguard\n                port:\n                  number: 51821\n  tls:\n    - hosts:\n        - vpn.example.com\n      secretName: wg-tls\n",
           },
         ],
       },

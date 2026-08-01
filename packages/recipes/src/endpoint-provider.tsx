@@ -149,8 +149,7 @@ export function EndpointProvider(props: EndpointProviderProps) {
   const { provider, children } = props
 
   // Resolve provider config
-  const config: EndpointConfig =
-    typeof provider === 'string' ? { provider } : provider
+  const config: EndpointConfig = typeof provider === 'string' ? { provider } : provider
 
   // Map to RoutingContext for backward compatibility
   const routing = {

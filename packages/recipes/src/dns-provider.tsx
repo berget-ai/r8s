@@ -122,8 +122,17 @@ export function DnsProvider(props: DnsProviderProps) {
   const secrets = useContext(SecretContext)
 
   // Resolve provider config
-  const config: DnsConfig =
-    typeof provider === 'string' ? { provider, settings: {} } : provider
+  let config: DnsConfig
+  if (typeof provider === 'string') {
+    config = { provider, settings: {} }
+  } else if ('settings' in provider) {
+    config = provider
+  } else if (provider && typeof provider === 'object' && 'type' in provider && (provider as any).type === ExternalDns) {
+    // r8s JSX element — call the component with its props
+    config = ExternalDns((provider as any).props)
+  } else {
+    config = { provider: 'external-dns', settings: provider }
+  }
 
   const resources: ReturnType<typeof jsx>[] = []
 
@@ -168,9 +177,6 @@ export function DnsProvider(props: DnsProviderProps) {
   }
 
   return jsx(Fragment, {
-    children: [
-      ...resources,
-      jsx(DnsContext.Provider, { value: config, children }),
-    ],
+    children: [...resources, jsx(DnsContext.Provider, { value: config, children })],
   })
 }
