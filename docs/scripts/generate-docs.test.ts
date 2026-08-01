@@ -25,7 +25,9 @@ describe('Generated docs data', () => {
       // Parse the packages array structure
       const packageBlocks = content.split(/(?=\s{4}slug: ")/)
       for (const block of packageBlocks) {
-        const nameMatches = block.matchAll(/name: ["']([A-Z][^"']+)["']/g)
+        // Only match component-level names (8-space indent) — nested prop
+        // type names at deeper indentation are not component names
+        const nameMatches = block.matchAll(/^ {8}name: ["']([A-Z][^"']+)["']/gm)
         const names = [...nameMatches].map((m) => m[1])
         const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
         expect(duplicates).toEqual([])
@@ -45,7 +47,9 @@ describe('Generated docs data', () => {
 
     it('should have no duplicate recipe titles', () => {
       const content = fs.readFileSync(path.join(ROOT, 'docs', 'data', 'recipes.ts'), 'utf-8')
-      const titleMatches = content.matchAll(/title: ["']([^"']+)["']/g)
+      // Only match recipe-level titles (4-space indent) — example titles at
+      // deeper indentation may legitimately repeat across recipes
+      const titleMatches = content.matchAll(/^ {4}title: ["']([^"']+)["']/gm)
       const titles = [...titleMatches].map((m) => m[1])
       const duplicates = titles.filter((title, i) => titles.indexOf(title) !== i)
 
