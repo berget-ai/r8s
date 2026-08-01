@@ -22,7 +22,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
     source: { type: 'helm', chart: "clickhouse-operator-helm", repository: "https://docs.altinity.com/clickhouse-operator/", version, namespace: "clickhouse-operator-system" },
     version,
     namespace: "clickhouse-operator-system",
-    crds: ["clickhouseinstallations.clickhouse.altinity.com","clickhouseinstallationtemplates.clickhouse.altinity.com","clickhouseoperatorconfigurations.clickhouse.altinity.com"],
+    crds: ["clickhouseinstallations.clickhouse.altinity.com","clickhouseinstallationtemplates.clickhouse.altinity.com","clickhouseoperatorconfigurations.clickhouse.altinity.com","clickhousekeeperinstallations.clickhouse-keeper.altinity.com"],
   }),
   "cnpg": (version = "1.27.0") => ({
     name: "cnpg",
@@ -38,7 +38,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
     source: { type: 'helm', chart: "gateway-helm", repository: "oci://docker.io/envoyproxy", version, namespace: "envoy-gateway-system" },
     version,
     namespace: "envoy-gateway-system",
-    crds: ["gatewayclasses.gateway.networking.k8s.io","gateways.gateway.networking.k8s.io","httproutes.gateway.networking.k8s.io","grpcroutes.gateway.networking.k8s.io","tlsroutes.gateway.networking.k8s.io","tcproutes.gateway.networking.k8s.io","udproutes.gateway.networking.k8s.io","envoyproxies.gateway.envoyproxy.io"],
+    crds: ["gatewayclasses.gateway.networking.k8s.io","gateways.gateway.networking.k8s.io","httproutes.gateway.networking.k8s.io","grpcroutes.gateway.networking.k8s.io","tlsroutes.gateway.networking.k8s.io","tcproutes.gateway.networking.k8s.io","udproutes.gateway.networking.k8s.io","envoyproxies.gateway.envoyproxy.io","backendtrafficpolicies.gateway.envoyproxy.io","clienttrafficpolicies.gateway.envoyproxy.io","securitypolicies.gateway.envoyproxy.io"],
   }),
   "external-dns": (version = "0.14.0") => ({
     name: "external-dns",
@@ -69,7 +69,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
     source: { type: 'helm', chart: "loki", repository: "https://grafana.github.io/helm-charts", version, namespace: "loki" },
     version,
     namespace: "loki",
-    crds: ["alertingrules.loki.grafana.com","recordingrules.loki.grafana.com","rulerconfigs.loki.grafana.com"],
+    crds: ["lokistacks.loki.grafana.com","alertingrules.loki.grafana.com","recordingrules.loki.grafana.com","rulerconfigs.loki.grafana.com"],
   }),
   "prometheus": (version = "58.4.0") => ({
     name: "prometheus",
@@ -77,7 +77,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
     source: { type: 'helm', chart: "kube-prometheus-stack", repository: "https://prometheus-community.github.io/helm-charts", version, namespace: "monitoring" },
     version,
     namespace: "monitoring",
-    crds: ["alertmanagers.monitoring.coreos.com","podmonitors.monitoring.coreos.com","probes.monitoring.coreos.com","prometheuses.monitoring.coreos.com","prometheusrules.monitoring.coreos.com","servicemonitors.monitoring.coreos.com","thanosrulers.monitoring.coreos.com"],
+    crds: ["alertmanagers.monitoring.coreos.com","alertmanagerconfigs.monitoring.coreos.com","podmonitors.monitoring.coreos.com","probes.monitoring.coreos.com","prometheuses.monitoring.coreos.com","prometheusrules.monitoring.coreos.com","scrapeconfigs.monitoring.coreos.com","servicemonitors.monitoring.coreos.com","thanosrulers.monitoring.coreos.com"],
   }),
   "redis-operator": (version = "0.22.0") => ({
     name: "redis-operator",
@@ -85,7 +85,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
     source: { type: 'helm', chart: "redis-operator", repository: "https://ot-container-kit.github.io/helm-charts/", version, namespace: "kube-system" },
     version,
     namespace: "kube-system",
-    crds: ["redisclusters.redis.redis.opstreelabs.in","redisreplications.redis.redis.opstreelabs.in"],
+    crds: ["redisclusters.redis.redis.opstreelabs.in","redisreplications.redis.redis.opstreelabs.in","redisfailovers.databases.spotahome.com"],
   }),
   "vault-secrets-operator": (version = "0.5.0") => ({
     name: "vault-secrets-operator",
@@ -129,7 +129,7 @@ export const operatorMetadata: OperatorMeta[] = [
     description: "ClickHouse Operator for Kubernetes by Altinity",
     category: "Data & Analytics",
     version: "0.25.0",
-    crds: ["clickhouseinstallations.clickhouse.altinity.com","clickhouseinstallationtemplates.clickhouse.altinity.com","clickhouseoperatorconfigurations.clickhouse.altinity.com"],
+    crds: ["clickhouseinstallations.clickhouse.altinity.com","clickhouseinstallationtemplates.clickhouse.altinity.com","clickhouseoperatorconfigurations.clickhouse.altinity.com","clickhousekeeperinstallations.clickhouse-keeper.altinity.com"],
   },
   {
     name: "cnpg",
@@ -143,7 +143,7 @@ export const operatorMetadata: OperatorMeta[] = [
     description: "Envoy Gateway — Kubernetes Gateway API implementation",
     category: "Networking",
     version: "1.7.0",
-    crds: ["gatewayclasses.gateway.networking.k8s.io","gateways.gateway.networking.k8s.io","httproutes.gateway.networking.k8s.io","grpcroutes.gateway.networking.k8s.io","tlsroutes.gateway.networking.k8s.io","tcproutes.gateway.networking.k8s.io","udproutes.gateway.networking.k8s.io","envoyproxies.gateway.envoyproxy.io"],
+    crds: ["gatewayclasses.gateway.networking.k8s.io","gateways.gateway.networking.k8s.io","httproutes.gateway.networking.k8s.io","grpcroutes.gateway.networking.k8s.io","tlsroutes.gateway.networking.k8s.io","tcproutes.gateway.networking.k8s.io","udproutes.gateway.networking.k8s.io","envoyproxies.gateway.envoyproxy.io","backendtrafficpolicies.gateway.envoyproxy.io","clienttrafficpolicies.gateway.envoyproxy.io","securitypolicies.gateway.envoyproxy.io"],
   },
   {
     name: "external-dns",
@@ -171,21 +171,21 @@ export const operatorMetadata: OperatorMeta[] = [
     description: "Grafana Loki — horizontally-scalable, highly-available log aggregation",
     category: "Observability",
     version: "5.47.0",
-    crds: ["alertingrules.loki.grafana.com","recordingrules.loki.grafana.com","rulerconfigs.loki.grafana.com"],
+    crds: ["lokistacks.loki.grafana.com","alertingrules.loki.grafana.com","recordingrules.loki.grafana.com","rulerconfigs.loki.grafana.com"],
   },
   {
     name: "prometheus",
     description: "Prometheus monitoring stack (kube-prometheus-stack)",
     category: "Observability",
     version: "58.4.0",
-    crds: ["alertmanagers.monitoring.coreos.com","podmonitors.monitoring.coreos.com","probes.monitoring.coreos.com","prometheuses.monitoring.coreos.com","prometheusrules.monitoring.coreos.com","servicemonitors.monitoring.coreos.com","thanosrulers.monitoring.coreos.com"],
+    crds: ["alertmanagers.monitoring.coreos.com","alertmanagerconfigs.monitoring.coreos.com","podmonitors.monitoring.coreos.com","probes.monitoring.coreos.com","prometheuses.monitoring.coreos.com","prometheusrules.monitoring.coreos.com","scrapeconfigs.monitoring.coreos.com","servicemonitors.monitoring.coreos.com","thanosrulers.monitoring.coreos.com"],
   },
   {
     name: "redis-operator",
     description: "Redis Operator for Kubernetes by OT-Container-Kit",
     category: "Data & Analytics",
     version: "0.22.0",
-    crds: ["redisclusters.redis.redis.opstreelabs.in","redisreplications.redis.redis.opstreelabs.in"],
+    crds: ["redisclusters.redis.redis.opstreelabs.in","redisreplications.redis.redis.opstreelabs.in","redisfailovers.databases.spotahome.com"],
   },
   {
     name: "vault-secrets-operator",

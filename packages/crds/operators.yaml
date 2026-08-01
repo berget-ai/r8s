@@ -37,6 +37,7 @@
     - clickhouseinstallations.clickhouse.altinity.com
     - clickhouseinstallationtemplates.clickhouse.altinity.com
     - clickhouseoperatorconfigurations.clickhouse.altinity.com
+    - clickhousekeeperinstallations.clickhouse-keeper.altinity.com
 
 - name: cnpg
   description: CloudNativePG PostgreSQL operator
@@ -69,6 +70,9 @@
     - tcproutes.gateway.networking.k8s.io
     - udproutes.gateway.networking.k8s.io
     - envoyproxies.gateway.envoyproxy.io
+    - backendtrafficpolicies.gateway.envoyproxy.io
+    - clienttrafficpolicies.gateway.envoyproxy.io
+    - securitypolicies.gateway.envoyproxy.io
 
 - name: external-dns
   description: ExternalDNS for automatic DNS management
@@ -119,6 +123,7 @@
   version: '5.47.0'
   namespace: loki
   crds:
+    - lokistacks.loki.grafana.com
     - alertingrules.loki.grafana.com
     - recordingrules.loki.grafana.com
     - rulerconfigs.loki.grafana.com
@@ -134,10 +139,12 @@
   namespace: monitoring
   crds:
     - alertmanagers.monitoring.coreos.com
+    - alertmanagerconfigs.monitoring.coreos.com
     - podmonitors.monitoring.coreos.com
     - probes.monitoring.coreos.com
     - prometheuses.monitoring.coreos.com
     - prometheusrules.monitoring.coreos.com
+    - scrapeconfigs.monitoring.coreos.com
     - servicemonitors.monitoring.coreos.com
     - thanosrulers.monitoring.coreos.com
 
@@ -153,6 +160,7 @@
   crds:
     - redisclusters.redis.redis.opstreelabs.in
     - redisreplications.redis.redis.opstreelabs.in
+    - redisfailovers.databases.spotahome.com
 
 - name: vault-secrets-operator
   description: HashiCorp Vault Secrets Operator

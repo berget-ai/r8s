@@ -10,10 +10,13 @@
  */
 
 export * as cert_manager from './cert-manager'
+export * as clickhouse from './clickhouse'
 export * as postgresql from './postgresql'
 export * as gateway from './gateway'
 export * as externaldns from './externaldns'
 export * as keycloak from './keycloak'
+export * as logging from './logging'
+export * as loki from './loki'
 export * as monitoring from './monitoring'
 export * as redis from './redis'
 export * as velero from './velero'

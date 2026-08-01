@@ -50,6 +50,63 @@ export interface AuthProps {
  *     tls={{ secretName: 'auth-tls', clusterIssuer: 'letsencrypt-prod' }}
  *   />
  * )
+ *
+ * @example
+ * import { Platform, Auth } from '@r8s/recipes'
+ * import { KeycloakRealmImportComponent } from '@r8s/crds/keycloak'
+ *
+ * // Auth with EntraID federation — secrets from OpenBao, nothing in git.
+ * export default (
+ *   <Platform
+ *     name="auth"
+ *     namespace="auth"
+ *     secrets={{ backend: 'openbao', mount: 'secret', path: 'auth' }}
+ *     operators={['cnpg', 'keycloak-operator']}
+ *   >
+ *     <Auth name="keycloak" host="auth.example.com" />
+ *     <KeycloakRealmImportComponent
+ *       metadata={{ name: 'company-realm' }}
+ *       spec={{
+ *         keycloakCRName: 'keycloak',
+ *         realm: {
+ *           realm: 'company',
+ *           enabled: true,
+ *           identityProviders: [
+ *             {
+ *               alias: 'entra-id',
+ *               displayName: 'Entra ID',
+ *               providerId: 'oidc',
+ *               enabled: true,
+ *               trustEmail: true,
+ *               config: {
+ *                 clientId: '${env:ENTRA_CLIENT_ID}',
+ *                 clientSecret: '${env:ENTRA_CLIENT_SECRET}',
+ *                 tokenUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/token',
+ *                 authorizationUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/authorize',
+ *               },
+ *             },
+ *           ],
+ *           clients: [
+ *             {
+ *               clientId: 'app-alpha',
+ *               name: 'App Alpha (SPA)',
+ *               publicClient: true,
+ *               standardFlowEnabled: true,
+ *               redirectUris: ['https://alpha.example.com/*'],
+ *             },
+ *             {
+ *               clientId: 'app-beta',
+ *               name: 'App Beta (Backend)',
+ *               publicClient: false,
+ *               serviceAccountsEnabled: true,
+ *               secret: '${env:APP_BETA_CLIENT_SECRET}',
+ *             },
+ *           ],
+ *         },
+ *       }}
+ *     />
+ *   </Platform>
+ * )
  */
 export function Auth(props: AuthProps) {
   const { name, host, namespace = 'default', instances = 1, storage = '10Gi', tls } = props

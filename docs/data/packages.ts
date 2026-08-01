@@ -258,6 +258,124 @@ export const packages: Package[] = [
     ],
   },
   {
+    slug: 'clickhouse',
+    name: '@r8s/crds/clickhouse',
+    title: 'clickhouse',
+    description: 'ClickHouse Operator for Kubernetes by Altinity',
+    category: 'Data & Analytics',
+    operator: 'clickhouse-operator',
+    operatorVersion: '0.25.0',
+    keywords: ['clickhouse'],
+    components: [
+      {
+        name: 'ClickHouseInstallation',
+        description:
+          'Render a ClickHouseInstallation (clickhouse.altinity.com/v1) exactly as defined by its CRD.',
+        props: [
+          {
+            name: '"taskID"',
+            type: 'string',
+            required: false,
+            description:
+              'Allows to define custom taskID for CHI update and watch status of this update execution. Displayed in all .status.taskID* fields. By default (if not filled) every update of CHI manifest will generate random taskID',
+          },
+          {
+            name: '"stop"',
+            type: 'Record',
+            required: false,
+            description:
+              'Allows to stop all ClickHouse clusters defined in a CHI. Works as the following: - When `stop` is `1` operator sets `Replicas: 0` in each StatefulSet. Thie leads to having all `Pods` and `Service` deleted. All PVCs are kept intact. - When `stop` is `0` operator sets `Replicas: 1` and `Pod`s and `Service`s will created again and all retained PVCs will be attached to `Pod`s.',
+          },
+          {
+            name: '"restart"',
+            type: 'string',
+            required: false,
+            description:
+              "In case 'RollingUpdate' specified, the operator will always restart ClickHouse pods during reconcile. This options is used in rare cases when force restart is required and is typically removed after the use in order to avoid unneeded restarts.",
+          },
+          {
+            name: '"suspend"',
+            type: 'Record',
+            required: false,
+            description:
+              'Suspend reconciliation of resources managed by a ClickHouse Installation. Works as the following: - When `suspend` is `true` operator stops reconciling all resources. - When `suspend` is `false` or not set, operator reconciles all resources.',
+          },
+          {
+            name: '"troubleshoot"',
+            type: 'Record',
+            required: false,
+            description:
+              "Allows to troubleshoot Pods during CrashLoopBack state. This may happen when wrong configuration applied, in this case `clickhouse-server` wouldn't start. Command within ClickHouse container is modified with `sleep` in order to avoid quick restarts and give time to troubleshoot via CLI. Liveness and Readiness probes are disabled as well.",
+          },
+          {
+            name: '"namespaceDomainPattern"',
+            type: 'string',
+            required: false,
+            description:
+              'Custom domain pattern which will be used for DNS names of `Service` or `Pod`. Typical use scenario - custom cluster domain in Kubernetes cluster Example: %s.svc.my.test',
+          },
+          {
+            name: '"templating"',
+            type: 'Templating',
+            required: false,
+            description:
+              'Optional, applicable inside ClickHouseInstallationTemplate only. Defines current ClickHouseInstallationTemplate application options to target ClickHouseInstallation(s)."',
+          },
+          {
+            name: '"reconciling"',
+            type: 'Reconciling',
+            required: false,
+            description:
+              '[OBSOLETED] Optional, allows tuning reconciling cycle for ClickhouseInstallation from clickhouse-operator side',
+          },
+          {
+            name: '"reconcile"',
+            type: 'Reconcile',
+            required: false,
+            description:
+              'Optional, allows tuning reconciling cycle for ClickhouseInstallation from clickhouse-operator side',
+          },
+          {
+            name: '"defaults"',
+            type: 'Defaults',
+            required: false,
+            description:
+              'define default behavior for whole ClickHouseInstallation, some behavior can be re-define on cluster, shard and replica level More info: https://github.com/Altinity/clickhouse-operator/blob/master/docs/custom_resource_explained.md#specdefaults',
+          },
+          {
+            name: '"configuration"',
+            type: 'Configuration',
+            required: false,
+            description:
+              'allows configure multiple aspects and behavior for `clickhouse-server` instance and also allows describe multiple `clickhouse-server` clusters inside one `chi` resource',
+          },
+          {
+            name: '"templates"',
+            type: 'Templates2',
+            required: false,
+            description:
+              'allows define templates which will use for render Kubernetes resources like StatefulSet, ConfigMap, Service, PVC, by default, clickhouse-operator have own templates, but you can override it',
+          },
+          {
+            name: '"security"',
+            type: 'Record',
+            required: false,
+            description:
+              'CHI-level security defaults, applied to every cluster that does not override them. Each cluster can shadow these via spec.configuration.clusters[].security. See docs/security_hardening.md for details.',
+          },
+          {
+            name: '"useTemplates"',
+            type: 'UseTemplatesItem[]',
+            required: false,
+            description:
+              'list of `ClickHouseInstallationTemplate` (chit) resource names which will merge with current `CHI` manifest during render Kubernetes resources to create related ClickHouse clusters"',
+          },
+        ],
+        examples: [],
+      },
+    ],
+  },
+  {
     slug: 'externaldns',
     name: '@r8s/crds/externaldns',
     title: 'externaldns',
@@ -628,6 +746,247 @@ export const packages: Package[] = [
     ],
   },
   {
+    slug: 'logging',
+    name: '@r8s/crds/logging',
+    title: 'logging',
+    description: 'Logging Operator for Kubernetes by Banzai Cloud',
+    category: 'Observability',
+    operator: 'logging-operator',
+    operatorVersion: '4.2.3',
+    keywords: ['logging'],
+    components: [
+      {
+        name: 'Flow',
+        description:
+          'Render a Flow (logging.banzaicloud.io/v1beta1) exactly as defined by its CRD.',
+        props: [
+          { name: '"filters"', type: 'FiltersItem[]', required: false, description: '' },
+          { name: '"flowLabel"', type: 'string', required: false, description: '' },
+          { name: '"globalOutputRefs"', type: 'string[]', required: false, description: '' },
+          { name: '"includeLabelInRouter"', type: 'boolean', required: false, description: '' },
+          { name: '"localOutputRefs"', type: 'string[]', required: false, description: '' },
+          { name: '"loggingRef"', type: 'string', required: false, description: '' },
+          { name: '"match"', type: 'MatchItem[]', required: false, description: '' },
+          { name: '"outputRefs"', type: 'string[]', required: false, description: '' },
+          { name: '"selectors"', type: 'Record', required: false, description: '' },
+        ],
+        examples: [],
+      },
+      {
+        name: 'Logging',
+        description:
+          'Render a Logging (logging.banzaicloud.io/v1beta1) exactly as defined by its CRD.',
+        props: [
+          {
+            name: '"allowClusterResourcesFromAllNamespaces"',
+            type: 'boolean',
+            required: false,
+            description: '',
+          },
+          { name: '"clusterDomain"', type: 'string', required: false, description: '' },
+          { name: '"configCheck"', type: 'ConfigCheck', required: false, description: '' },
+          { name: '"controlNamespace"', type: 'string', required: true, description: '' },
+          { name: '"defaultFlow"', type: 'DefaultFlow', required: false, description: '' },
+          {
+            name: '"enableDockerParserCompatibilityForCRI"',
+            type: 'boolean',
+            required: false,
+            description: '',
+          },
+          { name: '"enableRawFluentdFilter"', type: 'boolean', required: false, description: '' },
+          {
+            name: '"enableRecreateWorkloadOnImmutableFieldChange"',
+            type: 'boolean',
+            required: false,
+            description: '',
+          },
+          { name: '"errorOutputRef"', type: 'string', required: false, description: '' },
+          { name: '"flowConfigCheckDisabled"', type: 'boolean', required: false, description: '' },
+          { name: '"flowConfigOverride"', type: 'string', required: false, description: '' },
+          { name: '"fluentBitAgentNamespace"', type: 'string', required: false, description: '' },
+          { name: '"fluentbit"', type: 'Fluentbit', required: false, description: '' },
+          { name: '"fluentd"', type: 'Fluentd', required: false, description: '' },
+          {
+            name: '"globalFilters"',
+            type: 'GlobalFiltersItem[]',
+            required: false,
+            description: '',
+          },
+          { name: '"loggingRef"', type: 'string', required: false, description: '' },
+          { name: '"routeConfig"', type: 'RouteConfig', required: false, description: '' },
+          { name: '"skipInvalidResources"', type: 'boolean', required: false, description: '' },
+          { name: '"syslogNG"', type: 'SyslogNG', required: false, description: '' },
+          {
+            name: '"watchNamespaceSelector"',
+            type: 'WatchNamespaceSelector',
+            required: false,
+            description: '',
+          },
+          { name: '"watchNamespaces"', type: 'string[]', required: false, description: '' },
+        ],
+        examples: [],
+      },
+      {
+        name: 'Output',
+        description:
+          'Render a Output (logging.banzaicloud.io/v1beta1) exactly as defined by its CRD.',
+        props: [
+          {
+            name: '"awsElasticsearch"',
+            type: 'AwsElasticsearch',
+            required: false,
+            description: '',
+          },
+          { name: '"azurestorage"', type: 'Azurestorage', required: false, description: '' },
+          { name: '"cloudwatch"', type: 'Cloudwatch', required: false, description: '' },
+          { name: '"datadog"', type: 'Datadog', required: false, description: '' },
+          { name: '"elasticsearch"', type: 'Elasticsearch', required: false, description: '' },
+          { name: '"file"', type: 'File', required: false, description: '' },
+          { name: '"forward"', type: 'Forward', required: false, description: '' },
+          { name: '"gcs"', type: 'Gcs', required: false, description: '' },
+          { name: '"gelf"', type: 'Gelf', required: false, description: '' },
+          { name: '"http"', type: 'Http', required: false, description: '' },
+          { name: '"kafka"', type: 'Kafka', required: false, description: '' },
+          { name: '"kinesisFirehose"', type: 'KinesisFirehose', required: false, description: '' },
+          { name: '"kinesisStream"', type: 'KinesisStream', required: false, description: '' },
+          { name: '"lmLogs"', type: 'LmLogs', required: false, description: '' },
+          { name: '"logdna"', type: 'Logdna', required: false, description: '' },
+          { name: '"loggingRef"', type: 'string', required: false, description: '' },
+          { name: '"logz"', type: 'Logz', required: false, description: '' },
+          { name: '"loki"', type: 'Loki', required: false, description: '' },
+          { name: '"mattermost"', type: 'Mattermost', required: false, description: '' },
+          { name: '"newrelic"', type: 'Newrelic', required: false, description: '' },
+          { name: '"nullout"', type: 'Nullout', required: false, description: '' },
+          { name: '"opensearch"', type: 'Opensearch', required: false, description: '' },
+          { name: '"oss"', type: 'Oss', required: false, description: '' },
+          { name: '"rabbitmq"', type: 'Rabbitmq', required: false, description: '' },
+          { name: '"redis"', type: 'Redis', required: false, description: '' },
+          { name: '"relabel"', type: 'Relabel', required: false, description: '' },
+          { name: '"s3"', type: 'S3', required: false, description: '' },
+          { name: '"splunkHec"', type: 'SplunkHec', required: false, description: '' },
+          { name: '"sqs"', type: 'Sqs', required: false, description: '' },
+          { name: '"syslog"', type: 'Syslog', required: false, description: '' },
+          {
+            name: '"vmwareLogInsight"',
+            type: 'VmwareLogInsight',
+            required: false,
+            description: '',
+          },
+          {
+            name: '"vmwareLogIntelligence"',
+            type: 'VmwareLogIntelligence',
+            required: false,
+            description: '',
+          },
+        ],
+        examples: [],
+      },
+    ],
+  },
+  {
+    slug: 'loki',
+    name: '@r8s/crds/loki',
+    title: 'loki',
+    description: 'Grafana Loki — horizontally-scalable, highly-available log aggregation',
+    category: 'Observability',
+    operator: 'loki',
+    operatorVersion: '5.47.0',
+    keywords: ['loki'],
+    components: [
+      {
+        name: 'LokiStack',
+        description: 'Render a LokiStack (loki.grafana.com/v1) exactly as defined by its CRD.',
+        props: [
+          {
+            name: '"hashRing"',
+            type: 'HashRing',
+            required: false,
+            description: 'HashRing defines the spec for the distributed hash ring configuration.',
+          },
+          {
+            name: '"limits"',
+            type: 'Limits',
+            required: false,
+            description: 'Limits defines the limits to be applied to log stream processing.',
+          },
+          {
+            name: '"managementState"',
+            type: 'string',
+            required: false,
+            description:
+              'ManagementState defines if the CR should be managed by the operator or not. Default is managed.',
+          },
+          {
+            name: '"networkPolicies"',
+            type: 'NetworkPolicies',
+            required: false,
+            description:
+              'NetworkPolicies defines the NetworkPolicies configuration for LokiStack components. When enabled, the operator creates NetworkPolicies to control ingress/egress between Loki components and related services.',
+          },
+          {
+            name: '"proxy"',
+            type: 'Proxy',
+            required: false,
+            description:
+              'Proxy defines the spec for the object proxy to configure cluster proxy information.',
+          },
+          {
+            name: '"replication"',
+            type: 'Replication',
+            required: false,
+            description: 'Replication defines the configuration for Loki data replication.',
+          },
+          {
+            name: '"replicationFactor"',
+            type: 'number',
+            required: false,
+            description:
+              'Deprecated: Please use replication.factor instead. This field will be removed in future versions of this CRD. ReplicationFactor defines the policy for log stream replication.',
+          },
+          {
+            name: '"rules"',
+            type: 'Rules',
+            required: false,
+            description: 'Rules defines the spec for the ruler component.',
+          },
+          {
+            name: '"size"',
+            type: 'string',
+            required: true,
+            description: 'Size defines one of the support Loki deployment scale out sizes.',
+          },
+          {
+            name: '"storage"',
+            type: 'Storage',
+            required: true,
+            description: 'Storage defines the spec for the object storage endpoint to store logs.',
+          },
+          {
+            name: '"storageClassName"',
+            type: 'string',
+            required: true,
+            description: 'Storage class name defines the storage class for ingester/querier PVCs.',
+          },
+          {
+            name: '"template"',
+            type: 'Template',
+            required: false,
+            description:
+              'Template defines the resource/limits/tolerations/nodeselectors per component.',
+          },
+          {
+            name: '"tenants"',
+            type: 'Tenants',
+            required: false,
+            description:
+              'Tenants defines the per-tenant authentication and authorization spec for the lokistack-gateway component.',
+          },
+        ],
+        examples: [],
+      },
+    ],
+  },
+  {
     slug: 'monitoring',
     name: '@r8s/crds/monitoring',
     title: 'monitoring',
@@ -637,6 +996,438 @@ export const packages: Package[] = [
     operatorVersion: '58.4.0',
     keywords: ['monitoring'],
     components: [
+      {
+        name: 'Alertmanager',
+        description:
+          'Render a Alertmanager (monitoring.coreos.com/v1) exactly as defined by its CRD.',
+        props: [
+          {
+            name: '"additionalArgs"',
+            type: 'AdditionalArgsItem[]',
+            required: false,
+            description:
+              "additionalArgs allows setting additional arguments for the 'Alertmanager' container. It is intended for e.g. activating hidden flags which are not supported by the dedicated configuration options yet. The arguments are passed as-is to the Alertmanager container which may cause issues if they are invalid or not supported by the given Alertmanager version.",
+          },
+          {
+            name: '"additionalPeers"',
+            type: 'string[]',
+            required: false,
+            description:
+              'additionalPeers allows injecting a set of additional Alertmanagers to peer with to form a highly available cluster.',
+          },
+          {
+            name: '"affinity"',
+            type: 'Affinity',
+            required: false,
+            description: "affinity defines the pod's scheduling constraints.",
+          },
+          {
+            name: '"alertmanagerConfigMatcherStrategy"',
+            type: 'AlertmanagerConfigMatcherStrategy',
+            required: false,
+            description:
+              'alertmanagerConfigMatcherStrategy defines how AlertmanagerConfig objects process incoming alerts.',
+          },
+          {
+            name: '"alertmanagerConfigNamespaceSelector"',
+            type: 'AlertmanagerConfigNamespaceSelector',
+            required: false,
+            description:
+              'alertmanagerConfigNamespaceSelector defines the namespaces to be selected for AlertmanagerConfig discovery. If nil, only check own namespace.',
+          },
+          {
+            name: '"alertmanagerConfigSelector"',
+            type: 'AlertmanagerConfigSelector',
+            required: false,
+            description:
+              'alertmanagerConfigSelector defines the selector to be used for to merge and configure Alertmanager with.',
+          },
+          {
+            name: '"alertmanagerConfiguration"',
+            type: 'AlertmanagerConfiguration',
+            required: false,
+            description:
+              'alertmanagerConfiguration defines the configuration of Alertmanager. If defined, it takes precedence over the `configSecret` field. This is an *experimental feature*, it may change in any upcoming release in a breaking way.',
+          },
+          {
+            name: '"automountServiceAccountToken"',
+            type: 'boolean',
+            required: false,
+            description:
+              'automountServiceAccountToken defines whether a service account token should be automatically mounted in the pod. If the service account has `automountServiceAccountToken: true`, set the field to `false` to opt out of automounting API credentials.',
+          },
+          {
+            name: '"baseImage"',
+            type: 'string',
+            required: false,
+            description:
+              "baseImage that is used to deploy pods, without tag. Deprecated: use 'image' instead.",
+          },
+          {
+            name: '"clusterAdvertiseAddress"',
+            type: 'string',
+            required: false,
+            description:
+              'clusterAdvertiseAddress defines the explicit address to advertise in cluster. Needs to be provided for non RFC1918 [1] (public) addresses. [1] RFC1918: https://tools.ietf.org/html/rfc1918',
+          },
+          {
+            name: '"clusterGossipInterval"',
+            type: 'string',
+            required: false,
+            description: 'clusterGossipInterval defines the interval between gossip attempts.',
+          },
+          {
+            name: '"clusterLabel"',
+            type: 'string',
+            required: false,
+            description:
+              'clusterLabel defines the identifier that uniquely identifies the Alertmanager cluster. You should only set it when the Alertmanager cluster includes Alertmanager instances which are external to this Alertmanager resource. In practice, the addresses of the external instances are provided via the `.spec.additionalPeers` field.',
+          },
+          {
+            name: '"clusterPeerTimeout"',
+            type: 'string',
+            required: false,
+            description: 'clusterPeerTimeout defines the timeout for cluster peering.',
+          },
+          {
+            name: '"clusterPushpullInterval"',
+            type: 'string',
+            required: false,
+            description: 'clusterPushpullInterval defines the interval between pushpull attempts.',
+          },
+          {
+            name: '"clusterTLS"',
+            type: 'ClusterTLS',
+            required: false,
+            description:
+              "clusterTLS defines the mutual TLS configuration for the Alertmanager cluster's gossip protocol. It requires Alertmanager >= 0.24.0.",
+          },
+          {
+            name: '"configMaps"',
+            type: 'string[]',
+            required: false,
+            description:
+              "configMaps defines a list of ConfigMaps in the same namespace as the Alertmanager object, which shall be mounted into the Alertmanager Pods. Each ConfigMap is added to the StatefulSet definition as a volume named `configmap-<configmap-name>`. The ConfigMaps are mounted into `/etc/alertmanager/configmaps/<configmap-name>` in the 'alertmanager' container.",
+          },
+          {
+            name: '"configSecret"',
+            type: 'string',
+            required: false,
+            description:
+              'configSecret defines the name of a Kubernetes Secret in the same namespace as the Alertmanager object, which contains the configuration for this Alertmanager instance. If empty, it defaults to `alertmanager-<alertmanager-name>`. The Alertmanager configuration should be available under the `alertmanager.yaml` key. Additional keys from the original secret are copied to the generated secret and mounted into the `/etc/alertmanager/config` directory in the `alertmanager` container. If either the secret or the `alertmanager.yaml` key is missing, the operator provisions a minimal Alertmanager configuration with one empty receiver (effectively dropping alert notifications).',
+          },
+          {
+            name: '"containers"',
+            type: 'ContainersItem[]',
+            required: false,
+            description:
+              'containers allows injecting additional containers or modifying operator generated containers. This can be used to allow adding an authentication proxy to the Pods or to change the behavior of an operator generated container. Containers described here modify an operator generated container if they share the same name and modifications are done via a strategic merge patch. The names of containers managed by the operator are: * `alertmanager` * `config-reloader` * `thanos-sidecar` Overriding containers which are managed by the operator require careful testing, especially when upgrading to a new version of the operator.',
+          },
+          {
+            name: '"dnsConfig"',
+            type: 'DnsConfig',
+            required: false,
+            description: 'dnsConfig defines the DNS configuration for the pods.',
+          },
+          {
+            name: '"dnsPolicy"',
+            type: 'string',
+            required: false,
+            description: 'dnsPolicy defines the DNS policy for the pods.',
+          },
+          {
+            name: '"enableFeatures"',
+            type: 'string[]',
+            required: false,
+            description:
+              "enableFeatures defines the Alertmanager's feature flags. By default, no features are enabled. Enabling features which are disabled by default is entirely outside the scope of what the maintainers will support and by doing so, you accept that this behaviour may break at any time without notice. It requires Alertmanager >= 0.27.0.",
+          },
+          {
+            name: '"enableServiceLinks"',
+            type: 'boolean',
+            required: false,
+            description:
+              "enableServiceLinks defines whether information about services should be injected into pod's environment variables",
+          },
+          {
+            name: '"externalUrl"',
+            type: 'string',
+            required: false,
+            description:
+              'externalUrl defines the URL used to access the Alertmanager web service. This is necessary to generate correct URLs. This is necessary if Alertmanager is not served from root of a DNS name.',
+          },
+          {
+            name: '"forceEnableClusterMode"',
+            type: 'boolean',
+            required: false,
+            description:
+              'forceEnableClusterMode ensures Alertmanager does not deactivate the cluster mode when running with a single replica. Use case is e.g. spanning an Alertmanager cluster across Kubernetes clusters with a single replica in each.',
+          },
+          {
+            name: '"hostAliases"',
+            type: 'HostAliasesItem[]',
+            required: false,
+            description: 'hostAliases Pods configuration',
+          },
+          {
+            name: '"hostNetwork"',
+            type: 'boolean',
+            required: false,
+            description:
+              'hostNetwork controls whether the pod may use the node network namespace. Make sure to understand the security implications if you want to enable it (https://kubernetes.io/docs/concepts/configuration/overview/). When hostNetwork is enabled, this will set the DNS policy to `ClusterFirstWithHostNet` automatically (unless `.spec.dnsPolicy` is set to a different value).',
+          },
+          {
+            name: '"hostUsers"',
+            type: 'boolean',
+            required: false,
+            description:
+              'hostUsers supports the user space in Kubernetes. More info: https://kubernetes.io/docs/tasks/configure-pod-container/user-namespaces/ The feature requires at least Kubernetes 1.28 with the `UserNamespacesSupport` feature gate enabled. Starting Kubernetes 1.33, the feature is enabled by default.',
+          },
+          {
+            name: '"image"',
+            type: 'string',
+            required: false,
+            description:
+              'image if specified has precedence over baseImage, tag and sha combinations. Specifying the version is still necessary to ensure the Prometheus Operator knows what version of Alertmanager is being configured.',
+          },
+          {
+            name: '"imagePullPolicy"',
+            type: 'string',
+            required: false,
+            description:
+              "imagePullPolicy for the 'alertmanager', 'init-config-reloader' and 'config-reloader' containers. See https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for more details.",
+          },
+          {
+            name: '"imagePullSecrets"',
+            type: 'ImagePullSecretsItem[]',
+            required: false,
+            description:
+              'imagePullSecrets An optional list of references to secrets in the same namespace to use for pulling prometheus and alertmanager images from registries see https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/',
+          },
+          {
+            name: '"initContainers"',
+            type: 'InitContainersItem[]',
+            required: false,
+            description:
+              'initContainers allows injecting initContainers to the Pod definition. Those can be used to e.g. fetch secrets for injection into the Prometheus configuration from external sources. Any errors during the execution of an initContainer will lead to a restart of the Pod. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/ InitContainers described here modify an operator generated init containers if they share the same name and modifications are done via a strategic merge patch. The names of init container name managed by the operator are: * `init-config-reloader`. Overriding init containers which are managed by the operator require careful testing, especially when upgrading to a new version of the operator.',
+          },
+          {
+            name: '"limits"',
+            type: 'Limits',
+            required: false,
+            description: 'limits defines the limits command line flags when starting Alertmanager.',
+          },
+          {
+            name: '"listenLocal"',
+            type: 'boolean',
+            required: false,
+            description:
+              'listenLocal defines the Alertmanager server listen on loopback, so that it does not bind against the Pod IP. Note this is only for the Alertmanager UI, not the gossip communication.',
+          },
+          {
+            name: '"logFormat"',
+            type: 'string',
+            required: false,
+            description: 'logFormat for Alertmanager to be configured with.',
+          },
+          {
+            name: '"logLevel"',
+            type: 'string',
+            required: false,
+            description: 'logLevel for Alertmanager to be configured with.',
+          },
+          {
+            name: '"minReadySeconds"',
+            type: 'number',
+            required: false,
+            description:
+              'minReadySeconds defines the minimum number of seconds for which a newly created pod should be ready without any of its container crashing for it to be considered available. If unset, pods will be considered available as soon as they are ready. When the Alertmanager version is greater than or equal to v0.30.0, the duration is also used to delay the first flush of the aggregation groups. This delay helps ensuring that all alerts have been resent by the Prometheus instances to Alertmanager after a roll-out. It is possible to override this behavior passing a custom value via `.spec.additionalArgs`.',
+          },
+          {
+            name: '"nodeSelector"',
+            type: 'Record',
+            required: false,
+            description: 'nodeSelector defines which Nodes the Pods are scheduled on.',
+          },
+          {
+            name: '"paused"',
+            type: 'boolean',
+            required: false,
+            description:
+              'paused if set to true all actions on the underlying managed objects are not going to be performed, except for delete actions.',
+          },
+          {
+            name: '"persistentVolumeClaimRetentionPolicy"',
+            type: 'PersistentVolumeClaimRetentionPolicy',
+            required: false,
+            description:
+              'persistentVolumeClaimRetentionPolicy controls if and how PVCs are deleted during the lifecycle of a StatefulSet. The default behavior is all PVCs are retained. This is an alpha field from kubernetes 1.23 until 1.26 and a beta field from 1.26. It requires enabling the StatefulSetAutoDeletePVC feature gate.',
+          },
+          {
+            name: '"podManagementPolicy"',
+            type: 'string',
+            required: false,
+            description:
+              'podManagementPolicy defines the policy for creating/deleting pods when scaling up and down. Unlike the default StatefulSet behavior, the default policy is `Parallel` to avoid manual intervention in case a pod gets stuck during a rollout. Note that updating this value implies the recreation of the StatefulSet which incurs a service outage.',
+          },
+          {
+            name: '"podMetadata"',
+            type: 'PodMetadata',
+            required: false,
+            description:
+              'podMetadata defines labels and annotations which are propagated to the Alertmanager pods. The following items are reserved and cannot be overridden: * "alertmanager" label, set to the name of the Alertmanager instance. * "app.kubernetes.io/instance" label, set to the name of the Alertmanager instance. * "app.kubernetes.io/managed-by" label, set to "prometheus-operator". * "app.kubernetes.io/name" label, set to "alertmanager". * "app.kubernetes.io/version" label, set to the Alertmanager version. * "kubectl.kubernetes.io/default-container" annotation, set to "alertmanager".',
+          },
+          {
+            name: '"portName"',
+            type: 'string',
+            required: false,
+            description:
+              "portName defines the port's name for the pods and governing service. Defaults to `web`.",
+          },
+          {
+            name: '"priorityClassName"',
+            type: 'string',
+            required: false,
+            description: 'priorityClassName assigned to the Pods',
+          },
+          {
+            name: '"replicas"',
+            type: 'number',
+            required: false,
+            description:
+              'replicas defines the expected size of the alertmanager cluster. The controller will eventually make the size of the running cluster equal to the expected size.',
+          },
+          {
+            name: '"resources"',
+            type: 'Resources',
+            required: false,
+            description: 'resources defines the resource requests and limits of the Pods.',
+          },
+          {
+            name: '"retention"',
+            type: 'string',
+            required: false,
+            description:
+              "retention defines the time duration Alertmanager shall retain data for. Default is '120h', and must match the regular expression `[0-9]+(ms|s|m|h)` (milliseconds seconds minutes hours).",
+          },
+          {
+            name: '"routePrefix"',
+            type: 'string',
+            required: false,
+            description:
+              'routePrefix Alertmanager registers HTTP handlers for. This is useful, if using ExternalURL and a proxy is rewriting HTTP routes of a request, and the actual ExternalURL is still true, but the server serves requests under a different route prefix. For example for use with `kubectl proxy`.',
+          },
+          {
+            name: '"schedulerName"',
+            type: 'string',
+            required: false,
+            description:
+              'schedulerName defines the scheduler to use for Pod scheduling. If not specified, the default scheduler is used.',
+          },
+          {
+            name: '"secrets"',
+            type: 'string[]',
+            required: false,
+            description:
+              "secrets is a list of Secrets in the same namespace as the Alertmanager object, which shall be mounted into the Alertmanager Pods. Each Secret is added to the StatefulSet definition as a volume named `secret-<secret-name>`. The Secrets are mounted into `/etc/alertmanager/secrets/<secret-name>` in the 'alertmanager' container.",
+          },
+          {
+            name: '"securityContext"',
+            type: 'SecurityContext2',
+            required: false,
+            description:
+              'securityContext holds pod-level security attributes and common container settings. This defaults to the default PodSecurityContext.',
+          },
+          {
+            name: '"serviceAccountName"',
+            type: 'string',
+            required: false,
+            description:
+              'serviceAccountName is the name of the ServiceAccount to use to run the Prometheus Pods.',
+          },
+          {
+            name: '"serviceName"',
+            type: 'string',
+            required: false,
+            description:
+              'serviceName defines the service name used by the underlying StatefulSet(s) as the governing service. If defined, the Service must be created before the Alertmanager resource in the same namespace and it must define a selector that matches the pod labels. If empty, the operator will create and manage a headless service named `alertmanager-operated` for Alertmanager resources. When deploying multiple Alertmanager resources in the same namespace, it is recommended to specify a different value for each. See https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-network-id for more details.',
+          },
+          {
+            name: '"sha"',
+            type: 'string',
+            required: false,
+            description:
+              "sha of Alertmanager container image to be deployed. Defaults to the value of `version`. Similar to a tag, but the SHA explicitly deploys an immutable container image. Version and Tag are ignored if SHA is set. Deprecated: use 'image' instead. The image digest can be specified as part of the image URL.",
+          },
+          {
+            name: '"storage"',
+            type: 'Storage',
+            required: false,
+            description:
+              'storage defines the definition of how storage will be used by the Alertmanager instances.',
+          },
+          {
+            name: '"tag"',
+            type: 'string',
+            required: false,
+            description:
+              "tag of Alertmanager container image to be deployed. Defaults to the value of `version`. Version is ignored if Tag is set. Deprecated: use 'image' instead. The image tag can be specified as part of the image URL.",
+          },
+          {
+            name: '"terminationGracePeriodSeconds"',
+            type: 'number',
+            required: false,
+            description:
+              'terminationGracePeriodSeconds defines the Optional duration in seconds the pod needs to terminate gracefully. Value must be non-negative integer. The value zero indicates stop immediately via the kill signal (no opportunity to shut down) which may lead to data corruption. Defaults to 120 seconds.',
+          },
+          {
+            name: '"tolerations"',
+            type: 'TolerationsItem[]',
+            required: false,
+            description: "tolerations defines the pod's tolerations.",
+          },
+          {
+            name: '"topologySpreadConstraints"',
+            type: 'TopologySpreadConstraintsItem[]',
+            required: false,
+            description: "topologySpreadConstraints defines the Pod's topology spread constraints.",
+          },
+          {
+            name: '"updateStrategy"',
+            type: 'UpdateStrategy',
+            required: false,
+            description:
+              "updateStrategy indicates the strategy that will be employed to update Pods in the StatefulSet when a revision is made to statefulset's Pod Template. The default strategy is RollingUpdate.",
+          },
+          {
+            name: '"version"',
+            type: 'string',
+            required: false,
+            description: 'version the cluster should be on.',
+          },
+          {
+            name: '"volumeMounts"',
+            type: 'VolumeMountsItem[]',
+            required: false,
+            description:
+              'volumeMounts allows configuration of additional VolumeMounts on the output StatefulSet definition. VolumeMounts specified will be appended to other VolumeMounts in the alertmanager container, that are generated as a result of StorageSpec objects.',
+          },
+          {
+            name: '"volumes"',
+            type: 'VolumesItem[]',
+            required: false,
+            description:
+              'volumes allows configuration of additional volumes on the output StatefulSet definition. Volumes specified will be appended to other volumes that are generated as a result of StorageSpec objects.',
+          },
+          {
+            name: '"web"',
+            type: 'Web',
+            required: false,
+            description: 'web defines the web command line flags when starting Alertmanager.',
+          },
+        ],
+        examples: [],
+      },
       {
         name: 'PodMonitor',
         description:
@@ -686,7 +1477,7 @@ export const packages: Package[] = [
           },
           {
             name: '"namespaceSelector"',
-            type: 'NamespaceSelector',
+            type: 'NamespaceSelector2',
             required: false,
             description:
               'Selector to select which namespaces the Kubernetes `Pods` objects are discovered from.',
@@ -741,6 +1532,877 @@ export const packages: Package[] = [
         examples: [],
       },
       {
+        name: 'Prometheus',
+        description:
+          'Render a Prometheus (monitoring.coreos.com/v1) exactly as defined by its CRD.',
+        props: [
+          {
+            name: '"additionalAlertManagerConfigs"',
+            type: 'AdditionalAlertManagerConfigs',
+            required: false,
+            description:
+              'additionalAlertManagerConfigs defines a key of a Secret containing additional Prometheus Alertmanager configurations. The Alertmanager configurations are appended to the configuration generated by the Prometheus Operator. They must be formatted according to the official Prometheus documentation: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#alertmanager_config The user is responsible for making sure that the configurations are valid Note that using this feature may expose the possibility to break upgrades of Prometheus. It is advised to review Prometheus release notes to ensure that no incompatible AlertManager configs are going to break Prometheus after the upgrade.',
+          },
+          {
+            name: '"additionalAlertRelabelConfigs"',
+            type: 'AdditionalAlertRelabelConfigs',
+            required: false,
+            description:
+              'additionalAlertRelabelConfigs defines a key of a Secret containing additional Prometheus alert relabel configurations. The alert relabel configurations are appended to the configuration generated by the Prometheus Operator. They must be formatted according to the official Prometheus documentation: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#alert_relabel_configs The user is responsible for making sure that the configurations are valid Note that using this feature may expose the possibility to break upgrades of Prometheus. It is advised to review Prometheus release notes to ensure that no incompatible alert relabel configs are going to break Prometheus after the upgrade.',
+          },
+          {
+            name: '"additionalArgs"',
+            type: 'AdditionalArgsItem[]',
+            required: false,
+            description:
+              "additionalArgs allows setting additional arguments for the 'prometheus' container. It is intended for e.g. activating hidden flags which are not supported by the dedicated configuration options yet. The arguments are passed as-is to the Prometheus container which may cause issues if they are invalid or not supported by the given Prometheus version. In case of an argument conflict (e.g. an argument which is already set by the operator itself) or when providing an invalid argument, the reconciliation will fail and an error will be logged.",
+          },
+          {
+            name: '"additionalScrapeConfigs"',
+            type: 'AdditionalScrapeConfigs',
+            required: false,
+            description:
+              'additionalScrapeConfigs allows specifying a key of a Secret containing additional Prometheus scrape configurations. Scrape configurations specified are appended to the configurations generated by the Prometheus Operator. Job configurations specified must have the form as specified in the official Prometheus documentation: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config. As scrape configs are appended, the user is responsible to make sure it is valid. Note that using this feature may expose the possibility to break upgrades of Prometheus. It is advised to review Prometheus release notes to ensure that no incompatible scrape configs are going to break Prometheus after the upgrade.',
+          },
+          {
+            name: '"affinity"',
+            type: 'Affinity',
+            required: false,
+            description: "affinity defines the Pods' affinity scheduling rules if specified.",
+          },
+          {
+            name: '"alerting"',
+            type: 'Alerting',
+            required: false,
+            description: 'alerting defines the settings related to Alertmanager.',
+          },
+          {
+            name: '"allowOverlappingBlocks"',
+            type: 'boolean',
+            required: false,
+            description:
+              'allowOverlappingBlocks enables vertical compaction and vertical query merge in Prometheus. Deprecated: this flag has no effect for Prometheus >= 2.39.0 where overlapping blocks are enabled by default.',
+          },
+          {
+            name: '"apiserverConfig"',
+            type: 'ApiserverConfig',
+            required: false,
+            description:
+              "apiserverConfig allows specifying a host and auth methods to access the Kuberntees API server. If null, Prometheus is assumed to run inside of the cluster: it will discover the API servers automatically and use the Pod's CA certificate and bearer token file at /var/run/secrets/kubernetes.io/serviceaccount/.",
+          },
+          {
+            name: '"arbitraryFSAccessThroughSMs"',
+            type: 'ArbitraryFSAccessThroughSMs',
+            required: false,
+            description:
+              "arbitraryFSAccessThroughSMs when true, ServiceMonitor, PodMonitor and Probe object are forbidden to reference arbitrary files on the file system of the 'prometheus' container. When a ServiceMonitor's endpoint specifies a `bearerTokenFile` value (e.g. '/var/run/secrets/kubernetes.io/serviceaccount/token'), a malicious target can get access to the Prometheus service account's token in the Prometheus' scrape request. Setting `spec.arbitraryFSAccessThroughSM` to 'true' would prevent the attack. Users should instead provide the credentials using the `spec.bearerTokenSecret` field.",
+          },
+          {
+            name: '"automountServiceAccountToken"',
+            type: 'boolean',
+            required: false,
+            description:
+              "automountServiceAccountToken defines whether a service account token should be automatically mounted in the pod. If the field isn't set, the operator mounts the service account token by default. **Warning:** be aware that by default, Prometheus requires the service account token for Kubernetes service discovery. It is possible to use strategic merge patch to project the service account token into the 'prometheus' container.",
+          },
+          {
+            name: '"baseImage"',
+            type: 'string',
+            required: false,
+            description: "baseImage is deprecated: use 'spec.image' instead.",
+          },
+          {
+            name: '"bodySizeLimit"',
+            type: 'string',
+            required: false,
+            description:
+              "bodySizeLimit defines per-scrape on response body size. Only valid in Prometheus versions 2.45.0 and newer. Note that the global limit only applies to scrape objects that don't specify an explicit limit value. If you want to enforce a maximum limit for all scrape objects, refer to enforcedBodySizeLimit.",
+          },
+          {
+            name: '"configMaps"',
+            type: 'string[]',
+            required: false,
+            description:
+              "configMaps defines a list of ConfigMaps in the same namespace as the Prometheus object, which shall be mounted into the Prometheus Pods. Each ConfigMap is added to the StatefulSet definition as a volume named `configmap-<configmap-name>`. The ConfigMaps are mounted into /etc/prometheus/configmaps/<configmap-name> in the 'prometheus' container.",
+          },
+          {
+            name: '"containers"',
+            type: 'ContainersItem[]',
+            required: false,
+            description:
+              'containers allows injecting additional containers or modifying operator generated containers. This can be used to allow adding an authentication proxy to the Pods or to change the behavior of an operator generated container. Containers described here modify an operator generated container if they share the same name and modifications are done via a strategic merge patch. The names of containers managed by the operator are: * `prometheus` * `config-reloader` * `thanos-sidecar` Overriding containers which are managed by the operator require careful testing, especially when upgrading to a new version of the operator.',
+          },
+          {
+            name: '"convertClassicHistogramsToNHCB"',
+            type: 'boolean',
+            required: false,
+            description:
+              'convertClassicHistogramsToNHCB defines whether to convert all scraped classic histograms into a native histogram with custom buckets. It requires Prometheus >= v3.4.0.',
+          },
+          {
+            name: '"disableCompaction"',
+            type: 'boolean',
+            required: false,
+            description:
+              "disableCompaction when true, the Prometheus compaction is disabled. When `spec.thanos.objectStorageConfig` or `spec.thanos.objectStorageConfigFile` are defined, the operator's default handling depends on the Prometheus and Thanos sidecar versions: - With Prometheus < v3.9.0 or a Thanos sidecar < v0.41.0, block compaction is disabled to avoid race conditions during block uploads (as the Thanos documentation recommends). - With Prometheus >= v3.9.0 and a Thanos sidecar >= v0.41.0, local compaction is kept enabled and coordinated with the sidecar through the shipper meta file (`--storage.tsdb.delay-compact-file.path`), so blocks are only compacted after they have been uploaded. Setting this field to true always disables local compaction regardless of the versions.",
+          },
+          {
+            name: '"dnsConfig"',
+            type: 'DnsConfig',
+            required: false,
+            description: 'dnsConfig defines the DNS configuration for the pods.',
+          },
+          {
+            name: '"dnsPolicy"',
+            type: 'string',
+            required: false,
+            description: 'dnsPolicy defines the DNS policy for the pods.',
+          },
+          {
+            name: '"enableAdminAPI"',
+            type: 'boolean',
+            required: false,
+            description:
+              'enableAdminAPI defines access to the Prometheus web admin API. WARNING: Enabling the admin APIs enables mutating endpoints, to delete data, shutdown Prometheus, and more. Enabling this should be done with care and the user is advised to add additional authentication authorization via a proxy to ensure only clients authorized to perform these actions can do so. For more information: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis',
+          },
+          {
+            name: '"enableFeatures"',
+            type: 'string[]',
+            required: false,
+            description:
+              'enableFeatures enables access to Prometheus feature flags. By default, no features are enabled. Enabling features which are disabled by default is entirely outside the scope of what the maintainers will support and by doing so, you accept that this behaviour may break at any time without notice. For more information see https://prometheus.io/docs/prometheus/latest/feature_flags/',
+          },
+          {
+            name: '"enableOTLPReceiver"',
+            type: 'boolean',
+            required: false,
+            description:
+              'enableOTLPReceiver defines the Prometheus to be used as a receiver for the OTLP Metrics protocol. Note that the OTLP receiver endpoint is automatically enabled if `.spec.otlpConfig` is defined. It requires Prometheus >= v2.47.0.',
+          },
+          {
+            name: '"enableRemoteWriteReceiver"',
+            type: 'boolean',
+            required: false,
+            description:
+              'enableRemoteWriteReceiver defines the Prometheus to be used as a receiver for the Prometheus remote write protocol. WARNING: This is not considered an efficient way of ingesting samples. Use it with caution for specific low-volume use cases. It is not suitable for replacing the ingestion via scraping and turning Prometheus into a push-based metrics collection system. For more information see https://prometheus.io/docs/prometheus/latest/querying/api/#remote-write-receiver It requires Prometheus >= v2.33.0.',
+          },
+          {
+            name: '"enableServiceLinks"',
+            type: 'boolean',
+            required: false,
+            description:
+              "enableServiceLinks defines whether information about services should be injected into pod's environment variables",
+          },
+          {
+            name: '"enforcedBodySizeLimit"',
+            type: 'string',
+            required: false,
+            description:
+              'enforcedBodySizeLimit when defined specifies a global limit on the size of uncompressed response body that will be accepted by Prometheus. Targets responding with a body larger than this many bytes will cause the scrape to fail. It requires Prometheus >= v2.28.0. When both `enforcedBodySizeLimit` and `bodySizeLimit` are defined and greater than zero, the following rules apply: * Scrape objects without a defined bodySizeLimit value will inherit the global bodySizeLimit value (Prometheus >= 2.45.0) or the enforcedBodySizeLimit value (Prometheus < v2.45.0). If Prometheus version is >= 2.45.0 and the `enforcedBodySizeLimit` is greater than the `bodySizeLimit`, the `bodySizeLimit` will be set to `enforcedBodySizeLimit`. * Scrape objects with a bodySizeLimit value less than or equal to enforcedBodySizeLimit keep their specific value. * Scrape objects with a bodySizeLimit value greater than enforcedBodySizeLimit are set to enforcedBodySizeLimit.',
+          },
+          {
+            name: '"enforcedKeepDroppedTargets"',
+            type: 'number',
+            required: false,
+            description:
+              'enforcedKeepDroppedTargets when defined specifies a global limit on the number of targets dropped by relabeling that will be kept in memory. The value overrides any `spec.keepDroppedTargets` set by ServiceMonitor, PodMonitor, Probe objects unless `spec.keepDroppedTargets` is greater than zero and less than `spec.enforcedKeepDroppedTargets`. It requires Prometheus >= v2.47.0. When both `enforcedKeepDroppedTargets` and `keepDroppedTargets` are defined and greater than zero, the following rules apply: * Scrape objects without a defined keepDroppedTargets value will inherit the global keepDroppedTargets value (Prometheus >= 2.45.0) or the enforcedKeepDroppedTargets value (Prometheus < v2.45.0). If Prometheus version is >= 2.45.0 and the `enforcedKeepDroppedTargets` is greater than the `keepDroppedTargets`, the `keepDroppedTargets` will be set to `enforcedKeepDroppedTargets`. * Scrape objects with a keepDroppedTargets value less than or equal to enforcedKeepDroppedTargets keep their specific value. * Scrape objects with a keepDroppedTargets value greater than enforcedKeepDroppedTargets are set to enforcedKeepDroppedTargets.',
+          },
+          {
+            name: '"enforcedLabelLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'enforcedLabelLimit when defined specifies a global limit on the number of labels per sample. The value overrides any `spec.labelLimit` set by ServiceMonitor, PodMonitor, Probe objects unless `spec.labelLimit` is greater than zero and less than `spec.enforcedLabelLimit`. It requires Prometheus >= v2.27.0. When both `enforcedLabelLimit` and `labelLimit` are defined and greater than zero, the following rules apply: * Scrape objects without a defined labelLimit value will inherit the global labelLimit value (Prometheus >= 2.45.0) or the enforcedLabelLimit value (Prometheus < v2.45.0). If Prometheus version is >= 2.45.0 and the `enforcedLabelLimit` is greater than the `labelLimit`, the `labelLimit` will be set to `enforcedLabelLimit`. * Scrape objects with a labelLimit value less than or equal to enforcedLabelLimit keep their specific value. * Scrape objects with a labelLimit value greater than enforcedLabelLimit are set to enforcedLabelLimit.',
+          },
+          {
+            name: '"enforcedLabelNameLengthLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'enforcedLabelNameLengthLimit when defined specifies a global limit on the length of labels name per sample. The value overrides any `spec.labelNameLengthLimit` set by ServiceMonitor, PodMonitor, Probe objects unless `spec.labelNameLengthLimit` is greater than zero and less than `spec.enforcedLabelNameLengthLimit`. It requires Prometheus >= v2.27.0. When both `enforcedLabelNameLengthLimit` and `labelNameLengthLimit` are defined and greater than zero, the following rules apply: * Scrape objects without a defined labelNameLengthLimit value will inherit the global labelNameLengthLimit value (Prometheus >= 2.45.0) or the enforcedLabelNameLengthLimit value (Prometheus < v2.45.0). If Prometheus version is >= 2.45.0 and the `enforcedLabelNameLengthLimit` is greater than the `labelNameLengthLimit`, the `labelNameLengthLimit` will be set to `enforcedLabelNameLengthLimit`. * Scrape objects with a labelNameLengthLimit value less than or equal to enforcedLabelNameLengthLimit keep their specific value. * Scrape objects with a labelNameLengthLimit value greater than enforcedLabelNameLengthLimit are set to enforcedLabelNameLengthLimit.',
+          },
+          {
+            name: '"enforcedLabelValueLengthLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'enforcedLabelValueLengthLimit when not null defines a global limit on the length of labels value per sample. The value overrides any `spec.labelValueLengthLimit` set by ServiceMonitor, PodMonitor, Probe objects unless `spec.labelValueLengthLimit` is greater than zero and less than `spec.enforcedLabelValueLengthLimit`. It requires Prometheus >= v2.27.0. When both `enforcedLabelValueLengthLimit` and `labelValueLengthLimit` are defined and greater than zero, the following rules apply: * Scrape objects without a defined labelValueLengthLimit value will inherit the global labelValueLengthLimit value (Prometheus >= 2.45.0) or the enforcedLabelValueLengthLimit value (Prometheus < v2.45.0). If Prometheus version is >= 2.45.0 and the `enforcedLabelValueLengthLimit` is greater than the `labelValueLengthLimit`, the `labelValueLengthLimit` will be set to `enforcedLabelValueLengthLimit`. * Scrape objects with a labelValueLengthLimit value less than or equal to enforcedLabelValueLengthLimit keep their specific value. * Scrape objects with a labelValueLengthLimit value greater than enforcedLabelValueLengthLimit are set to enforcedLabelValueLengthLimit.',
+          },
+          {
+            name: '"enforcedNamespaceLabel"',
+            type: 'string',
+            required: false,
+            description:
+              "enforcedNamespaceLabel when not empty, a label will be added to: 1. All metrics scraped from `ServiceMonitor`, `PodMonitor`, `Probe` and `ScrapeConfig` objects. 2. All metrics generated from recording rules defined in `PrometheusRule` objects. 3. All alerts generated from alerting rules defined in `PrometheusRule` objects. 4. All vector selectors of PromQL expressions defined in `PrometheusRule` objects. The label will not added for objects referenced in `spec.excludedFromEnforcement`. The label's name is this field's value. The label's value is the namespace of the `ServiceMonitor`, `PodMonitor`, `Probe`, `PrometheusRule` or `ScrapeConfig` object.",
+          },
+          {
+            name: '"enforcedSampleLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'enforcedSampleLimit when defined specifies a global limit on the number of scraped samples that will be accepted. This overrides any `spec.sampleLimit` set by ServiceMonitor, PodMonitor, Probe objects unless `spec.sampleLimit` is greater than zero and less than `spec.enforcedSampleLimit`. It is meant to be used by admins to keep the overall number of samples/series under a desired limit. When both `enforcedSampleLimit` and `sampleLimit` are defined and greater than zero, the following rules apply: * Scrape objects without a defined sampleLimit value will inherit the global sampleLimit value (Prometheus >= 2.45.0) or the enforcedSampleLimit value (Prometheus < v2.45.0). If Prometheus version is >= 2.45.0 and the `enforcedSampleLimit` is greater than the `sampleLimit`, the `sampleLimit` will be set to `enforcedSampleLimit`. * Scrape objects with a sampleLimit value less than or equal to enforcedSampleLimit keep their specific value. * Scrape objects with a sampleLimit value greater than enforcedSampleLimit are set to enforcedSampleLimit.',
+          },
+          {
+            name: '"enforcedTargetLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'enforcedTargetLimit when defined specifies a global limit on the number of scraped targets. The value overrides any `spec.targetLimit` set by ServiceMonitor, PodMonitor, Probe objects unless `spec.targetLimit` is greater than zero and less than `spec.enforcedTargetLimit`. It is meant to be used by admins to to keep the overall number of targets under a desired limit. When both `enforcedTargetLimit` and `targetLimit` are defined and greater than zero, the following rules apply: * Scrape objects without a defined targetLimit value will inherit the global targetLimit value (Prometheus >= 2.45.0) or the enforcedTargetLimit value (Prometheus < v2.45.0). If Prometheus version is >= 2.45.0 and the `enforcedTargetLimit` is greater than the `targetLimit`, the `targetLimit` will be set to `enforcedTargetLimit`. * Scrape objects with a targetLimit value less than or equal to enforcedTargetLimit keep their specific value. * Scrape objects with a targetLimit value greater than enforcedTargetLimit are set to enforcedTargetLimit.',
+          },
+          {
+            name: '"evaluationInterval"',
+            type: 'string',
+            required: false,
+            description:
+              'evaluationInterval defines the interval between rule evaluations. Default: "30s"',
+          },
+          {
+            name: '"excludedFromEnforcement"',
+            type: 'ExcludedFromEnforcementItem[]',
+            required: false,
+            description:
+              'excludedFromEnforcement defines the list of references to PodMonitor, ServiceMonitor, Probe and PrometheusRule objects to be excluded from enforcing a namespace label of origin. It is only applicable if `spec.enforcedNamespaceLabel` set to true.',
+          },
+          {
+            name: '"exemplars"',
+            type: 'Exemplars',
+            required: false,
+            description:
+              'exemplars related settings that are runtime reloadable. It requires to enable the `exemplar-storage` feature flag to be effective.',
+          },
+          {
+            name: '"externalLabels"',
+            type: 'Record',
+            required: false,
+            description:
+              'externalLabels defines the labels to add to any time series or alerts when communicating with external systems (federation, remote storage, Alertmanager). Labels defined by `spec.replicaExternalLabelName` and `spec.prometheusExternalLabelName` take precedence over this list.',
+          },
+          {
+            name: '"externalUrl"',
+            type: 'string',
+            required: false,
+            description:
+              'externalUrl defines the external URL under which the Prometheus service is externally available. This is necessary to generate correct URLs (for instance if Prometheus is accessible behind an Ingress resource).',
+          },
+          {
+            name: '"hostAliases"',
+            type: 'HostAliasesItem[]',
+            required: false,
+            description:
+              "hostAliases defines the optional list of hosts and IPs that will be injected into the Pod's hosts file if specified.",
+          },
+          {
+            name: '"hostNetwork"',
+            type: 'boolean',
+            required: false,
+            description:
+              "hostNetwork defines the host's network namespace if true. Make sure to understand the security implications if you want to enable it (https://kubernetes.io/docs/concepts/configuration/overview/ ). When hostNetwork is enabled, this will set the DNS policy to `ClusterFirstWithHostNet` automatically (unless `.spec.DNSPolicy` is set to a different value).",
+          },
+          {
+            name: '"hostUsers"',
+            type: 'boolean',
+            required: false,
+            description:
+              'hostUsers supports the user space in Kubernetes. More info: https://kubernetes.io/docs/tasks/configure-pod-container/user-namespaces/ The feature requires at least Kubernetes 1.28 with the `UserNamespacesSupport` feature gate enabled. Starting Kubernetes 1.33, the feature is enabled by default.',
+          },
+          {
+            name: '"ignoreNamespaceSelectors"',
+            type: 'boolean',
+            required: false,
+            description:
+              'ignoreNamespaceSelectors when true, `spec.namespaceSelector` from all PodMonitor, ServiceMonitor and Probe objects will be ignored. They will only discover targets within the namespace of the PodMonitor, ServiceMonitor and Probe object.',
+          },
+          {
+            name: '"image"',
+            type: 'string',
+            required: false,
+            description:
+              'image defines the container image name for Prometheus. If specified, it takes precedence over the `spec.baseImage`, `spec.tag` and `spec.sha` fields. Specifying `spec.version` is still necessary to ensure the Prometheus Operator knows which version of Prometheus is being configured. If neither `spec.image` nor `spec.baseImage` are defined, the operator will use the latest upstream version of Prometheus available at the time when the operator was released.',
+          },
+          {
+            name: '"imagePullPolicy"',
+            type: 'string',
+            required: false,
+            description:
+              "imagePullPolicy defines the image pull policy for the 'prometheus', 'init-config-reloader' and 'config-reloader' containers. See https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for more details.",
+          },
+          {
+            name: '"imagePullSecrets"',
+            type: 'ImagePullSecretsItem[]',
+            required: false,
+            description:
+              'imagePullSecrets defines an optional list of references to Secrets in the same namespace to use for pulling images from registries. See http://kubernetes.io/docs/user-guide/images#specifying-imagepullsecrets-on-a-pod',
+          },
+          {
+            name: '"initContainers"',
+            type: 'InitContainersItem[]',
+            required: false,
+            description:
+              'initContainers allows injecting initContainers to the Pod definition. Those can be used to e.g. fetch secrets for injection into the Prometheus configuration from external sources. Any errors during the execution of an initContainer will lead to a restart of the Pod. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/ InitContainers described here modify an operator generated init containers if they share the same name and modifications are done via a strategic merge patch. The names of init container name managed by the operator are: * `init-config-reloader`. Overriding init containers which are managed by the operator require careful testing, especially when upgrading to a new version of the operator.',
+          },
+          {
+            name: '"keepDroppedTargets"',
+            type: 'number',
+            required: false,
+            description:
+              "keepDroppedTargets defines the per-scrape limit on the number of targets dropped by relabeling that will be kept in memory. 0 means no limit. It requires Prometheus >= v2.47.0. Note that the global limit only applies to scrape objects that don't specify an explicit limit value. If you want to enforce a maximum limit for all scrape objects, refer to enforcedKeepDroppedTargets.",
+          },
+          {
+            name: '"labelLimit"',
+            type: 'number',
+            required: false,
+            description:
+              "labelLimit defines per-scrape limit on number of labels that will be accepted for a sample. Only valid in Prometheus versions 2.45.0 and newer. Note that the global limit only applies to scrape objects that don't specify an explicit limit value. If you want to enforce a maximum limit for all scrape objects, refer to enforcedLabelLimit.",
+          },
+          {
+            name: '"labelNameLengthLimit"',
+            type: 'number',
+            required: false,
+            description:
+              "labelNameLengthLimit defines the per-scrape limit on length of labels name that will be accepted for a sample. Only valid in Prometheus versions 2.45.0 and newer. Note that the global limit only applies to scrape objects that don't specify an explicit limit value. If you want to enforce a maximum limit for all scrape objects, refer to enforcedLabelNameLengthLimit.",
+          },
+          {
+            name: '"labelValueLengthLimit"',
+            type: 'number',
+            required: false,
+            description:
+              "labelValueLengthLimit defines the per-scrape limit on length of labels value that will be accepted for a sample. Only valid in Prometheus versions 2.45.0 and newer. Note that the global limit only applies to scrape objects that don't specify an explicit limit value. If you want to enforce a maximum limit for all scrape objects, refer to enforcedLabelValueLengthLimit.",
+          },
+          {
+            name: '"listenLocal"',
+            type: 'boolean',
+            required: false,
+            description:
+              "listenLocal when true, the Prometheus server listens on the loopback address instead of the Pod IP's address.",
+          },
+          {
+            name: '"logFormat"',
+            type: 'string',
+            required: false,
+            description: 'logFormat for Log level for Prometheus and the config-reloader sidecar.',
+          },
+          {
+            name: '"logLevel"',
+            type: 'string',
+            required: false,
+            description: 'logLevel for Prometheus and the config-reloader sidecar.',
+          },
+          {
+            name: '"maximumStartupDurationSeconds"',
+            type: 'number',
+            required: false,
+            description:
+              "maximumStartupDurationSeconds defines the maximum time that the `prometheus` container's startup probe will wait before being considered failed. The startup probe will return success after the WAL replay is complete. If set, the value should be greater than 60 (seconds). Otherwise it will be equal to 900 seconds (15 minutes).",
+          },
+          {
+            name: '"minReadySeconds"',
+            type: 'number',
+            required: false,
+            description:
+              'minReadySeconds defines the minimum number of seconds for which a newly created Pod should be ready without any of its container crashing for it to be considered available. If unset, pods will be considered available as soon as they are ready.',
+          },
+          {
+            name: '"nameEscapingScheme"',
+            type: 'string',
+            required: false,
+            description:
+              'nameEscapingScheme defines the character escaping scheme that will be requested when scraping for metric and label names that do not conform to the legacy Prometheus character set. It requires Prometheus >= v3.4.0.',
+          },
+          {
+            name: '"nameValidationScheme"',
+            type: 'string',
+            required: false,
+            description:
+              'nameValidationScheme defines the validation scheme for metric and label names. It requires Prometheus >= v2.55.0.',
+          },
+          {
+            name: '"nodeSelector"',
+            type: 'Record',
+            required: false,
+            description: 'nodeSelector defines on which Nodes the Pods are scheduled.',
+          },
+          {
+            name: '"otlp"',
+            type: 'Otlp',
+            required: false,
+            description:
+              'otlp defines the settings related to the OTLP receiver feature. It requires Prometheus >= v2.55.0.',
+          },
+          {
+            name: '"overrideHonorLabels"',
+            type: 'boolean',
+            required: false,
+            description:
+              'overrideHonorLabels when true, Prometheus resolves label conflicts by renaming the labels in the scraped data to “exported_” for all targets created from ServiceMonitor, PodMonitor and ScrapeConfig objects. Otherwise the HonorLabels field of the service or pod monitor applies. In practice,`OverrideHonorLabels:true` enforces `honorLabels:false` for all ServiceMonitor, PodMonitor and ScrapeConfig objects.',
+          },
+          {
+            name: '"overrideHonorTimestamps"',
+            type: 'boolean',
+            required: false,
+            description:
+              'overrideHonorTimestamps when true, Prometheus ignores the timestamps for all the targets created from service and pod monitors. Otherwise the HonorTimestamps field of the service or pod monitor applies.',
+          },
+          {
+            name: '"paused"',
+            type: 'boolean',
+            required: false,
+            description:
+              'paused defines when a Prometheus deployment is paused, no actions except for deletion will be performed on the underlying objects.',
+          },
+          {
+            name: '"persistentVolumeClaimRetentionPolicy"',
+            type: 'PersistentVolumeClaimRetentionPolicy',
+            required: false,
+            description:
+              'persistentVolumeClaimRetentionPolicy defines the field controls if and how PVCs are deleted during the lifecycle of a StatefulSet. The default behavior is all PVCs are retained. This is an alpha field from kubernetes 1.23 until 1.26 and a beta field from 1.26. It requires enabling the StatefulSetAutoDeletePVC feature gate.',
+          },
+          {
+            name: '"podManagementPolicy"',
+            type: 'string',
+            required: false,
+            description:
+              'podManagementPolicy defines the policy for creating/deleting pods when scaling up and down. Unlike the default StatefulSet behavior, the default policy is `Parallel` to avoid manual intervention in case a pod gets stuck during a rollout. Note that updating this value implies the recreation of the StatefulSet which incurs a service outage.',
+          },
+          {
+            name: '"podMetadata"',
+            type: 'PodMetadata',
+            required: false,
+            description:
+              'podMetadata defines labels and annotations which are propagated to the Prometheus pods. The following items are reserved and cannot be overridden: * "prometheus" label, set to the name of the Prometheus object. * "app.kubernetes.io/instance" label, set to the name of the Prometheus object. * "app.kubernetes.io/managed-by" label, set to "prometheus-operator". * "app.kubernetes.io/name" label, set to "prometheus". * "app.kubernetes.io/version" label, set to the Prometheus version. * "operator.prometheus.io/name" label, set to the name of the Prometheus object. * "operator.prometheus.io/shard" label, set to the shard number of the Prometheus object. * "kubectl.kubernetes.io/default-container" annotation, set to "prometheus".',
+          },
+          {
+            name: '"podMonitorNamespaceSelector"',
+            type: 'PodMonitorNamespaceSelector',
+            required: false,
+            description:
+              'podMonitorNamespaceSelector defines the namespaces to match for PodMonitors discovery. An empty label selector matches all namespaces. A null label selector (default value) matches the current namespace only.',
+          },
+          {
+            name: '"podMonitorSelector"',
+            type: 'PodMonitorSelector',
+            required: false,
+            description:
+              "podMonitorSelector defines the podMonitors to be selected for target discovery. An empty label selector matches all objects. A null label selector matches no objects. If `spec.serviceMonitorSelector`, `spec.podMonitorSelector`, `spec.probeSelector` and `spec.scrapeConfigSelector` are null, the Prometheus configuration is unmanaged. The Prometheus operator will ensure that the Prometheus configuration's Secret exists, but it is the responsibility of the user to provide the raw gzipped Prometheus configuration under the `prometheus.yaml.gz` key. This behavior is *deprecated* and will be removed in the next major version of the custom resource definition. It is recommended to use `spec.additionalScrapeConfigs` instead.",
+          },
+          {
+            name: '"podTargetLabels"',
+            type: 'string[]',
+            required: false,
+            description:
+              'podTargetLabels are appended to the `spec.podTargetLabels` field of all PodMonitor and ServiceMonitor objects.',
+          },
+          {
+            name: '"portName"',
+            type: 'string',
+            required: false,
+            description: 'portName used for the pods and governing service. Default: "web"',
+          },
+          {
+            name: '"priorityClassName"',
+            type: 'string',
+            required: false,
+            description: 'priorityClassName assigned to the Pods.',
+          },
+          {
+            name: '"probeNamespaceSelector"',
+            type: 'ProbeNamespaceSelector',
+            required: false,
+            description:
+              'probeNamespaceSelector defines the namespaces to match for Probe discovery. An empty label selector matches all namespaces. A null label selector matches the current namespace only.',
+          },
+          {
+            name: '"probeSelector"',
+            type: 'ProbeSelector',
+            required: false,
+            description:
+              "probeSelector defines the probes to be selected for target discovery. An empty label selector matches all objects. A null label selector matches no objects. If `spec.serviceMonitorSelector`, `spec.podMonitorSelector`, `spec.probeSelector` and `spec.scrapeConfigSelector` are null, the Prometheus configuration is unmanaged. The Prometheus operator will ensure that the Prometheus configuration's Secret exists, but it is the responsibility of the user to provide the raw gzipped Prometheus configuration under the `prometheus.yaml.gz` key. This behavior is *deprecated* and will be removed in the next major version of the custom resource definition. It is recommended to use `spec.additionalScrapeConfigs` instead.",
+          },
+          {
+            name: '"prometheusExternalLabelName"',
+            type: 'string',
+            required: false,
+            description:
+              'prometheusExternalLabelName defines the name of Prometheus external label used to denote the Prometheus instance name. The external label will _not_ be added when the field is set to the empty string (`""`). Default: "prometheus"',
+          },
+          {
+            name: '"prometheusRulesExcludedFromEnforce"',
+            type: 'PrometheusRulesExcludedFromEnforceItem[]',
+            required: false,
+            description:
+              "prometheusRulesExcludedFromEnforce defines the list of PrometheusRule objects to which the namespace label enforcement doesn't apply. This is only relevant when `spec.enforcedNamespaceLabel` is set to true. Deprecated: use `spec.excludedFromEnforcement` instead.",
+          },
+          {
+            name: '"query"',
+            type: 'Query',
+            required: false,
+            description: 'query defines the configuration of the Prometheus query service.',
+          },
+          {
+            name: '"queryLogFile"',
+            type: 'string',
+            required: false,
+            description:
+              "queryLogFile specifies where the file to which PromQL queries are logged. If the filename has an empty path, e.g. 'query.log', The Prometheus Pods will mount the file into an emptyDir volume at `/var/log/prometheus`. If a full path is provided, e.g. '/var/log/prometheus/query.log', you must mount a volume in the specified directory and it must be writable. This is because the prometheus container runs with a read-only root filesystem for security reasons. Alternatively, the location can be set to a standard I/O stream, e.g. `/dev/stdout`, to log query information to the default Prometheus log stream.",
+          },
+          {
+            name: '"reloadStrategy"',
+            type: 'string',
+            required: false,
+            description:
+              'reloadStrategy defines the strategy used to reload the Prometheus configuration. If not specified, the configuration is reloaded using the /-/reload HTTP endpoint.',
+          },
+          {
+            name: '"remoteRead"',
+            type: 'RemoteReadItem[]',
+            required: false,
+            description: 'remoteRead defines the list of remote read configurations.',
+          },
+          {
+            name: '"remoteWrite"',
+            type: 'RemoteWriteItem[]',
+            required: false,
+            description: 'remoteWrite defines the list of remote write configurations.',
+          },
+          {
+            name: '"remoteWriteReceiverMessageVersions"',
+            type: 'string[]',
+            required: false,
+            description:
+              'remoteWriteReceiverMessageVersions list of the protobuf message versions to accept when receiving the remote writes. It requires Prometheus >= v2.54.0.',
+          },
+          {
+            name: '"replicaExternalLabelName"',
+            type: 'string',
+            required: false,
+            description:
+              'replicaExternalLabelName defines the name of Prometheus external label used to denote the replica name. The external label will _not_ be added when the field is set to the empty string (`""`). Default: "prometheus_replica"',
+          },
+          {
+            name: '"replicas"',
+            type: 'number',
+            required: false,
+            description:
+              'replicas defines the number of replicas of each shard to deploy for a Prometheus deployment. `spec.replicas` multiplied by `spec.shards` is the total number of Pods created. Default: 1',
+          },
+          {
+            name: '"resources"',
+            type: 'Resources',
+            required: false,
+            description:
+              "resources defines the resources requests and limits of the 'prometheus' container.",
+          },
+          {
+            name: '"retention"',
+            type: 'string',
+            required: false,
+            description:
+              'retention defines how long to retain the Prometheus data. Default: "24h" if `spec.retention` and `spec.retentionSize` are empty.',
+          },
+          {
+            name: '"retentionSize"',
+            type: 'string',
+            required: false,
+            description:
+              'retentionSize defines the maximum number of bytes used by the Prometheus data.',
+          },
+          {
+            name: '"routePrefix"',
+            type: 'string',
+            required: false,
+            description:
+              'routePrefix defines the route prefix Prometheus registers HTTP handlers for. This is useful when using `spec.externalURL`, and a proxy is rewriting HTTP routes of a request, and the actual ExternalURL is still true, but the server serves requests under a different route prefix. For example for use with `kubectl proxy`.',
+          },
+          {
+            name: '"ruleNamespaceSelector"',
+            type: 'RuleNamespaceSelector',
+            required: false,
+            description:
+              'ruleNamespaceSelector defines the namespaces to match for PrometheusRule discovery. An empty label selector matches all namespaces. A null label selector matches the current namespace only.',
+          },
+          {
+            name: '"ruleQueryOffset"',
+            type: 'string',
+            required: false,
+            description:
+              'ruleQueryOffset defines the offset the rule evaluation timestamp of this particular group by the specified duration into the past. It requires Prometheus >= v2.53.0.',
+          },
+          {
+            name: '"ruleSelector"',
+            type: 'RuleSelector',
+            required: false,
+            description:
+              'ruleSelector defines the prometheusRule objects to be selected for rule evaluation. An empty label selector matches all objects. A null label selector matches no objects.',
+          },
+          {
+            name: '"rules"',
+            type: 'Rules',
+            required: false,
+            description: "rules defines the configuration of the Prometheus rules' engine.",
+          },
+          {
+            name: '"runtime"',
+            type: 'Runtime',
+            required: false,
+            description: 'runtime defines the values for the Prometheus process behavior',
+          },
+          {
+            name: '"sampleLimit"',
+            type: 'number',
+            required: false,
+            description:
+              "sampleLimit defines per-scrape limit on number of scraped samples that will be accepted. Only valid in Prometheus versions 2.45.0 and newer. Note that the global limit only applies to scrape objects that don't specify an explicit limit value. If you want to enforce a maximum limit for all scrape objects, refer to enforcedSampleLimit.",
+          },
+          {
+            name: '"schedulerName"',
+            type: 'string',
+            required: false,
+            description:
+              'schedulerName defines the scheduler to use for Pod scheduling. If not specified, the default scheduler is used.',
+          },
+          {
+            name: '"scrapeClasses"',
+            type: 'ScrapeClassesItem[]',
+            required: false,
+            description:
+              'scrapeClasses defines the list of scrape classes to expose to scraping objects such as PodMonitors, ServiceMonitors, Probes and ScrapeConfigs. This is an *experimental feature*, it may change in any upcoming release in a breaking way.',
+          },
+          {
+            name: '"scrapeClassicHistograms"',
+            type: 'boolean',
+            required: false,
+            description:
+              'scrapeClassicHistograms defines whether to scrape a classic histogram that is also exposed as a native histogram. Notice: `scrapeClassicHistograms` corresponds to the `always_scrape_classic_histograms` field in the Prometheus configuration. It requires Prometheus >= v3.5.0.',
+          },
+          {
+            name: '"scrapeConfigNamespaceSelector"',
+            type: 'ScrapeConfigNamespaceSelector',
+            required: false,
+            description:
+              'scrapeConfigNamespaceSelector defines the namespaces to match for ScrapeConfig discovery. An empty label selector matches all namespaces. A null label selector matches the current namespace only. Note that the ScrapeConfig custom resource definition is currently at Alpha level and will be graduated to Beta in a future release.',
+          },
+          {
+            name: '"scrapeConfigSelector"',
+            type: 'ScrapeConfigSelector',
+            required: false,
+            description:
+              "scrapeConfigSelector defines the scrapeConfigs to be selected for target discovery. An empty label selector matches all objects. A null label selector matches no objects. If `spec.serviceMonitorSelector`, `spec.podMonitorSelector`, `spec.probeSelector` and `spec.scrapeConfigSelector` are null, the Prometheus configuration is unmanaged. The Prometheus operator will ensure that the Prometheus configuration's Secret exists, but it is the responsibility of the user to provide the raw gzipped Prometheus configuration under the `prometheus.yaml.gz` key. This behavior is *deprecated* and will be removed in the next major version of the custom resource definition. It is recommended to use `spec.additionalScrapeConfigs` instead. Note that the ScrapeConfig custom resource definition is currently at Alpha level and will be graduated to Beta in a future release.",
+          },
+          {
+            name: '"scrapeFailureLogFile"',
+            type: 'string',
+            required: false,
+            description:
+              "scrapeFailureLogFile defines the file to which scrape failures are logged. Reloading the configuration will reopen the file. If the filename has an empty path, e.g. 'file.log', The Prometheus Pods will mount the file into an emptyDir volume at `/var/log/prometheus`. If a full path is provided, e.g. '/var/log/prometheus/file.log', you must mount a volume in the specified directory and it must be writable. It requires Prometheus >= v2.55.0.",
+          },
+          {
+            name: '"scrapeInterval"',
+            type: 'string',
+            required: false,
+            description:
+              'scrapeInterval defines interval between consecutive scrapes. Default: "30s"',
+          },
+          {
+            name: '"scrapeNativeHistograms"',
+            type: 'boolean',
+            required: false,
+            description:
+              'scrapeNativeHistograms defines whether to enable scraping of native histograms. It requires Prometheus >= v3.8.0.',
+          },
+          {
+            name: '"scrapeProtocols"',
+            type: 'string[]',
+            required: false,
+            description:
+              'scrapeProtocols defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred). If unset, Prometheus uses its default value. It requires Prometheus >= v2.49.0. `PrometheusText1.0.0` requires Prometheus >= v3.0.0.',
+          },
+          {
+            name: '"scrapeTimeout"',
+            type: 'string',
+            required: false,
+            description:
+              'scrapeTimeout defines the number of seconds to wait until a scrape request times out. The value cannot be greater than the scrape interval otherwise the operator will reject the resource.',
+          },
+          {
+            name: '"secrets"',
+            type: 'string[]',
+            required: false,
+            description:
+              "secrets defines a list of Secrets in the same namespace as the Prometheus object, which shall be mounted into the Prometheus Pods. Each Secret is added to the StatefulSet definition as a volume named `secret-<secret-name>`. The Secrets are mounted into /etc/prometheus/secrets/<secret-name> in the 'prometheus' container.",
+          },
+          {
+            name: '"securityContext"',
+            type: 'SecurityContext2',
+            required: false,
+            description:
+              'securityContext holds pod-level security attributes and common container settings. This defaults to the default PodSecurityContext.',
+          },
+          {
+            name: '"serviceAccountName"',
+            type: 'string',
+            required: false,
+            description:
+              'serviceAccountName is the name of the ServiceAccount to use to run the Prometheus Pods.',
+          },
+          {
+            name: '"serviceDiscoveryRole"',
+            type: 'string',
+            required: false,
+            description:
+              'serviceDiscoveryRole defines the service discovery role used to discover targets from `ServiceMonitor` objects and Alertmanager endpoints. If set, the value should be either "Endpoints" or "EndpointSlice". If unset, the operator assumes the "Endpoints" role.',
+          },
+          {
+            name: '"serviceMonitorNamespaceSelector"',
+            type: 'ServiceMonitorNamespaceSelector',
+            required: false,
+            description:
+              'serviceMonitorNamespaceSelector defines the namespaces to match for ServicedMonitors discovery. An empty label selector matches all namespaces. A null label selector (default value) matches the current namespace only.',
+          },
+          {
+            name: '"serviceMonitorSelector"',
+            type: 'ServiceMonitorSelector',
+            required: false,
+            description:
+              "serviceMonitorSelector defines the serviceMonitors to be selected for target discovery. An empty label selector matches all objects. A null label selector matches no objects. If `spec.serviceMonitorSelector`, `spec.podMonitorSelector`, `spec.probeSelector` and `spec.scrapeConfigSelector` are null, the Prometheus configuration is unmanaged. The Prometheus operator will ensure that the Prometheus configuration's Secret exists, but it is the responsibility of the user to provide the raw gzipped Prometheus configuration under the `prometheus.yaml.gz` key. This behavior is *deprecated* and will be removed in the next major version of the custom resource definition. It is recommended to use `spec.additionalScrapeConfigs` instead.",
+          },
+          {
+            name: '"serviceName"',
+            type: 'string',
+            required: false,
+            description:
+              'serviceName defines the name of the service name used by the underlying StatefulSet(s) as the governing service. If defined, the Service must be created before the Prometheus/PrometheusAgent resource in the same namespace and it must define a selector that matches the pod labels. If empty, the operator will create and manage a headless service named `prometheus-operated` for Prometheus resources, or `prometheus-agent-operated` for PrometheusAgent resources. When deploying multiple Prometheus/PrometheusAgent resources in the same namespace, it is recommended to specify a different value for each. See https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-network-id for more details.',
+          },
+          {
+            name: '"sha"',
+            type: 'string',
+            required: false,
+            description:
+              "sha is deprecated: use 'spec.image' instead. The image's digest can be specified as part of the image name.",
+          },
+          {
+            name: '"shardRetentionPolicy"',
+            type: 'ShardRetentionPolicy',
+            required: false,
+            description:
+              'shardRetentionPolicy defines the retention policy for the Prometheus shards. (Beta) Using this mode requires the `PrometheusShardRetentionPolicy` feature gate (enabled by default).',
+          },
+          {
+            name: '"shardingStrategy"',
+            type: 'ShardingStrategy',
+            required: false,
+            description:
+              "shardingStrategy defines the sharding strategy for distributing scraped targets across Prometheus shards. When not defined, the operator defaults to the 'Address' mode which distributes targets based on a hash of the target address.",
+          },
+          {
+            name: '"shards"',
+            type: 'number',
+            required: false,
+            description:
+              "shards defines the number of shards to distribute the scraped targets onto. `spec.replicas` multiplied by `spec.shards` is the total number of Pods being created. When not defined, the operator assumes only one shard. Note that scaling down shards will not reshard data onto the remaining instances, it must be manually moved. Increasing shards will not reshard data either but it will continue to be available from the same instances. To query globally, use either * Thanos sidecar + querier for query federation and Thanos Ruler for rules. * Remote-write to send metrics to a central location. By default, the sharding of targets is performed on: * The `__address__` target's metadata label for PodMonitor, ServiceMonitor and ScrapeConfig resources. * The `__param_target__` label for Probe resources. Users can define their own sharding implementation by setting the `__tmp_hash` label during the target discovery with relabeling configuration (either in the monitoring resources or via scrape class). You can also disable sharding on a specific target by setting the `__tmp_disable_sharding` label with relabeling configuration. When the label value isn't empty, all Prometheus shards will scrape the target. Default: 1",
+          },
+          {
+            name: '"storage"',
+            type: 'Storage',
+            required: false,
+            description: 'storage defines the storage used by Prometheus.',
+          },
+          {
+            name: '"tag"',
+            type: 'string',
+            required: false,
+            description:
+              "tag is deprecated: use 'spec.image' instead. The image's tag can be specified as part of the image name.",
+          },
+          {
+            name: '"targetLimit"',
+            type: 'number',
+            required: false,
+            description:
+              "targetLimit defines a limit on the number of scraped targets that will be accepted. Only valid in Prometheus versions 2.45.0 and newer. Note that the global limit only applies to scrape objects that don't specify an explicit limit value. If you want to enforce a maximum limit for all scrape objects, refer to enforcedTargetLimit.",
+          },
+          {
+            name: '"terminationGracePeriodSeconds"',
+            type: 'number',
+            required: false,
+            description:
+              'terminationGracePeriodSeconds defines the optional duration in seconds the pod needs to terminate gracefully. Value must be non-negative integer. The value zero indicates stop immediately via the kill signal (no opportunity to shut down) which may lead to data corruption. Defaults to 600 seconds.',
+          },
+          {
+            name: '"thanos"',
+            type: 'Thanos',
+            required: false,
+            description: 'thanos defines the configuration of the optional Thanos sidecar.',
+          },
+          {
+            name: '"tolerations"',
+            type: 'TolerationsItem[]',
+            required: false,
+            description: "tolerations defines the Pods' tolerations if specified.",
+          },
+          {
+            name: '"topologySpreadConstraints"',
+            type: 'TopologySpreadConstraintsItem2[]',
+            required: false,
+            description:
+              "topologySpreadConstraints defines the pod's topology spread constraints if specified.",
+          },
+          {
+            name: '"tracingConfig"',
+            type: 'TracingConfig2',
+            required: false,
+            description:
+              'tracingConfig defines tracing in Prometheus. This is an *experimental feature*, it may change in any upcoming release in a breaking way.',
+          },
+          {
+            name: '"tsdb"',
+            type: 'Tsdb',
+            required: false,
+            description:
+              'tsdb defines the runtime reloadable configuration of the timeseries database(TSDB). It requires Prometheus >= v2.39.0 or PrometheusAgent >= v2.54.0.',
+          },
+          {
+            name: '"updateStrategy"',
+            type: 'UpdateStrategy',
+            required: false,
+            description:
+              "updateStrategy indicates the strategy that will be employed to update Pods in the StatefulSet when a revision is made to statefulset's Pod Template. The default strategy is RollingUpdate.",
+          },
+          {
+            name: '"version"',
+            type: 'string',
+            required: false,
+            description:
+              'version of Prometheus being deployed. The operator uses this information to generate the Prometheus StatefulSet + configuration files. If not specified, the operator assumes the latest upstream version of Prometheus available at the time when the version of the operator was released.',
+          },
+          {
+            name: '"volumeMounts"',
+            type: 'VolumeMountsItem[]',
+            required: false,
+            description:
+              "volumeMounts allows the configuration of additional VolumeMounts. VolumeMounts will be appended to other VolumeMounts in the 'prometheus' container, that are generated as a result of StorageSpec objects.",
+          },
+          {
+            name: '"volumes"',
+            type: 'VolumesItem[]',
+            required: false,
+            description:
+              'volumes allows the configuration of additional volumes on the output StatefulSet definition. Volumes specified will be appended to other volumes that are generated as a result of StorageSpec objects.',
+          },
+          {
+            name: '"walCompression"',
+            type: 'boolean',
+            required: false,
+            description:
+              'walCompression defines the compression of the write-ahead log (WAL) using Snappy. WAL compression is enabled by default for Prometheus >= 2.20.0 Requires Prometheus v2.11.0 and above.',
+          },
+          {
+            name: '"web"',
+            type: 'Web2',
+            required: false,
+            description: 'web defines the configuration of the Prometheus web server.',
+          },
+        ],
+        examples: [],
+      },
+      {
         name: 'PrometheusRule',
         description:
           'Render a PrometheusRule (monitoring.coreos.com/v1) exactly as defined by its CRD.',
@@ -749,7 +2411,422 @@ export const packages: Package[] = [
             name: '"groups"',
             type: 'GroupsItem[]',
             required: false,
-            description: 'Content of Prometheus rule file',
+            description: 'groups defines the content of Prometheus rule file',
+          },
+        ],
+        examples: [],
+      },
+      {
+        name: 'ScrapeConfig',
+        description:
+          'Render a ScrapeConfig (monitoring.coreos.com/v1alpha1) exactly as defined by its CRD.',
+        props: [
+          {
+            name: '"authorization"',
+            type: 'Authorization',
+            required: false,
+            description: 'authorization defines the header to use on every scrape request.',
+          },
+          {
+            name: '"azureSDConfigs"',
+            type: 'AzureSDConfigsItem[]',
+            required: false,
+            description: 'azureSDConfigs defines a list of Azure service discovery configurations.',
+          },
+          {
+            name: '"basicAuth"',
+            type: 'BasicAuth',
+            required: false,
+            description: 'basicAuth defines information to use on every scrape request.',
+          },
+          {
+            name: '"bodySizeLimit"',
+            type: 'string',
+            required: false,
+            description:
+              'bodySizeLimit defines a per-scrape limit on the size of the uncompressed response body that will be accepted by Prometheus. Targets responding with a body larger than this many bytes will cause the scrape to fail. It requires Prometheus >= v2.28.0.',
+          },
+          {
+            name: '"consulSDConfigs"',
+            type: 'ConsulSDConfigsItem[]',
+            required: false,
+            description:
+              'consulSDConfigs defines a list of Consul service discovery configurations.',
+          },
+          {
+            name: '"convertClassicHistogramsToNHCB"',
+            type: 'boolean',
+            required: false,
+            description:
+              'convertClassicHistogramsToNHCB defines whether to convert all scraped classic histograms into a native histogram with custom buckets. It requires Prometheus >= v3.0.0.',
+          },
+          {
+            name: '"digitalOceanSDConfigs"',
+            type: 'DigitalOceanSDConfigsItem[]',
+            required: false,
+            description:
+              'digitalOceanSDConfigs defines a list of DigitalOcean service discovery configurations.',
+          },
+          {
+            name: '"dnsSDConfigs"',
+            type: 'DnsSDConfigsItem[]',
+            required: false,
+            description: 'dnsSDConfigs defines a list of DNS service discovery configurations.',
+          },
+          {
+            name: '"dockerSDConfigs"',
+            type: 'DockerSDConfigsItem[]',
+            required: false,
+            description:
+              'dockerSDConfigs defines a list of Docker service discovery configurations.',
+          },
+          {
+            name: '"dockerSwarmSDConfigs"',
+            type: 'DockerSwarmSDConfigsItem[]',
+            required: false,
+            description:
+              'dockerSwarmSDConfigs defines a list of Dockerswarm service discovery configurations.',
+          },
+          {
+            name: '"ec2SDConfigs"',
+            type: 'Ec2SDConfigsItem[]',
+            required: false,
+            description: 'ec2SDConfigs defines a list of EC2 service discovery configurations.',
+          },
+          {
+            name: '"enableCompression"',
+            type: 'boolean',
+            required: false,
+            description:
+              'enableCompression when false, Prometheus will request uncompressed response from the scraped target. It requires Prometheus >= v2.49.0. If unset, Prometheus uses true by default.',
+          },
+          {
+            name: '"enableHTTP2"',
+            type: 'boolean',
+            required: false,
+            description: 'enableHTTP2 defines whether to enable HTTP2.',
+          },
+          {
+            name: '"eurekaSDConfigs"',
+            type: 'EurekaSDConfigsItem[]',
+            required: false,
+            description:
+              'eurekaSDConfigs defines a list of Eureka service discovery configurations.',
+          },
+          {
+            name: '"fallbackScrapeProtocol"',
+            type: 'string',
+            required: false,
+            description:
+              'fallbackScrapeProtocol defines the protocol to use if a scrape returns blank, unparseable, or otherwise invalid Content-Type. It requires Prometheus >= v3.0.0.',
+          },
+          {
+            name: '"fileSDConfigs"',
+            type: 'FileSDConfigsItem[]',
+            required: false,
+            description: 'fileSDConfigs defines a list of file service discovery configurations.',
+          },
+          {
+            name: '"gceSDConfigs"',
+            type: 'GceSDConfigsItem[]',
+            required: false,
+            description: 'gceSDConfigs defines a list of GCE service discovery configurations.',
+          },
+          {
+            name: '"hetznerSDConfigs"',
+            type: 'HetznerSDConfigsItem[]',
+            required: false,
+            description:
+              'hetznerSDConfigs defines a list of Hetzner service discovery configurations.',
+          },
+          {
+            name: '"honorLabels"',
+            type: 'boolean',
+            required: false,
+            description:
+              "honorLabels defines when true the metric's labels when they collide with the target's labels.",
+          },
+          {
+            name: '"honorTimestamps"',
+            type: 'boolean',
+            required: false,
+            description:
+              'honorTimestamps defines whether Prometheus preserves the timestamps when exposed by the target.',
+          },
+          {
+            name: '"httpSDConfigs"',
+            type: 'HttpSDConfigsItem[]',
+            required: false,
+            description: 'httpSDConfigs defines a list of HTTP service discovery configurations.',
+          },
+          {
+            name: '"ionosSDConfigs"',
+            type: 'IonosSDConfigsItem[]',
+            required: false,
+            description: 'ionosSDConfigs defines a list of IONOS service discovery configurations.',
+          },
+          {
+            name: '"jobName"',
+            type: 'string',
+            required: false,
+            description:
+              'jobName defines the value of the `job` label assigned to the scraped metrics by default. The `job_name` field in the rendered scrape configuration is always controlled by the operator to prevent duplicate job names, which Prometheus does not allow. Instead the `job` label is set by means of relabeling configs.',
+          },
+          {
+            name: '"keepDroppedTargets"',
+            type: 'number',
+            required: false,
+            description:
+              'keepDroppedTargets defines the per-scrape limit on the number of targets dropped by relabeling that will be kept in memory. 0 means no limit. It requires Prometheus >= v2.47.0.',
+          },
+          {
+            name: '"kubernetesSDConfigs"',
+            type: 'KubernetesSDConfigsItem[]',
+            required: false,
+            description:
+              'kubernetesSDConfigs defines a list of Kubernetes service discovery configurations.',
+          },
+          {
+            name: '"kumaSDConfigs"',
+            type: 'KumaSDConfigsItem[]',
+            required: false,
+            description: 'kumaSDConfigs defines a list of Kuma service discovery configurations.',
+          },
+          {
+            name: '"labelLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'labelLimit defines the per-scrape limit on number of labels that will be accepted for a sample. Only valid in Prometheus versions 2.27.0 and newer.',
+          },
+          {
+            name: '"labelNameLengthLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'labelNameLengthLimit defines the per-scrape limit on length of labels name that will be accepted for a sample. Only valid in Prometheus versions 2.27.0 and newer.',
+          },
+          {
+            name: '"labelValueLengthLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'labelValueLengthLimit defines the per-scrape limit on length of labels value that will be accepted for a sample. Only valid in Prometheus versions 2.27.0 and newer.',
+          },
+          {
+            name: '"lightSailSDConfigs"',
+            type: 'LightSailSDConfigsItem[]',
+            required: false,
+            description:
+              'lightSailSDConfigs defines a list of Lightsail service discovery configurations.',
+          },
+          {
+            name: '"linodeSDConfigs"',
+            type: 'LinodeSDConfigsItem[]',
+            required: false,
+            description:
+              'linodeSDConfigs defines a list of Linode service discovery configurations.',
+          },
+          {
+            name: '"metricRelabelings"',
+            type: 'MetricRelabelingsItem[]',
+            required: false,
+            description:
+              'metricRelabelings defines the metricRelabelings to apply to samples before ingestion.',
+          },
+          {
+            name: '"metricsPath"',
+            type: 'string',
+            required: false,
+            description:
+              'metricsPath defines the HTTP path to scrape for metrics. If empty, Prometheus uses the default value (e.g. /metrics).',
+          },
+          {
+            name: '"nameEscapingScheme"',
+            type: 'string',
+            required: false,
+            description:
+              'nameEscapingScheme defines the metric name escaping mode to request through content negotiation. It requires Prometheus >= v3.4.0.',
+          },
+          {
+            name: '"nameValidationScheme"',
+            type: 'string',
+            required: false,
+            description:
+              'nameValidationScheme defines the validation scheme for metric and label names. It requires Prometheus >= v3.0.0.',
+          },
+          {
+            name: '"nativeHistogramBucketLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'nativeHistogramBucketLimit defines ff there are more than this many buckets in a native histogram, buckets will be merged to stay within the limit. It requires Prometheus >= v2.45.0.',
+          },
+          {
+            name: '"nativeHistogramMinBucketFactor"',
+            type: 'number | string',
+            required: false,
+            description:
+              'nativeHistogramMinBucketFactor defines if the growth factor of one bucket to the next is smaller than this, buckets will be merged to increase the factor sufficiently. It requires Prometheus >= v2.50.0.',
+          },
+          {
+            name: '"noProxy"',
+            type: 'string',
+            required: false,
+            description:
+              'noProxy defines a comma-separated string that can contain IPs, CIDR notation, domain names that should be excluded from proxying. IP and domain names can contain port numbers. It requires Prometheus >= v2.43.0, Alertmanager >= v0.25.0 or Thanos >= v0.32.0.',
+          },
+          {
+            name: '"nomadSDConfigs"',
+            type: 'NomadSDConfigsItem[]',
+            required: false,
+            description: 'nomadSDConfigs defines a list of Nomad service discovery configurations.',
+          },
+          {
+            name: '"oauth2"',
+            type: 'Oauth2',
+            required: false,
+            description: 'oauth2 defines the configuration to use on every scrape request.',
+          },
+          {
+            name: '"openstackSDConfigs"',
+            type: 'OpenstackSDConfigsItem[]',
+            required: false,
+            description:
+              'openstackSDConfigs defines a list of OpenStack service discovery configurations.',
+          },
+          {
+            name: '"ovhcloudSDConfigs"',
+            type: 'OvhcloudSDConfigsItem[]',
+            required: false,
+            description:
+              'ovhcloudSDConfigs defines a list of OVHcloud service discovery configurations.',
+          },
+          {
+            name: '"params"',
+            type: 'Record',
+            required: false,
+            description: 'params defines optional HTTP URL parameters',
+          },
+          {
+            name: '"proxyConnectHeader"',
+            type: 'Record',
+            required: false,
+            description:
+              'proxyConnectHeader optionally specifies headers to send to proxies during CONNECT requests. It requires Prometheus >= v2.43.0, Alertmanager >= v0.25.0 or Thanos >= v0.32.0.',
+          },
+          {
+            name: '"proxyFromEnvironment"',
+            type: 'boolean',
+            required: false,
+            description:
+              'proxyFromEnvironment defines whether to use the proxy configuration defined by environment variables (HTTP_PROXY, HTTPS_PROXY, and NO_PROXY). It requires Prometheus >= v2.43.0, Alertmanager >= v0.25.0 or Thanos >= v0.32.0.',
+          },
+          {
+            name: '"proxyUrl"',
+            type: 'string',
+            required: false,
+            description: 'proxyUrl defines the HTTP proxy server to use.',
+          },
+          {
+            name: '"puppetDBSDConfigs"',
+            type: 'PuppetDBSDConfigsItem[]',
+            required: false,
+            description:
+              'puppetDBSDConfigs defines a list of PuppetDB service discovery configurations.',
+          },
+          {
+            name: '"relabelings"',
+            type: 'RelabelingsItem[]',
+            required: false,
+            description:
+              "relabelings defines how to rewrite the target's labels before scraping. Prometheus Operator automatically adds relabelings for a few standard Kubernetes fields. The original scrape job's name is available via the `__tmp_prometheus_job_name` label. More info: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config",
+          },
+          {
+            name: '"sampleLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'sampleLimit defines per-scrape limit on number of scraped samples that will be accepted.',
+          },
+          {
+            name: '"scalewaySDConfigs"',
+            type: 'ScalewaySDConfigsItem[]',
+            required: false,
+            description:
+              'scalewaySDConfigs defines a list of Scaleway instances and baremetal service discovery configurations.',
+          },
+          {
+            name: '"scheme"',
+            type: 'string',
+            required: false,
+            description: 'scheme defines the protocol scheme used for requests.',
+          },
+          {
+            name: '"scrapeClass"',
+            type: 'string',
+            required: false,
+            description: 'scrapeClass defines the scrape class to apply.',
+          },
+          {
+            name: '"scrapeClassicHistograms"',
+            type: 'boolean',
+            required: false,
+            description:
+              'scrapeClassicHistograms defines whether to scrape a classic histogram that is also exposed as a native histogram. It requires Prometheus >= v2.45.0. Notice: `scrapeClassicHistograms` corresponds to the `always_scrape_classic_histograms` field in the Prometheus configuration.',
+          },
+          {
+            name: '"scrapeInterval"',
+            type: 'string',
+            required: false,
+            description: 'scrapeInterval defines the interval between consecutive scrapes.',
+          },
+          {
+            name: '"scrapeNativeHistograms"',
+            type: 'boolean',
+            required: false,
+            description:
+              'scrapeNativeHistograms defines whether to enable scraping of native histograms. It requires Prometheus >= v3.8.0.',
+          },
+          {
+            name: '"scrapeProtocols"',
+            type: 'string[]',
+            required: false,
+            description:
+              'scrapeProtocols defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred). If unset, Prometheus uses its default value. It requires Prometheus >= v2.49.0.',
+          },
+          {
+            name: '"scrapeTimeout"',
+            type: 'string',
+            required: false,
+            description:
+              'scrapeTimeout defines the number of seconds to wait until a scrape request times out. The value cannot be greater than the scrape interval otherwise the operator will reject the resource.',
+          },
+          {
+            name: '"staticConfigs"',
+            type: 'StaticConfigsItem[]',
+            required: false,
+            description: 'staticConfigs defines a list of static targets with a common label set.',
+          },
+          {
+            name: '"targetLimit"',
+            type: 'number',
+            required: false,
+            description:
+              'targetLimit defines a limit on the number of scraped targets that will be accepted.',
+          },
+          {
+            name: '"tlsConfig"',
+            type: 'TlsConfig',
+            required: false,
+            description: 'tlsConfig defines the TLS configuration to use on every scrape request',
+          },
+          {
+            name: '"trackTimestampsStaleness"',
+            type: 'boolean',
+            required: false,
+            description:
+              'trackTimestampsStaleness defines whether Prometheus tracks staleness of the metrics that have an explicit timestamp present in scraped data. Has no effect if `honorTimestamps` is false. It requires Prometheus >= v2.48.0.',
           },
         ],
         examples: [],
@@ -809,7 +2886,7 @@ export const packages: Package[] = [
           },
           {
             name: '"namespaceSelector"',
-            type: 'NamespaceSelector',
+            type: 'NamespaceSelector2',
             required: false,
             description:
               'Selector to select which namespaces the Kubernetes `Endpoints` objects are discovered from.',
@@ -868,6 +2945,467 @@ export const packages: Package[] = [
             yaml: 'apiVersion: monitoring.coreos.com/v1\nkind: ServiceMonitor\nmetadata:\n  name: app-monitor\n  namespace: default\n  labels:\n    app: api\nspec:\n  selector:\n    matchLabels:\n      app: api\n  endpoints:\n    - port: metrics\n      path: /metrics\n      interval: 30s\n',
           },
         ],
+      },
+      {
+        name: 'ThanosRuler',
+        description:
+          'Render a ThanosRuler (monitoring.coreos.com/v1) exactly as defined by its CRD.',
+        props: [
+          {
+            name: '"additionalArgs"',
+            type: 'AdditionalArgsItem[]',
+            required: false,
+            description:
+              'additionalArgs defines how to add additional arguments for the ThanosRuler container. It is intended for e.g. activating hidden flags which are not supported by the dedicated configuration options yet. The arguments are passed as-is to the ThanosRuler container which may cause issues if they are invalid or not supported by the given ThanosRuler version. In case of an argument conflict (e.g. an argument which is already set by the operator itself) or when providing an invalid argument the reconciliation will fail and an error will be logged.',
+          },
+          {
+            name: '"affinity"',
+            type: 'Affinity',
+            required: false,
+            description: "affinity defines when specified, the pod's scheduling constraints.",
+          },
+          {
+            name: '"alertDropLabels"',
+            type: 'string[]',
+            required: false,
+            description:
+              'alertDropLabels defines the label names which should be dropped in Thanos Ruler alerts. The replica label `thanos_ruler_replica` will always be dropped from the alerts.',
+          },
+          {
+            name: '"alertQueryUrl"',
+            type: 'string',
+            required: false,
+            description:
+              "alertQueryUrl defines how Thanos Ruler will set in the 'Source' field of all alerts. Maps to the '--alert.query-url' CLI arg.",
+          },
+          {
+            name: '"alertRelabelConfigFile"',
+            type: 'string',
+            required: false,
+            description:
+              'alertRelabelConfigFile defines the path to the alert relabeling configuration file. Alert relabel configuration must have the form as specified in the official Prometheus documentation: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#alert_relabel_configs The operator performs no validation of the configuration file. This field takes precedence over `alertRelabelConfig`.',
+          },
+          {
+            name: '"alertRelabelConfigs"',
+            type: 'AlertRelabelConfigs',
+            required: false,
+            description:
+              'alertRelabelConfigs defines the alert relabeling in Thanos Ruler. Alert relabel configuration must have the form as specified in the official Prometheus documentation: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#alert_relabel_configs The operator performs no validation of the configuration. `alertRelabelConfigFile` takes precedence over this field.',
+          },
+          {
+            name: '"alertmanagersConfig"',
+            type: 'AlertmanagersConfig',
+            required: false,
+            description:
+              'alertmanagersConfig defines the list of Alertmanager endpoints to send alerts to. The configuration format is defined at https://thanos.io/tip/components/rule.md/#alertmanager. It requires Thanos >= v0.10.0. The operator performs no validation of the configuration. This field takes precedence over `alertmanagersUrl`.',
+          },
+          {
+            name: '"alertmanagersUrl"',
+            type: 'string[]',
+            required: false,
+            description:
+              'alertmanagersUrl defines the list of Alertmanager endpoints to send alerts to. For Thanos >= v0.10.0, it is recommended to use `alertmanagersConfig` instead. `alertmanagersConfig` takes precedence over this field.',
+          },
+          {
+            name: '"containers"',
+            type: 'ContainersItem[]',
+            required: false,
+            description:
+              'containers allows injecting additional containers or modifying operator generated containers. This can be used to allow adding an authentication proxy to the Pods or to change the behavior of an operator generated container. Containers described here modify an operator generated container if they share the same name and modifications are done via a strategic merge patch. The names of containers managed by the operator are: * `thanos-ruler` * `config-reloader` Overriding containers which are managed by the operator require careful testing, especially when upgrading to a new version of the operator.',
+          },
+          {
+            name: '"dnsConfig"',
+            type: 'DnsConfig',
+            required: false,
+            description: 'dnsConfig defines Defines the DNS configuration for the pods.',
+          },
+          {
+            name: '"dnsPolicy"',
+            type: 'string',
+            required: false,
+            description: 'dnsPolicy defines the DNS policy for the pods.',
+          },
+          {
+            name: '"enableFeatures"',
+            type: 'string[]',
+            required: false,
+            description:
+              'enableFeatures defines how to setup Thanos Ruler feature flags. By default, no features are enabled. Enabling features which are disabled by default is entirely outside the scope of what the maintainers will support and by doing so, you accept that this behaviour may break at any time without notice. For more information see https://thanos.io/tip/components/rule.md/ It requires Thanos >= 0.39.0.',
+          },
+          {
+            name: '"enableServiceLinks"',
+            type: 'boolean',
+            required: false,
+            description:
+              "enableServiceLinks defines whether information about services should be injected into pod's environment variables",
+          },
+          {
+            name: '"enforcedNamespaceLabel"',
+            type: 'string',
+            required: false,
+            description:
+              'enforcedNamespaceLabel enforces adding a namespace label of origin for each alert and metric that is user created. The label value will always be the namespace of the object that is being created.',
+          },
+          {
+            name: '"evaluationInterval"',
+            type: 'string',
+            required: false,
+            description: 'evaluationInterval defines the interval between consecutive evaluations.',
+          },
+          {
+            name: '"excludedFromEnforcement"',
+            type: 'ExcludedFromEnforcementItem[]',
+            required: false,
+            description:
+              'excludedFromEnforcement defines the list of references to PrometheusRule objects to be excluded from enforcing a namespace label of origin. Applies only if enforcedNamespaceLabel set to true.',
+          },
+          {
+            name: '"externalPrefix"',
+            type: 'string',
+            required: false,
+            description:
+              'externalPrefix defines the Thanos Ruler instances will be available under. This is necessary to generate correct URLs. This is necessary if Thanos Ruler is not served from root of a DNS name.',
+          },
+          {
+            name: '"grpcServerTlsConfig"',
+            type: 'GrpcServerTlsConfig',
+            required: false,
+            description:
+              'grpcServerTlsConfig defines the gRPC server from which Thanos Querier reads recorded rule data. Note: Currently only the `minVersion`, `caFile`, `certFile`, `keyFile`, `cipherSuites` and `curves` fields are supported.',
+          },
+          {
+            name: '"hostAliases"',
+            type: 'HostAliasesItem[]',
+            required: false,
+            description: "hostAliases defines pods' hostAliases configuration",
+          },
+          {
+            name: '"hostUsers"',
+            type: 'boolean',
+            required: false,
+            description:
+              'hostUsers supports the user space in Kubernetes. More info: https://kubernetes.io/docs/tasks/configure-pod-container/user-namespaces/ The feature requires at least Kubernetes 1.28 with the `UserNamespacesSupport` feature gate enabled. Starting Kubernetes 1.33, the feature is enabled by default.',
+          },
+          {
+            name: '"image"',
+            type: 'string',
+            required: false,
+            description: 'image defines Thanos container image URL.',
+          },
+          {
+            name: '"imagePullPolicy"',
+            type: 'string',
+            required: false,
+            description:
+              "imagePullPolicy defines for the 'thanos', 'init-config-reloader' and 'config-reloader' containers. See https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for more details.",
+          },
+          {
+            name: '"imagePullSecrets"',
+            type: 'ImagePullSecretsItem[]',
+            required: false,
+            description:
+              'imagePullSecrets defines an optional list of references to secrets in the same namespace to use for pulling thanos images from registries see http://kubernetes.io/docs/user-guide/images#specifying-imagepullsecrets-on-a-pod',
+          },
+          {
+            name: '"initContainers"',
+            type: 'InitContainersItem[]',
+            required: false,
+            description:
+              'initContainers allows injecting initContainers to the Pod definition. Those can be used to e.g. fetch secrets for injection into the configuration from external sources. Any errors during the execution of an initContainer will lead to a restart of the Pod. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/',
+          },
+          {
+            name: '"labels"',
+            type: 'Record',
+            required: false,
+            description:
+              "labels defines the external label pairs of the ThanosRuler resource. A default replica label `thanos_ruler_replica` will be always added as a label with the value of the pod's name.",
+          },
+          {
+            name: '"listenLocal"',
+            type: 'boolean',
+            required: false,
+            description:
+              'listenLocal defines the Thanos ruler listen on loopback, so that it does not bind against the Pod IP.',
+          },
+          {
+            name: '"logFormat"',
+            type: 'string',
+            required: false,
+            description: 'logFormat for ThanosRuler to be configured with.',
+          },
+          {
+            name: '"logLevel"',
+            type: 'string',
+            required: false,
+            description: 'logLevel for ThanosRuler to be configured with.',
+          },
+          {
+            name: '"minReadySeconds"',
+            type: 'number',
+            required: false,
+            description:
+              'minReadySeconds defines the minimum number of seconds for which a newly created pod should be ready without any of its container crashing for it to be considered available. If unset, pods will be considered available as soon as they are ready.',
+          },
+          {
+            name: '"nodeSelector"',
+            type: 'Record',
+            required: false,
+            description: 'nodeSelector defines which Nodes the Pods are scheduled on.',
+          },
+          {
+            name: '"objectStorageConfig"',
+            type: 'ObjectStorageConfig',
+            required: false,
+            description:
+              'objectStorageConfig defines the configuration format is defined at https://thanos.io/tip/thanos/storage.md/#configuring-access-to-object-storage The operator performs no validation of the configuration. `objectStorageConfigFile` takes precedence over this field.',
+          },
+          {
+            name: '"objectStorageConfigFile"',
+            type: 'string',
+            required: false,
+            description:
+              'objectStorageConfigFile defines the path of the object storage configuration file. The configuration format is defined at https://thanos.io/tip/thanos/storage.md/#configuring-access-to-object-storage The operator performs no validation of the configuration file. This field takes precedence over `objectStorageConfig`.',
+          },
+          {
+            name: '"paused"',
+            type: 'boolean',
+            required: false,
+            description:
+              'paused defines when a ThanosRuler deployment is paused, no actions except for deletion will be performed on the underlying objects.',
+          },
+          {
+            name: '"podManagementPolicy"',
+            type: 'string',
+            required: false,
+            description:
+              'podManagementPolicy defines the policy for creating/deleting pods when scaling up and down. Unlike the default StatefulSet behavior, the default policy is `Parallel` to avoid manual intervention in case a pod gets stuck during a rollout. Note that updating this value implies the recreation of the StatefulSet which incurs a service outage.',
+          },
+          {
+            name: '"podMetadata"',
+            type: 'PodMetadata',
+            required: false,
+            description:
+              'podMetadata defines labels and annotations which are propagated to the ThanosRuler pods. The following items are reserved and cannot be overridden: * "app.kubernetes.io/name" label, set to "thanos-ruler". * "app.kubernetes.io/managed-by" label, set to "prometheus-operator". * "app.kubernetes.io/instance" label, set to the name of the ThanosRuler instance. * "thanos-ruler" label, set to the name of the ThanosRuler instance. * "kubectl.kubernetes.io/default-container" annotation, set to "thanos-ruler".',
+          },
+          {
+            name: '"portName"',
+            type: 'string',
+            required: false,
+            description:
+              'portName defines the port name used for the pods and governing service. Defaults to `web`.',
+          },
+          {
+            name: '"priorityClassName"',
+            type: 'string',
+            required: false,
+            description: 'priorityClassName defines the priority class assigned to the Pods',
+          },
+          {
+            name: '"prometheusRulesExcludedFromEnforce"',
+            type: 'PrometheusRulesExcludedFromEnforceItem[]',
+            required: false,
+            description:
+              'prometheusRulesExcludedFromEnforce defines a list of Prometheus rules to be excluded from enforcing of adding namespace labels. Works only if enforcedNamespaceLabel set to true. Make sure both ruleNamespace and ruleName are set for each pair Deprecated: use excludedFromEnforcement instead.',
+          },
+          {
+            name: '"queryConfig"',
+            type: 'QueryConfig',
+            required: false,
+            description:
+              'queryConfig defines the list of Thanos Query endpoints from which to query metrics. The configuration format is defined at https://thanos.io/tip/components/rule.md/#query-api It requires Thanos >= v0.11.0. The operator performs no validation of the configuration. This field takes precedence over `queryEndpoints`.',
+          },
+          {
+            name: '"queryEndpoints"',
+            type: 'string[]',
+            required: false,
+            description:
+              'queryEndpoints defines the list of Thanos Query endpoints from which to query metrics. For Thanos >= v0.11.0, it is recommended to use `queryConfig` instead. `queryConfig` takes precedence over this field.',
+          },
+          {
+            name: '"remoteWrite"',
+            type: 'RemoteWriteItem[]',
+            required: false,
+            description:
+              "remoteWrite defines the list of remote write configurations. When the list isn't empty, the ruler is configured with stateless mode. It requires Thanos >= 0.24.0.",
+          },
+          {
+            name: '"replicas"',
+            type: 'number',
+            required: false,
+            description: 'replicas defines the number of thanos ruler instances to deploy.',
+          },
+          {
+            name: '"resendDelay"',
+            type: 'string',
+            required: false,
+            description:
+              'resendDelay defines the minimum amount of time to wait before resending an alert to Alertmanager.',
+          },
+          {
+            name: '"resources"',
+            type: 'Resources',
+            required: false,
+            description:
+              'resources defines the resource requirements for single Pods. If not provided, no requests/limits will be set',
+          },
+          {
+            name: '"retention"',
+            type: 'string',
+            required: false,
+            description:
+              "retention defines the time duration ThanosRuler shall retain data for. Default is '24h', and must match the regular expression `[0-9]+(ms|s|m|h|d|w|y)` (milliseconds seconds minutes hours days weeks years). The field has no effect when remote-write is configured since the Ruler operates in stateless mode.",
+          },
+          {
+            name: '"routePrefix"',
+            type: 'string',
+            required: false,
+            description:
+              'routePrefix defines the route prefix ThanosRuler registers HTTP handlers for. This allows thanos UI to be served on a sub-path.',
+          },
+          {
+            name: '"ruleConcurrentEval"',
+            type: 'number',
+            required: false,
+            description:
+              'ruleConcurrentEval defines how many rules can be evaluated concurrently. It requires Thanos >= v0.37.0.',
+          },
+          {
+            name: '"ruleGracePeriod"',
+            type: 'string',
+            required: false,
+            description:
+              'ruleGracePeriod defines the minimum duration between alert and restored "for" state. This is maintained only for alerts with configured "for" time greater than grace period. It requires Thanos >= v0.30.0.',
+          },
+          {
+            name: '"ruleNamespaceSelector"',
+            type: 'RuleNamespaceSelector',
+            required: false,
+            description:
+              'ruleNamespaceSelector defines the namespaces to be selected for Rules discovery. If unspecified, only the same namespace as the ThanosRuler object is in is used.',
+          },
+          {
+            name: '"ruleOutageTolerance"',
+            type: 'string',
+            required: false,
+            description:
+              'ruleOutageTolerance defines the max time to tolerate prometheus outage for restoring "for" state of alert. It requires Thanos >= v0.30.0.',
+          },
+          {
+            name: '"ruleQueryOffset"',
+            type: 'string',
+            required: false,
+            description:
+              "ruleQueryOffset defines the default rule group's query offset duration to use. It requires Thanos >= v0.38.0.",
+          },
+          {
+            name: '"ruleSelector"',
+            type: 'RuleSelector',
+            required: false,
+            description:
+              'ruleSelector defines the PrometheusRule objects to be selected for rule evaluation. An empty label selector matches all objects. A null label selector matches no objects.',
+          },
+          {
+            name: '"schedulerName"',
+            type: 'string',
+            required: false,
+            description:
+              'schedulerName defines the scheduler to use for Pod scheduling. If not specified, the default scheduler is used.',
+          },
+          {
+            name: '"securityContext"',
+            type: 'SecurityContext2',
+            required: false,
+            description:
+              'securityContext defines the pod-level security attributes and common container settings. This defaults to the default PodSecurityContext.',
+          },
+          {
+            name: '"serviceAccountName"',
+            type: 'string',
+            required: false,
+            description:
+              'serviceAccountName defines the name of the ServiceAccount to use to run the Thanos Ruler Pods.',
+          },
+          {
+            name: '"serviceName"',
+            type: 'string',
+            required: false,
+            description:
+              'serviceName defines the name of the service name used by the underlying StatefulSet(s) as the governing service. If defined, the Service must be created before the ThanosRuler resource in the same namespace and it must define a selector that matches the pod labels. If empty, the operator will create and manage a headless service named `thanos-ruler-operated` for ThanosRuler resources. When deploying multiple ThanosRuler resources in the same namespace, it is recommended to specify a different value for each. See https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-network-id for more details.',
+          },
+          {
+            name: '"storage"',
+            type: 'Storage',
+            required: false,
+            description: 'storage defines the specification of how storage shall be used.',
+          },
+          {
+            name: '"terminationGracePeriodSeconds"',
+            type: 'number',
+            required: false,
+            description:
+              'terminationGracePeriodSeconds defines the optional duration in seconds the pod needs to terminate gracefully. Value must be non-negative integer. The value zero indicates stop immediately via the kill signal (no opportunity to shut down) which may lead to data corruption. Defaults to 120 seconds.',
+          },
+          {
+            name: '"tolerations"',
+            type: 'TolerationsItem[]',
+            required: false,
+            description: "tolerations defines when specified, the pod's tolerations.",
+          },
+          {
+            name: '"topologySpreadConstraints"',
+            type: 'TopologySpreadConstraintsItem[]',
+            required: false,
+            description: "topologySpreadConstraints defines the pod's topology spread constraints.",
+          },
+          {
+            name: '"tracingConfig"',
+            type: 'TracingConfig',
+            required: false,
+            description:
+              'tracingConfig defines the tracing configuration. The configuration format is defined at https://thanos.io/tip/thanos/tracing.md/#configuration This is an *experimental feature*, it may change in any upcoming release in a breaking way. The operator performs no validation of the configuration. `tracingConfigFile` takes precedence over this field.',
+          },
+          {
+            name: '"tracingConfigFile"',
+            type: 'string',
+            required: false,
+            description:
+              'tracingConfigFile defines the path of the tracing configuration file. The configuration format is defined at https://thanos.io/tip/thanos/tracing.md/#configuration This is an *experimental feature*, it may change in any upcoming release in a breaking way. The operator performs no validation of the configuration file. This field takes precedence over `tracingConfig`.',
+          },
+          {
+            name: '"updateStrategy"',
+            type: 'UpdateStrategy',
+            required: false,
+            description:
+              "updateStrategy indicates the strategy that will be employed to update Pods in the StatefulSet when a revision is made to statefulset's Pod Template. The default strategy is RollingUpdate.",
+          },
+          {
+            name: '"version"',
+            type: 'string',
+            required: false,
+            description: 'version of Thanos to be deployed.',
+          },
+          {
+            name: '"volumeMounts"',
+            type: 'VolumeMountsItem[]',
+            required: false,
+            description:
+              'volumeMounts defines how the configuration of additional VolumeMounts on the output StatefulSet definition. VolumeMounts specified will be appended to other VolumeMounts in the ruler container, that are generated as a result of StorageSpec objects.',
+          },
+          {
+            name: '"volumes"',
+            type: 'VolumesItem[]',
+            required: false,
+            description:
+              'volumes defines how configuration of additional volumes on the output StatefulSet definition. Volumes specified will be appended to other volumes that are generated as a result of StorageSpec objects.',
+          },
+          {
+            name: '"web"',
+            type: 'Web3',
+            required: false,
+            description: 'web defines the configuration of the ThanosRuler web server.',
+          },
+        ],
+        examples: [],
       },
     ],
   },
