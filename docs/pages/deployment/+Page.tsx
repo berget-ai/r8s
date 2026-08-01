@@ -160,7 +160,8 @@ export default function Page() {
           }`}
         >
           <div className="font-bold">FluxCD + r8s-controller</div>
-          <div className="text-xs mt-1 opacity-70">Render in-cluster (recommended)</div>
+          <div className="text-xs mt-1 opacity-70">Render in-cluster</div>
+          <div className="text-xs mt-1 text-warning">Coming soon</div>
         </button>
       </div>
 
@@ -211,14 +212,14 @@ export default function Page() {
       {/* FluxCD Strategy */}
       {strategy === 'flux' && (
         <div className="space-y-12">
-          <div className="p-6 rounded-lg border border-moss/30 bg-moss/5">
-            <h3 className="font-serif text-xl mb-3 text-moss">
-              FluxCD + r8s-controller (Recommended)
+          <div className="p-6 rounded-lg border border-warning/30 bg-warning/5">
+            <h3 className="font-serif text-xl mb-3 text-warning">
+              FluxCD + r8s-controller — Coming Soon
             </h3>
             <p className="text-cloud/70 text-sm">
-              Render TSX directly in the cluster. No CI build step. Your repo stays clean — just
-              TypeScript source code. Use <code>--include-operators</code> when you want operators
-              in the output.
+              The r8s-controller is under development and not yet ready for production use.
+              The documentation below describes the intended workflow, but the controller
+              is not yet available. Use GitHub Actions for now.
             </p>
           </div>
 
@@ -268,10 +269,12 @@ export default function Page() {
             <div className="space-y-4">
               <h3 className="text-xl">2. Install r8s-controller</h3>
               <p className="text-cloud/70">
-                Add r8s-controller as init container to Flux's source-controller:
+                <span className="text-warning">Coming soon:</span> Add r8s-controller as init
+                container to Flux's source-controller:
               </p>
               <CodeBlock
-                code={`kubectl apply -f https://raw.githubusercontent.com/berget-ai/r8s/main/packages/flux-controller/deploy.yaml`}
+                code={`# Not yet available — coming soon
+# kubectl apply -f https://raw.githubusercontent.com/berget-ai/r8s/main/packages/flux-controller/deploy.yaml`}
                 language="bash"
               />
             </div>
