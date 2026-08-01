@@ -350,6 +350,13 @@ export const recipes: Recipe[] = [
           required: false,
           description: 'DNS record TTL in seconds (default: 300)',
         },
+        {
+          name: 'dnsTsigSecret',
+          type: '{ path: string, key: string, secretName?: string }',
+          required: false,
+          description:
+            "TSIG secret for RFC 2136 DNS updates. When set, creates a VaultStaticSecret (or OpenBaoStaticSecret) that syncs the TSIG key from Vault/OpenBao to a Kubernetes Secret for ExternalDNS to use. Requires Platform secrets={{ backend: 'vault' | 'openbao' }}.",
+        },
       ],
       examples: [
         {
