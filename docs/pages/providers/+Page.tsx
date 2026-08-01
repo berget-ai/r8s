@@ -230,17 +230,27 @@ export default function Page() {
             <tbody className="text-cloud/80">
               <tr className="border-b border-white/5">
                 <td className="py-3 px-4 font-mono text-moss">SecretProvider</td>
-                <td className="py-3 px-4">Database, Auth, App (secrets)</td>
+                <td className="py-3 px-4">
+                  <a href="/recipes/database" className="text-moss hover:text-lichen">Database</a>,{' '}
+                  <a href="/recipes/auth" className="text-moss hover:text-lichen">Auth</a>,{' '}
+                  <a href="/recipes/app" className="text-moss hover:text-lichen">App</a>
+                </td>
                 <td className="py-3 px-4">Required for TSIG, Vault secrets</td>
               </tr>
               <tr className="border-b border-white/5">
                 <td className="py-3 px-4 font-mono text-moss">DnsProvider</td>
-                <td className="py-3 px-4">Endpoint, App</td>
+                <td className="py-3 px-4">
+                  <a href="/recipes/endpoint" className="text-moss hover:text-lichen">Endpoint</a>,{' '}
+                  <a href="/recipes/app" className="text-moss hover:text-lichen">App</a>
+                </td>
                 <td className="py-3 px-4">Auto-creates DNS records</td>
               </tr>
               <tr className="border-b border-white/5">
                 <td className="py-3 px-4 font-mono text-moss">EndpointProvider</td>
-                <td className="py-3 px-4">Endpoint, App</td>
+                <td className="py-3 px-4">
+                  <a href="/recipes/endpoint" className="text-moss hover:text-lichen">Endpoint</a>,{' '}
+                  <a href="/recipes/app" className="text-moss hover:text-lichen">App</a>
+                </td>
                 <td className="py-3 px-4">Routing (nginx/gateway)</td>
               </tr>
             </tbody>

@@ -14,6 +14,15 @@ export {
   type VaultSecretRef,
 } from './web-service'
 export { Auth, type AuthProps } from './auth'
+export {
+  Realm,
+  Realms,
+  Clients,
+  Client,
+  type RealmConfig,
+  type ClientConfig,
+  type IdentityProviderConfig,
+} from './auth-components'
 export { Monitoring, type MonitoringProps } from './monitoring'
 export { Backup, type BackupProps } from './backup'
 
@@ -28,8 +37,8 @@ export {
   type VaultProps,
   SealedSecrets,
   type SealedSecretsProps,
-  Kubernetes,
-  type KubernetesProps,
+  ManualSecrets,
+  type ManualSecretsProps,
 } from './secret-provider'
 export {
   DnsProvider,
@@ -51,6 +60,15 @@ export {
   EnvoyGateway,
   type EnvoyGatewayProps,
 } from './endpoint-provider'
+export {
+  CertProvider,
+  type CertProviderProps,
+  type CertProviderValue,
+  type CertConfig,
+  CertContext,
+  CertManager,
+  type CertManagerProps,
+} from './cert-provider'
 
 // Operator declarations for components in this package
 export { cnpgOperator, nginxIngressOperator, vaultSecretsOperator } from './operators'

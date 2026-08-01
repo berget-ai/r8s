@@ -250,6 +250,72 @@ export const recipes: Recipe[] = [
     },
   },
   {
+    slug: 'cert-manager',
+    title: 'CertManager',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'CertManager',
+      description:
+        'CertManager configuration component. Use as a value in CertProvider when you need custom configuration: ```tsx <CertProvider provider={<CertManager clusterIssuer="letsencrypt-prod" />}> ```',
+      props: [
+        {
+          name: 'clusterIssuer',
+          type: 'string',
+          required: false,
+          description: "Default ClusterIssuer for certificates (default: 'letsencrypt-prod')",
+        },
+        {
+          name: 'duration',
+          type: 'string',
+          required: false,
+          description: "Default certificate duration (default: '2160h' = 90 days)",
+        },
+        {
+          name: 'renewBefore',
+          type: 'string',
+          required: false,
+          description: "Default renew before expiry (default: '360h' = 15 days)",
+        },
+      ],
+      examples: [],
+    },
+  },
+  {
+    slug: 'cert-provider',
+    title: 'CertProvider',
+    description:
+      'CertProvider — cluster-level certificate management. Sets up cert-manager for TLS certificates. All Endpoint/App children automatically get TLS certificates when tls prop is set.',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'CertProvider',
+      description:
+        'CertProvider — cluster-level certificate management. Sets up cert-manager for TLS certificates. All Endpoint/App children automatically get TLS certificates when tls prop is set.',
+      props: [
+        {
+          name: 'provider',
+          type: 'CertProviderValue',
+          required: true,
+          description:
+            'Certificate provider — string for simple cases, component for advanced config.',
+        },
+        { name: 'children', type: 'unknown', required: false, description: 'Child components' },
+      ],
+      examples: [
+        {
+          tsx: 'import { CertProvider, App } from \'@r8s/recipes\'\n\n// Simple — string provider\n<CertProvider provider="cert-manager">\n  <App name="api" image="myapp:v1" host="api.example.com" tls={{ secretName: \'api-tls\' }} />\n</CertProvider>',
+          yaml: null,
+        },
+        {
+          tsx: 'import { CertProvider, CertManager, App } from \'@r8s/recipes\'\n\n// Advanced — component provider\n<CertProvider provider={<CertManager clusterIssuer="letsencrypt-staging" duration="168h" />}>\n  <App name="api" image="myapp:v1" host="api.example.com" tls={{ secretName: \'api-tls\' }} />\n</CertProvider>',
+          yaml: null,
+        },
+      ],
+    },
+  },
+  {
     slug: 'database',
     title: 'Database',
     description: 'CloudNativePG PostgreSQL database.',
@@ -593,6 +659,20 @@ export const recipes: Recipe[] = [
           title: 'Full hierarchy with DNS and secrets',
         },
       ],
+    },
+  },
+  {
+    slug: 'manual-secrets',
+    title: 'ManualSecrets',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'ManualSecrets',
+      description:
+        'ManualSecrets configuration component (plain Kubernetes Secrets, CNPG-managed). Use for simple deployments or development. CNPG creates and manages bootstrap secrets automatically. No external secrets backend required.',
+      props: [],
+      examples: [],
     },
   },
   {

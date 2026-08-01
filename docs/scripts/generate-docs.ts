@@ -140,6 +140,8 @@ interface ComponentDoc {
   props: ComponentProp[]
   /** JSDoc @example blocks with formatted TSX and rendered YAML */
   examples: { tsx: string; yaml: string | null; title?: string }[]
+  /** Complex types referenced by props, expanded for documentation */
+  expandedTypes?: { name: string; props: ComponentProp[] }[]
 }
 
 interface PackageDoc {
@@ -352,6 +354,39 @@ function extractProps(
   return props
 }
 
+/** Extract complex types referenced by props for expanded documentation */
+function extractExpandedTypes(
+  props: ComponentProp[],
+  interfaceMap: Map<string, ts.InterfaceDeclaration>,
+  sourceFile: ts.SourceFile,
+  depth = 0
+): { name: string; props: ComponentProp[] }[] {
+  if (depth > 2) return [] // Prevent infinite recursion
+
+  const expanded: { name: string; props: ComponentProp[] }[] = []
+  const seen = new Set<string>()
+
+  for (const prop of props) {
+    // Skip primitive types and arrays of primitives
+    const baseType = prop.type.replace(/\[\]$/, '').replace(/^Record<.*>$/, '')
+    if (['string', 'number', 'boolean', 'unknown', 'ObjectMeta'].includes(baseType)) continue
+    if (baseType.includes(' | ')) continue // Union types are already inline
+
+    const interfaceDecl = interfaceMap.get(baseType)
+    if (!interfaceDecl || seen.has(baseType)) continue
+    seen.add(baseType)
+
+    const nestedProps = extractProps(interfaceDecl, sourceFile)
+    if (nestedProps.length > 0) {
+      expanded.push({ name: baseType, props: nestedProps })
+      // Recursively expand nested types
+      expanded.push(...extractExpandedTypes(nestedProps, interfaceMap, sourceFile, depth + 1))
+    }
+  }
+
+  return expanded
+}
+
 async function extractComponents(
   sourceFile: ts.SourceFile,
   sourcePath: string
@@ -400,14 +435,32 @@ async function extractComponents(
       const componentName = node.name.text.replace('Props', '')
       const props = extractProps(node, sourceFile)
 
+      // Build interface map for expanding complex types
+      const interfaceMap = new Map<string, ts.InterfaceDeclaration>()
+      function collectInterfaces(n: ts.Node) {
+        if (ts.isInterfaceDeclaration(n)) {
+          interfaceMap.set(n.name.text, n)
+        }
+        ts.forEachChild(n, collectInterfaces)
+      }
+      collectInterfaces(sourceFile)
+
       // Find matching component from the function declaration
       const existing = components.find((c) => c.name === componentName)
       if (existing) {
         existing.props = props
+        existing.expandedTypes = extractExpandedTypes(props, interfaceMap, sourceFile)
       } else if (!seenNames.has(componentName)) {
         seenNames.add(componentName)
         const description = getJSDoc(node)
-        components.push({ name: componentName, description, props, examples: [], _rawExamples: [] })
+        components.push({
+          name: componentName,
+          description,
+          props,
+          examples: [],
+          _rawExamples: [],
+          expandedTypes: extractExpandedTypes(props, interfaceMap, sourceFile),
+        })
       }
     }
   }
@@ -869,7 +922,8 @@ async function writePackages(packages: PackageDoc[]) {
     '  name: string;',
     '  description: string;',
     '  props: ComponentProp[];',
-    '  examples: { tsx: string; yaml: string | null }[];',
+    '  examples: { tsx: string; yaml: string | null; title?: string }[];',
+    '  expandedTypes?: { name: string; props: ComponentProp[] }[];',
     '}',
     '',
     'export interface Package {',
@@ -912,6 +966,9 @@ async function writePackages(packages: PackageDoc[]) {
       }
       lines.push('        ],')
       lines.push(`        examples: ${JSON.stringify(comp.examples)},`)
+      if (comp.expandedTypes && comp.expandedTypes.length > 0) {
+        lines.push(`        expandedTypes: ${JSON.stringify(comp.expandedTypes)},`)
+      }
       lines.push('      },')
     }
     lines.push('    ],')

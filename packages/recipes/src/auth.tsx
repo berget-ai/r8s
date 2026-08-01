@@ -4,6 +4,7 @@ import { operators } from '@r8s/crds'
 import { Database } from './database'
 import { Endpoint } from './endpoint'
 import type { TLSConfig } from '@r8s/k8s-types'
+import { Realm, Realms, Clients, Client, type RealmConfig, type ClientConfig } from './auth-components'
 
 export interface AuthProps {
   /** Resource name */
@@ -18,6 +19,8 @@ export interface AuthProps {
   storage?: string
   /** TLS certificate configuration */
   tls?: TLSConfig
+  /** Child components (Realms) */
+  children?: unknown
 }
 
 /**
@@ -109,7 +112,7 @@ export interface AuthProps {
  * )
  */
 export function Auth(props: AuthProps) {
-  const { name, host, namespace = 'default', instances = 1, storage = '10Gi', tls } = props
+  const { name, host, namespace = 'default', instances = 1, storage = '10Gi', tls, children } = props
 
   const sharedOperators = useContext(OperatorContext)
   const hasKeycloak = sharedOperators.some((op) => op.name === 'keycloak-operator')
@@ -169,5 +172,117 @@ export function Auth(props: AuthProps) {
     })
   )
 
+  // Process children (Realms) to create KeycloakRealmImport resources
+  const realms = collectRealms(children)
+  for (const realm of realms) {
+    resources.push(
+      jsx('KeycloakRealmImport', {
+        apiVersion: 'k8s.keycloak.org/v2alpha1',
+        kind: 'KeycloakRealmImport',
+        metadata: { name: `${name}-${realm.id}`, namespace },
+        spec: {
+          keycloakCRName: name,
+          realm: {
+            realm: realm.id,
+            displayName: realm.displayName,
+            enabled: realm.enabled ?? true,
+            identityProviders: realm.identityProviders?.map((idp) => ({
+              alias: idp.alias,
+              displayName: idp.displayName,
+              providerId: idp.providerId,
+              enabled: idp.enabled ?? true,
+              trustEmail: idp.trustEmail ?? false,
+              config: idp.config,
+            })),
+            clients: realm.clients?.map((client) => ({
+              clientId: client.id,
+              name: client.name ?? client.id,
+              publicClient: client.type === 'public',
+              standardFlowEnabled: client.type === 'public',
+              bearerOnly: client.type === 'bearer-only',
+              serviceAccountsEnabled: client.type === 'confidential' ? true : undefined,
+              secret: client.secret,
+              redirectUris: client.redirectUris,
+              webOrigins: client.webOrigins,
+              directAccessGrantsEnabled: client.directAccessGrantsEnabled ?? false,
+            })),
+          },
+        },
+      })
+    )
+  }
+
   return jsx(Fragment, { children: resources })
+}
+
+/** Collect Realm configurations from children */
+function collectRealms(children: unknown): RealmConfig[] {
+  const realms: RealmConfig[] = []
+
+  if (!children) return realms
+
+  const childArray = Array.isArray(children) ? children : [children]
+  for (const child of childArray) {
+    if (child && typeof child === 'object' && 'type' in child) {
+      if (child.type === Realms) {
+        const realmsProps = (child as any).props
+        const realmChildren = Array.isArray(realmsProps.children)
+          ? realmsProps.children
+          : [realmsProps.children]
+        for (const realmChild of realmChildren) {
+          if (realmChild && typeof realmChild === 'object' && 'type' in realmChild && realmChild.type === Realm) {
+            const realmProps = (realmChild as any).props
+            const clients = collectClients(realmProps.children)
+            realms.push({
+              id: realmProps.id,
+              displayName: realmProps.displayName,
+              enabled: realmProps.enabled,
+              identityProviders: realmProps.identityProviders,
+              clients,
+            })
+          }
+        }
+      } else if (child.type === Realm) {
+        const realmProps = (child as any).props
+        const clients = collectClients(realmProps.children)
+        realms.push({
+          id: realmProps.id,
+          displayName: realmProps.displayName,
+          enabled: realmProps.enabled,
+          identityProviders: realmProps.identityProviders,
+          clients,
+        })
+      }
+    }
+  }
+
+  return realms
+}
+
+/** Collect Client configurations from children */
+function collectClients(children: unknown): ClientConfig[] {
+  const clients: ClientConfig[] = []
+
+  if (!children) return clients
+
+  const childArray = Array.isArray(children) ? children : [children]
+  for (const child of childArray) {
+    if (child && typeof child === 'object' && 'type' in child) {
+      if (child.type === Clients) {
+        const clientsProps = (child as any).props
+        const clientChildren = Array.isArray(clientsProps.children)
+          ? clientsProps.children
+          : [clientsProps.children]
+        for (const clientChild of clientChildren) {
+          if (clientChild && typeof clientChild === 'object' && 'type' in clientChild && clientChild.type === Client) {
+            clients.push((clientChild as any).props)
+          }
+        }
+      } else if (child.type === Client) {
+        clients.push((child as any).props)
+      }
+    }
+  }
+
+  return clients
 }

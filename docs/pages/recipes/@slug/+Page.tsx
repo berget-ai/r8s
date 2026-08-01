@@ -48,6 +48,24 @@ export default function Page() {
         <code className="text-moss font-mono text-sm">{recipe.component.name}</code>
       </div>
 
+      {/* Examples */}
+      {recipe.component.examples.length > 0 && (
+        <div className="space-y-8">
+          <h2 className="text-2xl tracking-tight">Examples</h2>
+          {recipe.component.examples.map((example, index) => (
+            <div key={index} className="space-y-4">
+              <div className="flex items-center gap-4">
+                <span className="text-moss font-mono text-sm">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <h3 className="text-xl">{example.title ?? `Example ${index + 1}`}</h3>
+              </div>
+              <CodeBlock code={example.tsx} yaml={example.yaml ?? undefined} language="tsx" />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Props */}
       <div className="space-y-6">
         <h2 className="text-2xl tracking-tight">Props</h2>
@@ -69,24 +87,6 @@ export default function Page() {
           ))}
         </div>
       </div>
-
-      {/* Examples */}
-      {recipe.component.examples.length > 0 && (
-        <div className="space-y-8">
-          <h2 className="text-2xl tracking-tight">Examples</h2>
-          {recipe.component.examples.map((example, index) => (
-            <div key={index} className="space-y-4">
-              <div className="flex items-center gap-4">
-                <span className="text-moss font-mono text-sm">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <h3 className="text-xl">{example.title ?? `Example ${index + 1}`}</h3>
-              </div>
-              <CodeBlock code={example.tsx} yaml={example.yaml ?? undefined} language="tsx" />
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Navigation */}
       <div className="pt-8 border-t border-white/10 flex justify-between">

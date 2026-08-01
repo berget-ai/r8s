@@ -65,13 +65,16 @@ export function SealedSecrets(props: SealedSecretsProps): SecretProviderConfig {
 }
 
 /**
- * Kubernetes configuration component (plain Secrets, CNPG-managed).
+ * ManualSecrets configuration component (plain Kubernetes Secrets, CNPG-managed).
+ *
+ * Use for simple deployments or development. CNPG creates and manages
+ * bootstrap secrets automatically. No external secrets backend required.
  */
-export interface KubernetesProps {}
+export interface ManualSecretsProps {}
 
-export function Kubernetes(props: KubernetesProps): SecretProviderConfig {
+export function ManualSecrets(props: ManualSecretsProps): SecretProviderConfig {
   return {
-    backend: 'kubernetes',
+    backend: 'manual-secrets',
   }
 }
 
@@ -80,7 +83,7 @@ export type SecretProviderValue =
   | 'openbao'
   | 'vault'
   | 'sealed-secrets'
-  | 'kubernetes'
+  | 'manual-secrets'
   | SecretProviderConfig
 
 export interface SecretProviderProps {
