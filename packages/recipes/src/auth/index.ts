@@ -6,7 +6,11 @@ export {
   Realms,
   Clients,
   Client,
+  EntraID,
+  Google,
   type RealmConfig,
   type ClientConfig,
   type IdentityProviderConfig,
+  type EntraIDConfig,
+  type GoogleConfig,
 } from './components'

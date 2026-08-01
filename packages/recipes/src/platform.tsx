@@ -143,14 +143,14 @@ export function Platform(props: PlatformProps) {
 
   let result: unknown = children
 
-  // Apply secrets context via SecretProvider
-  if (secrets) {
-    result = jsx(SecretProvider, { provider: secrets, children: result })
-  }
-
-  // Apply DNS context via DnsProvider
+  // Apply DNS context via DnsProvider (inside SecretProvider so it can access secrets)
   if (dns) {
     result = jsx(DnsProvider, { provider: dns, children: result })
+  }
+
+  // Apply secrets context via SecretProvider (outside DnsProvider)
+  if (secrets) {
+    result = jsx(SecretProvider, { provider: secrets, children: result })
   }
 
   // Apply routing context via EndpointProvider

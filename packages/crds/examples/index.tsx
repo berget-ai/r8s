@@ -140,7 +140,7 @@ import { RedisClusterComponent } from '@r8s/crds/redis'
 <RedisClusterComponent
   metadata={{ name: 'cache', namespace: 'default' }}
   spec={{
-    size: 3,
+    clusterSize: 3,
     kubernetesConfig: { image: 'quay.io/opstree/redis:v7.0.12' },
     storage: { volumeClaimTemplate: { spec: { resources: { requests: { storage: '5Gi' } } } } },
   }}
@@ -216,6 +216,61 @@ import { DNSEndpointComponent } from '@r8s/crds/externaldns'
     endpoints: [
       { dnsName: 'app.example.com', recordType: 'A', targets: ['10.0.0.1'], recordTTL: 300 },
     ],
+  }}
+/>
+`,
+}
+
+export const clickhouseExamples = {
+  installation: `
+import { ClickHouseInstallationComponent } from '@r8s/crds/clickhouse'
+
+<ClickHouseInstallationComponent
+  metadata={{ name: 'clickhouse', namespace: 'default' }}
+  spec={{
+    configuration: {
+      clusters: [{ name: 'default', layout: { shardsCount: 1, replicasCount: 1 } }],
+    },
+  }}
+/>
+`,
+}
+
+export const loggingExamples = {
+  flow: `
+import { FlowComponent, OutputComponent } from '@r8s/crds/logging'
+
+<>
+  <OutputComponent
+    metadata={{ name: 'loki-output', namespace: 'default' }}
+    spec={{
+      loki: { url: 'http://loki:3100' },
+    }}
+  />
+  <FlowComponent
+    metadata={{ name: 'app-flow', namespace: 'default' }}
+    spec={{
+      match: [{ select: { labels: { app: 'api' } } }],
+      outputRefs: ['loki-output'],
+    }}
+  />
+</>
+`,
+}
+
+export const lokiExamples = {
+  stack: `
+import { LokiStackComponent } from '@r8s/crds/loki'
+
+<LokiStackComponent
+  metadata={{ name: 'loki', namespace: 'monitoring' }}
+  spec={{
+    size: '1x.small',
+    storageClassName: 'standard',
+    storage: {
+      schemas: [{ version: 'v13', effectiveDate: '2024-01-01' }],
+      secret: { name: 'loki-storage', type: 's3' },
+    },
   }}
 />
 `,

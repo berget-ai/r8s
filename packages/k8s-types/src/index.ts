@@ -1,18 +1,6 @@
 // Auto-generated Kubernetes TypeScript types
 // Based on Kubernetes API v1.28
 
-import type { Certificate } from './cert-manager'
-import type { DNSEndpoint } from './external-dns'
-import type { VaultAuth, VaultConnection, VaultDynamicSecret, VaultStaticSecret } from './vault'
-import type { Keycloak, KeycloakRealmImport } from './keycloak'
-import type { Cluster, Pooler, ScheduledBackup } from './cnpg'
-
-export * from './cert-manager'
-export * from './external-dns'
-export * from './vault'
-export * from './keycloak'
-export * from './cnpg'
-
 export interface ObjectMeta {
   name?: string
   namespace?: string
@@ -278,7 +266,8 @@ export interface PersistentVolumeClaimSpec {
   volumeMode?: string
 }
 
-// Union type for all Kubernetes resources (native + CRDs)
+// Union type for native Kubernetes resources only
+// CRD types are in @r8s/crds
 export type KubernetesResource =
   | Deployment
   | StatefulSet
@@ -287,17 +276,6 @@ export type KubernetesResource =
   | Secret
   | Ingress
   | PersistentVolumeClaim
-  | Certificate
-  | DNSEndpoint
-  | VaultAuth
-  | VaultConnection
-  | VaultDynamicSecret
-  | VaultStaticSecret
-  | Keycloak
-  | KeycloakRealmImport
-  | Cluster
-  | Pooler
-  | ScheduledBackup
 
 // Operator base types
 export * from './operator'

@@ -162,7 +162,11 @@ export function SecretProvider(props: SecretProviderProps) {
 
   // Resolve provider config
   const config: SecretProviderConfig =
-    typeof provider === 'string' ? { backend: provider } : provider
+    typeof provider === 'string'
+      ? { backend: provider }
+      : 'backend' in provider
+        ? provider
+        : { backend: 'openbao', mount: (provider as any).mount, path: (provider as any).path, authRef: (provider as any).authRef }
 
   const resources: ReturnType<typeof jsx>[] = []
 

@@ -75,20 +75,24 @@ export interface CertProviderProps {
  * automatically get TLS certificates when tls prop is set.
  *
  * @example
+ * // Simple string provider
  * import { CertProvider, App } from '@r8s/recipes'
  *
- * // Simple — string provider
- * <CertProvider provider="cert-manager">
- *   <App name="api" image="myapp:v1" host="api.example.com" tls={{ secretName: 'api-tls' }} />
- * </CertProvider>
+ * export default (
+ *   <CertProvider provider="cert-manager">
+ *     <App name="api" image="myapp:v1" host="api.example.com" tls={{ secretName: 'api-tls' }} />
+ *   </CertProvider>
+ * )
  *
  * @example
+ * // Advanced component provider
  * import { CertProvider, CertManager, App } from '@r8s/recipes'
  *
- * // Advanced — component provider
- * <CertProvider provider={<CertManager clusterIssuer="letsencrypt-staging" duration="168h" />}>
- *   <App name="api" image="myapp:v1" host="api.example.com" tls={{ secretName: 'api-tls' }} />
- * </CertProvider>
+ * export default (
+ *   <CertProvider provider={<CertManager clusterIssuer="letsencrypt-staging" duration="168h" />}>
+ *     <App name="api" image="myapp:v1" host="api.example.com" tls={{ secretName: 'api-tls' }} />
+ *   </CertProvider>
+ * )
  */
 export function CertProvider(props: CertProviderProps) {
   const { provider, children } = props

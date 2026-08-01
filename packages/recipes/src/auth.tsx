@@ -77,33 +77,19 @@ export interface AuthProps {
  * @example
  * // Keycloak with EntraID federation
  * import { Auth } from '@r8s/recipes'
- * import { Realms, Realm, Clients, Client } from '@r8s/recipes/auth'
+ * import { Realms, Realm, Clients, Client, EntraID } from '@r8s/recipes/auth'
  *
  * export default (
  *   <Auth name="auth" host="auth.example.com">
  *     <Realms>
- *       <Realm
- *         id="company"
- *         displayName="Company"
- *         identityProviders={[
- *           {
- *             alias: 'entra-id',
- *             displayName: 'Entra ID',
- *             providerId: 'oidc',
- *             enabled: true,
- *             trustEmail: true,
- *             config: {
- *               clientId: '${env:ENTRA_CLIENT_ID}',
- *               clientSecret: '${env:ENTRA_CLIENT_SECRET}',
- *               tokenUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/token',
- *               authorizationUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/authorize',
- *             },
- *           },
- *         ]}
- *       >
+ *       <Realm id="company" displayName="Company">
+ *         <EntraID
+ *           tenantId="your-tenant-id"
+ *           clientId="your-client-id"
+ *           clientSecret="${env:ENTRA_CLIENT_SECRET}"
+ *         />
  *         <Clients>
  *           <Client id="web" type="public" redirectUris={['https://app.example.com/*']} />
- *           <Client id="backend" type="confidential" secret="${env:BACKEND_SECRET}" />
  *         </Clients>
  *       </Realm>
  *     </Realms>

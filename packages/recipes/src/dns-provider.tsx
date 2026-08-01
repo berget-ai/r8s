@@ -123,7 +123,11 @@ export function DnsProvider(props: DnsProviderProps) {
 
   // Resolve provider config
   const config: DnsConfig =
-    typeof provider === 'string' ? { provider, settings: {} } : provider
+    typeof provider === 'string'
+      ? { provider, settings: {} }
+      : 'settings' in provider
+        ? provider
+        : { provider: 'external-dns', settings: provider }
 
   const resources: ReturnType<typeof jsx>[] = []
 
