@@ -37,11 +37,13 @@ export interface AuthProps {
  * cluster. Credentials are managed by CNPG's bootstrap secret.
  *
  * @example
+ * // Simple Keycloak instance
  * import { Auth } from '@r8s/recipes'
  *
  * export default <Auth name="auth" host="auth.example.com" />
  *
  * @example
+ * // Keycloak with custom storage and TLS
  * import { Auth } from '@r8s/recipes'
  *
  * export default (
@@ -55,60 +57,55 @@ export interface AuthProps {
  * )
  *
  * @example
- * import { Platform, Auth } from '@r8s/recipes'
- * import { KeycloakRealmImportComponent } from '@r8s/crds/keycloak'
+ * // Keycloak with realms and clients
+ * import { Auth, Realms, Realm, Clients, Client } from '@r8s/recipes'
  *
- * // Auth with EntraID federation — secrets from OpenBao, nothing in git.
  * export default (
- *   <Platform
- *     name="auth"
- *     namespace="auth"
- *     secrets={{ backend: 'openbao', mount: 'secret', path: 'auth' }}
- *     operators={['cnpg', 'keycloak-operator']}
- *   >
- *     <Auth name="keycloak" host="auth.example.com" />
- *     <KeycloakRealmImportComponent
- *       metadata={{ name: 'company-realm' }}
- *       spec={{
- *         keycloakCRName: 'keycloak',
- *         realm: {
- *           realm: 'company',
- *           enabled: true,
- *           identityProviders: [
- *             {
- *               alias: 'entra-id',
- *               displayName: 'Entra ID',
- *               providerId: 'oidc',
- *               enabled: true,
- *               trustEmail: true,
- *               config: {
- *                 clientId: '${env:ENTRA_CLIENT_ID}',
- *                 clientSecret: '${env:ENTRA_CLIENT_SECRET}',
- *                 tokenUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/token',
- *                 authorizationUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/authorize',
- *               },
+ *   <Auth name="auth" host="auth.example.com">
+ *     <Realms>
+ *       <Realm id="company" displayName="Company">
+ *         <Clients>
+ *           <Client id="web" type="public" redirectUris={['https://app.example.com/*']} />
+ *           <Client id="api" type="bearer-only" />
+ *         </Clients>
+ *       </Realm>
+ *     </Realms>
+ *   </Auth>
+ * )
+ *
+ * @example
+ * // Keycloak with EntraID federation
+ * import { Auth, Realms, Realm, Clients, Client } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Auth name="auth" host="auth.example.com">
+ *     <Realms>
+ *       <Realm
+ *         id="company"
+ *         displayName="Company"
+ *         identityProviders={[
+ *           {
+ *             alias: 'entra-id',
+ *             displayName: 'Entra ID',
+ *             providerId: 'oidc',
+ *             enabled: true,
+ *             trustEmail: true,
+ *             config: {
+ *               clientId: '${env:ENTRA_CLIENT_ID}',
+ *               clientSecret: '${env:ENTRA_CLIENT_SECRET}',
+ *               tokenUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/token',
+ *               authorizationUrl: 'https://login.microsoftonline.com/${env:ENTRA_TENANT_ID}/oauth2/v2.0/authorize',
  *             },
- *           ],
- *           clients: [
- *             {
- *               clientId: 'app-alpha',
- *               name: 'App Alpha (SPA)',
- *               publicClient: true,
- *               standardFlowEnabled: true,
- *               redirectUris: ['https://alpha.example.com/*'],
- *             },
- *             {
- *               clientId: 'app-beta',
- *               name: 'App Beta (Backend)',
- *               publicClient: false,
- *               serviceAccountsEnabled: true,
- *               secret: '${env:APP_BETA_CLIENT_SECRET}',
- *             },
- *           ],
- *         },
- *       }}
- *     />
- *   </Platform>
+ *           },
+ *         ]}
+ *       >
+ *         <Clients>
+ *           <Client id="web" type="public" redirectUris={['https://app.example.com/*']} />
+ *           <Client id="backend" type="confidential" secret="${env:BACKEND_SECRET}" />
+ *         </Clients>
+ *       </Realm>
+ *     </Realms>
+ *   </Auth>
  * )
  */
 export function Auth(props: AuthProps) {
