@@ -1,4 +1,4 @@
-import { jsx, useContext } from '@r8s/core'
+import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import {
   RoutingContext,
   Namespace,
@@ -8,6 +8,7 @@ import {
   type SecretProvider,
 } from '@r8s/core/defaults'
 import type { Operator } from '@r8s/k8s-types'
+import { operators as operatorRegistry } from '@r8s/crds'
 
 export type RoutingMode = 'ingress' | 'gateway'
 
@@ -98,6 +99,16 @@ export function Platform(props: PlatformProps) {
 
   let result: unknown = children
 
+  // Declare vault-secrets-operator when using vault/openbao backend
+  const resources: ReturnType<typeof jsx>[] = []
+  if (secrets?.backend === 'vault' || secrets?.backend === 'openbao') {
+    const sharedOperators = useContext(OperatorContext)
+    const hasVaultSecrets = sharedOperators.some((op) => op.name === 'vault-secrets-operator')
+    if (!hasVaultSecrets) {
+      resources.push(declareOperator(operatorRegistry['vault-secrets-operator']()))
+    }
+  }
+
   // Apply secrets context (outermost so all children share)
   if (secrets) {
     result = jsx(SecretContext.Provider, { value: secrets, children: result })
@@ -124,5 +135,9 @@ export function Platform(props: PlatformProps) {
     children: result,
   })
 
+  // Return operator declarations + wrapped children
+  if (resources.length > 0) {
+    return jsx(Fragment, { children: [...resources, result] })
+  }
   return result
 }

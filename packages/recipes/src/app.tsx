@@ -1,8 +1,10 @@
-import { jsx, Fragment, useContext } from '@r8s/core'
+import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { WebService, type SecretRef, type VaultSecretRef } from './web-service'
 import { Endpoint } from './endpoint'
-import { Namespace } from '@r8s/core/defaults'
+import { Namespace, OperatorContext } from '@r8s/core/defaults'
 import type { TLSConfig } from '@r8s/k8s-types'
+import { operators } from '@r8s/crds'
+import { RedisClusterComponent } from '@r8s/crds/redis'
 
 export interface AppProps {
   /** Resource name */
@@ -30,6 +32,8 @@ export interface AppProps {
     requests?: { cpu?: string; memory?: string }
     limits?: { cpu?: string; memory?: string }
   }
+  /** Add a Redis cache for this app (session store, cache, queue) */
+  cache?: boolean
   /** Child components rendered as sibling resources (e.g., a BackgroundWorker) */
   children?: unknown
 }
@@ -98,6 +102,7 @@ export function App(props: AppProps) {
     secrets = {},
     vault = {},
     resources,
+    cache = false,
     children,
   } = props
 
@@ -132,6 +137,34 @@ export function App(props: AppProps) {
       tls,
     })
   )
+
+  // Redis cache
+  if (cache) {
+    const sharedOperators = useContext(OperatorContext)
+    const hasRedis = sharedOperators.some((op) => op.name === 'redis-operator')
+    if (!hasRedis) {
+      elements.push(declareOperator(operators['redis-operator']()))
+    }
+    elements.push(
+      RedisClusterComponent({
+        metadata: { name: `${name}-cache`, namespace },
+        spec: {
+          clusterSize: 3,
+          kubernetesConfig: { image: 'redis:7.2-alpine' },
+          storage: {
+            volumeClaimTemplate: {
+              spec: {
+                accessModes: ['ReadWriteOnce'],
+                resources: { requests: { storage: '1Gi' } },
+              },
+            },
+          },
+        },
+      })
+    )
+    // Auto-wire REDIS_URL env var
+    env.REDIS_URL = `redis://${name}-cache.${namespace}.svc.cluster.local:6379`
+  }
 
   // Children render as sibling resources (e.g. <BackgroundWorker />).
   // WebService does not currently accept children as a prop, so we keep

@@ -1,6 +1,8 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
+import { LokiStackComponent } from '@r8s/crds/loki'
+import { LoggingComponent, FlowComponent, OutputComponent } from '@r8s/crds/logging'
 
 export interface MonitoringProps {
   /** Resource name (used for ServiceMonitor labels) */
@@ -15,6 +17,10 @@ export interface MonitoringProps {
   path?: string
   /** Scrape interval (defaults to '30s') */
   interval?: string
+  /** Enable log aggregation with Loki (default: false) */
+  logs?: boolean
+  /** Loki storage size (default: '10Gi') */
+  logsStorage?: string
 }
 
 /**
@@ -54,10 +60,14 @@ export function Monitoring(props: MonitoringProps) {
     port = 'metrics',
     path = '/metrics',
     interval = '30s',
+    logs = false,
+    logsStorage = '10Gi',
   } = props
 
   const sharedOperators = useContext(OperatorContext)
   const hasPrometheus = sharedOperators.some((op) => op.name === 'prometheus')
+  const hasLoki = sharedOperators.some((op) => op.name === 'loki')
+  const hasLogging = sharedOperators.some((op) => op.name === 'logging-operator')
 
   const resources: ReturnType<typeof jsx>[] = []
 
@@ -80,6 +90,84 @@ export function Monitoring(props: MonitoringProps) {
       },
     })
   )
+
+  // Log aggregation with Loki
+  if (logs) {
+    if (!hasLoki) {
+      resources.push(declareOperator(operators['loki']()))
+    }
+    if (!hasLogging) {
+      resources.push(declareOperator(operators['logging-operator']()))
+    }
+
+    resources.push(
+      LokiStackComponent({
+        metadata: { name: `${name}-loki`, namespace },
+        spec: {
+          size: '1x.small',
+          storage: {
+            schemas: [{ version: 'v13', effectiveDate: '2024-01-01' }],
+            secret: { name: `${name}-loki-storage`, type: 's3' },
+          },
+          storageClassName: 'standard',
+          tenants: {
+            mode: 'static',
+            authentication: [{ tenantName: 'application', tenantId: 'app' }],
+            authorization: {
+              roles: [
+                {
+                  name: 'app-reader',
+                  permissions: ['read'],
+                  resources: ['logs'],
+                  tenants: ['application'],
+                },
+              ],
+              roleBindings: [
+                {
+                  name: 'app-reader-binding',
+                  roles: ['app-reader'],
+                  subjects: [{ kind: 'group', name: 'system:authenticated' }],
+                },
+              ],
+            },
+          },
+        },
+      })
+    )
+
+    resources.push(
+      LoggingComponent({
+        metadata: { name: `${name}-logging`, namespace },
+        spec: {
+          fluentd: {},
+          fluentbit: {},
+          controlNamespace: namespace,
+        },
+      })
+    )
+
+    resources.push(
+      OutputComponent({
+        metadata: { name: `${name}-loki-output`, namespace },
+        spec: {
+          loki: {
+            url: 'http://loki-gateway.loki.svc.cluster.local',
+            tenant: 'application',
+          },
+        },
+      })
+    )
+
+    resources.push(
+      FlowComponent({
+        metadata: { name: `${name}-flow`, namespace },
+        spec: {
+          match: [{ select: { labels: selector } }],
+          localOutputRefs: [`${name}-loki-output`],
+        },
+      })
+    )
+  }
 
   return jsx(Fragment, { children: resources })
 }

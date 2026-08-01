@@ -4,6 +4,7 @@ import type { BaseRouteProps } from '@r8s/k8s-types'
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
 import { nginxIngressOperator } from './operators'
 import { operators } from '@r8s/crds'
+import { DNSEndpointComponent } from '@r8s/crds/externaldns'
 
 export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   /** Hostname for the endpoint (required) */
@@ -12,6 +13,10 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   serviceName: string
   /** Service port (default: 80) */
   servicePort?: number
+  /** Create a DNS record via ExternalDNS (default: false) */
+  dns?: boolean
+  /** DNS record TTL in seconds (default: 300) */
+  dnsTtl?: number
 }
 
 /**
@@ -51,6 +56,8 @@ export function Endpoint(props: EndpointProps) {
     servicePort = 80,
     tls,
     annotations = {},
+    dns = false,
+    dnsTtl = 300,
   } = props
 
   const routing = useContext(RoutingContext)
@@ -200,6 +207,29 @@ export function Endpoint(props: EndpointProps) {
     }
 
     resources.push(jsx('Ingress', ingress))
+  }
+
+  // DNS record via ExternalDNS
+  if (dns) {
+    const hasExternalDNS = sharedOperators.some((op) => op.name === 'external-dns')
+    if (!hasExternalDNS) {
+      resources.push(declareOperator(operators['external-dns']()))
+    }
+    resources.push(
+      DNSEndpointComponent({
+        metadata: { name: `${name}-dns`, namespace },
+        spec: {
+          endpoints: [
+            {
+              dnsName: host,
+              recordType: 'A',
+              targets: [], // Populated by ExternalDNS from Ingress/Gateway status
+              recordTTL: dnsTtl,
+            },
+          ],
+        },
+      })
+    )
   }
 
   return jsx(Fragment, { children: resources })

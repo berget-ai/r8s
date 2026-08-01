@@ -99,6 +99,12 @@ export const recipes: Recipe[] = [
           description: 'CPU and memory requests/limits for the app container',
         },
         {
+          name: 'cache',
+          type: 'boolean',
+          required: false,
+          description: 'Add a Redis cache for this app (session store, cache, queue)',
+        },
+        {
           name: 'children',
           type: 'unknown',
           required: false,
@@ -326,6 +332,18 @@ export const recipes: Recipe[] = [
           required: false,
           description: 'Service port (default: 80)',
         },
+        {
+          name: 'dns',
+          type: 'boolean',
+          required: false,
+          description: 'Create a DNS record via ExternalDNS (default: false)',
+        },
+        {
+          name: 'dnsTtl',
+          type: 'number',
+          required: false,
+          description: 'DNS record TTL in seconds (default: 300)',
+        },
       ],
       examples: [
         {
@@ -384,6 +402,18 @@ export const recipes: Recipe[] = [
           type: 'string',
           required: false,
           description: "Scrape interval (defaults to '30s')",
+        },
+        {
+          name: 'logs',
+          type: 'boolean',
+          required: false,
+          description: 'Enable log aggregation with Loki (default: false)',
+        },
+        {
+          name: 'logsStorage',
+          type: 'string',
+          required: false,
+          description: "Loki storage size (default: '10Gi')",
         },
       ],
       examples: [
