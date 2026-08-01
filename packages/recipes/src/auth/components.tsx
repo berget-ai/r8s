@@ -137,7 +137,12 @@ export function Realm(props: RealmProps) {
           ? clientsProps.children
           : [clientsProps.children]
         for (const clientChild of clientChildren) {
-          if (clientChild && typeof clientChild === 'object' && 'type' in clientChild && clientChild.type === Client) {
+          if (
+            clientChild &&
+            typeof clientChild === 'object' &&
+            'type' in clientChild &&
+            clientChild.type === Client
+          ) {
             clients.push((clientChild as any).props)
           }
         }

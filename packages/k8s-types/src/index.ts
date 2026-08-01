@@ -269,13 +269,7 @@ export interface PersistentVolumeClaimSpec {
 // Union type for native Kubernetes resources only
 // CRD types are in @r8s/crds
 export type KubernetesResource =
-  | Deployment
-  | StatefulSet
-  | Service
-  | ConfigMap
-  | Secret
-  | Ingress
-  | PersistentVolumeClaim
+  Deployment | StatefulSet | Service | ConfigMap | Secret | Ingress | PersistentVolumeClaim
 
 // Operator base types
 export * from './operator'

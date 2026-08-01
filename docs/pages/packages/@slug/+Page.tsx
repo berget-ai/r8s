@@ -123,13 +123,18 @@ export default function Page() {
                     <div className="grid grid-cols-[140px_1fr_80px_80px] gap-4 items-baseline mb-2">
                       <code className="font-mono text-moss text-sm truncate">{prop.name}</code>
                       <code className="font-mono text-cloud/60 text-sm truncate">{prop.type}</code>
-                      <span className={prop.required ? 'text-red-400 text-sm' : 'text-cloud/40 text-sm'}>
+                      <span
+                        className={prop.required ? 'text-red-400 text-sm' : 'text-cloud/40 text-sm'}
+                      >
                         {prop.required ? 'Required' : 'Optional'}
                       </span>
                       <span className="text-cloud/40 text-sm truncate">{prop.default || '—'}</span>
                     </div>
                     {prop.description && (
-                      <Markdown content={prop.description} className="text-cloud/70 text-sm leading-relaxed" />
+                      <Markdown
+                        content={prop.description}
+                        className="text-cloud/70 text-sm leading-relaxed"
+                      />
                     )}
                   </div>
                 ))}

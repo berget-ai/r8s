@@ -121,9 +121,6 @@ export function CertProvider(props: CertProviderProps) {
   }
 
   return jsx(Fragment, {
-    children: [
-      ...resources,
-      jsx(CertContext.Provider, { value: config, children }),
-    ],
+    children: [...resources, jsx(CertContext.Provider, { value: config, children })],
   })
 }

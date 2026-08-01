@@ -155,9 +155,7 @@ export function Platform(props: PlatformProps) {
 
   // Apply routing context via EndpointProvider
   const endpointProvider: EndpointProviderValue =
-    routing === 'gateway'
-      ? { provider: 'envoy-gateway', settings: { gatewayClassName } }
-      : 'nginx'
+    routing === 'gateway' ? { provider: 'envoy-gateway', settings: { gatewayClassName } } : 'nginx'
   result = jsx(EndpointProvider, { provider: endpointProvider, children: result })
 
   // Apply operators context

@@ -172,9 +172,6 @@ export function DnsProvider(props: DnsProviderProps) {
   }
 
   return jsx(Fragment, {
-    children: [
-      ...resources,
-      jsx(DnsContext.Provider, { value: config, children }),
-    ],
+    children: [...resources, jsx(DnsContext.Provider, { value: config, children })],
   })
 }

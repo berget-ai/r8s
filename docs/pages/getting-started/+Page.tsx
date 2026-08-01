@@ -145,9 +145,7 @@ export default function Page() {
     <div className="space-y-12">
       <div className="space-y-4">
         <h1 className="text-4xl tracking-tight">Getting Started</h1>
-        <p className="text-xl text-cloud/80">
-          From zero to production-ready in 5 steps
-        </p>
+        <p className="text-xl text-cloud/80">From zero to production-ready in 5 steps</p>
       </div>
 
       {/* Step 1 */}
@@ -195,7 +193,8 @@ export default function Page() {
           </div>
         </div>
         <p className="text-cloud/70 text-sm">
-          The <code>DATABASE_URL</code> environment variable is automatically set in your Deployment.
+          The <code>DATABASE_URL</code> environment variable is automatically set in your
+          Deployment.
         </p>
       </div>
 
@@ -243,8 +242,8 @@ export default function Page() {
         <CodeBlock code={step5} language="tsx" />
         <CodeBlock code={step5Output} language="bash" />
         <p className="text-cloud/70 text-sm">
-          This is a complete production stack — auth, database, cache, monitoring, logging, DNS,
-          and TLS — in ~30 lines of TypeScript.
+          This is a complete production stack — auth, database, cache, monitoring, logging, DNS, and
+          TLS — in ~30 lines of TypeScript.
         </p>
       </div>
 

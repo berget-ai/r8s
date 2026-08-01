@@ -25,10 +25,5 @@ export function Markdown({ content, className = '' }: MarkdownProps) {
 
   if (!content) return null
 
-  return (
-    <div
-      className={`markdown ${className}`}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  )
+  return <div className={`markdown ${className}`} dangerouslySetInnerHTML={{ __html: html }} />
 }

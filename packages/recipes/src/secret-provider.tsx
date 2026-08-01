@@ -80,11 +80,7 @@ export function ManualSecrets(props: ManualSecretsProps): SecretProviderConfig {
 
 /** Union of all secret provider configurations */
 export type SecretProviderValue =
-  | 'openbao'
-  | 'vault'
-  | 'sealed-secrets'
-  | 'manual-secrets'
-  | SecretProviderConfig
+  'openbao' | 'vault' | 'sealed-secrets' | 'manual-secrets' | SecretProviderConfig
 
 export interface SecretProviderProps {
   /**
@@ -166,7 +162,12 @@ export function SecretProvider(props: SecretProviderProps) {
       ? { backend: provider }
       : 'backend' in provider
         ? provider
-        : { backend: 'openbao', mount: (provider as any).mount, path: (provider as any).path, authRef: (provider as any).authRef }
+        : {
+            backend: 'openbao',
+            mount: (provider as any).mount,
+            path: (provider as any).path,
+            authRef: (provider as any).authRef,
+          }
 
   const resources: ReturnType<typeof jsx>[] = []
 
@@ -179,9 +180,6 @@ export function SecretProvider(props: SecretProviderProps) {
   }
 
   return jsx(Fragment, {
-    children: [
-      ...resources,
-      jsx(SecretContext.Provider, { value: config, children }),
-    ],
+    children: [...resources, jsx(SecretContext.Provider, { value: config, children })],
   })
 }

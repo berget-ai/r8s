@@ -652,11 +652,11 @@ async function generatePackages(): Promise<PackageDoc[]> {
     // Map CRD groups to provider interfaces they implement
     const providerInterfaceMap: Record<string, string[]> = {
       'cert-manager': ['cert'],
-      'externaldns': ['dns'],
-      'gateway': ['endpoint'],
-      'keycloak': ['secret'],
+      externaldns: ['dns'],
+      gateway: ['endpoint'],
+      keycloak: ['secret'],
       'vault-secrets-operator': ['secret'],
-      'openbao': ['secret'],
+      openbao: ['secret'],
     }
 
     packages.push({
@@ -978,7 +978,9 @@ async function writePackages(packages: PackageDoc[]) {
     if (pkg.operatorVersion) lines.push(`    operatorVersion: "${pkg.operatorVersion}",`)
     lines.push(`    keywords: [${pkg.keywords.map((k) => `"${k}"`).join(', ')}],`)
     if (pkg.providerInterfaces) {
-      lines.push(`    providerInterfaces: [${pkg.providerInterfaces.map((i) => `"${i}"`).join(', ')}],`)
+      lines.push(
+        `    providerInterfaces: [${pkg.providerInterfaces.map((i) => `"${i}"`).join(', ')}],`
+      )
     }
     lines.push('    components: [')
     for (const comp of pkg.components) {

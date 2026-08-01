@@ -4,6 +4,6 @@ export default (
   <Element
     host="chat.example.com"
     homeserverUrl="https://matrix.example.com"
-    tls={{ secretName: "element-tls", clusterIssuer: "letsencrypt" }}
+    tls={{ secretName: 'element-tls', clusterIssuer: 'letsencrypt' }}
   />
 )

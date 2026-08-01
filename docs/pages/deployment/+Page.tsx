@@ -218,8 +218,8 @@ export default function Page() {
               FluxCD + r8s-controller — Coming Soon
             </h3>
             <p className="text-cloud/70 text-sm">
-              The r8s-controller is under development and not yet ready for production use.
-              Use GitHub Actions for now.
+              The r8s-controller is under development and not yet ready for production use. Use
+              GitHub Actions for now.
             </p>
           </div>
 

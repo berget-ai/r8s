@@ -4,7 +4,14 @@ import { operators } from '@r8s/crds'
 import { Database } from './database'
 import { Endpoint } from './endpoint'
 import type { TLSConfig } from '@r8s/k8s-types'
-import { Realm, Realms, Clients, Client, type RealmConfig, type ClientConfig } from './auth/components'
+import {
+  Realm,
+  Realms,
+  Clients,
+  Client,
+  type RealmConfig,
+  type ClientConfig,
+} from './auth/components'
 
 export interface AuthProps {
   /** Resource name */
@@ -97,7 +104,15 @@ export interface AuthProps {
  * )
  */
 export function Auth(props: AuthProps) {
-  const { name, host, namespace = 'default', instances = 1, storage = '10Gi', tls, children } = props
+  const {
+    name,
+    host,
+    namespace = 'default',
+    instances = 1,
+    storage = '10Gi',
+    tls,
+    children,
+  } = props
 
   const sharedOperators = useContext(OperatorContext)
   const hasKeycloak = sharedOperators.some((op) => op.name === 'keycloak-operator')
@@ -215,7 +230,12 @@ function collectRealms(children: unknown): RealmConfig[] {
           ? realmsProps.children
           : [realmsProps.children]
         for (const realmChild of realmChildren) {
-          if (realmChild && typeof realmChild === 'object' && 'type' in realmChild && realmChild.type === Realm) {
+          if (
+            realmChild &&
+            typeof realmChild === 'object' &&
+            'type' in realmChild &&
+            realmChild.type === Realm
+          ) {
             const realmProps = (realmChild as any).props
             const clients = collectClients(realmProps.children)
             realms.push({
@@ -259,7 +279,12 @@ function collectClients(children: unknown): ClientConfig[] {
           ? clientsProps.children
           : [clientsProps.children]
         for (const clientChild of clientChildren) {
-          if (clientChild && typeof clientChild === 'object' && 'type' in clientChild && clientChild.type === Client) {
+          if (
+            clientChild &&
+            typeof clientChild === 'object' &&
+            'type' in clientChild &&
+            clientChild.type === Client
+          ) {
             clients.push((clientChild as any).props)
           }
         }

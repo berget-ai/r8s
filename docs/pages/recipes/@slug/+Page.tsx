@@ -81,7 +81,10 @@ export default function Page() {
                 <span className="text-cloud/40 text-sm truncate">{prop.default || '—'}</span>
               </div>
               {prop.description && (
-                <Markdown content={prop.description} className="text-cloud/70 text-sm leading-relaxed" />
+                <Markdown
+                  content={prop.description}
+                  className="text-cloud/70 text-sm leading-relaxed"
+                />
               )}
             </div>
           ))}

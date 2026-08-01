@@ -5,6 +5,6 @@ export default (
     host="vpn.example.com"
     passwordSecret="wg-password"
     nodePort={31820}
-    tls={{ secretName: "wg-tls", clusterIssuer: "letsencrypt" }}
+    tls={{ secretName: 'wg-tls', clusterIssuer: 'letsencrypt' }}
   />
 )
