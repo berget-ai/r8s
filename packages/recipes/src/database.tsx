@@ -12,7 +12,11 @@ export interface DatabaseProps {
   storage?: string
   /** Operator version override. If not set, reads from OperatorContext or uses default. */
   operatorVersion?: string
-  /** Password for the database. Required unless using Vault/OpenBao via SecretContext. */
+  /**
+   * Password for the database. Only needed when no secrets backend is
+   * configured on the Platform. When a secrets backend (openbao, vault,
+   * sealed-secrets) is active, credentials are managed automatically.
+   */
   password?: string
   /** Child components rendered with this database's connection info in context */
   children?: unknown
@@ -28,15 +32,24 @@ export interface DatabaseProps {
  * When wrapped in a `<Database>` component, child components receive the
  * connection info via DatabaseContext automatically.
  *
- * @example
- * // Basic database
- * <Database name="app-db" storage="10Gi" />
+ * Credentials are managed by the secrets backend configured on the Platform.
+ * Without a secrets backend, CNPG manages the bootstrap secret automatically.
  *
  * @example
- * // With child components that auto-connect
- * <Database name="app-db" storage="10Gi">
- *   <WebService name="api" image="myapp/api:v1" />
- * </Database>
+ * import { Database } from '@r8s/recipes'
+ *
+ * export default <Database name="app-db" storage="10Gi" />
+ *
+ * @example
+ * import { Platform, Database, WebService } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Platform secrets={{ backend: 'openbao' }}>
+ *     <Database name="app-db" storage="10Gi">
+ *       <WebService name="api" image="myapp/api:v1" />
+ *     </Database>
+ *   </Platform>
+ * )
  */
 export function Database(props: DatabaseProps) {
   const {
@@ -56,7 +69,7 @@ export function Database(props: DatabaseProps) {
   const resources: ReturnType<typeof jsx>[] = []
 
   if (clusterConfig) {
-    // Running inside a shared cluster - reuse connection info
+    // Shared cluster — reuse connection info from the surrounding Cluster
     const connection = {
       host: clusterConfig.host,
       port: 5432,
@@ -67,128 +80,22 @@ export function Database(props: DatabaseProps) {
       vendor: 'postgres' as const,
     }
 
-    // Create secret for this database (respect SecretContext)
-    if (secretProvider) {
-      switch (secretProvider.backend) {
-        case 'vault':
-          resources.push(
-            jsx('VaultStaticSecret', {
-              apiVersion: 'secrets.hashicorp.com/v1beta1',
-              kind: 'VaultStaticSecret',
-              metadata: { name: `${name}-db-secret`, namespace },
-              spec: {
-                vaultAuthRef: secretProvider.authRef,
-                mount: secretProvider.mount,
-                type: 'kv-v2',
-                path: `${secretProvider.path}/${name}`,
-                destination: {
-                  create: true,
-                  name: secretName,
-                },
-              },
-            })
-          )
-          break
-
-        case 'openbao':
-          resources.push(
-            jsx('OpenBaoStaticSecret', {
-              apiVersion: 'secrets.openbao.org/v1beta1',
-              kind: 'OpenBaoStaticSecret',
-              metadata: { name: `${name}-db-secret`, namespace },
-              spec: {
-                openbaoAuthRef: secretProvider.authRef,
-                mount: secretProvider.mount,
-                type: 'kv-v2',
-                path: `${secretProvider.path}/${name}`,
-                destination: {
-                  create: true,
-                  name: secretName,
-                },
-              },
-            })
-          )
-          break
-
-        case 'kubernetes':
-          // Shared cluster path: we cannot rely on CNPG's bootstrap secret
-          // handling because this Database does not own the CNPG Cluster object
-          // (the surrounding <Cluster> component does). We must materialize a
-          // Kubernetes Secret ourselves so consumers (e.g. WebService) can
-          // resolve passwordSecret via DatabaseContext. A password is therefore
-          // required here.
-          if (!password) {
-            throw new Error(
-              `Database "${name}" requires a password prop when using Kubernetes secrets. ` +
-                'Either provide a password or use Vault/OpenBao via SecretContext.'
-            )
-          }
-          resources.push(
-            jsx('Secret', {
-              apiVersion: 'v1',
-              kind: 'Secret',
-              metadata: { name: secretName, namespace },
-              stringData: {
-                password,
-                username: name,
-                uri: `postgresql://${name}:${password}@${clusterConfig.host}:5432/${name}`,
-              },
-            })
-          )
-          break
-
-        default:
-          if (!password) {
-            throw new Error(
-              `Database "${name}" requires a password prop. ` +
-                'Either provide a password or use Vault/OpenBao via SecretContext.'
-            )
-          }
-          resources.push(
-            jsx('Secret', {
-              apiVersion: 'v1',
-              kind: 'Secret',
-              metadata: { name: secretName, namespace },
-              stringData: {
-                password,
-                username: name,
-                uri: `postgresql://${name}:${password}@${clusterConfig.host}:5432/${name}`,
-              },
-            })
-          )
-      }
-    } else {
-      // No SecretContext - require explicit password
-      if (!password) {
-        throw new Error(
-          `Database "${name}" requires a password prop. ` +
-            'Either provide a password or use Vault/OpenBao via SecretContext.'
-        )
-      }
-      resources.push(
-        jsx('Secret', {
-          apiVersion: 'v1',
-          kind: 'Secret',
-          metadata: { name: secretName, namespace },
-          stringData: {
-            password,
-            username: name,
-            uri: `postgresql://${name}:${password}@${clusterConfig.host}:5432/${name}`,
-          },
-        })
+    resources.push(
+      ...createSecretResources(
+        name,
+        namespace,
+        secretName,
+        secretProvider,
+        password,
+        clusterConfig.host
       )
-    }
+    )
 
     if (children) {
-      resources.push(
-        jsx(DatabaseContext.Provider, {
-          value: connection,
-          children,
-        })
-      )
+      resources.push(jsx(DatabaseContext.Provider, { value: connection, children }))
     }
   } else {
-    // Dedicated cluster - create full CNPG cluster
+    // Dedicated cluster — create full CNPG cluster
     const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg')
 
     const cluster: Cluster = {
@@ -197,21 +104,15 @@ export function Database(props: DatabaseProps) {
       metadata: { name, namespace },
       spec: {
         instances: 3,
-        storage: {
-          size: storage,
-        },
+        storage: { size: storage },
         bootstrap: {
           initdb: {
             database: name,
             owner: name,
-            secret: {
-              name: secretName,
-            },
+            secret: { name: secretName },
           },
         },
-        monitoring: {
-          enabled: true,
-        },
+        monitoring: { enabled: true },
       },
     }
 
@@ -225,74 +126,167 @@ export function Database(props: DatabaseProps) {
       vendor: 'postgres' as const,
     }
 
-    // Declare CNPG operator if not already provided via context
     if (!hasCNPG) {
       resources.push(declareOperator(cnpgOperator(operatorVersion)))
     }
 
     resources.push(jsx('Cluster', cluster))
 
-    // Create secret resources based on SecretContext
+    // For dedicated clusters with a secrets backend, the backend manages
+    // credentials. For kubernetes backend, CNPG manages the bootstrap secret
+    // automatically — but we still validate that a password was provided
+    // when kubernetes backend is explicitly chosen.
     if (secretProvider) {
-      switch (secretProvider.backend) {
-        case 'vault':
-          resources.push(
-            jsx('VaultStaticSecret', {
-              apiVersion: 'secrets.hashicorp.com/v1beta1',
-              kind: 'VaultStaticSecret',
-              metadata: { name: `${name}-db-secret`, namespace },
-              spec: {
-                vaultAuthRef: secretProvider.authRef,
-                mount: secretProvider.mount,
-                type: 'kv-v2',
-                path: `${secretProvider.path}/${name}`,
-                destination: {
-                  create: true,
-                  name: secretName,
-                },
-              },
-            })
-          )
-          break
-
-        case 'openbao':
-          resources.push(
-            jsx('OpenBaoStaticSecret', {
-              apiVersion: 'secrets.openbao.org/v1beta1',
-              kind: 'OpenBaoStaticSecret',
-              metadata: { name: `${name}-db-secret`, namespace },
-              spec: {
-                openbaoAuthRef: secretProvider.authRef,
-                mount: secretProvider.mount,
-                type: 'kv-v2',
-                path: `${secretProvider.path}/${name}`,
-                destination: {
-                  create: true,
-                  name: secretName,
-                },
-              },
-            })
-          )
-          break
-
-        case 'kubernetes':
-          // Dedicated cluster path: the CNPG Cluster resource created above
-          // references the secret via spec.bootstrap.initdb.secret.name, and
-          // CNPG will populate and rotate its contents automatically. No need
-          // to emit a Secret ourselves — bringing one would actually conflict
-          // with CNPG's ownership of that secret.
-          break
-      }
+      resources.push(
+        ...createSecretResources(
+          name,
+          namespace,
+          secretName,
+          secretProvider,
+          password,
+          `${name}-rw`
+        )
+      )
     }
 
     if (children) {
-      resources.push(
-        jsx(DatabaseContext.Provider, {
-          value: connection,
-          children,
-        })
+      resources.push(jsx(DatabaseContext.Provider, { value: connection, children }))
+    }
+  }
+
+  return resources
+}
+
+/**
+ * Create the secret resources for a database based on the active secrets
+ * backend. Throws a descriptive error when a password is needed but not
+ * provided, or when the backend is not configured.
+ */
+function createSecretResources(
+  name: string,
+  namespace: string,
+  secretName: string,
+  secretProvider: { backend: string; mount?: string; path?: string; authRef?: string } | null,
+  password: string | undefined,
+  host: string
+): ReturnType<typeof jsx>[] {
+  const resources: ReturnType<typeof jsx>[] = []
+
+  if (!secretProvider) {
+    if (!password) {
+      throw new Error(
+        `Database "${name}" has no secrets backend configured and no password provided.\n` +
+          `\n` +
+          `Fix: either set a secrets backend on the Platform:\n` +
+          `  <Platform secrets={{ backend: 'openbao' }}>\n` +
+          `    <Database name="${name}" />\n` +
+          `  </Platform>\n` +
+          `\n` +
+          `Or provide a password directly (not recommended for production):\n` +
+          `  <Database name="${name}" password="..." />`
       )
     }
+    resources.push(
+      jsx('Secret', {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: { name: secretName, namespace },
+        stringData: {
+          password,
+          username: name,
+          uri: `postgresql://${name}:${password}@${host}:5432/${name}`,
+        },
+      })
+    )
+    return resources
+  }
+
+  switch (secretProvider.backend) {
+    case 'vault':
+      resources.push(
+        jsx('VaultStaticSecret', {
+          apiVersion: 'secrets.hashicorp.com/v1beta1',
+          kind: 'VaultStaticSecret',
+          metadata: { name: `${name}-db-secret`, namespace },
+          spec: {
+            vaultAuthRef: secretProvider.authRef,
+            mount: secretProvider.mount,
+            type: 'kv-v2',
+            path: `${secretProvider.path}/${name}`,
+            destination: { create: true, name: secretName },
+          },
+        })
+      )
+      break
+
+    case 'openbao':
+      resources.push(
+        jsx('OpenBaoStaticSecret', {
+          apiVersion: 'secrets.openbao.org/v1beta1',
+          kind: 'OpenBaoStaticSecret',
+          metadata: { name: `${name}-db-secret`, namespace },
+          spec: {
+            openbaoAuthRef: secretProvider.authRef,
+            mount: secretProvider.mount,
+            type: 'kv-v2',
+            path: `${secretProvider.path}/${name}`,
+            destination: { create: true, name: secretName },
+          },
+        })
+      )
+      break
+
+    case 'sealed-secrets':
+      // Sealed Secrets: the user provides a sealed secret that was encrypted
+      // with the cluster's public key. We reference it — we never see the
+      // plaintext. The user must pre-create the SealedSecret.
+      resources.push(
+        jsx('SealedSecret', {
+          apiVersion: 'bitnami.com/v1alpha1',
+          kind: 'SealedSecret',
+          metadata: { name: secretName, namespace },
+          spec: {
+            encryptedData: {
+              // Placeholder — the user replaces this with their sealed value
+              password: 'REPLACE_WITH_SEALED_VALUE',
+            },
+          },
+        })
+      )
+      break
+
+    case 'kubernetes':
+      if (!password) {
+        throw new Error(
+          `Database "${name}" uses the 'kubernetes' secrets backend, which requires a password.\n` +
+            `\n` +
+            `The kubernetes backend stores credentials as plain Kubernetes Secrets.\n` +
+            `For production, use a managed backend instead:\n` +
+            `  <Platform secrets={{ backend: 'openbao' }}>\n` +
+            `\n` +
+            `Or provide a password explicitly:\n` +
+            `  <Database name="${name}" password="..." />`
+        )
+      }
+      resources.push(
+        jsx('Secret', {
+          apiVersion: 'v1',
+          kind: 'Secret',
+          metadata: { name: secretName, namespace },
+          stringData: {
+            password,
+            username: name,
+            uri: `postgresql://${name}:${password}@${host}:5432/${name}`,
+          },
+        })
+      )
+      break
+
+    default:
+      throw new Error(
+        `Database "${name}" has an unknown secrets backend "${secretProvider.backend}".\n` +
+          `Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes'`
+      )
   }
 
   return resources

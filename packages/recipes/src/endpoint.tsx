@@ -12,12 +12,6 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   serviceName: string
   /** Service port (default: 80) */
   servicePort?: number
-  /** cert-manager version override */
-  certManagerVersion?: string
-  /** nginx-ingress version override (only used when mode='ingress') */
-  nginxIngressVersion?: string
-  /** envoy-gateway version override (only used when mode='gateway') */
-  envoyGatewayVersion?: string
 }
 
 /**
@@ -26,20 +20,27 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
  * @title Endpoint
  * @category Networking
  *
- * Reads the RoutingContext to determine whether the cluster uses
- * nginx Ingress or Envoy Gateway (Gateway API), and renders the
- * appropriate resources automatically.
+ * Reads the RoutingContext (set by Platform) to determine whether the
+ * cluster uses nginx Ingress or Envoy Gateway (Gateway API), and renders
+ * the appropriate resources automatically. Without a Platform, defaults
+ * to nginx Ingress.
  *
- * Set the routing mode once at the top of the tree:
- * ```tsx
- * import { RoutingContext } from '@r8s/core/defaults';
+ * To pin operator versions, pass them at the Platform level.
  *
- * <RoutingContext.Provider value={{ mode: 'gateway', gatewayClassName: 'eg' }}>
- *   <Endpoint name="api" host="api.example.com" serviceName="api" />
- * </RoutingContext.Provider>
- * ```
+ * @example
+ * import { Endpoint } from '@r8s/recipes'
  *
- * Without a provider, defaults to nginx Ingress.
+ * export default <Endpoint name="api" host="api.example.com" serviceName="api" />
+ *
+ * @example
+ * import { Platform, Endpoint } from '@r8s/recipes'
+ * import { operators } from '@r8s/crds'
+ *
+ * export default (
+ *   <Platform operators={[operators['cert-manager']('1.18.0')]}>
+ *     <Endpoint name="api" host="api.example.com" serviceName="api" />
+ *   </Platform>
+ * )
  */
 export function Endpoint(props: EndpointProps) {
   const {
@@ -50,9 +51,6 @@ export function Endpoint(props: EndpointProps) {
     servicePort = 80,
     tls,
     annotations = {},
-    certManagerVersion,
-    nginxIngressVersion,
-    envoyGatewayVersion,
   } = props
 
   const routing = useContext(RoutingContext)
@@ -69,10 +67,10 @@ export function Endpoint(props: EndpointProps) {
     const hasEnvoyGateway = sharedOperators.some((op) => op.name === 'envoy-gateway')
 
     if (tls && !hasCertManager) {
-      resources.push(declareOperator(operators['cert-manager'](certManagerVersion)))
+      resources.push(declareOperator(operators['cert-manager']()))
     }
     if (!hasEnvoyGateway) {
-      resources.push(declareOperator(operators['envoy-gateway'](envoyGatewayVersion)))
+      resources.push(declareOperator(operators['envoy-gateway']()))
     }
 
     if (tls) {
@@ -147,10 +145,10 @@ export function Endpoint(props: EndpointProps) {
     const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager')
 
     if (!hasNginxIngress) {
-      resources.push(declareOperator(nginxIngressOperator(nginxIngressVersion)))
+      resources.push(declareOperator(nginxIngressOperator()))
     }
     if (tls && !hasCertManager) {
-      resources.push(declareOperator(operators['cert-manager'](certManagerVersion)))
+      resources.push(declareOperator(operators['cert-manager']()))
     }
 
     const ingress: Ingress = {

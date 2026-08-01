@@ -18,8 +18,6 @@ export interface AuthProps {
   storage?: string
   /** TLS certificate configuration */
   tls?: TLSConfig
-  /** Database password (auto-generated if not provided) */
-  dbPassword?: string
 }
 
 /**
@@ -36,29 +34,25 @@ export interface AuthProps {
  * cluster. Credentials are managed by CNPG's bootstrap secret.
  *
  * @example
- * // Basic identity provider
- * <Auth name="auth" host="auth.example.com" />
+ * import { Auth } from '@r8s/recipes'
+ *
+ * export default <Auth name="auth" host="auth.example.com" />
  *
  * @example
- * // Production with HA database and TLS
- * <Auth
- *   name="auth"
- *   host="auth.example.com"
- *   instances={2}
- *   storage="20Gi"
- *   tls={{ secretName: 'auth-tls', clusterIssuer: 'letsencrypt-prod' }}
- * />
+ * import { Auth } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Auth
+ *     name="auth"
+ *     host="auth.example.com"
+ *     instances={2}
+ *     storage="20Gi"
+ *     tls={{ secretName: 'auth-tls', clusterIssuer: 'letsencrypt-prod' }}
+ *   />
+ * )
  */
 export function Auth(props: AuthProps) {
-  const {
-    name,
-    host,
-    namespace = 'default',
-    instances = 1,
-    storage = '10Gi',
-    tls,
-    dbPassword,
-  } = props
+  const { name, host, namespace = 'default', instances = 1, storage = '10Gi', tls } = props
 
   const sharedOperators = useContext(OperatorContext)
   const hasKeycloak = sharedOperators.some((op) => op.name === 'keycloak-operator')
@@ -74,13 +68,13 @@ export function Auth(props: AuthProps) {
     resources.push(declareOperator(operators['cnpg']()))
   }
 
-  // Database for Keycloak — auto-wired via DatabaseContext
+  // Database for Keycloak — auto-wired via DatabaseContext.
+  // Credentials are managed by the secrets backend configured on the Platform.
   resources.push(
     jsx(Database, {
       name: `${name}-db`,
       namespace,
       storage,
-      password: dbPassword,
       children: jsx('Keycloak', {
         apiVersion: 'k8s.keycloak.org/v2alpha1',
         kind: 'Keycloak',

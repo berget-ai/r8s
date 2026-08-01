@@ -30,17 +30,21 @@ export interface BackupProps {
  * The Velero operator is declared as a dependency.
  *
  * @example
- * // Daily backups of the current namespace
- * <Backup name="daily" />
+ * import { Backup } from '@r8s/recipes'
+ *
+ * export default <Backup name="daily" />
  *
  * @example
- * // Weekly backups of multiple namespaces with 30-day retention
- * <Backup
- *   name="weekly"
- *   schedule="0 3 * * 0"
- *   namespaces={['production', 'staging']}
- *   ttl="720h"
- * />
+ * import { Backup } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Backup
+ *     name="weekly"
+ *     schedule="0 3 * * 0"
+ *     namespaces={['production', 'staging']}
+ *     ttl="720h"
+ *   />
+ * )
  */
 export function Backup(props: BackupProps) {
   const {

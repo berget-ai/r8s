@@ -1,5 +1,12 @@
 import { jsx, useContext } from '@r8s/core'
-import { RoutingContext, Namespace, Labels, OperatorContext } from '@r8s/core/defaults'
+import {
+  RoutingContext,
+  Namespace,
+  Labels,
+  OperatorContext,
+  SecretContext,
+  type SecretProvider,
+} from '@r8s/core/defaults'
 import type { Operator } from '@r8s/k8s-types'
 
 export type RoutingMode = 'ingress' | 'gateway'
@@ -19,6 +26,17 @@ export interface PlatformProps {
   labels?: Record<string, string>
   /** Shared operators for all child resources */
   operators?: Operator[]
+  /**
+   * Secrets backend for all child resources. When set, Database and other
+   * recipes generate credentials through this backend instead of requiring
+   * plaintext passwords.
+   *
+   * - 'openbao': OpenBao Vault Secrets Operator (default when omitted)
+   * - 'vault': HashiCorp Vault Secrets Operator
+   * - 'sealed-secrets': Bitnami Sealed Secrets
+   * - 'kubernetes': plain Kubernetes Secrets (CNPG-managed, no plaintext)
+   */
+  secrets?: SecretProvider
   /** Child components that inherit the cluster-level configuration this Platform sets */
   children?: unknown
 }
@@ -34,30 +52,38 @@ export interface PlatformProps {
  * of manually wiring context providers.
  *
  * @example
- * // Envoy Gateway cluster
- * <Platform routing="gateway" namespace="production">
- *   <App name="api" image="myapp/api:v1" host="api.example.com" />
- *   <App name="web" image="myapp/web:v1" host="app.example.com" />
- * </Platform>
+ * import { Platform, App } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Platform routing="gateway" namespace="production">
+ *     <App name="api" image="myapp/api:v1" host="api.example.com" />
+ *     <App name="web" image="myapp/web:v1" host="app.example.com" />
+ *   </Platform>
+ * )
  *
  * @example
- * // nginx Ingress cluster (default)
- * <Platform namespace="production">
- *   <App name="api" image="myapp/api:v1" host="api.example.com" />
- * </Platform>
+ * import { Platform, App } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Platform namespace="production">
+ *     <App name="api" image="myapp/api:v1" host="api.example.com" />
+ *   </Platform>
+ * )
  *
  * @example
- * // With shared operators
+ * import { Platform, App, Database, cnpgOperator } from '@r8s/recipes'
  * import { operators } from '@r8s/crds'
  *
- * <Platform
- *   routing="gateway"
- *   namespace="production"
- *   operators={[cnpgOperator(), operators['cert-manager']()]}
- * >
- *   <Database name="app-db" storage="10Gi" />
- *   <App name="api" image="myapp/api:v1" host="api.example.com" />
- * </Platform>
+ * export default (
+ *   <Platform
+ *     routing="gateway"
+ *     namespace="production"
+ *     operators={[cnpgOperator(), operators['cert-manager']()]}
+ *   >
+ *     <Database name="app-db" storage="10Gi" />
+ *     <App name="api" image="myapp/api:v1" host="api.example.com" />
+ *   </Platform>
+ * )
  */
 export function Platform(props: PlatformProps) {
   const {
@@ -66,12 +92,18 @@ export function Platform(props: PlatformProps) {
     namespace,
     labels,
     operators,
+    secrets,
     children,
   } = props
 
   let result: unknown = children
 
-  // Apply operators context (outermost so all children share)
+  // Apply secrets context (outermost so all children share)
+  if (secrets) {
+    result = jsx(SecretContext.Provider, { value: secrets, children: result })
+  }
+
+  // Apply operators context
   if (operators && operators.length > 0) {
     result = jsx(OperatorContext.Provider, { value: operators, children: result })
   }

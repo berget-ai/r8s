@@ -417,117 +417,21 @@ async function extractComponents(
     const rawExamples = (comp as any)._rawExamples ?? []
     comp.examples = []
     for (const raw of rawExamples) {
-      // Split multiple examples separated by blank-line + comment
-      // Each example starts with a // comment followed by JSX
-      const lines = raw.split('\n')
-      const exampleBlocks: string[] = []
-      let currentBlock: string[] = []
+      // Each @example block is a complete, runnable TSX file —
+      // imports, export default, everything. No import detection needed.
+      // If the block contains imports or export default, use it as-is.
+      // Otherwise, treat it as a bare JSX expression and wrap it.
+      const code = raw.trim()
+      if (!code) continue
 
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (trimmed === '' && currentBlock.length > 0) {
-          // Blank line — save current block if it has JSX
-          if (currentBlock.some((l) => l.includes('<'))) {
-            exampleBlocks.push(currentBlock.join('\n'))
-          }
-          currentBlock = []
-        } else {
-          currentBlock.push(line)
-        }
-      }
-      if (currentBlock.length > 0 && currentBlock.some((l) => l.includes('<'))) {
-        exampleBlocks.push(currentBlock.join('\n'))
-      }
+      const renderable =
+        code.includes('export default') || code.includes('import ')
+          ? code
+          : `export default ${code}`
 
-      // If no blocks found (single example), use the whole raw
-      if (exampleBlocks.length === 0 && raw.includes('<')) {
-        exampleBlocks.push(raw)
-      }
-
-      for (const block of exampleBlocks) {
-        // Extract just the JSX element (skip comment lines)
-        const jsxLines = block.split('\n').filter((l) => {
-          const t = l.trim()
-          return t && !t.startsWith('//') && !t.startsWith('*')
-        })
-        const code = jsxLines.join('\n').trim()
-        if (!code || !code.startsWith('<')) continue
-
-        // Detect which imports are needed based on component names
-        const imports: string[] = []
-        if (
-          code.match(/<(App|Database|WebService|Endpoint|Platform|Cluster|Ingress|EnvoyIngress)\b/)
-        ) {
-          imports.push(
-            "import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress, EnvoyIngress } from '@r8s/recipes';"
-          )
-        }
-        if (code.match(/<(Gateway|HTTPRoute|EnvoyProxy)\b/)) {
-          imports.push(
-            "import { GatewayComponent, HTTPRouteComponent, EnvoyProxyComponent } from '@r8s/crds/gateway';"
-          )
-        }
-        if (code.match(/<(Certificate|ClusterIssuer)\b/)) {
-          imports.push(
-            "import { CertificateComponent, ClusterIssuerComponent } from '@r8s/crds/cert-manager';"
-          )
-        }
-        if (code.match(/<(ServiceMonitor|PrometheusRule|PodMonitor)\b/)) {
-          imports.push(
-            "import { ServiceMonitorComponent, PrometheusRuleComponent, PodMonitorComponent } from '@r8s/crds/monitoring';"
-          )
-        }
-        if (code.match(/<(RedisCluster|RedisReplication)\b/)) {
-          imports.push(
-            "import { RedisClusterComponent, RedisReplicationComponent } from '@r8s/crds/redis';"
-          )
-        }
-        if (code.match(/<(Keycloak|KeycloakRealmImport)\b/)) {
-          imports.push(
-            "import { KeycloakComponent, KeycloakRealmImportComponent } from '@r8s/crds/keycloak';"
-          )
-        }
-        if (code.match(/<(DNSEndpoint)\b/)) {
-          imports.push("import { DNSEndpointComponent } from '@r8s/crds/externaldns';")
-        }
-        if (code.match(/<(Backup|Schedule|BackupStorageLocation)\b/)) {
-          imports.push(
-            "import { BackupComponent, ScheduleComponent, BackupStorageLocationComponent } from '@r8s/crds/velero';"
-          )
-        }
-        if (code.match(/<(Element)\b/)) {
-          imports.push("import { Element } from '@r8s/element';")
-        }
-        if (code.match(/<(Grafana)\b/)) {
-          imports.push("import { Grafana } from '@r8s/grafana';")
-        }
-        if (code.match(/<(RustFS)\b/)) {
-          imports.push("import { RustFS } from '@r8s/rustfs';")
-        }
-        if (code.match(/<(Superset)\b/)) {
-          imports.push("import { Superset } from '@r8s/superset';")
-        }
-        if (code.match(/<(WireGuard)\b/)) {
-          imports.push("import { WireGuard } from '@r8s/wireguard';")
-        }
-        if (code.match(/<RoutingContext\.Provider\b/)) {
-          imports.push("import { RoutingContext } from '@r8s/core/defaults';")
-        }
-
-        // Operator factories used in examples (e.g. <Platform operators={[...]}>)
-        if (code.match(/\b(cnpgOperator|nginxIngressOperator)\s*\(/)) {
-          imports.push("import { cnpgOperator, nginxIngressOperator } from '@r8s/recipes';")
-        }
-        if (code.match(/\boperators\[/)) {
-          imports.push("import { operators } from '@r8s/crds';")
-        }
-
-        // Wrap in a default export with imports
-        const fullCode = `${imports.join('\n')}\n\nexport default ${code}`
-        const formattedTsx = await formatTsx(fullCode)
-        const yamlOutput = await renderToYaml(fullCode)
-        comp.examples.push({ tsx: formattedTsx.trim(), yaml: yamlOutput })
-      }
+      const formattedTsx = await formatTsx(renderable)
+      const yamlOutput = await renderToYaml(renderable)
+      comp.examples.push({ tsx: formattedTsx.trim(), yaml: yamlOutput })
     }
     delete (comp as any)._rawExamples
   }

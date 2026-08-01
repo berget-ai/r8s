@@ -30,17 +30,21 @@ export interface MonitoringProps {
  * dependency — it installs Prometheus, Grafana, and Alertmanager.
  *
  * @example
- * // Monitor an app with default settings
- * <Monitoring name="api-monitor" selector={{ app: 'api' }} />
+ * import { Monitoring } from '@r8s/recipes'
+ *
+ * export default <Monitoring name="api-monitor" selector={{ app: 'api' }} />
  *
  * @example
- * // Custom metrics path and interval
- * <Monitoring
- *   name="api-monitor"
- *   selector={{ app: 'api' }}
- *   path="/actuator/prometheus"
- *   interval="15s"
- * />
+ * import { Monitoring } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Monitoring
+ *     name="api-monitor"
+ *     selector={{ app: 'api' }}
+ *     path="/actuator/prometheus"
+ *     interval="15s"
+ *   />
+ * )
  */
 export function Monitoring(props: MonitoringProps) {
   const {
