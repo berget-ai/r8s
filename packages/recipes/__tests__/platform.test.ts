@@ -2,8 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
 import { Platform, App, Endpoint } from '../src/index'
 import { cnpgOperator, nginxIngressOperator } from '../src/operators'
-import { certManagerOperator } from '@r8s/cert-manager'
-import { envoyGatewayOperator } from '@r8s/envoy'
+import { operators } from '@r8s/crds'
 
 describe('Platform', () => {
   describe('routing', () => {
@@ -127,7 +126,7 @@ describe('Platform', () => {
   describe('operators', () => {
     it('should share operators across all children', () => {
       const element = jsx(Platform, {
-        operators: [cnpgOperator(), certManagerOperator('1.14.0')],
+        operators: [cnpgOperator(), operators['cert-manager']('1.14.0')],
         children: jsx(Fragment, {
           children: [
             jsx(App, {
@@ -172,7 +171,7 @@ describe('Platform', () => {
     it('should not duplicate envoy-gateway when provided via Platform', () => {
       const element = jsx(Platform, {
         routing: 'gateway',
-        operators: [envoyGatewayOperator('1.7.0')],
+        operators: [operators['envoy-gateway']('1.7.0')],
         children: jsx(App, {
           name: 'myapp',
           image: 'myapp:v1',

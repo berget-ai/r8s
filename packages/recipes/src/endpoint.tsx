@@ -3,8 +3,7 @@ import { Ingress } from '@r8s/k8s-types'
 import type { BaseRouteProps } from '@r8s/k8s-types'
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
 import { nginxIngressOperator } from './operators'
-import { certManagerOperator, ManagedCertificate } from '@r8s/cert-manager'
-import { Gateway, HTTPRoute, envoyGatewayOperator } from '@r8s/envoy'
+import { operators } from '@r8s/crds'
 
 export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   /** Hostname for the endpoint (required) */
@@ -13,12 +12,6 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   serviceName: string
   /** Service port (default: 80) */
   servicePort?: number
-  /** cert-manager version override */
-  certManagerVersion?: string
-  /** nginx-ingress version override (only used when mode='ingress') */
-  nginxIngressVersion?: string
-  /** envoy-gateway version override (only used when mode='gateway') */
-  envoyGatewayVersion?: string
 }
 
 /**
@@ -27,20 +20,27 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
  * @title Endpoint
  * @category Networking
  *
- * Reads the RoutingContext to determine whether the cluster uses
- * nginx Ingress or Envoy Gateway (Gateway API), and renders the
- * appropriate resources automatically.
+ * Reads the RoutingContext (set by Platform) to determine whether the
+ * cluster uses nginx Ingress or Envoy Gateway (Gateway API), and renders
+ * the appropriate resources automatically. Without a Platform, defaults
+ * to nginx Ingress.
  *
- * Set the routing mode once at the top of the tree:
- * ```tsx
- * import { RoutingContext } from '@r8s/core/defaults';
+ * To pin operator versions, pass them at the Platform level.
  *
- * <RoutingContext.Provider value={{ mode: 'gateway', gatewayClassName: 'eg' }}>
- *   <Endpoint name="api" host="api.example.com" serviceName="api" />
- * </RoutingContext.Provider>
- * ```
+ * @example
+ * import { Endpoint } from '@r8s/recipes'
  *
- * Without a provider, defaults to nginx Ingress.
+ * export default <Endpoint name="api" host="api.example.com" serviceName="api" />
+ *
+ * @example
+ * import { Platform, Endpoint } from '@r8s/recipes'
+ * import { operators } from '@r8s/crds'
+ *
+ * export default (
+ *   <Platform operators={[operators['cert-manager']('1.18.0')]}>
+ *     <Endpoint name="api" host="api.example.com" serviceName="api" />
+ *   </Platform>
+ * )
  */
 export function Endpoint(props: EndpointProps) {
   const {
@@ -51,9 +51,6 @@ export function Endpoint(props: EndpointProps) {
     servicePort = 80,
     tls,
     annotations = {},
-    certManagerVersion,
-    nginxIngressVersion,
-    envoyGatewayVersion,
   } = props
 
   const routing = useContext(RoutingContext)
@@ -70,20 +67,29 @@ export function Endpoint(props: EndpointProps) {
     const hasEnvoyGateway = sharedOperators.some((op) => op.name === 'envoy-gateway')
 
     if (tls && !hasCertManager) {
-      resources.push(declareOperator(certManagerOperator(certManagerVersion)))
+      resources.push(declareOperator(operators['cert-manager']()))
     }
     if (!hasEnvoyGateway) {
-      resources.push(declareOperator(envoyGatewayOperator(envoyGatewayVersion)))
+      resources.push(declareOperator(operators['envoy-gateway']()))
     }
 
     if (tls) {
       resources.push(
-        jsx(ManagedCertificate, {
-          name: `${name}-tls`,
-          namespace,
-          secretName,
-          dnsNames: [host],
-          issuerName,
+        jsx('Certificate', {
+          apiVersion: 'cert-manager.io/v1',
+          kind: 'Certificate',
+          metadata: {
+            name: `${name}-tls`,
+            namespace,
+          },
+          spec: {
+            secretName,
+            dnsNames: [host],
+            issuerRef: {
+              name: issuerName,
+              kind: 'ClusterIssuer',
+            },
+          },
         })
       )
     }
@@ -91,38 +97,47 @@ export function Endpoint(props: EndpointProps) {
     // HTTPS listener with TLS, HTTP listener without
     const useHttps = !!tls
     resources.push(
-      jsx(Gateway, {
-        name: `${name}-gateway`,
-        namespace,
-        gatewayClassName,
-        listeners: [
-          {
-            name: useHttps ? 'https' : 'http',
-            protocol: useHttps ? 'HTTPS' : 'HTTP',
-            port: useHttps ? 443 : 80,
-            hostname: host,
-            ...(tls && {
-              tls: {
-                mode: 'Terminate',
-                certificateRefs: [{ name: secretName }],
-              },
-            }),
-          },
-        ],
+      jsx('Gateway', {
+        apiVersion: 'gateway.networking.k8s.io/v1',
+        kind: 'Gateway',
+        metadata: {
+          name: `${name}-gateway`,
+          namespace,
+        },
+        spec: {
+          gatewayClassName,
+          listeners: [
+            {
+              name: useHttps ? 'https' : 'http',
+              protocol: useHttps ? 'HTTPS' : 'HTTP',
+              port: useHttps ? 443 : 80,
+              hostname: host,
+              ...(tls && {
+                tls: {
+                  mode: 'Terminate',
+                  certificateRefs: [{ name: secretName }],
+                },
+              }),
+            },
+          ],
+        },
       })
     )
 
     resources.push(
-      jsx(HTTPRoute, {
-        name: `${name}-route`,
-        namespace,
-        parentRefs: [{ name: `${name}-gateway` }],
-        hostnames: [host],
-        rules: [
-          {
-            backendRefs: [{ name: serviceName, port: servicePort }],
-          },
-        ],
+      jsx('HTTPRoute', {
+        apiVersion: 'gateway.networking.k8s.io/v1',
+        kind: 'HTTPRoute',
+        metadata: { name: `${name}-route`, namespace },
+        spec: {
+          parentRefs: [{ name: `${name}-gateway` }],
+          hostnames: [host],
+          rules: [
+            {
+              backendRefs: [{ name: serviceName, port: servicePort }],
+            },
+          ],
+        },
       })
     )
   } else {
@@ -130,10 +145,10 @@ export function Endpoint(props: EndpointProps) {
     const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager')
 
     if (!hasNginxIngress) {
-      resources.push(declareOperator(nginxIngressOperator(nginxIngressVersion)))
+      resources.push(declareOperator(nginxIngressOperator()))
     }
     if (tls && !hasCertManager) {
-      resources.push(declareOperator(certManagerOperator(certManagerVersion)))
+      resources.push(declareOperator(operators['cert-manager']()))
     }
 
     const ingress: Ingress = {

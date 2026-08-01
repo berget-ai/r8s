@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
 import { validateResource } from '@r8s/core'
-import { Database, App, WebService, Ingress, Cluster } from '../src/index'
-import { OperatorContext } from '@r8s/core/defaults'
+import { Database, App, WebService, Endpoint } from '../src/index'
+import { OperatorContext, SecretContext } from '@r8s/core/defaults'
 import { cnpgOperator, nginxIngressOperator } from '../src/operators'
 
 describe('Recipes Error Cases', () => {
@@ -19,7 +19,6 @@ describe('Recipes Error Cases', () => {
       const element = jsx(Database, { name: '' })
       const result = render(element)
 
-      // Empty name should be caught by validation
       const validationErrors = validateResource(result.resources[0])
       expect(validationErrors.some((e) => e.code === 'MISSING_NAME')).toBe(true)
     })
@@ -39,7 +38,6 @@ describe('Recipes Error Cases', () => {
       const element = jsx(Database, { name: 'test-db_123' })
       const result = render(element)
 
-      // Names with underscores are invalid in Kubernetes
       const validationErrors = validateResource(result.resources[0])
       expect(validationErrors.some((e) => e.code === 'INVALID_NAME')).toBe(true)
     })
@@ -108,10 +106,10 @@ describe('Recipes Error Cases', () => {
     })
   })
 
-  describe('Ingress', () => {
+  describe('Endpoint', () => {
     it('should handle TLS configuration', () => {
-      const element = jsx(Ingress, {
-        name: 'test-ingress',
+      const element = jsx(Endpoint, {
+        name: 'test-endpoint',
         host: 'test.example.com',
         serviceName: 'test-service',
         servicePort: 80,
@@ -123,8 +121,8 @@ describe('Recipes Error Cases', () => {
     })
 
     it('should handle missing TLS gracefully', () => {
-      const element = jsx(Ingress, {
-        name: 'test-ingress',
+      const element = jsx(Endpoint, {
+        name: 'test-endpoint',
         host: 'test.example.com',
         serviceName: 'test-service',
         servicePort: 80,
@@ -133,31 +131,6 @@ describe('Recipes Error Cases', () => {
 
       expect(result.resources).toHaveLength(1)
       expect(result.operators).toHaveLength(1) // nginx-ingress only
-    })
-  })
-
-  describe('Cluster', () => {
-    it('should handle missing storage with default', () => {
-      const element = jsx(Cluster, { name: 'main' })
-      const result = render(element)
-
-      expect(result.resources).toHaveLength(1)
-      expect((result.resources[0] as any).spec.storage.size).toBe('50Gi')
-    })
-
-    it('should handle children databases', () => {
-      const element = jsx(Cluster, {
-        name: 'main',
-        children: jsx(Fragment, {
-          children: [
-            jsx(Database, { name: 'db1', password: 'test-pass-1' }),
-            jsx(Database, { name: 'db2', password: 'test-pass-2' }),
-          ],
-        }),
-      })
-      const result = render(element)
-
-      expect(result.resources.length).toBeGreaterThan(1)
     })
   })
 
@@ -186,14 +159,118 @@ describe('Recipes Error Cases', () => {
     it('should handle nested contexts', () => {
       const element = jsx(OperatorContext.Provider, {
         value: [cnpgOperator('1.22.5')],
-        children: jsx(Cluster, {
-          name: 'main',
-          children: jsx(Database, { name: 'app-db', password: 'test-pass' }),
+        children: jsx(Database, {
+          name: 'app-db',
+          storage: '10Gi',
+          password: 'test-pass',
         }),
       })
 
       const result = render(element)
       expect(result.operators).toHaveLength(1)
+    })
+  })
+
+  describe('Secrets backend errors', () => {
+    it('should throw when kubernetes backend has no password', () => {
+      expect(() => {
+        render(
+          jsx(SecretContext.Provider, {
+            value: { backend: 'kubernetes' },
+            children: jsx(Database, { name: 'my-db' }),
+          })
+        )
+      }).toThrow(/uses the 'kubernetes' secrets backend, which requires a password/)
+    })
+
+    it('should suggest openbao as production alternative for kubernetes backend', () => {
+      expect(() => {
+        render(
+          jsx(SecretContext.Provider, {
+            value: { backend: 'kubernetes' },
+            children: jsx(Database, { name: 'my-db' }),
+          })
+        )
+      }).toThrow(/backend: 'openbao'/)
+    })
+
+    it('should throw on unknown backend', () => {
+      expect(() => {
+        render(
+          jsx(SecretContext.Provider, {
+            value: { backend: 'unknown-backend' as any },
+            children: jsx(Database, { name: 'my-db' }),
+          })
+        )
+      }).toThrow(/unknown secrets backend "unknown-backend"/)
+    })
+
+    it('should list supported backends in the error', () => {
+      expect(() => {
+        render(
+          jsx(SecretContext.Provider, {
+            value: { backend: 'unknown-backend' as any },
+            children: jsx(Database, { name: 'my-db' }),
+          })
+        )
+      }).toThrow(/Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes'/)
+    })
+
+    it('should succeed with openbao backend and no password', () => {
+      const element = jsx(SecretContext.Provider, {
+        value: { backend: 'openbao', mount: 'kv', path: 'db' },
+        children: jsx(Database, { name: 'my-db' }),
+      })
+      const result = render(element)
+
+      const kinds = result.resources.map((r) => r.kind)
+      expect(kinds).toContain('Cluster')
+      expect(kinds).toContain('OpenBaoStaticSecret')
+    })
+
+    it('should succeed with vault backend and no password', () => {
+      const element = jsx(SecretContext.Provider, {
+        value: { backend: 'vault', mount: 'kv', path: 'db' },
+        children: jsx(Database, { name: 'my-db' }),
+      })
+      const result = render(element)
+
+      const kinds = result.resources.map((r) => r.kind)
+      expect(kinds).toContain('Cluster')
+      expect(kinds).toContain('VaultStaticSecret')
+    })
+
+    it('should succeed with sealed-secrets backend and no password', () => {
+      const element = jsx(SecretContext.Provider, {
+        value: { backend: 'sealed-secrets' },
+        children: jsx(Database, { name: 'my-db' }),
+      })
+      const result = render(element)
+
+      const kinds = result.resources.map((r) => r.kind)
+      expect(kinds).toContain('Cluster')
+      expect(kinds).toContain('SealedSecret')
+    })
+
+    it('should succeed with kubernetes backend and explicit password', () => {
+      const element = jsx(SecretContext.Provider, {
+        value: { backend: 'kubernetes' },
+        children: jsx(Database, { name: 'my-db', password: 'test-pass' }),
+      })
+      const result = render(element)
+
+      const kinds = result.resources.map((r) => r.kind)
+      expect(kinds).toContain('Cluster')
+    })
+
+    it('should succeed with no backend and no password (CNPG manages bootstrap secret)', () => {
+      const element = jsx(Database, { name: 'my-db' })
+      const result = render(element)
+
+      const kinds = result.resources.map((r) => r.kind)
+      expect(kinds).toContain('Cluster')
+      // CNPG creates the bootstrap secret automatically — no explicit Secret needed
+      expect(kinds).not.toContain('Secret')
     })
   })
 })

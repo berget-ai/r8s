@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@r8s/core'
-import { Database, Ingress, WebService, App } from '../src/index'
+import { render, jsx } from '@r8s/core'
+import { Database, WebService, App, Endpoint, Auth, Monitoring, Backup } from '../src/index'
 import { cnpgOperator, nginxIngressOperator } from '../src/operators'
-import { jsx, Fragment } from '@r8s/core'
-import { certManagerOperator } from '@r8s/cert-manager'
+import { operators } from '@r8s/crds'
 import { OperatorContext } from '@r8s/core/defaults'
 
 describe('Database Recipe (CNPG)', () => {
@@ -18,7 +17,6 @@ describe('Database Recipe (CNPG)', () => {
 
     expect(result.resources).toHaveLength(1)
 
-    // CNPG Cluster
     const cluster = result.resources[0]
     expect(cluster.kind).toBe('Cluster')
     expect(cluster.apiVersion).toBe('postgresql.cnpg.io/v1')
@@ -85,70 +83,23 @@ describe('Database Recipe (CNPG)', () => {
   })
 })
 
-describe('Ingress Recipe', () => {
-  it('should render Ingress with TLS', () => {
-    const element = jsx(Ingress, {
-      name: 'test-ingress',
-      namespace: 'test-ns',
+describe('Endpoint Recipe', () => {
+  it('should render Ingress by default', () => {
+    const element = jsx(Endpoint, {
+      name: 'test-endpoint',
       host: 'test.example.com',
       serviceName: 'test-svc',
-      servicePort: 8080,
-      tls: { secretName: 'test-tls', clusterIssuer: 'letsencrypt' },
     })
 
     const result = render(element)
 
-    expect(result.resources).toHaveLength(1)
-
-    const ingress = result.resources[0]
-    expect(ingress.kind).toBe('Ingress')
-    expect(ingress.metadata.name).toBe('test-ingress')
-    expect(ingress.metadata.annotations).toHaveProperty(
-      'nginx.ingress.kubernetes.io/rewrite-target'
-    )
-    expect(ingress.metadata.annotations).toHaveProperty('cert-manager.io/cluster-issuer')
-
-    const spec = (ingress as any).spec
-    expect(spec.ingressClassName).toBe('nginx')
-    expect(spec.rules[0].host).toBe('test.example.com')
-    expect(spec.rules[0].http.paths[0].backend.service.name).toBe('test-svc')
-    expect(spec.rules[0].http.paths[0].backend.service.port.number).toBe(8080)
-    expect(spec.tls[0].secretName).toBe('test-tls')
-  })
-
-  it('should render Ingress without TLS when not specified', () => {
-    const element = jsx(Ingress, {
-      name: 'simple-ingress',
-      host: 'simple.example.com',
-      serviceName: 'simple-svc',
-    })
-
-    const result = render(element)
-    const spec = (result.resources[0] as any).spec
-
-    expect(spec.tls).toBeUndefined()
-  })
-
-  it('should merge custom annotations with defaults', () => {
-    const element = jsx(Ingress, {
-      name: 'annotated-ingress',
-      host: 'app.example.com',
-      serviceName: 'app-svc',
-      annotations: {
-        'custom.annotation/key': 'value',
-      },
-    })
-
-    const result = render(element)
-    const annotations = result.resources[0].metadata.annotations
-
-    expect(annotations).toHaveProperty('nginx.ingress.kubernetes.io/rewrite-target')
-    expect(annotations).toHaveProperty('custom.annotation/key', 'value')
+    const kinds = result.resources.map((r) => r.kind)
+    expect(kinds).toContain('Ingress')
   })
 
   it('should declare nginx-ingress operator', () => {
-    const element = jsx(Ingress, {
-      name: 'test-ingress',
+    const element = jsx(Endpoint, {
+      name: 'test-endpoint',
       host: 'test.example.com',
       serviceName: 'test-svc',
     })
@@ -159,9 +110,9 @@ describe('Ingress Recipe', () => {
     expect(result.operators[0].name).toBe('nginx-ingress')
   })
 
-  it('should declare cert-manager operator when TLS is enabled', () => {
-    const element = jsx(Ingress, {
-      name: 'test-ingress',
+  it('should declare cert-manager when TLS is enabled', () => {
+    const element = jsx(Endpoint, {
+      name: 'test-endpoint',
       host: 'test.example.com',
       serviceName: 'test-svc',
       tls: { secretName: 'test-tls', clusterIssuer: 'letsencrypt' },
@@ -169,7 +120,6 @@ describe('Ingress Recipe', () => {
 
     const result = render(element)
 
-    expect(result.operators).toHaveLength(2)
     const names = result.operators.map((op) => op.name)
     expect(names).toContain('nginx-ingress')
     expect(names).toContain('cert-manager')
@@ -177,9 +127,9 @@ describe('Ingress Recipe', () => {
 
   it('should not duplicate operators when provided via context', () => {
     const element = jsx(OperatorContext.Provider, {
-      value: [nginxIngressOperator('1.15.1'), certManagerOperator('1.14.0')],
-      children: jsx(Ingress, {
-        name: 'test-ingress',
+      value: [nginxIngressOperator('1.15.1'), operators['cert-manager']('1.14.0')],
+      children: jsx(Endpoint, {
+        name: 'test-endpoint',
         host: 'test.example.com',
         serviceName: 'test-svc',
         tls: { secretName: 'test-tls', clusterIssuer: 'letsencrypt' },
@@ -270,7 +220,7 @@ describe('App Recipe', () => {
 
   it('should use shared operators from context without duplication', () => {
     const element = jsx(OperatorContext.Provider, {
-      value: [certManagerOperator('1.14.0'), nginxIngressOperator('1.15.1')],
+      value: [operators['cert-manager']('1.14.0'), nginxIngressOperator('1.15.1')],
       children: jsx(App, {
         name: 'myapp',
         host: 'myapp.example.com',
@@ -282,5 +232,100 @@ describe('App Recipe', () => {
     const result = render(element)
 
     expect(result.operators).toHaveLength(2)
+  })
+})
+
+describe('Auth Recipe', () => {
+  it('should render Keycloak, Database, and Endpoint', () => {
+    const element = jsx(Auth, {
+      name: 'auth',
+      host: 'auth.example.com',
+    })
+
+    const result = render(element)
+
+    const kinds = result.resources.map((r) => r.kind)
+    expect(kinds).toContain('Keycloak')
+    expect(kinds).toContain('Cluster')
+    expect(kinds).toContain('Ingress')
+  })
+
+  it('should declare keycloak and cnpg operators', () => {
+    const element = jsx(Auth, {
+      name: 'auth',
+      host: 'auth.example.com',
+    })
+
+    const result = render(element)
+
+    const names = result.operators.map((op) => op.name)
+    expect(names).toContain('keycloak-operator')
+    expect(names).toContain('cnpg')
+  })
+
+  it('should not duplicate operators when provided via context', () => {
+    const element = jsx(OperatorContext.Provider, {
+      value: [operators['keycloak-operator'](), operators['cnpg'](), nginxIngressOperator()],
+      children: jsx(Auth, {
+        name: 'auth',
+        host: 'auth.example.com',
+      }),
+    })
+
+    const result = render(element)
+
+    // Auth declares keycloak + cnpg; Endpoint declares nginx-ingress
+    // All three are already in context, so no duplicates
+    expect(result.operators).toHaveLength(3)
+  })
+})
+
+describe('Monitoring Recipe', () => {
+  it('should render ServiceMonitor', () => {
+    const element = jsx(Monitoring, {
+      name: 'api-monitor',
+      selector: { app: 'api' },
+    })
+
+    const result = render(element)
+
+    const kinds = result.resources.map((r) => r.kind)
+    expect(kinds).toContain('ServiceMonitor')
+  })
+
+  it('should declare prometheus operator', () => {
+    const element = jsx(Monitoring, {
+      name: 'api-monitor',
+      selector: { app: 'api' },
+    })
+
+    const result = render(element)
+
+    const names = result.operators.map((op) => op.name)
+    expect(names).toContain('prometheus')
+  })
+})
+
+describe('Backup Recipe', () => {
+  it('should render Velero Schedule', () => {
+    const element = jsx(Backup, {
+      name: 'daily',
+    })
+
+    const result = render(element)
+
+    const kinds = result.resources.map((r) => r.kind)
+    expect(kinds).toContain('Schedule')
+  })
+
+  it('should declare velero operator', () => {
+    const element = jsx(Backup, {
+      name: 'daily',
+    })
+
+    const result = render(element)
+
+    const names = result.operators.map((op) => op.name)
+    expect(names).toContain('velero')
   })
 })

@@ -56,24 +56,33 @@ export interface WebServiceProps {
  * Creates a Deployment + Service with health checks.
  *
  * @example
- * // Plain env vars
- * <WebService name="api" image="myapp/api:v1" port={3000} env={{ LOG_LEVEL: 'info' }} />
+ * import { WebService } from '@r8s/recipes'
  *
- * // With secrets from Kubernetes Secrets
- * <WebService
- *   name="api"
- *   image="myapp/api:v1"
- *   env={{ LOG_LEVEL: 'info' }}
- *   secrets={{ DATABASE_URL: 'app-secrets', API_KEY: 'app-secrets' }}
- * />
+ * export default <WebService name="api" image="myapp/api:v1" port={3000} env={{ LOG_LEVEL: 'info' }} />
  *
- * // With Vault secrets (creates VaultStaticSecret objects)
- * <WebService
- *   name="api"
- *   image="myapp/api:v1"
- *   env={{ LOG_LEVEL: 'info' }}
- *   vault={{ DATABASE_URL: { mount: 'kv', path: 'db/credentials' } }}
- * />
+ * @example
+ * import { WebService } from '@r8s/recipes'
+ *
+ * export default (
+ *   <WebService
+ *     name="api"
+ *     image="myapp/api:v1"
+ *     env={{ LOG_LEVEL: 'info' }}
+ *     secrets={{ DATABASE_URL: 'app-secrets', API_KEY: 'app-secrets' }}
+ *   />
+ * )
+ *
+ * @example
+ * import { WebService } from '@r8s/recipes'
+ *
+ * export default (
+ *   <WebService
+ *     name="api"
+ *     image="myapp/api:v1"
+ *     env={{ LOG_LEVEL: 'info' }}
+ *     vault={{ DATABASE_URL: { mount: 'kv', path: 'db/credentials' } }}
+ *   />
+ * )
  */
 export function WebService(props: WebServiceProps) {
   const {

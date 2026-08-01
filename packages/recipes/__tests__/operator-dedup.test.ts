@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment, declareOperator } from '@r8s/core'
 import { cnpgOperator } from '../src/operators'
-import { certManagerOperator } from '@r8s/cert-manager'
+import { operators } from '@r8s/crds'
 
 describe('Operator deduplication', () => {
   it('should deduplicate same operator from two different components', () => {
@@ -58,7 +58,7 @@ describe('Operator deduplication', () => {
     // Component B: needs cert-manager (different operator)
     function TLSComponent() {
       return [
-        declareOperator(certManagerOperator('1.14.0')),
+        declareOperator(operators['cert-manager']('1.14.0')),
         jsx('Certificate', {
           apiVersion: 'cert-manager.io/v1',
           kind: 'Certificate',

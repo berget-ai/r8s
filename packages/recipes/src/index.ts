@@ -1,20 +1,21 @@
+// Core recipes — the only place for abstraction in r8s.
+// Each recipe composes generated CRD components into a higher-level pattern
+// with good defaults. Named after what the user wants to achieve, not the
+// underlying tools.
+
+export { Platform, type PlatformProps, type RoutingMode } from './platform'
+export { App, type AppProps } from './app'
 export { Database, type DatabaseProps } from './database'
-export { Cluster, type ClusterProps } from './cluster'
+export { Endpoint, type EndpointProps } from './endpoint'
 export {
   WebService,
   type WebServiceProps,
   type SecretRef,
   type VaultSecretRef,
 } from './web-service'
-export { Ingress, type IngressProps } from './ingress'
-export { EnvoyIngress, type EnvoyIngressProps } from './envoy-ingress'
-export { Endpoint, type EndpointProps } from './endpoint'
-export { App, type AppProps } from './app'
-export { Platform, type PlatformProps, type RoutingMode } from './platform'
+export { Auth, type AuthProps } from './auth'
+export { Monitoring, type MonitoringProps } from './monitoring'
+export { Backup, type BackupProps } from './backup'
 
 // Operator declarations for components in this package
 export { cnpgOperator, nginxIngressOperator, vaultSecretsOperator } from './operators'
-
-// Legacy exports for backwards compatibility
-export { Postgres, type PostgresProps } from './postgres'
-export { CustomIngress, type CustomIngressProps } from './ingress-legacy'

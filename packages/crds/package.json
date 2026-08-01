@@ -1,0 +1,49 @@
+{
+  "name": "@r8s/crds",
+  "version": "0.1.0",
+  "description": "Generated TypeScript types and components from upstream Kubernetes CRDs — 1:1 fidelity, no hand-written mappings",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/crds"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "operators.yaml",
+    "crds"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/generated/*.d.ts",
+      "default": "./dist/generated/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "generate": "node --experimental-strip-types scripts/generate.ts",
+    "test": "echo 'No tests for generated types'",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@r8s/core": "*",
+    "@r8s/k8s-types": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "js-yaml": "^4.1.0",
+    "typescript": "^5.3.0"
+  }
+}

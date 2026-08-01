@@ -29,7 +29,7 @@ async function formatTsx(code: string): Promise<string> {
     const { format } = await import('prettier')
     return await format(code, {
       parser: 'tsx',
-      semi: true,
+      semi: false,
       singleQuote: true,
       trailingComma: 'all' as const,
       printWidth: 80,
@@ -73,22 +73,13 @@ async function renderToYaml(code: string): Promise<string | null> {
             '@r8s/core': [path.join(ROOT, 'packages/core/src/index.ts')],
             '@r8s/core/*': [path.join(ROOT, 'packages/core/src/*')],
             '@r8s/recipes': [path.join(ROOT, 'packages/recipes/src/index.ts')],
-            '@r8s/envoy': [path.join(ROOT, 'packages/envoy/src/index.ts')],
-            '@r8s/cert-manager': [path.join(ROOT, 'packages/cert-manager/src/index.ts')],
-            '@r8s/prometheus': [path.join(ROOT, 'packages/prometheus/src/index.ts')],
-            '@r8s/logging-operator': [path.join(ROOT, 'packages/logging-operator/src/index.ts')],
-            '@r8s/loki': [path.join(ROOT, 'packages/loki/src/index.ts')],
-            '@r8s/redis': [path.join(ROOT, 'packages/redis/src/index.ts')],
-            '@r8s/clickhouse': [path.join(ROOT, 'packages/clickhouse/src/index.ts')],
-            '@r8s/keycloak': [path.join(ROOT, 'packages/keycloak/src/index.ts')],
-            '@r8s/openbao': [path.join(ROOT, 'packages/openbao/src/index.ts')],
-            '@r8s/external-dns': [path.join(ROOT, 'packages/external-dns/src/index.ts')],
+            '@r8s/crds': [path.join(ROOT, 'packages/crds/src/index.ts')],
+            '@r8s/crds/*': [path.join(ROOT, 'packages/crds/src/generated/*')],
             '@r8s/k8s-types': [path.join(ROOT, 'packages/k8s-types/src/index.ts')],
             '@r8s/element': [path.join(ROOT, 'packages/element/src/index.ts')],
             '@r8s/grafana': [path.join(ROOT, 'packages/grafana/src/index.ts')],
             '@r8s/rustfs': [path.join(ROOT, 'packages/rustfs/src/index.ts')],
             '@r8s/superset': [path.join(ROOT, 'packages/superset/src/index.ts')],
-            '@r8s/velero': [path.join(ROOT, 'packages/velero/src/index.ts')],
             '@r8s/wireguard': [path.join(ROOT, 'packages/wireguard/src/index.ts')],
           },
         },
@@ -302,8 +293,22 @@ function typeNodeToString(typeNode: ts.TypeNode | undefined): string {
   return typeNode.getText()
 }
 
-function extractProps(interfaceDecl: ts.InterfaceDeclaration): ComponentProp[] {
+function extractProps(
+  interfaceDecl: ts.InterfaceDeclaration,
+  sourceFile: ts.SourceFile
+): ComponentProp[] {
   const props: ComponentProp[] = []
+
+  // Build a lookup of all interfaces in the file so we can expand
+  // spec: SomeSpecType into its fields inline.
+  const interfaceMap = new Map<string, ts.InterfaceDeclaration>()
+  function collectInterfaces(node: ts.Node) {
+    if (ts.isInterfaceDeclaration(node)) {
+      interfaceMap.set(node.name.text, node)
+    }
+    ts.forEachChild(node, collectInterfaces)
+  }
+  collectInterfaces(sourceFile)
 
   for (const member of interfaceDecl.members) {
     if (!ts.isPropertySignature(member)) continue
@@ -324,6 +329,20 @@ function extractProps(interfaceDecl: ts.InterfaceDeclaration): ComponentProp[] {
         }
       }
     }
+
+    // For CRD components, expand `spec: SomeSpec` into its fields
+    // so the docs show the actual CRD fields, not just "spec: ClusterSpec".
+    if (name === 'spec' && type) {
+      const specInterface = interfaceMap.get(type)
+      if (specInterface) {
+        const specProps = extractProps(specInterface, sourceFile)
+        props.push(...specProps)
+        continue
+      }
+    }
+
+    // Skip metadata — it's always ObjectMeta and adds noise.
+    if (name === 'metadata' && type === 'ObjectMeta') continue
 
     props.push({ name, type, required, default: defaultVal, description })
   }
@@ -348,26 +367,36 @@ async function extractComponents(
       // Only include PascalCase functions (components)
       if (name[0] !== name[0].toUpperCase()) return
 
+      // Generated CRD components have a "Component" suffix (e.g. ClusterComponent).
+      // Strip it for display so the docs show "Cluster" not "ClusterComponent".
+      const displayName = name.replace(/Component$/, '')
+
       const description = getJSDoc(node)
       const rawExamples = getJSDocExamples(node)
 
       // If already added via interface, update description and examples
-      const existing = components.find((c) => c.name === name)
+      const existing = components.find((c) => c.name === displayName)
       if (existing) {
         if (description) existing.description = description
         if (rawExamples.length > 0) existing._rawExamples = rawExamples
         return
       }
 
-      if (seenNames.has(name)) return
-      seenNames.add(name)
-      components.push({ name, description, props: [], examples: [], _rawExamples: rawExamples })
+      if (seenNames.has(displayName)) return
+      seenNames.add(displayName)
+      components.push({
+        name: displayName,
+        description,
+        props: [],
+        examples: [],
+        _rawExamples: rawExamples,
+      })
     }
 
     // Find interface declarations with "Props" suffix
     if (ts.isInterfaceDeclaration(node) && node.name.text.endsWith('Props')) {
       const componentName = node.name.text.replace('Props', '')
-      const props = extractProps(node)
+      const props = extractProps(node, sourceFile)
 
       // Find matching component from the function declaration
       const existing = components.find((c) => c.name === componentName)
@@ -388,126 +417,21 @@ async function extractComponents(
     const rawExamples = (comp as any)._rawExamples ?? []
     comp.examples = []
     for (const raw of rawExamples) {
-      // Split multiple examples separated by blank-line + comment
-      // Each example starts with a // comment followed by JSX
-      const lines = raw.split('\n')
-      const exampleBlocks: string[] = []
-      let currentBlock: string[] = []
+      // Each @example block is a complete, runnable TSX file —
+      // imports, export default, everything. No import detection needed.
+      // If the block contains imports or export default, use it as-is.
+      // Otherwise, treat it as a bare JSX expression and wrap it.
+      const code = raw.trim()
+      if (!code) continue
 
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (trimmed === '' && currentBlock.length > 0) {
-          // Blank line — save current block if it has JSX
-          if (currentBlock.some((l) => l.includes('<'))) {
-            exampleBlocks.push(currentBlock.join('\n'))
-          }
-          currentBlock = []
-        } else {
-          currentBlock.push(line)
-        }
-      }
-      if (currentBlock.length > 0 && currentBlock.some((l) => l.includes('<'))) {
-        exampleBlocks.push(currentBlock.join('\n'))
-      }
+      const renderable =
+        code.includes('export default') || code.includes('import ')
+          ? code
+          : `export default ${code}`
 
-      // If no blocks found (single example), use the whole raw
-      if (exampleBlocks.length === 0 && raw.includes('<')) {
-        exampleBlocks.push(raw)
-      }
-
-      for (const block of exampleBlocks) {
-        // Extract just the JSX element (skip comment lines)
-        const jsxLines = block.split('\n').filter((l) => {
-          const t = l.trim()
-          return t && !t.startsWith('//') && !t.startsWith('*')
-        })
-        const code = jsxLines.join('\n').trim()
-        if (!code || !code.startsWith('<')) continue
-
-        // Detect which imports are needed based on component names
-        const imports: string[] = []
-        if (code.match(/<(App|Database|WebService|Endpoint|Platform|Cluster|Ingress)\b/)) {
-          imports.push(
-            "import { App, Database, WebService, Endpoint, Platform, Cluster, Ingress } from '@r8s/recipes';"
-          )
-        }
-        if (code.match(/<(Gateway|HTTPRoute|EnvoyProxy)\b/)) {
-          imports.push("import { Gateway, HTTPRoute, EnvoyProxy } from '@r8s/envoy';")
-        }
-        if (code.match(/<(LetsEncryptIssuer|ManagedCertificate)\b/)) {
-          imports.push("import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager';")
-        }
-        if (code.match(/<(ServiceMonitor|PrometheusRule|PodMonitor)\b/)) {
-          imports.push(
-            "import { ServiceMonitor, PrometheusRule, PodMonitor } from '@r8s/prometheus';"
-          )
-        }
-        if (code.match(/<(Logging|Flow|Output)\b/)) {
-          imports.push("import { Logging, Flow, Output } from '@r8s/logging-operator';")
-        }
-        if (code.match(/<(LokiStack|AlertingRule)\b/)) {
-          imports.push("import { LokiStack, AlertingRule } from '@r8s/loki';")
-        }
-        if (code.match(/<(RedisCluster|RedisReplication)\b/)) {
-          imports.push("import { RedisCluster, RedisReplication } from '@r8s/redis';")
-        }
-        if (code.match(/<(ClickHouseCluster)\b/)) {
-          imports.push("import { ClickHouseCluster } from '@r8s/clickhouse';")
-        }
-        if (code.match(/<(KeycloakInstance|KeycloakRealm)\b/)) {
-          imports.push("import { KeycloakInstance, KeycloakRealm } from '@r8s/keycloak';")
-        }
-        if (
-          code.match(
-            /<(VaultConnectionConfig|VaultKubernetesAuth|VaultDatabaseSecret|VaultKVSecret)\b/
-          )
-        ) {
-          imports.push(
-            "import { VaultConnectionConfig, VaultKubernetesAuth, VaultDatabaseSecret, VaultKVSecret } from '@r8s/openbao';"
-          )
-        }
-        if (code.match(/<(ExternalDNSRecord)\b/)) {
-          imports.push("import { ExternalDNSRecord } from '@r8s/external-dns';")
-        }
-        if (code.match(/<(Element)\b/)) {
-          imports.push("import { Element } from '@r8s/element';")
-        }
-        if (code.match(/<(Grafana)\b/)) {
-          imports.push("import { Grafana } from '@r8s/grafana';")
-        }
-        if (code.match(/<(RustFS)\b/)) {
-          imports.push("import { RustFS } from '@r8s/rustfs';")
-        }
-        if (code.match(/<(Superset)\b/)) {
-          imports.push("import { Superset } from '@r8s/superset';")
-        }
-        if (code.match(/<(Backup|Schedule|BackupStorageLocation)\b/)) {
-          imports.push("import { Backup, Schedule, BackupStorageLocation } from '@r8s/velero';")
-        }
-        if (code.match(/<(WireGuard)\b/)) {
-          imports.push("import { WireGuard } from '@r8s/wireguard';")
-        }
-        if (code.match(/<(EnvoyIngress)\b/)) {
-          imports.push("import { EnvoyIngress } from '@r8s/recipes';")
-        }
-        if (code.match(/<RoutingContext\.Provider\b/)) {
-          imports.push("import { RoutingContext } from '@r8s/core/defaults';")
-        }
-
-        // Operator factories used in examples (e.g. <Platform operators={[...]}>)
-        if (code.match(/\b(cnpgOperator|nginxIngressOperator)\s*\(/)) {
-          imports.push("import { cnpgOperator, nginxIngressOperator } from '@r8s/recipes';")
-        }
-        if (code.match(/\bcertManagerOperator\s*\(/)) {
-          imports.push("import { certManagerOperator } from '@r8s/cert-manager';")
-        }
-
-        // Wrap in a default export with imports
-        const fullCode = `${imports.join('\n')}\n\nexport default ${code};`
-        const formattedTsx = await formatTsx(fullCode)
-        const yamlOutput = await renderToYaml(fullCode)
-        comp.examples.push({ tsx: formattedTsx.trim(), yaml: yamlOutput })
-      }
+      const formattedTsx = await formatTsx(renderable)
+      const yamlOutput = await renderToYaml(renderable)
+      comp.examples.push({ tsx: formattedTsx.trim(), yaml: yamlOutput })
     }
     delete (comp as any)._rawExamples
   }
@@ -573,33 +497,97 @@ function readPackageJson(dir: string): {
 
 async function generatePackages(): Promise<PackageDoc[]> {
   const packages: PackageDoc[] = []
-  const packageDirs = fs
-    .readdirSync(path.join(ROOT, 'packages'))
-    .filter((dir) => {
-      const srcPath = path.join(ROOT, 'packages', dir, 'src', 'index.ts')
-      return fs.existsSync(srcPath)
-    })
-    .filter(
-      (dir) =>
-        dir !== 'core' &&
-        dir !== 'k8s-types' &&
-        dir !== 'cli' &&
-        dir !== 'r8s-controller' &&
-        dir !== 'recipes' &&
-        dir !== 'example' // template package — not real docs
-    )
 
-  for (const dir of packageDirs) {
-    const srcPath = path.join(ROOT, 'packages', dir, 'src', 'index.ts')
+  // Read operator metadata from the generated operators.ts
+  const operatorsTsPath = path.join(ROOT, 'packages/crds/src/generated/operators.ts')
+  const operatorsSource = parseSourceFile(operatorsTsPath)
+  const operatorMeta = extractOperatorMetadata(operatorsSource)
+
+  // Read examples from packages/crds/examples/index.tsx
+  const examplesPath = path.join(ROOT, 'packages/crds/examples/index.tsx')
+  const examples = fs.existsSync(examplesPath)
+    ? extractExamples(examplesPath)
+    : new Map<string, { name: string; code: string }[]>()
+
+  // Scan generated group files (skip index.ts and operators.ts)
+  const generatedDir = path.join(ROOT, 'packages/crds/src/generated')
+  const groupFiles = fs
+    .readdirSync(generatedDir)
+    .filter((f) => f.endsWith('.ts') && f !== 'index.ts' && f !== 'operators.ts')
+
+  for (const file of groupFiles) {
+    const groupKey = file.replace('.ts', '')
+    const srcPath = path.join(generatedDir, file)
     const sourceFile = parseSourceFile(srcPath)
     const components = await extractComponents(sourceFile, srcPath)
-    const operator = extractOperatorInfo(sourceFile, srcPath)
-    const pkg = readPackageJson(dir)
 
     if (components.length === 0) {
-      console.warn(`No components found in package "${dir}", skipping`)
+      console.warn(`No components found in generated group "${groupKey}", skipping`)
       continue
     }
+
+    // Find operator metadata by matching CRD group to operator entry
+    const meta = findOperatorForGroup(groupKey, operatorMeta)
+
+    // Find examples for this group — try both the file key (cert-manager)
+    // and the camelCase variant (certManager) used in examples/index.tsx
+    const camelKey = groupKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+    const groupExamples = examples.get(groupKey) ?? examples.get(camelKey) ?? []
+
+    // Attach examples to matching components
+    for (const comp of components) {
+      const compExamples = groupExamples.filter(
+        (e) => e.code.includes(`${comp.name}Component`) || e.code.includes(`<${comp.name}`)
+      )
+      if (compExamples.length > 0) {
+        comp._rawExamples = compExamples.map((e) => e.code)
+      }
+    }
+
+    // Render CRD examples to YAML — the example strings are complete TSX
+    // with imports, so we render them directly rather than going through
+    // the JSDoc example parser in extractComponents.
+    for (const comp of components) {
+      const rawExamples = (comp as any)._rawExamples ?? []
+      if (rawExamples.length === 0) continue
+      comp.examples = []
+      for (const raw of rawExamples) {
+        const formattedTsx = await formatTsx(raw)
+        // renderToYaml expects `export default <element>`.
+        // The example code has imports + a JSX expression; prepend
+        // `export default` to the first line that starts with `<` or `<>`.
+        const renderable = raw.includes('export default')
+          ? raw
+          : raw.replace(/^([<>(])/m, 'export default $1')
+        const yamlOutput = await renderToYaml(renderable)
+        comp.examples.push({ tsx: formattedTsx, yaml: yamlOutput })
+      }
+      delete (comp as any)._rawExamples
+    }
+
+    packages.push({
+      slug: groupKey,
+      name: `@r8s/crds/${groupKey}`,
+      title: groupKey,
+      description: meta?.description ?? `${groupKey} CRD components`,
+      category: meta?.category ?? 'Uncategorized',
+      operator: meta?.name,
+      operatorVersion: meta?.version,
+      keywords: [groupKey],
+      components,
+    })
+  }
+
+  // Also scan app packages (element, grafana, rustfs, superset, wireguard)
+  const appPackages = ['element', 'grafana', 'rustfs', 'superset', 'wireguard']
+  for (const dir of appPackages) {
+    const srcPath = path.join(ROOT, 'packages', dir, 'src', 'index.ts')
+    if (!fs.existsSync(srcPath)) continue
+    const sourceFile = parseSourceFile(srcPath)
+    const components = await extractComponents(sourceFile, srcPath)
+    const pkg = readPackageJson(dir)
+
+    if (components.length === 0) continue
 
     packages.push({
       slug: dir,
@@ -607,14 +595,128 @@ async function generatePackages(): Promise<PackageDoc[]> {
       title: pkg.name.replace('@r8s/', ''),
       description: pkg.description,
       category: pkg.category,
-      operator: operator?.name,
-      operatorVersion: operator?.version,
       keywords: pkg.keywords,
       components,
     })
   }
 
   return packages
+}
+
+/** Extract operator metadata array from the generated operators.ts file. */
+function extractOperatorMetadata(sourceFile: ts.SourceFile): Array<{
+  name: string
+  description: string
+  category: string
+  version: string
+  crds: string[]
+}> {
+  const result: Array<{
+    name: string
+    description: string
+    category: string
+    version: string
+    crds: string[]
+  }> = []
+
+  function visit(node: ts.Node) {
+    if (ts.isVariableStatement(node)) {
+      for (const decl of node.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name) && decl.name.text === 'operatorMetadata') {
+          if (decl.initializer && ts.isArrayLiteralExpression(decl.initializer)) {
+            for (const elem of decl.initializer.elements) {
+              if (ts.isObjectLiteralExpression(elem)) {
+                const obj: Record<string, unknown> = {}
+                for (const prop of elem.properties) {
+                  if (ts.isPropertyAssignment(prop) && prop.name) {
+                    const key = (prop.name as ts.Identifier).text
+                    const val = prop.initializer
+                    if (ts.isStringLiteral(val)) {
+                      obj[key] = val.text
+                    } else if (ts.isArrayLiteralExpression(val)) {
+                      obj[key] = val.elements.filter(ts.isStringLiteral).map((e) => e.text)
+                    }
+                  }
+                }
+                if (obj.name) {
+                  result.push({
+                    name: obj.name as string,
+                    description: (obj.description as string) ?? '',
+                    category: (obj.category as string) ?? 'Uncategorized',
+                    version: (obj.version as string) ?? '',
+                    crds: (obj.crds as string[]) ?? [],
+                  })
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return result
+}
+
+/** Match a generated group file key to its operator by CRD group prefix. */
+function findOperatorForGroup(
+  groupKey: string,
+  meta: Array<{
+    name: string
+    crds: string[]
+    description: string
+    category: string
+    version: string
+  }>
+): { name: string; description: string; category: string; version: string } | undefined {
+  // The group key matches the first label of the CRD's API group.
+  // e.g. "postgresql" → crds like "clusters.postgresql.cnpg.io"
+  for (const op of meta) {
+    if (op.crds.some((crd) => crd.includes(`.${groupKey}.`))) {
+      return op
+    }
+  }
+  return undefined
+}
+
+/** Extract named example objects from the examples file. */
+function extractExamples(examplesPath: string): Map<string, { name: string; code: string }[]> {
+  const result = new Map<string, { name: string; code: string }[]>()
+  const sourceFile = parseSourceFile(examplesPath)
+
+  function visit(node: ts.Node) {
+    if (
+      ts.isVariableStatement(node) &&
+      node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+    ) {
+      for (const decl of node.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name) && decl.initializer) {
+          const varName = decl.name.text
+          // Extract group key from variable name: "postgresqlExamples" → "postgresql"
+          const groupKey = varName.replace(/Examples$/, '')
+          if (ts.isObjectLiteralExpression(decl.initializer)) {
+            const examples: { name: string; code: string }[] = []
+            for (const prop of decl.initializer.properties) {
+              if (ts.isPropertyAssignment(prop) && prop.name) {
+                const name = (prop.name as ts.Identifier).text
+                const code = prop.initializer
+                if (ts.isStringLiteral(code) || ts.isNoSubstitutionTemplateLiteral(code)) {
+                  examples.push({ name, code: code.text })
+                }
+              }
+            }
+            if (examples.length > 0) {
+              result.set(groupKey, examples)
+            }
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return result
 }
 
 // ─── Generate recipes.ts ────────────────────────────────────────────────────

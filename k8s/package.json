@@ -3,8 +3,7 @@
   "private": true,
   "dependencies": {
     "@r8s/core": "*",
-    "@r8s/recipes": "*",
-    "@r8s/cert-manager": "*"
+    "@r8s/recipes": "*"
   },
   "license": "MIT",
   "author": "Berget AI AB"

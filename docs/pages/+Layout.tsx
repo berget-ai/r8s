@@ -34,7 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Deployment', href: '/deployment' },
       { label: 'Testing', href: '/testing' },
-      { label: 'Adding Packages', href: '/adding-packages' },
+      { label: 'Adding Operators', href: '/adding-packages' },
     ],
   },
 ]

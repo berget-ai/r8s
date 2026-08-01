@@ -6,10 +6,5 @@
     "composite": true
   },
   "include": ["src/**/*"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../k8s-types" },
-    { "path": "../cert-manager" },
-    { "path": "../envoy" }
-  ]
+  "references": [{ "path": "../core" }, { "path": "../k8s-types" }, { "path": "../crds" }]
 }

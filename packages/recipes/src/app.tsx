@@ -40,38 +40,50 @@ export interface AppProps {
  * @title App
  * @category Complete Solution
  *
- * The simplest way to deploy an app to Kubernetes:
- * ```tsx
- * <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
- * ```
+ * The simplest way to deploy an app to Kubernetes — Deployment, Service,
+ * and routing (Ingress or Gateway) with TLS.
  *
- * With Envoy Gateway instead of nginx Ingress:
- * ```tsx
- * <Platform routing="gateway" namespace="production">
- *   <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
- * </Platform>
- * ```
+ * @example
+ * import { App } from '@r8s/recipes'
  *
- * With secrets from Kubernetes Secrets:
- * ```tsx
- * <App
- *   name="myapp"
- *   image="myapp/web:v1.2.3"
- *   host="myapp.example.com"
- *   env={{ LOG_LEVEL: 'info' }}
- *   secrets={{ DATABASE_URL: 'app-secrets' }}
- * />
- * ```
+ * export default <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
  *
- * Compose with other components for more complex setups:
- * ```tsx
- * <>
- *   <Database name="myapp-db" storage="20Gi" />
- *   <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" tls={{ secretName: "myapp-tls", clusterIssuer: "letsencrypt" }}>
- *     <BackgroundWorker name="myapp-worker" image="myapp/worker:v1.2.3" />
- *   </App>
- * </>
- * ```
+ * @example
+ * import { Platform, App } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Platform routing="gateway" namespace="production">
+ *     <App name="myapp" image="myapp/web:v1.2.3" host="myapp.example.com" />
+ *   </Platform>
+ * )
+ *
+ * @example
+ * import { App } from '@r8s/recipes'
+ *
+ * export default (
+ *   <App
+ *     name="myapp"
+ *     image="myapp/web:v1.2.3"
+ *     host="myapp.example.com"
+ *     env={{ LOG_LEVEL: 'info' }}
+ *     secrets={{ DATABASE_URL: 'app-secrets' }}
+ *   />
+ * )
+ *
+ * @example
+ * import { Database, App } from '@r8s/recipes'
+ *
+ * export default (
+ *   <>
+ *     <Database name="myapp-db" storage="20Gi" />
+ *     <App
+ *       name="myapp"
+ *       image="myapp/web:v1.2.3"
+ *       host="myapp.example.com"
+ *       tls={{ secretName: 'myapp-tls', clusterIssuer: 'letsencrypt' }}
+ *     />
+ *   </>
+ * )
  */
 export function App(props: AppProps) {
   const {
