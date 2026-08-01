@@ -747,6 +747,18 @@ async function generateRecipes(): Promise<PackageDoc[]> {
       if (comp.name === 'Postgres' || comp.name === 'CustomIngress' || comp.name === 'Ingress')
         continue
 
+      // Skip provider config components — they return config objects, not JSX
+      const configComponents = [
+        'OpenBao',
+        'Vault',
+        'SealedSecrets',
+        'Kubernetes',
+        'ExternalDns',
+        'Nginx',
+        'EnvoyGateway',
+      ]
+      if (configComponents.includes(comp.name)) continue
+
       const slug = comp.name
         .replace(/([A-Z])/g, '-$1')
         .toLowerCase()
