@@ -15,8 +15,8 @@ RUN npm ci
 COPY packages/ ./packages/
 COPY tsconfig.json ./
 
-# Build only the packages that docs depend on (not r8s-controller or cli)
-RUN npx tsc -b packages/k8s-types packages/core packages/cert-manager packages/envoy packages/recipes
+# Build all workspace packages (same as CI — never drifts when packages change)
+RUN npm run build
 
 # Copy docs package files and install docs dependencies
 COPY docs/package.json docs/package-lock.json ./docs/
