@@ -34,6 +34,8 @@ export interface AppProps {
   }
   /** Add a Redis cache for this app (session store, cache, queue) */
   cache?: boolean
+  /** Create a DNS record via ExternalDNS (default: false) */
+  dns?: boolean
   /** Child components rendered as sibling resources (e.g., a BackgroundWorker) */
   children?: unknown
 }
@@ -103,6 +105,7 @@ export function App(props: AppProps) {
     vault = {},
     resources,
     cache = false,
+    dns = false,
     children,
   } = props
 
@@ -135,6 +138,7 @@ export function App(props: AppProps) {
       serviceName: name,
       servicePort: 80,
       tls,
+      dns,
     })
   )
 

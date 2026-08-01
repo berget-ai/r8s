@@ -105,6 +105,12 @@ export const recipes: Recipe[] = [
           description: 'Add a Redis cache for this app (session store, cache, queue)',
         },
         {
+          name: 'dns',
+          type: 'boolean',
+          required: false,
+          description: 'Create a DNS record via ExternalDNS (default: false)',
+        },
+        {
           name: 'children',
           type: 'unknown',
           required: false,
