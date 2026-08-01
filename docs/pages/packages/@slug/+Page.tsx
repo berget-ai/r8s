@@ -43,7 +43,7 @@ export default function Page() {
         <p className="text-sm font-mono text-cloud/60">{pkg.name}</p>
       </div>
 
-      {/* Keywords */}
+      {/* Keywords + Provider Interfaces */}
       <div className="flex flex-wrap gap-2">
         {pkg.keywords.map((keyword) => (
           <span
@@ -52,6 +52,15 @@ export default function Page() {
           >
             {keyword}
           </span>
+        ))}
+        {pkg.providerInterfaces?.map((iface) => (
+          <a
+            key={iface}
+            href={`/providers#${iface}`}
+            className="text-xs px-3 py-1 rounded-full bg-moss/20 text-moss border border-moss/30 hover:bg-moss/30 transition-colors"
+          >
+            {iface} provider
+          </a>
         ))}
       </div>
 

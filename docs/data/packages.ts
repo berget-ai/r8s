@@ -26,6 +26,7 @@ export interface Package {
   operatorVersion?: string
   keywords: string[]
   components: ComponentDoc[]
+  providerInterfaces?: string[]
 }
 
 export const packages: Package[] = [
@@ -38,6 +39,7 @@ export const packages: Package[] = [
     operator: 'cert-manager',
     operatorVersion: '1.18.0',
     keywords: ['cert-manager'],
+    providerInterfaces: ['cert'],
     components: [
       {
         name: 'Certificate',
@@ -175,7 +177,7 @@ export const packages: Package[] = [
           },
           {
             name: '"signatureAlgorithm"',
-            type: 'string',
+            type: '"SHA256WithRSA" | "SHA384WithRSA" | "SHA512WithRSA" | "ECDSAWithSHA256" | "ECDSAWithSHA384" | "ECDSAWithSHA512" | "PureEd25519"',
             required: false,
             description:
               'Signature algorithm to use. Allowed values for RSA keys: SHA256WithRSA, SHA384WithRSA, SHA512WithRSA. Allowed values for ECDSA keys: ECDSAWithSHA256, ECDSAWithSHA384, ECDSAWithSHA512. Allowed values for Ed25519 keys: PureEd25519.',
@@ -195,7 +197,7 @@ export const packages: Package[] = [
           },
           {
             name: '"usages"',
-            type: 'string[]',
+            type: '("signing" | "digital signature" | "content commitment" | "key encipherment" | "key agreement" | "data encipherment" | "cert sign" | "crl sign" | "encipher only" | "decipher only" | "any" | "server auth" | "client auth" | "code signing" | "email protection" | "s/mime" | "ipsec end system" | "ipsec tunnel" | "ipsec user" | "timestamping" | "ocsp signing" | "microsoft sgc" | "netscape sgc")[]',
             required: false,
             description:
               'Requested key usages and extended key usages. These usages are used to set the `usages` field on the created CertificateRequest resources. If `encodeUsagesInRequest` is unset or set to `true`, the usages will additionally be encoded in the `request` field which contains the CSR blob. If unset, defaults to `digital signature` and `key encipherment`.',
@@ -288,7 +290,7 @@ export const packages: Package[] = [
           },
           {
             name: '"restart"',
-            type: 'string',
+            type: '"" | "RollingUpdate" | "rollingupdate"',
             required: false,
             description:
               "In case 'RollingUpdate' specified, the operator will always restart ClickHouse pods during reconcile. This options is used in rare cases when force restart is required and is typically removed after the use in order to avoid unneeded restarts.",
@@ -384,6 +386,7 @@ export const packages: Package[] = [
     operator: 'external-dns',
     operatorVersion: '0.14.0',
     keywords: ['externaldns'],
+    providerInterfaces: ['dns'],
     components: [
       {
         name: 'DNSEndpoint',
@@ -408,6 +411,7 @@ export const packages: Package[] = [
     operator: 'envoy-gateway',
     operatorVersion: '1.7.0',
     keywords: ['gateway'],
+    providerInterfaces: ['endpoint'],
     components: [
       {
         name: 'EnvoyProxy',
@@ -451,7 +455,7 @@ export const packages: Package[] = [
           },
           {
             name: '"ipFamily"',
-            type: 'string',
+            type: '"IPv4" | "IPv6" | "DualStack"',
             required: false,
             description:
               'IPFamily specifies the IP family for the EnvoyProxy fleet. This setting only affects the Gateway listener port and does not impact other aspects of the Envoy proxy configuration. If not specified, the system will operate as follows: - It defaults to IPv4 only. - IPv6 and dual-stack environments are not supported in this default configuration. Note: To enable IPv6 or dual-stack functionality, explicit configuration is required.',
@@ -464,7 +468,7 @@ export const packages: Package[] = [
           },
           {
             name: '"luaValidation"',
-            type: 'string',
+            type: '"Strict" | "InsecureSyntax" | "Disabled"',
             required: false,
             description:
               'LuaValidation determines strictness of the Lua script validation for Lua EnvoyExtensionPolicies Default: Strict',
@@ -597,6 +601,7 @@ export const packages: Package[] = [
     operator: 'keycloak-operator',
     operatorVersion: '24.0.0',
     keywords: ['keycloak'],
+    providerInterfaces: ['secret'],
     components: [
       {
         name: 'Keycloak',
@@ -911,7 +916,7 @@ export const packages: Package[] = [
           },
           {
             name: '"managementState"',
-            type: 'string',
+            type: '"Managed" | "Unmanaged"',
             required: false,
             description:
               'ManagementState defines if the CR should be managed by the operator or not. Default is managed.',
@@ -951,7 +956,7 @@ export const packages: Package[] = [
           },
           {
             name: '"size"',
-            type: 'string',
+            type: '"1x.demo" | "1x.pico" | "1x.extra-small" | "1x.small" | "1x.medium"',
             required: true,
             description: 'Size defines one of the support Loki deployment scale out sizes.',
           },
@@ -1131,7 +1136,7 @@ export const packages: Package[] = [
           },
           {
             name: '"dnsPolicy"',
-            type: 'string',
+            type: '"ClusterFirstWithHostNet" | "ClusterFirst" | "Default" | "None"',
             required: false,
             description: 'dnsPolicy defines the DNS policy for the pods.',
           },
@@ -1192,7 +1197,7 @@ export const packages: Package[] = [
           },
           {
             name: '"imagePullPolicy"',
-            type: 'string',
+            type: '"" | "Always" | "Never" | "IfNotPresent"',
             required: false,
             description:
               "imagePullPolicy for the 'alertmanager', 'init-config-reloader' and 'config-reloader' containers. See https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for more details.",
@@ -1226,13 +1231,13 @@ export const packages: Package[] = [
           },
           {
             name: '"logFormat"',
-            type: 'string',
+            type: '"" | "logfmt" | "json"',
             required: false,
             description: 'logFormat for Alertmanager to be configured with.',
           },
           {
             name: '"logLevel"',
-            type: 'string',
+            type: '"" | "debug" | "info" | "warn" | "error"',
             required: false,
             description: 'logLevel for Alertmanager to be configured with.',
           },
@@ -1265,7 +1270,7 @@ export const packages: Package[] = [
           },
           {
             name: '"podManagementPolicy"',
-            type: 'string',
+            type: '"OrderedReady" | "Parallel"',
             required: false,
             description:
               'podManagementPolicy defines the policy for creating/deleting pods when scaling up and down. Unlike the default StatefulSet behavior, the default policy is `Parallel` to avoid manual intervention in case a pod gets stuck during a rollout. Note that updating this value implies the recreation of the StatefulSet which incurs a service outage.',
@@ -1510,7 +1515,7 @@ export const packages: Package[] = [
           },
           {
             name: '"scrapeProtocols"',
-            type: 'string[]',
+            type: '("PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4")[]',
             required: false,
             description:
               '`scrapeProtocols` defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred). If unset, Prometheus uses its default value. It requires Prometheus >= v2.49.0.',
@@ -1653,7 +1658,7 @@ export const packages: Package[] = [
           },
           {
             name: '"dnsPolicy"',
-            type: 'string',
+            type: '"ClusterFirstWithHostNet" | "ClusterFirst" | "Default" | "None"',
             required: false,
             description: 'dnsPolicy defines the DNS policy for the pods.',
           },
@@ -1820,7 +1825,7 @@ export const packages: Package[] = [
           },
           {
             name: '"imagePullPolicy"',
-            type: 'string',
+            type: '"" | "Always" | "Never" | "IfNotPresent"',
             required: false,
             description:
               "imagePullPolicy defines the image pull policy for the 'prometheus', 'init-config-reloader' and 'config-reloader' containers. See https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for more details.",
@@ -1876,13 +1881,13 @@ export const packages: Package[] = [
           },
           {
             name: '"logFormat"',
-            type: 'string',
+            type: '"" | "logfmt" | "json"',
             required: false,
             description: 'logFormat for Log level for Prometheus and the config-reloader sidecar.',
           },
           {
             name: '"logLevel"',
-            type: 'string',
+            type: '"" | "debug" | "info" | "warn" | "error"',
             required: false,
             description: 'logLevel for Prometheus and the config-reloader sidecar.',
           },
@@ -1902,14 +1907,14 @@ export const packages: Package[] = [
           },
           {
             name: '"nameEscapingScheme"',
-            type: 'string',
+            type: '"AllowUTF8" | "Underscores" | "Dots" | "Values"',
             required: false,
             description:
               'nameEscapingScheme defines the character escaping scheme that will be requested when scraping for metric and label names that do not conform to the legacy Prometheus character set. It requires Prometheus >= v3.4.0.',
           },
           {
             name: '"nameValidationScheme"',
-            type: 'string',
+            type: '"UTF8" | "Legacy"',
             required: false,
             description:
               'nameValidationScheme defines the validation scheme for metric and label names. It requires Prometheus >= v2.55.0.',
@@ -1957,7 +1962,7 @@ export const packages: Package[] = [
           },
           {
             name: '"podManagementPolicy"',
-            type: 'string',
+            type: '"OrderedReady" | "Parallel"',
             required: false,
             description:
               'podManagementPolicy defines the policy for creating/deleting pods when scaling up and down. Unlike the default StatefulSet behavior, the default policy is `Parallel` to avoid manual intervention in case a pod gets stuck during a rollout. Note that updating this value implies the recreation of the StatefulSet which incurs a service outage.',
@@ -2045,7 +2050,7 @@ export const packages: Package[] = [
           },
           {
             name: '"reloadStrategy"',
-            type: 'string',
+            type: '"HTTP" | "ProcessSignal"',
             required: false,
             description:
               'reloadStrategy defines the strategy used to reload the Prometheus configuration. If not specified, the configuration is reloaded using the /-/reload HTTP endpoint.',
@@ -2064,7 +2069,7 @@ export const packages: Package[] = [
           },
           {
             name: '"remoteWriteReceiverMessageVersions"',
-            type: 'string[]',
+            type: '("V1.0" | "V2.0")[]',
             required: false,
             description:
               'remoteWriteReceiverMessageVersions list of the protobuf message versions to accept when receiving the remote writes. It requires Prometheus >= v2.54.0.',
@@ -2209,7 +2214,7 @@ export const packages: Package[] = [
           },
           {
             name: '"scrapeProtocols"',
-            type: 'string[]',
+            type: '("PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4" | "PrometheusText1.0.0")[]',
             required: false,
             description:
               'scrapeProtocols defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred). If unset, Prometheus uses its default value. It requires Prometheus >= v2.49.0. `PrometheusText1.0.0` requires Prometheus >= v3.0.0.',
@@ -2244,7 +2249,7 @@ export const packages: Package[] = [
           },
           {
             name: '"serviceDiscoveryRole"',
-            type: 'string',
+            type: '"Endpoints" | "EndpointSlice"',
             required: false,
             description:
               'serviceDiscoveryRole defines the service discovery role used to discover targets from `ServiceMonitor` objects and Alertmanager endpoints. If set, the value should be either "Endpoints" or "EndpointSlice". If unset, the operator assumes the "Endpoints" role.',
@@ -2515,7 +2520,7 @@ export const packages: Package[] = [
           },
           {
             name: '"fallbackScrapeProtocol"',
-            type: 'string',
+            type: '"PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4" | "PrometheusText1.0.0"',
             required: false,
             description:
               'fallbackScrapeProtocol defines the protocol to use if a scrape returns blank, unparseable, or otherwise invalid Content-Type. It requires Prometheus >= v3.0.0.',
@@ -2643,14 +2648,14 @@ export const packages: Package[] = [
           },
           {
             name: '"nameEscapingScheme"',
-            type: 'string',
+            type: '"AllowUTF8" | "Underscores" | "Dots" | "Values"',
             required: false,
             description:
               'nameEscapingScheme defines the metric name escaping mode to request through content negotiation. It requires Prometheus >= v3.4.0.',
           },
           {
             name: '"nameValidationScheme"',
-            type: 'string',
+            type: '"UTF8" | "Legacy"',
             required: false,
             description:
               'nameValidationScheme defines the validation scheme for metric and label names. It requires Prometheus >= v3.0.0.',
@@ -2758,7 +2763,7 @@ export const packages: Package[] = [
           },
           {
             name: '"scheme"',
-            type: 'string',
+            type: '"http" | "https" | "HTTP" | "HTTPS"',
             required: false,
             description: 'scheme defines the protocol scheme used for requests.',
           },
@@ -2790,7 +2795,7 @@ export const packages: Package[] = [
           },
           {
             name: '"scrapeProtocols"',
-            type: 'string[]',
+            type: '("PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4" | "PrometheusText1.0.0")[]',
             required: false,
             description:
               'scrapeProtocols defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred). If unset, Prometheus uses its default value. It requires Prometheus >= v2.49.0.',
@@ -2913,7 +2918,7 @@ export const packages: Package[] = [
           },
           {
             name: '"scrapeProtocols"',
-            type: 'string[]',
+            type: '("PrometheusProto" | "OpenMetricsText0.0.1" | "OpenMetricsText1.0.0" | "PrometheusText0.0.4")[]',
             required: false,
             description:
               '`scrapeProtocols` defines the protocols to negotiate during a scrape. It tells clients the protocols supported by Prometheus in order of preference (from most to least preferred). If unset, Prometheus uses its default value. It requires Prometheus >= v2.49.0.',
@@ -3021,7 +3026,7 @@ export const packages: Package[] = [
           },
           {
             name: '"dnsPolicy"',
-            type: 'string',
+            type: '"ClusterFirstWithHostNet" | "ClusterFirst" | "Default" | "None"',
             required: false,
             description: 'dnsPolicy defines the DNS policy for the pods.',
           },
@@ -3094,7 +3099,7 @@ export const packages: Package[] = [
           },
           {
             name: '"imagePullPolicy"',
-            type: 'string',
+            type: '"" | "Always" | "Never" | "IfNotPresent"',
             required: false,
             description:
               "imagePullPolicy defines for the 'thanos', 'init-config-reloader' and 'config-reloader' containers. See https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy for more details.",
@@ -3129,13 +3134,13 @@ export const packages: Package[] = [
           },
           {
             name: '"logFormat"',
-            type: 'string',
+            type: '"" | "logfmt" | "json"',
             required: false,
             description: 'logFormat for ThanosRuler to be configured with.',
           },
           {
             name: '"logLevel"',
-            type: 'string',
+            type: '"" | "debug" | "info" | "warn" | "error"',
             required: false,
             description: 'logLevel for ThanosRuler to be configured with.',
           },
@@ -3175,7 +3180,7 @@ export const packages: Package[] = [
           },
           {
             name: '"podManagementPolicy"',
-            type: 'string',
+            type: '"OrderedReady" | "Parallel"',
             required: false,
             description:
               'podManagementPolicy defines the policy for creating/deleting pods when scaling up and down. Unlike the default StatefulSet behavior, the default policy is `Parallel` to avoid manual intervention in case a pod gets stuck during a rollout. Note that updating this value implies the recreation of the StatefulSet which incurs a service outage.',
@@ -3556,7 +3561,7 @@ export const packages: Package[] = [
           },
           {
             name: '"logLevel"',
-            type: 'string',
+            type: '"error" | "warning" | "info" | "debug" | "trace"',
             required: false,
             description:
               "The instances' log level, one of the following values: error, warning, info (default), debug, trace",
@@ -3621,14 +3626,14 @@ export const packages: Package[] = [
           },
           {
             name: '"primaryUpdateMethod"',
-            type: 'string',
+            type: '"switchover" | "restart"',
             required: false,
             description:
               'Method to follow to upgrade the primary server during a rolling update procedure, after all replicas have been successfully updated: it can be with a switchover (`switchover`) or in-place (`restart` - default)',
           },
           {
             name: '"primaryUpdateStrategy"',
-            type: 'string',
+            type: '"unsupervised" | "supervised"',
             required: false,
             description:
               'Deployment strategy to follow to upgrade the primary server during a rolling update procedure, after all replicas have been successfully updated: it can be automated (`unsupervised` - default) or manual (`supervised`)',
@@ -3819,7 +3824,7 @@ export const packages: Package[] = [
           },
           {
             name: '"type"',
-            type: 'string',
+            type: '"rw" | "ro" | "r"',
             required: false,
             description: 'Type of service to forward traffic to. Default: `rw`.',
           },
@@ -3838,7 +3843,7 @@ export const packages: Package[] = [
         props: [
           {
             name: '"backupOwnerReference"',
-            type: 'string',
+            type: '"none" | "self" | "cluster"',
             required: false,
             description:
               'Indicates which ownerReference should be put inside the created backup resources.<br /> - none: no owner reference for created backup objects (same behavior as before the field was introduced)<br /> - self: sets the Scheduled backup object as owner of the backup<br /> - cluster: set the cluster as owner of the backup<br />',
@@ -3857,7 +3862,7 @@ export const packages: Package[] = [
           },
           {
             name: '"method"',
-            type: 'string',
+            type: '"barmanObjectStore" | "volumeSnapshot" | "plugin"',
             required: false,
             description:
               'The backup method to be used, possible options are `barmanObjectStore`, `volumeSnapshot` or `plugin`. Defaults to: `barmanObjectStore`.',
@@ -3897,7 +3902,7 @@ export const packages: Package[] = [
           },
           {
             name: '"target"',
-            type: 'string',
+            type: '"primary" | "prefer-standby"',
             required: false,
             description:
               'The policy to decide which instance should perform this backup. If empty, it defaults to `cluster.spec.backup.target`. Available options are empty string, `primary` and `prefer-standby`. `primary` to have backups run always on primary instances, `prefer-standby` to have backups run preferably on the most updated standby, if available.',
@@ -4325,7 +4330,7 @@ export const packages: Package[] = [
         props: [
           {
             name: '"accessMode"',
-            type: 'string',
+            type: '"ReadOnly" | "ReadWrite"',
             required: false,
             description: 'AccessMode defines the permissions for the backup storage location.',
           },

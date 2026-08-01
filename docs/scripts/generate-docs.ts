@@ -152,6 +152,8 @@ interface PackageDoc {
   operatorVersion?: string
   keywords: string[]
   components: ComponentDoc[]
+  /** Provider interfaces this package implements (e.g., 'secret', 'dns', 'endpoint', 'cert') */
+  providerInterfaces?: string[]
 }
 
 // ─── TypeScript extraction ───────────────────────────────────────────────────
@@ -585,6 +587,16 @@ async function generatePackages(): Promise<PackageDoc[]> {
       delete (comp as any)._rawExamples
     }
 
+    // Map CRD groups to provider interfaces they implement
+    const providerInterfaceMap: Record<string, string[]> = {
+      'cert-manager': ['cert'],
+      'externaldns': ['dns'],
+      'gateway': ['endpoint'],
+      'keycloak': ['secret'],
+      'vault-secrets-operator': ['secret'],
+      'openbao': ['secret'],
+    }
+
     packages.push({
       slug: groupKey,
       name: `@r8s/crds/${groupKey}`,
@@ -595,6 +607,7 @@ async function generatePackages(): Promise<PackageDoc[]> {
       operatorVersion: meta?.version,
       keywords: [groupKey],
       components,
+      providerInterfaces: providerInterfaceMap[groupKey],
     })
   }
 
@@ -869,6 +882,7 @@ async function writePackages(packages: PackageDoc[]) {
     '  operatorVersion?: string;',
     '  keywords: string[];',
     '  components: ComponentDoc[];',
+    '  providerInterfaces?: string[];',
     '}',
     '',
     'export const packages: Package[] = [',
@@ -884,6 +898,9 @@ async function writePackages(packages: PackageDoc[]) {
     if (pkg.operator) lines.push(`    operator: "${pkg.operator}",`)
     if (pkg.operatorVersion) lines.push(`    operatorVersion: "${pkg.operatorVersion}",`)
     lines.push(`    keywords: [${pkg.keywords.map((k) => `"${k}"`).join(', ')}],`)
+    if (pkg.providerInterfaces) {
+      lines.push(`    providerInterfaces: [${pkg.providerInterfaces.map((i) => `"${i}"`).join(', ')}],`)
+    }
     lines.push('    components: [')
     for (const comp of pkg.components) {
       lines.push('      {')
