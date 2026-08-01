@@ -11,15 +11,22 @@ COPY package.json package-lock.json ./
 # Install root dependencies (includes workspace packages)
 RUN npm ci
 
-# Copy workspace packages and tsconfig
+# Copy workspace packages, tsconfig, and docs package.json (needed for dep extraction)
 COPY packages/ ./packages/
 COPY tsconfig.json ./
+COPY docs/package.json ./docs/
 
-# Build all workspace packages (same as CI — never drifts when packages change)
-RUN npm run build
+# Build only the packages that docs depends on (derived from docs/package.json).
+# cli and r8s-controller are excluded — they have runtime deps not needed for docs.
+# Package list is extracted from docs/package.json @r8s/* dependencies.
+RUN PACKAGES=$(node -e " \
+  const deps = require('./docs/package.json').dependencies; \
+  const pkgs = Object.keys(deps).filter(d => d.startsWith('@r8s/')).map(d => 'packages/' + d.replace('@r8s/', '')); \
+  console.log(pkgs.join(' ')) \
+") && npx tsc -b $PACKAGES
 
-# Copy docs package files and install docs dependencies
-COPY docs/package.json docs/package-lock.json ./docs/
+# Install docs dependencies
+COPY docs/package-lock.json ./docs/
 RUN cd docs && npm ci
 
 # Copy docs source
