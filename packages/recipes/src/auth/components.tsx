@@ -121,11 +121,11 @@ export interface RealmProps extends RealmConfig {
  * </Realm>
  */
 export function Realm(props: RealmProps) {
-  const { id, displayName, enabled = true, children } = props
+  const { id, displayName, enabled = true, identityProviders: propIdentityProviders = [], clients: propClients = [], children } = props
 
   // Collect clients and identity providers from children
-  const clients: ClientConfig[] = []
-  const identityProviders: IdentityProviderConfig[] = []
+  const clients: ClientConfig[] = [...propClients]
+  const identityProviders: IdentityProviderConfig[] = [...propIdentityProviders]
   const childArray = Array.isArray(children) ? children : [children]
 
   for (const child of childArray) {

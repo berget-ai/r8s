@@ -157,17 +157,28 @@ export function SecretProvider(props: SecretProviderProps) {
   const sharedOperators = useContext(OperatorContext)
 
   // Resolve provider config
-  const config: SecretProviderConfig =
-    typeof provider === 'string'
-      ? { backend: provider }
-      : 'backend' in provider
-        ? provider
-        : {
-            backend: 'openbao',
-            mount: (provider as any).mount,
-            path: (provider as any).path,
-            authRef: (provider as any).authRef,
-          }
+  let config: SecretProviderConfig
+  if (typeof provider === 'string') {
+    config = { backend: provider }
+  } else if ('backend' in provider) {
+    config = provider
+  } else if (provider && typeof provider === 'object' && 'type' in provider) {
+    // r8s JSX element — call the component with its props
+    const component = (provider as any).type
+    if (component === OpenBao) {
+      config = OpenBao((provider as any).props)
+    } else if (component === Vault) {
+      config = Vault((provider as any).props)
+    } else if (component === SealedSecrets) {
+      config = SealedSecrets((provider as any).props)
+    } else if (component === ManualSecrets) {
+      config = ManualSecrets((provider as any).props)
+    } else {
+      throw new Error(`Unknown secret provider component: ${component.name || component}`)
+    }
+  } else {
+    throw new Error(`Invalid secret provider: ${JSON.stringify(provider)}`)
+  }
 
   const resources: ReturnType<typeof jsx>[] = []
 
