@@ -96,6 +96,30 @@ export default function Platform() {
   );
 }`
 
+const providerExample = `import { SecretProvider, OpenBao, DnsProvider, ExternalDns, EndpointProvider, Nginx, App } from '@r8s/recipes';
+
+export default () => (
+  <SecretProvider provider={<OpenBao mount="secret" path="infra" />}>
+    <DnsProvider provider={<ExternalDns server="ns1.example.com" tsig={{ path: 'dns/tsig', key: 'secret' }} />}>
+      <EndpointProvider provider={<Nginx className="nginx-internal" />}>
+        <App name="api" image="myapp:v1" host="api.example.com" />
+      </EndpointProvider>
+    </DnsProvider>
+  </SecretProvider>
+);`
+
+const providerSimpleExample = `import { SecretProvider, DnsProvider, EndpointProvider, App } from '@r8s/recipes';
+
+export default () => (
+  <SecretProvider provider="openbao">
+    <DnsProvider provider="external-dns">
+      <EndpointProvider provider="nginx">
+        <App name="api" image="myapp:v1" host="api.example.com" />
+      </EndpointProvider>
+    </DnsProvider>
+  </SecretProvider>
+);`
+
 export default function Page() {
   return (
     <div className="space-y-12">
@@ -171,6 +195,27 @@ export default function Page() {
           be provided once and consumed everywhere.
         </p>
         <CodeBlock code={contextExample} language="tsx" />
+      </div>
+
+      {/* Providers */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <span className="text-moss font-mono text-sm">06</span>
+          <h2 className="text-2xl">Providers</h2>
+        </div>
+        <p className="text-cloud/70 leading-relaxed">
+          Providers configure cluster-level concerns: secrets, DNS, and routing. Use strings for
+          simple cases, components for advanced configuration.
+        </p>
+        <CodeBlock code={providerSimpleExample} language="tsx" />
+        <p className="text-cloud/70 leading-relaxed">
+          For advanced configuration, pass a component instead of a string:
+        </p>
+        <CodeBlock code={providerExample} language="tsx" />
+        <p className="text-cloud/70 text-sm">
+          Each provider declares its required operators automatically. The hierarchy is composable —
+          wrap your entire cluster or a single namespace.
+        </p>
       </div>
 
       {/* Next Steps */}

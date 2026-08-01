@@ -2,6 +2,7 @@ import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { Ingress } from '@r8s/k8s-types'
 import type { BaseRouteProps } from '@r8s/k8s-types'
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
+import { EndpointContext } from './endpoint-provider'
 import { nginxIngressOperator } from './operators'
 import { operators } from '@r8s/crds'
 import { DNSEndpointComponent } from '@r8s/crds/externaldns'
@@ -62,6 +63,7 @@ export function Endpoint(props: EndpointProps) {
   } = props
 
   const routing = useContext(RoutingContext)
+  const endpointConfig = useContext(EndpointContext)
   const sharedOperators = useContext(OperatorContext)
   const dnsConfig = useContext(DnsContext)
 
@@ -180,7 +182,7 @@ export function Endpoint(props: EndpointProps) {
         },
       },
       spec: {
-        ingressClassName: 'nginx',
+        ingressClassName: endpointConfig.settings?.ingressClassName ?? 'nginx',
         rules: [
           {
             host,

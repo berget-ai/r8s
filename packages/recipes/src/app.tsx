@@ -105,7 +105,7 @@ export function App(props: AppProps) {
     vault = {},
     resources,
     cache = false,
-    dns = false,
+    dns,
     children,
   } = props
 
