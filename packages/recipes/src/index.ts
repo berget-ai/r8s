@@ -18,13 +18,38 @@ export { Monitoring, type MonitoringProps } from './monitoring'
 export { Backup, type BackupProps } from './backup'
 
 // Provider components — fine-grained control over cluster configuration
-export { SecretProvider, type SecretProviderProps } from './secret-provider'
-export { DnsProvider, type DnsProviderProps, type DnsConfig, DnsContext } from './dns-provider'
+export {
+  SecretProvider,
+  type SecretProviderProps,
+  type SecretProviderValue,
+  OpenBao,
+  type OpenBaoProps,
+  Vault,
+  type VaultProps,
+  SealedSecrets,
+  type SealedSecretsProps,
+  Kubernetes,
+  type KubernetesProps,
+} from './secret-provider'
+export {
+  DnsProvider,
+  type DnsProviderProps,
+  type DnsProviderValue,
+  type DnsConfig,
+  DnsContext,
+  ExternalDns,
+  type ExternalDnsProps,
+} from './dns-provider'
 export {
   EndpointProvider,
   type EndpointProviderProps,
+  type EndpointProviderValue,
   type EndpointConfig,
   EndpointContext,
+  Nginx,
+  type NginxProps,
+  EnvoyGateway,
+  type EnvoyGatewayProps,
 } from './endpoint-provider'
 
 // Operator declarations for components in this package

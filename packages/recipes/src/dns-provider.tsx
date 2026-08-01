@@ -4,43 +4,68 @@ import { OperatorContext, SecretContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
 
 /**
- * DNS provider configuration.
+ * ExternalDNS configuration component.
  *
- * Currently supports ExternalDNS with RFC 2136 (TSIG) or cloud providers
- * (Route53, Cloudflare, Google Cloud DNS).
+ * Use as a value in DnsProvider when you need custom configuration:
+ * ```tsx
+ * <DnsProvider provider={<ExternalDns server="ns1.example.com" tsig={{ path: 'dns/tsig', key: 'secret' }} />}>
+ * ```
  */
+export interface ExternalDnsProps {
+  /** DNS server for RFC 2136 updates (e.g., 'ns1.example.com') */
+  server?: string
+  /** DNS zone name (e.g., 'example.com') */
+  zone?: string
+  /** TSIG secret for secure updates */
+  tsig?: {
+    /** Vault/OpenBao path to the TSIG key */
+    path: string
+    /** Key in the Vault/OpenBao secret */
+    key: string
+    /** Kubernetes Secret name to create (default: 'external-dns-tsig') */
+    secretName?: string
+  }
+  /** Cloud provider config (alternative to RFC 2136) */
+  cloud?: {
+    provider: 'aws' | 'google' | 'cloudflare'
+    /** Provider-specific options */
+    options?: Record<string, string>
+  }
+}
+
+export function ExternalDns(props: ExternalDnsProps): DnsConfig {
+  return {
+    provider: 'external-dns',
+    settings: props,
+  }
+}
+
+/** DNS provider configuration */
 export interface DnsConfig {
   /** DNS provider type */
   provider: 'external-dns'
-  /** ExternalDNS-specific settings */
-  settings: {
-    /** DNS server for RFC 2136 updates (e.g., 'ns1.example.com') */
-    server?: string
-    /** DNS zone name (e.g., 'example.com') */
-    zone?: string
-    /** TSIG secret for secure updates */
-    tsig?: {
-      /** Vault/OpenBao path to the TSIG key */
-      path: string
-      /** Key in the Vault/OpenBao secret */
-      key: string
-      /** Kubernetes Secret name to create (default: 'external-dns-tsig') */
-      secretName?: string
-    }
-    /** Cloud provider config (alternative to RFC 2136) */
-    cloud?: {
-      provider: 'aws' | 'google' | 'cloudflare'
-      /** Provider-specific options (e.g., { project: 'my-project' } for Google) */
-      options?: Record<string, string>
-    }
-  }
+  /** Provider-specific settings */
+  settings: ExternalDnsProps
 }
+
+/** Union of all DNS provider configurations */
+export type DnsProviderValue = 'external-dns' | DnsConfig
 
 export const DnsContext = createContext<DnsConfig | null>(null)
 
 export interface DnsProviderProps {
-  /** DNS configuration */
-  config: DnsConfig
+  /**
+   * DNS provider — string for simple cases, component for advanced config.
+   *
+   * @example
+   * // Simple string
+   * <DnsProvider provider="external-dns">
+   *
+   * @example
+   * // Advanced component
+   * <DnsProvider provider={<ExternalDns server="ns1.example.com" tsig={{ path: 'dns/tsig', key: 'secret' }} />}>
+   */
+  provider: DnsProviderValue
   /** Child components */
   children?: unknown
 }
@@ -52,38 +77,46 @@ export interface DnsProviderProps {
  * All Endpoint/App children automatically create DNS records.
  *
  * @example
- * import { DnsProvider, SecretProvider } from '@r8s/recipes'
+ * import { DnsProvider, SecretProvider, App } from '@r8s/recipes'
  *
- * // RFC 2136 with TSIG from OpenBao
- * <SecretProvider provider="openbao" mount="secret" path="infra">
- *   <DnsProvider
- *     provider="external-dns"
- *     settings={{
- *       server: 'ns1.example.com',
- *       zone: 'example.com',
- *       tsig: { path: 'dns/tsig', key: 'secret' },
- *     }}
- *   >
+ * // Simple — string provider
+ * <SecretProvider provider="openbao">
+ *   <DnsProvider provider="external-dns">
+ *     <App name="api" image="myapp:v1" host="api.example.com" />
+ *   </DnsProvider>
+ * </SecretProvider>
+ *
+ * @example
+ * // Advanced — component provider with TSIG
+ * <SecretProvider provider="openbao">
+ *   <DnsProvider provider={
+ *     <ExternalDns
+ *       server="ns1.example.com"
+ *       zone="example.com"
+ *       tsig={{ path: 'dns/tsig', key: 'secret' }}
+ *     />
+ *   }>
  *     <App name="api" image="myapp:v1" host="api.example.com" />
  *   </DnsProvider>
  * </SecretProvider>
  *
  * @example
  * // Google Cloud DNS
- * <DnsProvider
- *   provider="external-dns"
- *   settings={{
- *     cloud: { provider: 'google', options: { project: 'my-project' } },
- *   }}
- * >
+ * <DnsProvider provider={
+ *   <ExternalDns cloud={{ provider: 'google', options: { project: 'my-project' } }} />
+ * }>
  *   <App name="api" image="myapp:v1" host="api.example.com" />
  * </DnsProvider>
  */
 export function DnsProvider(props: DnsProviderProps) {
-  const { config, children } = props
+  const { provider, children } = props
 
   const sharedOperators = useContext(OperatorContext)
   const secrets = useContext(SecretContext)
+
+  // Resolve provider config
+  const config: DnsConfig =
+    typeof provider === 'string' ? { provider, settings: {} } : provider
 
   const resources: ReturnType<typeof jsx>[] = []
 

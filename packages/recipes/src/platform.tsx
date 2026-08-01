@@ -8,9 +8,13 @@ import {
   type SecretProvider as SecretProviderConfig,
 } from '@r8s/core/defaults'
 import type { Operator } from '@r8s/k8s-types'
-import { SecretProvider } from './secret-provider'
-import { DnsProvider, type DnsConfig } from './dns-provider'
-import { EndpointProvider, type EndpointConfig } from './endpoint-provider'
+import { SecretProvider, type SecretProviderValue } from './secret-provider'
+import { DnsProvider, type DnsProviderValue } from './dns-provider'
+import {
+  EndpointProvider,
+  type EndpointProviderValue,
+  type EndpointConfig,
+} from './endpoint-provider'
 
 export type RoutingMode = 'ingress' | 'gateway'
 
@@ -38,13 +42,19 @@ export interface PlatformProps {
    * - 'vault': HashiCorp Vault Secrets Operator
    * - 'sealed-secrets': Bitnami Sealed Secrets
    * - 'kubernetes': plain Kubernetes Secrets (CNPG-managed, no plaintext)
+   *
+   * Use a string for simple cases, or a component for advanced config:
+   * `secrets={<OpenBao mount="secret" path="infra" />}`
    */
-  secrets?: SecretProviderConfig
+  secrets?: SecretProviderValue
   /**
    * DNS configuration for all child endpoints. When set, Endpoint/App
    * automatically create DNS records via ExternalDNS.
+   *
+   * Use a string for simple cases, or a component for advanced config:
+   * `dns={<ExternalDns server="ns1.example.com" tsig={{...}} />}`
    */
-  dns?: DnsConfig
+  dns?: DnsProviderValue
   /** Child components that inherit the cluster-level configuration this Platform sets */
   children?: unknown
 }
@@ -135,29 +145,20 @@ export function Platform(props: PlatformProps) {
 
   // Apply secrets context via SecretProvider
   if (secrets) {
-    result = jsx(SecretProvider, {
-      provider: secrets.backend,
-      mount: secrets.mount,
-      path: secrets.path,
-      authRef: secrets.authRef,
-      children: result,
-    })
+    result = jsx(SecretProvider, { provider: secrets, children: result })
   }
 
   // Apply DNS context via DnsProvider
   if (dns) {
-    result = jsx(DnsProvider, { config: dns, children: result })
+    result = jsx(DnsProvider, { provider: dns, children: result })
   }
 
   // Apply routing context via EndpointProvider
-  const endpointConfig: EndpointConfig = {
-    provider: routing === 'gateway' ? 'envoy-gateway' : 'nginx',
-    settings: {
-      gatewayClassName,
-      tls: { clusterIssuer: 'letsencrypt-prod' },
-    },
-  }
-  result = jsx(EndpointProvider, { config: endpointConfig, children: result })
+  const endpointProvider: EndpointProviderValue =
+    routing === 'gateway'
+      ? { provider: 'envoy-gateway', settings: { gatewayClassName } }
+      : 'nginx'
+  result = jsx(EndpointProvider, { provider: endpointProvider, children: result })
 
   // Apply operators context
   if (operators && operators.length > 0) {

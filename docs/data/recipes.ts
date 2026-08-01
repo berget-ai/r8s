@@ -311,6 +311,45 @@ export const recipes: Recipe[] = [
     },
   },
   {
+    slug: 'external-dns',
+    title: 'ExternalDns',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'ExternalDns',
+      description:
+        "ExternalDNS configuration component. Use as a value in DnsProvider when you need custom configuration: ```tsx <DnsProvider provider={<ExternalDns server=\"ns1.example.com\" tsig={{ path: 'dns/tsig', key: 'secret' }} />}> ```",
+      props: [
+        {
+          name: 'server',
+          type: 'string',
+          required: false,
+          description: "DNS server for RFC 2136 updates (e.g., 'ns1.example.com')",
+        },
+        {
+          name: 'zone',
+          type: 'string',
+          required: false,
+          description: "DNS zone name (e.g., 'example.com')",
+        },
+        {
+          name: 'tsig',
+          type: '{ path: string, key: string, secretName?: string }',
+          required: false,
+          description: 'TSIG secret for secure updates',
+        },
+        {
+          name: 'cloud',
+          type: "{ provider: 'aws' | 'google' | 'cloudflare', options?: Record }",
+          required: false,
+          description: 'Cloud provider config (alternative to RFC 2136)',
+        },
+      ],
+      examples: [],
+    },
+  },
+  {
     slug: 'dns-provider',
     title: 'DnsProvider',
     description:
@@ -322,19 +361,82 @@ export const recipes: Recipe[] = [
       description:
         'DnsProvider — cluster-level DNS configuration. Sets up ExternalDNS with the specified provider and credentials. All Endpoint/App children automatically create DNS records.',
       props: [
-        { name: 'config', type: 'DnsConfig', required: true, description: 'DNS configuration' },
+        {
+          name: 'provider',
+          type: 'DnsProviderValue',
+          required: true,
+          description: 'DNS provider — string for simple cases, component for advanced config.',
+        },
         { name: 'children', type: 'unknown', required: false, description: 'Child components' },
       ],
       examples: [
         {
-          tsx: 'import { DnsProvider, SecretProvider } from \'@r8s/recipes\'\n\n// RFC 2136 with TSIG from OpenBao\n<SecretProvider provider="openbao" mount="secret" path="infra">\n  <DnsProvider\n    provider="external-dns"\n    settings={{\n      server: \'ns1.example.com\',\n      zone: \'example.com\',\n      tsig: { path: \'dns/tsig\', key: \'secret\' },\n    }}\n  >\n    <App name="api" image="myapp:v1" host="api.example.com" />\n  </DnsProvider>\n</SecretProvider>',
+          tsx: 'import { DnsProvider, SecretProvider, App } from \'@r8s/recipes\'\n\n// Simple — string provider\n<SecretProvider provider="openbao">\n  <DnsProvider provider="external-dns">\n    <App name="api" image="myapp:v1" host="api.example.com" />\n  </DnsProvider>\n</SecretProvider>',
           yaml: null,
         },
         {
-          tsx: 'export default // Google Cloud DNS\n<DnsProvider\n  provider="external-dns"\n  settings={{\n    cloud: { provider: \'google\', options: { project: \'my-project\' } },\n  }}\n>\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</DnsProvider>',
+          tsx: 'export default // Advanced — component provider with TSIG\n<SecretProvider provider="openbao">\n  <DnsProvider provider={\n    <ExternalDns\n      server="ns1.example.com"\n      zone="example.com"\n      tsig={{ path: \'dns/tsig\', key: \'secret\' }}\n    />\n  }>\n    <App name="api" image="myapp:v1" host="api.example.com" />\n  </DnsProvider>\n</SecretProvider>',
+          yaml: null,
+        },
+        {
+          tsx: 'export default // Google Cloud DNS\n<DnsProvider provider={\n  <ExternalDns cloud={{ provider: \'google\', options: { project: \'my-project\' } }} />\n}>\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</DnsProvider>',
           yaml: null,
         },
       ],
+    },
+  },
+  {
+    slug: 'nginx',
+    title: 'Nginx',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'Nginx',
+      description:
+        'Nginx Ingress configuration component. Use as a value in EndpointProvider when you need custom configuration: ```tsx <EndpointProvider provider={<Nginx className="nginx-internal" />}> ```',
+      props: [
+        {
+          name: 'className',
+          type: 'string',
+          required: false,
+          description: "Ingress class name (default: 'nginx')",
+        },
+        {
+          name: 'tls',
+          type: '{ clusterIssuer?: string }',
+          required: false,
+          description: 'Default TLS configuration',
+        },
+      ],
+      examples: [],
+    },
+  },
+  {
+    slug: 'envoy-gateway',
+    title: 'EnvoyGateway',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'EnvoyGateway',
+      description:
+        'Envoy Gateway configuration component. Use as a value in EndpointProvider when you need custom configuration: ```tsx <EndpointProvider provider={<EnvoyGateway className="eg" tls={{ clusterIssuer: \'letsencrypt\' }} />}> ```',
+      props: [
+        {
+          name: 'className',
+          type: 'string',
+          required: false,
+          description: "Gateway class name (default: 'eg')",
+        },
+        {
+          name: 'tls',
+          type: '{ clusterIssuer?: string }',
+          required: false,
+          description: 'Default TLS configuration',
+        },
+      ],
+      examples: [],
     },
   },
   {
@@ -350,20 +452,25 @@ export const recipes: Recipe[] = [
         'EndpointProvider — cluster-level routing configuration. Sets whether endpoints use nginx Ingress or Envoy Gateway (Gateway API). All Endpoint/App children read this context.',
       props: [
         {
-          name: 'config',
-          type: 'EndpointConfig',
+          name: 'provider',
+          type: 'EndpointProviderValue',
           required: true,
-          description: 'Endpoint configuration',
+          description:
+            'Endpoint provider — string for simple cases, component for advanced config.',
         },
         { name: 'children', type: 'unknown', required: false, description: 'Child components' },
       ],
       examples: [
         {
-          tsx: 'import { EndpointProvider } from \'@r8s/recipes\'\n\n// nginx Ingress (default)\n<EndpointProvider provider="nginx">\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</EndpointProvider>',
+          tsx: 'import { EndpointProvider, Nginx, App } from \'@r8s/recipes\'\n\n// Simple — string provider\n<EndpointProvider provider="nginx">\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</EndpointProvider>',
           yaml: null,
         },
         {
-          tsx: 'export default // Envoy Gateway with TLS\n<EndpointProvider\n  provider="envoy-gateway"\n  settings={{\n    gatewayClassName: \'eg\',\n    tls: { clusterIssuer: \'letsencrypt-prod\' },\n  }}\n>\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</EndpointProvider>',
+          tsx: 'export default // Advanced — component provider\n<EndpointProvider provider={<Nginx className="nginx-internal" tls={{ clusterIssuer: \'letsencrypt\' }} />}>\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</EndpointProvider>',
+          yaml: null,
+        },
+        {
+          tsx: 'export default // Envoy Gateway\n<EndpointProvider provider={<EnvoyGateway className="eg" tls={{ clusterIssuer: \'letsencrypt-prod\' }} />}>\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</EndpointProvider>',
           yaml: null,
         },
       ],
@@ -537,17 +644,17 @@ export const recipes: Recipe[] = [
         },
         {
           name: 'secrets',
-          type: 'SecretProviderConfig',
+          type: 'SecretProviderValue',
           required: false,
           description:
-            "Secrets backend for all child resources. When set, Database and other recipes generate credentials through this backend instead of requiring plaintext passwords. - 'openbao': OpenBao Vault Secrets Operator (default when omitted) - 'vault': HashiCorp Vault Secrets Operator - 'sealed-secrets': Bitnami Sealed Secrets - 'kubernetes': plain Kubernetes Secrets (CNPG-managed, no plaintext)",
+            "Secrets backend for all child resources. When set, Database and other recipes generate credentials through this backend instead of requiring plaintext passwords. - 'openbao': OpenBao Vault Secrets Operator (default when omitted) - 'vault': HashiCorp Vault Secrets Operator - 'sealed-secrets': Bitnami Sealed Secrets - 'kubernetes': plain Kubernetes Secrets (CNPG-managed, no plaintext) Use a string for simple cases, or a component for advanced config: `secrets={<OpenBao mount=\"secret\" path=\"infra\" />}`",
         },
         {
           name: 'dns',
-          type: 'DnsConfig',
+          type: 'DnsProviderValue',
           required: false,
           description:
-            'DNS configuration for all child endpoints. When set, Endpoint/App automatically create DNS records via ExternalDNS.',
+            'DNS configuration for all child endpoints. When set, Endpoint/App automatically create DNS records via ExternalDNS. Use a string for simple cases, or a component for advanced config: `dns={<ExternalDns server="ns1.example.com" tsig={{...}} />}`',
         },
         {
           name: 'children',
@@ -578,6 +685,99 @@ export const recipes: Recipe[] = [
     },
   },
   {
+    slug: 'open-bao',
+    title: 'OpenBao',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'OpenBao',
+      description:
+        'OpenBao configuration component. Use as a value in SecretProvider when you need custom configuration: ```tsx <SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom" />}> ```',
+      props: [
+        {
+          name: 'mount',
+          type: 'string',
+          required: false,
+          description: "OpenBao mount path (default: 'secret')",
+        },
+        {
+          name: 'path',
+          type: 'string',
+          required: false,
+          description: "Base path for all secrets (e.g., 'infra' → 'infra/app/db')",
+        },
+        {
+          name: 'authRef',
+          type: 'string',
+          required: false,
+          description: 'Auth reference (OpenBaoAuth name)',
+        },
+      ],
+      examples: [],
+    },
+  },
+  {
+    slug: 'vault',
+    title: 'Vault',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'Vault',
+      description: 'Vault configuration component.',
+      props: [
+        {
+          name: 'mount',
+          type: 'string',
+          required: false,
+          description: "Vault mount path (default: 'secret')",
+        },
+        { name: 'path', type: 'string', required: false, description: 'Base path for all secrets' },
+        {
+          name: 'authRef',
+          type: 'string',
+          required: false,
+          description: 'Auth reference (VaultAuth name)',
+        },
+      ],
+      examples: [],
+    },
+  },
+  {
+    slug: 'sealed-secrets',
+    title: 'SealedSecrets',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'SealedSecrets',
+      description: 'SealedSecrets configuration component.',
+      props: [
+        {
+          name: 'namespace',
+          type: 'string',
+          required: false,
+          description: "Namespace where sealed-secrets controller runs (default: 'kube-system')",
+        },
+      ],
+      examples: [],
+    },
+  },
+  {
+    slug: 'kubernetes',
+    title: 'Kubernetes',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'Kubernetes',
+      description: 'Kubernetes configuration component (plain Secrets, CNPG-managed).',
+      props: [],
+      examples: [],
+    },
+  },
+  {
     slug: 'secret-provider',
     title: 'SecretProvider',
     description:
@@ -591,37 +791,23 @@ export const recipes: Recipe[] = [
       props: [
         {
           name: 'provider',
-          type: "'openbao' | 'vault' | 'sealed-secrets' | 'kubernetes'",
+          type: 'SecretProviderValue',
           required: true,
-          description: 'Secrets backend',
-        },
-        {
-          name: 'mount',
-          type: 'string',
-          required: false,
-          description: "Vault/OpenBao mount path (default: 'secret')",
-        },
-        {
-          name: 'path',
-          type: 'string',
-          required: false,
-          description: "Base path for all secrets (e.g., 'infra' → 'infra/app/db')",
-        },
-        {
-          name: 'authRef',
-          type: 'string',
-          required: false,
-          description: 'Auth reference (VaultAuth/OpenBaoAuth name)',
+          description: 'Secrets backend — string for simple cases, component for advanced config.',
         },
         { name: 'children', type: 'unknown', required: false, description: 'Child components' },
       ],
       examples: [
         {
-          tsx: 'import { SecretProvider } from \'@r8s/recipes\'\n\n// OpenBao (default)\n<SecretProvider provider="openbao" mount="secret" path="infra">\n  <Database name="app-db" />\n</SecretProvider>',
+          tsx: 'import { SecretProvider, OpenBao, Database } from \'@r8s/recipes\'\n\n// Simple — string provider\n<SecretProvider provider="openbao">\n  <Database name="app-db" />\n</SecretProvider>',
           yaml: null,
         },
         {
-          tsx: 'export default // HashiCorp Vault\n<SecretProvider provider="vault" mount="kv" path="apps" authRef="vault-auth">\n  <Database name="app-db" />\n</SecretProvider>',
+          tsx: 'export default // Advanced — component provider\n<SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom-auth" />}>\n  <Database name="app-db" />\n</SecretProvider>',
+          yaml: null,
+        },
+        {
+          tsx: 'export default // Vault with custom mount\n<SecretProvider provider={<Vault mount="kv" path="apps" />}>\n  <Database name="app-db" />\n</SecretProvider>',
           yaml: null,
         },
         {
