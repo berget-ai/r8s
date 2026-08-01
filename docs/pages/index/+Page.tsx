@@ -87,30 +87,36 @@ export default function Page() {
         </p>
       </div>
 
-      {/* The Problem vs Solution */}
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <h2 className="text-xl text-cloud/60 uppercase tracking-wider font-medium">
-            The Problem
-          </h2>
-          <p className="text-cloud/80 leading-relaxed">
-            You have a microservice. It needs a Deployment, a Service, routing with TLS, and a
-            PostgreSQL database. That's 300+ lines of YAML boilerplate. Copy-paste between services.
-            Hope you didn't miss an indentation.
-          </p>
-          <div className="space-y-2 text-sm text-cloud/60">
-            <p>❌ Raw YAML — Copy-paste hell</p>
-            <p>❌ Helm — values.yaml sprawl</p>
-            <p>❌ Kustomize — Can't abstract logic</p>
-          </div>
+      {/* The Problem */}
+      <div className="space-y-4 max-w-2xl">
+        <h2 className="text-xl text-cloud/60 uppercase tracking-wider font-medium">The Problem</h2>
+        <p className="text-cloud/80 leading-relaxed">
+          You have a microservice. It needs a Deployment, a Service, routing with TLS, and a
+          PostgreSQL database. That's 300+ lines of YAML boilerplate. Copy-paste between services.
+          Hope you didn't miss an indentation.
+        </p>
+        <div className="space-y-2 text-sm text-cloud/60">
+          <p>❌ Raw YAML — Copy-paste hell</p>
+          <p>❌ Helm — values.yaml sprawl</p>
+          <p>❌ Kustomize — Can't abstract logic</p>
         </div>
-        <div className="space-y-4">
-          <h2 className="text-xl text-moss uppercase tracking-wider font-medium">The Solution</h2>
-          <p className="text-cloud/80 leading-relaxed">
-            One component. Three resources. All wired together with sensible defaults.
-          </p>
-          <CodeBlock code={simpleExample} language="tsx" />
-          <CodeBlock code={renderOutput} language="bash" />
+      </div>
+
+      {/* The Solution */}
+      <div className="space-y-6">
+        <h2 className="text-xl text-moss uppercase tracking-wider font-medium">The Solution</h2>
+        <p className="text-cloud/80 leading-relaxed max-w-2xl">
+          One component. Three resources. All wired together with sensible defaults.
+        </p>
+        <div className="grid md:grid-cols-2 gap-6 items-start">
+          <div className="space-y-4">
+            <div className="text-sm text-cloud/60 font-mono">TSX</div>
+            <CodeBlock code={simpleExample} language="tsx" />
+          </div>
+          <div className="space-y-4">
+            <div className="text-sm text-cloud/60 font-mono">YAML</div>
+            <CodeBlock code={renderOutput} language="bash" />
+          </div>
         </div>
       </div>
 

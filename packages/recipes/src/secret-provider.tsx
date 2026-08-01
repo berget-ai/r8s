@@ -88,12 +88,22 @@ export interface SecretProviderProps {
    * Secrets backend — string for simple cases, component for advanced config.
    *
    * @example
-   * // Simple string
-   * <SecretProvider provider="openbao">
+   * import { SecretProvider, Database } from '@r8s/recipes'
+   *
+   * export default (
+   *   <SecretProvider provider="openbao">
+   *     <Database name="app-db" />
+   *   </SecretProvider>
+   * )
    *
    * @example
-   * // Advanced component
-   * <SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom" />}>
+   * import { SecretProvider, OpenBao, Database } from '@r8s/recipes'
+   *
+   * export default (
+   *   <SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom" />}>
+   *     <Database name="app-db" />
+   *   </SecretProvider>
+   * )
    */
   provider: SecretProviderValue
   /** Child components */
@@ -107,30 +117,40 @@ export interface SecretProviderProps {
  * Automatically declares the required operator (VSO for vault/openbao).
  *
  * @example
+ * import { SecretProvider, Database } from '@r8s/recipes'
+ *
+ * export default (
+ *   <SecretProvider provider="openbao">
+ *     <Database name="app-db" />
+ *   </SecretProvider>
+ * )
+ *
+ * @example
  * import { SecretProvider, OpenBao, Database } from '@r8s/recipes'
  *
- * // Simple — string provider
- * <SecretProvider provider="openbao">
- *   <Database name="app-db" />
- * </SecretProvider>
+ * export default (
+ *   <SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom-auth" />}>
+ *     <Database name="app-db" />
+ *   </SecretProvider>
+ * )
  *
  * @example
- * // Advanced — component provider
- * <SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom-auth" />}>
- *   <Database name="app-db" />
- * </SecretProvider>
+ * import { SecretProvider, Vault, Database } from '@r8s/recipes'
+ *
+ * export default (
+ *   <SecretProvider provider={<Vault mount="kv" path="apps" />}>
+ *     <Database name="app-db" />
+ *   </SecretProvider>
+ * )
  *
  * @example
- * // Vault with custom mount
- * <SecretProvider provider={<Vault mount="kv" path="apps" />}>
- *   <Database name="app-db" />
- * </SecretProvider>
+ * import { SecretProvider, Database } from '@r8s/recipes'
  *
- * @example
- * // Sealed Secrets (no operator needed)
- * <SecretProvider provider="sealed-secrets">
- *   <Database name="app-db" password="supersecret" />
- * </SecretProvider>
+ * export default (
+ *   <SecretProvider provider="sealed-secrets">
+ *     <Database name="app-db" password="supersecret" />
+ *   </SecretProvider>
+ * )
  */
 export function SecretProvider(props: SecretProviderProps) {
   const { provider, children } = props

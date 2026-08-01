@@ -85,12 +85,24 @@ export interface EndpointProviderProps {
    * Endpoint provider — string for simple cases, component for advanced config.
    *
    * @example
-   * // Simple string
-   * <EndpointProvider provider="nginx">
+   * // Simple string provider
+   * import { EndpointProvider, App } from '@r8s/recipes'
+   *
+   * export default (
+   *   <EndpointProvider provider="nginx">
+   *     <App name="api" image="myapp:v1" host="api.example.com" />
+   *   </EndpointProvider>
+   * )
    *
    * @example
-   * // Advanced component
-   * <EndpointProvider provider={<Nginx className="nginx-internal" />}>
+   * // Advanced component provider
+   * import { EndpointProvider, Nginx, App } from '@r8s/recipes'
+   *
+   * export default (
+   *   <EndpointProvider provider={<Nginx className="nginx-internal" />}>
+   *     <App name="api" image="myapp:v1" host="api.example.com" />
+   *   </EndpointProvider>
+   * )
    */
   provider: EndpointProviderValue
   /** Child components */
@@ -104,24 +116,34 @@ export interface EndpointProviderProps {
  * All Endpoint/App children read this context.
  *
  * @example
+ * // Simple string provider
+ * import { EndpointProvider, App } from '@r8s/recipes'
+ *
+ * export default (
+ *   <EndpointProvider provider="nginx">
+ *     <App name="api" image="myapp:v1" host="api.example.com" />
+ *   </EndpointProvider>
+ * )
+ *
+ * @example
+ * // Nginx with custom class and TLS
  * import { EndpointProvider, Nginx, App } from '@r8s/recipes'
  *
- * // Simple — string provider
- * <EndpointProvider provider="nginx">
- *   <App name="api" image="myapp:v1" host="api.example.com" />
- * </EndpointProvider>
+ * export default (
+ *   <EndpointProvider provider={<Nginx className="nginx-internal" tls={{ clusterIssuer: 'letsencrypt' }} />}>
+ *     <App name="api" image="myapp:v1" host="api.example.com" />
+ *   </EndpointProvider>
+ * )
  *
  * @example
- * // Advanced — component provider
- * <EndpointProvider provider={<Nginx className="nginx-internal" tls={{ clusterIssuer: 'letsencrypt' }} />}>
- *   <App name="api" image="myapp:v1" host="api.example.com" />
- * </EndpointProvider>
+ * // Envoy Gateway with TLS
+ * import { EndpointProvider, EnvoyGateway, App } from '@r8s/recipes'
  *
- * @example
- * // Envoy Gateway
- * <EndpointProvider provider={<EnvoyGateway className="eg" tls={{ clusterIssuer: 'letsencrypt-prod' }} />}>
- *   <App name="api" image="myapp:v1" host="api.example.com" />
- * </EndpointProvider>
+ * export default (
+ *   <EndpointProvider provider={<EnvoyGateway className="eg" tls={{ clusterIssuer: 'letsencrypt-prod' }} />}>
+ *     <App name="api" image="myapp:v1" host="api.example.com" />
+ *   </EndpointProvider>
+ * )
  */
 export function EndpointProvider(props: EndpointProviderProps) {
   const { provider, children } = props

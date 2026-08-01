@@ -79,34 +79,41 @@ export interface DnsProviderProps {
  * @example
  * import { DnsProvider, SecretProvider, App } from '@r8s/recipes'
  *
- * // Simple — string provider
- * <SecretProvider provider="openbao">
- *   <DnsProvider provider="external-dns">
- *     <App name="api" image="myapp:v1" host="api.example.com" />
- *   </DnsProvider>
- * </SecretProvider>
+ * export default (
+ *   <SecretProvider provider="openbao">
+ *     <DnsProvider provider="external-dns">
+ *       <App name="api" image="myapp:v1" host="api.example.com" />
+ *     </DnsProvider>
+ *   </SecretProvider>
+ * )
  *
  * @example
- * // Advanced — component provider with TSIG
- * <SecretProvider provider="openbao">
+ * import { DnsProvider, ExternalDns, SecretProvider, App } from '@r8s/recipes'
+ *
+ * export default (
+ *   <SecretProvider provider="openbao">
+ *     <DnsProvider provider={
+ *       <ExternalDns
+ *         server="ns1.example.com"
+ *         zone="example.com"
+ *         tsig={{ path: 'dns/tsig', key: 'secret' }}
+ *       />
+ *     }>
+ *       <App name="api" image="myapp:v1" host="api.example.com" />
+ *     </DnsProvider>
+ *   </SecretProvider>
+ * )
+ *
+ * @example
+ * import { DnsProvider, ExternalDns, App } from '@r8s/recipes'
+ *
+ * export default (
  *   <DnsProvider provider={
- *     <ExternalDns
- *       server="ns1.example.com"
- *       zone="example.com"
- *       tsig={{ path: 'dns/tsig', key: 'secret' }}
- *     />
+ *     <ExternalDns cloud={{ provider: 'google', options: { project: 'my-project' } }} />
  *   }>
  *     <App name="api" image="myapp:v1" host="api.example.com" />
  *   </DnsProvider>
- * </SecretProvider>
- *
- * @example
- * // Google Cloud DNS
- * <DnsProvider provider={
- *   <ExternalDns cloud={{ provider: 'google', options: { project: 'my-project' } }} />
- * }>
- *   <App name="api" image="myapp:v1" host="api.example.com" />
- * </DnsProvider>
+ * )
  */
 export function DnsProvider(props: DnsProviderProps) {
   const { provider, children } = props

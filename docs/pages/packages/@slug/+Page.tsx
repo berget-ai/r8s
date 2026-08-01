@@ -107,34 +107,23 @@ export default function Page() {
 
             {/* Props table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="text-left py-3 px-4 text-cloud/60 font-medium">Prop</th>
-                    <th className="text-left py-3 px-4 text-cloud/60 font-medium">Type</th>
-                    <th className="text-left py-3 px-4 text-cloud/60 font-medium">Required</th>
-                    <th className="text-left py-3 px-4 text-cloud/60 font-medium">Default</th>
-                    <th className="text-left py-3 px-4 text-cloud/60 font-medium">Description</th>
-                  </tr>
-                </thead>
-                <tbody className="text-cloud/80">
-                  {component.props.map((prop) => (
-                    <tr key={prop.name} className="border-b border-white/5">
-                      <td className="py-3 px-4 font-mono text-moss">{prop.name}</td>
-                      <td className="py-3 px-4 font-mono text-cloud/60">{prop.type}</td>
-                      <td className="py-3 px-4">
-                        {prop.required ? (
-                          <span className="text-red-400">Required</span>
-                        ) : (
-                          <span className="text-cloud/40">Optional</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-cloud/40">{prop.default || '—'}</td>
-                      <td className="py-3 px-4 text-cloud/70">{prop.description}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="space-y-4">
+                {component.props.map((prop) => (
+                  <div key={prop.name} className="border-b border-white/5 pb-4 last:border-0">
+                    <div className="grid grid-cols-[140px_1fr_80px_80px] gap-4 items-baseline mb-2">
+                      <code className="font-mono text-moss text-sm truncate">{prop.name}</code>
+                      <code className="font-mono text-cloud/60 text-sm truncate">{prop.type}</code>
+                      <span className={prop.required ? 'text-red-400 text-sm' : 'text-cloud/40 text-sm'}>
+                        {prop.required ? 'Required' : 'Optional'}
+                      </span>
+                      <span className="text-cloud/40 text-sm truncate">{prop.default || '—'}</span>
+                    </div>
+                    {prop.description && (
+                      <p className="text-cloud/70 text-sm leading-relaxed pl-0">{prop.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ))}

@@ -139,7 +139,7 @@ interface ComponentDoc {
   description: string
   props: ComponentProp[]
   /** JSDoc @example blocks with formatted TSX and rendered YAML */
-  examples: { tsx: string; yaml: string | null }[]
+  examples: { tsx: string; yaml: string | null; title?: string }[]
 }
 
 interface PackageDoc {
@@ -424,6 +424,26 @@ async function extractComponents(
       const code = raw.trim()
       if (!code) continue
 
+      // Extract title from first line comment (e.g., "// Simple string provider")
+      let title: string | undefined
+      const firstLine = code.split('\n')[0].trim()
+      if (firstLine.startsWith('//')) {
+        title = firstLine.slice(2).trim()
+        // Remove the title comment from the code
+        const codeWithoutTitle = code.split('\n').slice(1).join('\n').trim()
+        if (codeWithoutTitle) {
+          const renderable =
+            codeWithoutTitle.includes('export default') || codeWithoutTitle.includes('import ')
+              ? codeWithoutTitle
+              : `export default ${codeWithoutTitle}`
+
+          const formattedTsx = await formatTsx(renderable)
+          const yamlOutput = await renderToYaml(renderable)
+          comp.examples.push({ tsx: formattedTsx.trim(), yaml: yamlOutput, title })
+          continue
+        }
+      }
+
       const renderable =
         code.includes('export default') || code.includes('import ')
           ? code
@@ -431,7 +451,7 @@ async function extractComponents(
 
       const formattedTsx = await formatTsx(renderable)
       const yamlOutput = await renderToYaml(renderable)
-      comp.examples.push({ tsx: formattedTsx.trim(), yaml: yamlOutput })
+      comp.examples.push({ tsx: formattedTsx.trim(), yaml: yamlOutput, title })
     }
     delete (comp as any)._rawExamples
   }
