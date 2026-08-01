@@ -311,6 +311,65 @@ export const recipes: Recipe[] = [
     },
   },
   {
+    slug: 'dns-provider',
+    title: 'DnsProvider',
+    description:
+      'DnsProvider — cluster-level DNS configuration. Sets up ExternalDNS with the specified provider and credentials. All Endpoint/App children automatically create DNS records.',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'DnsProvider',
+      description:
+        'DnsProvider — cluster-level DNS configuration. Sets up ExternalDNS with the specified provider and credentials. All Endpoint/App children automatically create DNS records.',
+      props: [
+        { name: 'config', type: 'DnsConfig', required: true, description: 'DNS configuration' },
+        { name: 'children', type: 'unknown', required: false, description: 'Child components' },
+      ],
+      examples: [
+        {
+          tsx: 'import { DnsProvider, SecretProvider } from \'@r8s/recipes\'\n\n// RFC 2136 with TSIG from OpenBao\n<SecretProvider provider="openbao" mount="secret" path="infra">\n  <DnsProvider\n    provider="external-dns"\n    settings={{\n      server: \'ns1.example.com\',\n      zone: \'example.com\',\n      tsig: { path: \'dns/tsig\', key: \'secret\' },\n    }}\n  >\n    <App name="api" image="myapp:v1" host="api.example.com" />\n  </DnsProvider>\n</SecretProvider>',
+          yaml: null,
+        },
+        {
+          tsx: 'export default // Google Cloud DNS\n<DnsProvider\n  provider="external-dns"\n  settings={{\n    cloud: { provider: \'google\', options: { project: \'my-project\' } },\n  }}\n>\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</DnsProvider>',
+          yaml: null,
+        },
+      ],
+    },
+  },
+  {
+    slug: 'endpoint-provider',
+    title: 'EndpointProvider',
+    description:
+      'EndpointProvider — cluster-level routing configuration. Sets whether endpoints use nginx Ingress or Envoy Gateway (Gateway API). All Endpoint/App children read this context.',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'EndpointProvider',
+      description:
+        'EndpointProvider — cluster-level routing configuration. Sets whether endpoints use nginx Ingress or Envoy Gateway (Gateway API). All Endpoint/App children read this context.',
+      props: [
+        {
+          name: 'config',
+          type: 'EndpointConfig',
+          required: true,
+          description: 'Endpoint configuration',
+        },
+        { name: 'children', type: 'unknown', required: false, description: 'Child components' },
+      ],
+      examples: [
+        {
+          tsx: 'import { EndpointProvider } from \'@r8s/recipes\'\n\n// nginx Ingress (default)\n<EndpointProvider provider="nginx">\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</EndpointProvider>',
+          yaml: null,
+        },
+        {
+          tsx: 'export default // Envoy Gateway with TLS\n<EndpointProvider\n  provider="envoy-gateway"\n  settings={{\n    gatewayClassName: \'eg\',\n    tls: { clusterIssuer: \'letsencrypt-prod\' },\n  }}\n>\n  <App name="api" image="myapp:v1" host="api.example.com" />\n</EndpointProvider>',
+          yaml: null,
+        },
+      ],
+    },
+  },
+  {
     slug: 'endpoint',
     title: 'Endpoint',
     description: 'Endpoint — cluster-adaptive routing for a service.',
@@ -342,20 +401,14 @@ export const recipes: Recipe[] = [
           name: 'dns',
           type: 'boolean',
           required: false,
-          description: 'Create a DNS record via ExternalDNS (default: false)',
+          description:
+            'Create a DNS record via ExternalDNS (default: false, or true when DnsProvider is set)',
         },
         {
           name: 'dnsTtl',
           type: 'number',
           required: false,
           description: 'DNS record TTL in seconds (default: 300)',
-        },
-        {
-          name: 'dnsTsigSecret',
-          type: '{ path: string, key: string, secretName?: string }',
-          required: false,
-          description:
-            "TSIG secret for RFC 2136 DNS updates. When set, creates a VaultStaticSecret (or OpenBaoStaticSecret) that syncs the TSIG key from Vault/OpenBao to a Kubernetes Secret for ExternalDNS to use. Requires Platform secrets={{ backend: 'vault' | 'openbao' }}.",
         },
       ],
       examples: [
@@ -484,10 +537,17 @@ export const recipes: Recipe[] = [
         },
         {
           name: 'secrets',
-          type: 'SecretProvider',
+          type: 'SecretProviderConfig',
           required: false,
           description:
             "Secrets backend for all child resources. When set, Database and other recipes generate credentials through this backend instead of requiring plaintext passwords. - 'openbao': OpenBao Vault Secrets Operator (default when omitted) - 'vault': HashiCorp Vault Secrets Operator - 'sealed-secrets': Bitnami Sealed Secrets - 'kubernetes': plain Kubernetes Secrets (CNPG-managed, no plaintext)",
+        },
+        {
+          name: 'dns',
+          type: 'DnsConfig',
+          required: false,
+          description:
+            'DNS configuration for all child endpoints. When set, Endpoint/App automatically create DNS records via ExternalDNS.',
         },
         {
           name: 'children',
@@ -509,6 +569,64 @@ export const recipes: Recipe[] = [
         {
           tsx: 'import { Platform, App, Database, cnpgOperator } from \'@r8s/recipes\'\nimport { operators } from \'@r8s/crds\'\n\nexport default (\n  <Platform\n    routing="gateway"\n    namespace="production"\n    operators={[cnpgOperator(), operators[\'cert-manager\']()]}\n  >\n    <Database name="app-db" storage="10Gi" />\n    <App name="api" image="myapp/api:v1" host="api.example.com" />\n  </Platform>\n)',
           yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enabled: true\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: api-endpoint-gateway\n  namespace: production\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: http\n      protocol: HTTP\n      port: 80\n      hostname: api.example.com\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: api-endpoint-route\n  namespace: production\nspec:\n  parentRefs:\n    - name: api-endpoint-gateway\n  hostnames:\n    - api.example.com\n  rules:\n    - backendRefs:\n        - name: api\n          port: 80\n',
+        },
+        {
+          tsx: "// Full hierarchy with DNS and secrets\nimport { Platform, App } from '@r8s/recipes'\n\nexport default (\n  <Platform\n    namespace=\"production\"\n    secrets={{ backend: 'openbao', mount: 'secret', path: 'infra' }}\n    dns={{\n      provider: 'external-dns',\n      settings: {\n        server: 'ns1.example.com',\n        zone: 'example.com',\n        tsig: { path: 'dns/tsig', key: 'secret' },\n      },\n    }}\n  >\n    <App name=\"api\" image=\"myapp/api:v1\" host=\"api.example.com\" />\n  </Platform>\n)",
+          yaml: null,
+        },
+      ],
+    },
+  },
+  {
+    slug: 'secret-provider',
+    title: 'SecretProvider',
+    description:
+      'SecretProvider — cluster-level secrets backend. All Database, Auth, and other secret-consuming children use this backend. Automatically declares the required operator (VSO for vault/openbao).',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'SecretProvider',
+      description:
+        'SecretProvider — cluster-level secrets backend. All Database, Auth, and other secret-consuming children use this backend. Automatically declares the required operator (VSO for vault/openbao).',
+      props: [
+        {
+          name: 'provider',
+          type: "'openbao' | 'vault' | 'sealed-secrets' | 'kubernetes'",
+          required: true,
+          description: 'Secrets backend',
+        },
+        {
+          name: 'mount',
+          type: 'string',
+          required: false,
+          description: "Vault/OpenBao mount path (default: 'secret')",
+        },
+        {
+          name: 'path',
+          type: 'string',
+          required: false,
+          description: "Base path for all secrets (e.g., 'infra' → 'infra/app/db')",
+        },
+        {
+          name: 'authRef',
+          type: 'string',
+          required: false,
+          description: 'Auth reference (VaultAuth/OpenBaoAuth name)',
+        },
+        { name: 'children', type: 'unknown', required: false, description: 'Child components' },
+      ],
+      examples: [
+        {
+          tsx: 'import { SecretProvider } from \'@r8s/recipes\'\n\n// OpenBao (default)\n<SecretProvider provider="openbao" mount="secret" path="infra">\n  <Database name="app-db" />\n</SecretProvider>',
+          yaml: null,
+        },
+        {
+          tsx: 'export default // HashiCorp Vault\n<SecretProvider provider="vault" mount="kv" path="apps" authRef="vault-auth">\n  <Database name="app-db" />\n</SecretProvider>',
+          yaml: null,
+        },
+        {
+          tsx: 'export default // Sealed Secrets (no operator needed)\n<SecretProvider provider="sealed-secrets">\n  <Database name="app-db" password="supersecret" />\n</SecretProvider>',
+          yaml: null,
         },
       ],
     },

@@ -212,3 +212,6 @@ export interface RoutingConfig {
 }
 
 export const RoutingContext = createContext<RoutingConfig>({ mode: 'ingress' })
+
+// Re-export createContext for provider components in recipes
+export { createContext } from './context'

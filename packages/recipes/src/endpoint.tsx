@@ -1,10 +1,11 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { Ingress } from '@r8s/k8s-types'
 import type { BaseRouteProps } from '@r8s/k8s-types'
-import { OperatorContext, RoutingContext, SecretContext } from '@r8s/core/defaults'
+import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
 import { nginxIngressOperator } from './operators'
 import { operators } from '@r8s/crds'
 import { DNSEndpointComponent } from '@r8s/crds/externaldns'
+import { DnsContext } from './dns-provider'
 
 export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   /** Hostname for the endpoint (required) */
@@ -13,25 +14,10 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   serviceName: string
   /** Service port (default: 80) */
   servicePort?: number
-  /** Create a DNS record via ExternalDNS (default: false) */
+  /** Create a DNS record via ExternalDNS (default: false, or true when DnsProvider is set) */
   dns?: boolean
   /** DNS record TTL in seconds (default: 300) */
   dnsTtl?: number
-  /**
-   * TSIG secret for RFC 2136 DNS updates. When set, creates a VaultStaticSecret
-   * (or OpenBaoStaticSecret) that syncs the TSIG key from Vault/OpenBao to a
-   * Kubernetes Secret for ExternalDNS to use.
-   *
-   * Requires Platform secrets={{ backend: 'vault' | 'openbao' }}.
-   */
-  dnsTsigSecret?: {
-    /** Vault/OpenBao path to the TSIG key (e.g., 'dns/tsig-key') */
-    path: string
-    /** Key in the Vault/OpenBao secret containing the TSIG key */
-    key: string
-    /** Kubernetes Secret name to create (default: 'external-dns-tsig') */
-    secretName?: string
-  }
 }
 
 /**
@@ -71,13 +57,16 @@ export function Endpoint(props: EndpointProps) {
     servicePort = 80,
     tls,
     annotations = {},
-    dns = false,
+    dns,
     dnsTtl = 300,
-    dnsTsigSecret,
   } = props
 
   const routing = useContext(RoutingContext)
   const sharedOperators = useContext(OperatorContext)
+  const dnsConfig = useContext(DnsContext)
+
+  // DNS defaults to true when DnsProvider is set, unless explicitly disabled
+  const createDnsRecord = dns ?? (dnsConfig !== null)
 
   const resources: ReturnType<typeof jsx>[] = []
 
@@ -226,65 +215,10 @@ export function Endpoint(props: EndpointProps) {
   }
 
   // DNS record via ExternalDNS
-  if (dns) {
+  if (createDnsRecord) {
     const hasExternalDNS = sharedOperators.some((op) => op.name === 'external-dns')
     if (!hasExternalDNS) {
       resources.push(declareOperator(operators['external-dns']()))
-    }
-
-    // TSIG secret via VSO when using vault/openbao backend
-    if (dnsTsigSecret) {
-      const secrets = useContext(SecretContext)
-      if (!secrets || (secrets.backend !== 'vault' && secrets.backend !== 'openbao')) {
-        throw new Error(
-          `Endpoint "${name}": dnsTsigSecret requires Platform secrets={{ backend: 'vault' | 'openbao' }}. ` +
-            `Current backend: ${secrets?.backend ?? 'none'}. ` +
-            `Fix: wrap in <Platform secrets={{ backend: 'openbao' }}> or remove dnsTsigSecret.`
-        )
-      }
-
-      const secretName = dnsTsigSecret.secretName ?? 'external-dns-tsig'
-      const mount = secrets.mount ?? 'secret'
-      const basePath = secrets.path ?? ''
-      const fullPath = basePath ? `${basePath}/${dnsTsigSecret.path}` : dnsTsigSecret.path
-
-      if (secrets.backend === 'openbao') {
-        resources.push(
-          jsx('OpenBaoStaticSecret', {
-            apiVersion: 'secrets.hashicorp.com/v1alpha1',
-            kind: 'OpenBaoStaticSecret',
-            metadata: { name: secretName, namespace },
-            spec: {
-              mount,
-              path: fullPath,
-              type: 'kv-v2',
-              destination: {
-                name: secretName,
-                create: true,
-              },
-              refreshAfter: '1h',
-            },
-          })
-        )
-      } else {
-        resources.push(
-          jsx('VaultStaticSecret', {
-            apiVersion: 'secrets.hashicorp.com/v1alpha1',
-            kind: 'VaultStaticSecret',
-            metadata: { name: secretName, namespace },
-            spec: {
-              mount,
-              path: fullPath,
-              type: 'kv-v2',
-              destination: {
-                name: secretName,
-                create: true,
-              },
-              refreshAfter: '1h',
-            },
-          })
-        )
-      }
     }
 
     resources.push(

@@ -1,14 +1,16 @@
-import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
+import { jsx, Fragment, useContext } from '@r8s/core'
 import {
   RoutingContext,
   Namespace,
   Labels,
   OperatorContext,
   SecretContext,
-  type SecretProvider,
+  type SecretProvider as SecretProviderConfig,
 } from '@r8s/core/defaults'
 import type { Operator } from '@r8s/k8s-types'
-import { operators as operatorRegistry } from '@r8s/crds'
+import { SecretProvider } from './secret-provider'
+import { DnsProvider, type DnsConfig } from './dns-provider'
+import { EndpointProvider, type EndpointConfig } from './endpoint-provider'
 
 export type RoutingMode = 'ingress' | 'gateway'
 
@@ -37,7 +39,12 @@ export interface PlatformProps {
    * - 'sealed-secrets': Bitnami Sealed Secrets
    * - 'kubernetes': plain Kubernetes Secrets (CNPG-managed, no plaintext)
    */
-  secrets?: SecretProvider
+  secrets?: SecretProviderConfig
+  /**
+   * DNS configuration for all child endpoints. When set, Endpoint/App
+   * automatically create DNS records via ExternalDNS.
+   */
+  dns?: DnsConfig
   /** Child components that inherit the cluster-level configuration this Platform sets */
   children?: unknown
 }
@@ -51,6 +58,11 @@ export interface PlatformProps {
  * Sets routing mode, namespace, labels, and shared operators for all
  * child components. Use this once at the top of your manifest instead
  * of manually wiring context providers.
+ *
+ * For finer control, use the individual providers directly:
+ * - `<SecretProvider>` for secrets backend
+ * - `<DnsProvider>` for DNS configuration
+ * - `<EndpointProvider>` for routing
  *
  * @example
  * import { Platform, App } from '@r8s/recipes'
@@ -85,6 +97,27 @@ export interface PlatformProps {
  *     <App name="api" image="myapp/api:v1" host="api.example.com" />
  *   </Platform>
  * )
+ *
+ * @example
+ * // Full hierarchy with DNS and secrets
+ * import { Platform, App } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Platform
+ *     namespace="production"
+ *     secrets={{ backend: 'openbao', mount: 'secret', path: 'infra' }}
+ *     dns={{
+ *       provider: 'external-dns',
+ *       settings: {
+ *         server: 'ns1.example.com',
+ *         zone: 'example.com',
+ *         tsig: { path: 'dns/tsig', key: 'secret' },
+ *       },
+ *     }}
+ *   >
+ *     <App name="api" image="myapp/api:v1" host="api.example.com" />
+ *   </Platform>
+ * )
  */
 export function Platform(props: PlatformProps) {
   const {
@@ -94,25 +127,37 @@ export function Platform(props: PlatformProps) {
     labels,
     operators,
     secrets,
+    dns,
     children,
   } = props
 
   let result: unknown = children
 
-  // Declare vault-secrets-operator when using vault/openbao backend
-  const resources: ReturnType<typeof jsx>[] = []
-  if (secrets?.backend === 'vault' || secrets?.backend === 'openbao') {
-    const sharedOperators = useContext(OperatorContext)
-    const hasVaultSecrets = sharedOperators.some((op) => op.name === 'vault-secrets-operator')
-    if (!hasVaultSecrets) {
-      resources.push(declareOperator(operatorRegistry['vault-secrets-operator']()))
-    }
+  // Apply secrets context via SecretProvider
+  if (secrets) {
+    result = jsx(SecretProvider, {
+      provider: secrets.backend,
+      mount: secrets.mount,
+      path: secrets.path,
+      authRef: secrets.authRef,
+      children: result,
+    })
   }
 
-  // Apply secrets context (outermost so all children share)
-  if (secrets) {
-    result = jsx(SecretContext.Provider, { value: secrets, children: result })
+  // Apply DNS context via DnsProvider
+  if (dns) {
+    result = jsx(DnsProvider, { config: dns, children: result })
   }
+
+  // Apply routing context via EndpointProvider
+  const endpointConfig: EndpointConfig = {
+    provider: routing === 'gateway' ? 'envoy-gateway' : 'nginx',
+    settings: {
+      gatewayClassName,
+      tls: { clusterIssuer: 'letsencrypt-prod' },
+    },
+  }
+  result = jsx(EndpointProvider, { config: endpointConfig, children: result })
 
   // Apply operators context
   if (operators && operators.length > 0) {
@@ -129,15 +174,5 @@ export function Platform(props: PlatformProps) {
     result = jsx(Namespace.Provider, { value: namespace, children: result })
   }
 
-  // Apply routing context (innermost — closest to children)
-  result = jsx(RoutingContext.Provider, {
-    value: { mode: routing, gatewayClassName },
-    children: result,
-  })
-
-  // Return operator declarations + wrapped children
-  if (resources.length > 0) {
-    return jsx(Fragment, { children: [...resources, result] })
-  }
   return result
 }
