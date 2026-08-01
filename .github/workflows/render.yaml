@@ -58,4 +58,5 @@ jobs:
           git config --local user.name "GitHub Action"
           git add k8s/rendered/manifest.yaml
           git commit -m "chore: render kubernetes manifests [skip ci]"
+          git pull --rebase
           git push
