@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/berget-ai/r8s-docs:5024def
+          image: ghcr.io/berget-ai/r8s-docs:fdb806d
           ports:
             - containerPort: 3000
           env: []
