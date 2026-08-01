@@ -127,7 +127,7 @@ export default (
 );`
 
 export default function Page() {
-  const [strategy, setStrategy] = useState<'github' | 'flux'>('flux')
+  const [strategy, setStrategy] = useState<'github' | 'flux'>('github')
 
   return (
     <div className="space-y-12">
@@ -153,11 +153,12 @@ export default function Page() {
         </button>
         <button
           onClick={() => setStrategy('flux')}
-          className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+          className={`flex-1 px-6 py-4 text-sm font-medium transition-colors opacity-50 cursor-not-allowed ${
             strategy === 'flux'
               ? 'bg-moss/20 text-moss border-b-2 border-moss'
               : 'text-cloud/60 hover:text-cloud/80'
           }`}
+          disabled
         >
           <div className="font-bold">FluxCD + r8s-controller</div>
           <div className="text-xs mt-1 opacity-70">Render in-cluster</div>
@@ -209,17 +210,16 @@ export default function Page() {
         </div>
       )}
 
-      {/* FluxCD Strategy */}
+      {/* FluxCD Strategy — Coming Soon */}
       {strategy === 'flux' && (
-        <div className="space-y-12">
+        <div className="space-y-12 opacity-40 pointer-events-none select-none">
           <div className="p-6 rounded-lg border border-warning/30 bg-warning/5">
             <h3 className="font-serif text-xl mb-3 text-warning">
               FluxCD + r8s-controller — Coming Soon
             </h3>
             <p className="text-cloud/70 text-sm">
               The r8s-controller is under development and not yet ready for production use.
-              The documentation below describes the intended workflow, but the controller
-              is not yet available. Use GitHub Actions for now.
+              Use GitHub Actions for now.
             </p>
           </div>
 
