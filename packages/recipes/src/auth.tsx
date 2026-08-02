@@ -1,5 +1,5 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
-import { OperatorContext } from '@r8s/core/defaults'
+import { Namespace, OperatorContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
 import { Database } from './database'
 import { Endpoint } from './endpoint'
@@ -9,8 +9,11 @@ import {
   Realms,
   Clients,
   Client,
+  EntraID,
+  Google,
   type RealmConfig,
   type ClientConfig,
+  type IdentityProviderConfig,
 } from './auth/components'
 
 export interface AuthProps {
@@ -107,12 +110,17 @@ export function Auth(props: AuthProps) {
   const {
     name,
     host,
-    namespace = 'default',
+    namespace: namespaceProp,
     instances = 1,
     storage = '10Gi',
     tls,
     children,
   } = props
+
+  // Inherit namespace from <Platform> context if not explicitly set
+  const contextNamespace = useContext(Namespace)
+  const namespace =
+    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
 
   const sharedOperators = useContext(OperatorContext)
   const hasKeycloak = sharedOperators.some((op) => op.name === 'keycloak-operator')
@@ -238,11 +246,16 @@ function collectRealms(children: unknown): RealmConfig[] {
           ) {
             const realmProps = (realmChild as any).props
             const clients = collectClients(realmProps.children)
+            // Merge identity providers from both prop and child components
+            const identityProviders = [
+              ...(realmProps.identityProviders ?? []),
+              ...collectIdentityProviders(realmProps.children),
+            ]
             realms.push({
               id: realmProps.id,
               displayName: realmProps.displayName,
               enabled: realmProps.enabled,
-              identityProviders: realmProps.identityProviders,
+              identityProviders,
               clients,
             })
           }
@@ -250,11 +263,16 @@ function collectRealms(children: unknown): RealmConfig[] {
       } else if (child.type === Realm) {
         const realmProps = (child as any).props
         const clients = collectClients(realmProps.children)
+        // Merge identity providers from both prop and child components
+        const identityProviders = [
+          ...(realmProps.identityProviders ?? []),
+          ...collectIdentityProviders(realmProps.children),
+        ]
         realms.push({
           id: realmProps.id,
           displayName: realmProps.displayName,
           enabled: realmProps.enabled,
-          identityProviders: realmProps.identityProviders,
+          identityProviders,
           clients,
         })
       }
@@ -295,4 +313,48 @@ function collectClients(children: unknown): ClientConfig[] {
   }
 
   return clients
+}
+
+/** Collect IdentityProvider configurations from children */
+function collectIdentityProviders(children: unknown): IdentityProviderConfig[] {
+  const identityProviders: IdentityProviderConfig[] = []
+
+  if (!children) return identityProviders
+
+  const childArray = Array.isArray(children) ? children : [children]
+  for (const child of childArray) {
+    if (child && typeof child === 'object' && 'type' in child) {
+      if (child.type === EntraID) {
+        const entraProps = (child as any).props
+        identityProviders.push({
+          alias: 'entra-id',
+          displayName: entraProps.displayName ?? 'Entra ID',
+          providerId: 'oidc',
+          enabled: entraProps.enabled ?? true,
+          trustEmail: entraProps.trustEmail ?? true,
+          config: {
+            clientId: entraProps.clientId,
+            clientSecret: entraProps.clientSecret,
+            tokenUrl: `https://login.microsoftonline.com/${entraProps.tenantId}/oauth2/v2.0/token`,
+            authorizationUrl: `https://login.microsoftonline.com/${entraProps.tenantId}/oauth2/v2.0/authorize`,
+          },
+        })
+      } else if (child.type === Google) {
+        const googleProps = (child as any).props
+        identityProviders.push({
+          alias: 'google',
+          displayName: googleProps.displayName ?? 'Google',
+          providerId: 'oidc',
+          enabled: googleProps.enabled ?? true,
+          trustEmail: googleProps.trustEmail ?? true,
+          config: {
+            clientId: googleProps.clientId,
+            clientSecret: googleProps.clientSecret,
+          },
+        })
+      }
+    }
+  }
+
+  return identityProviders
 }

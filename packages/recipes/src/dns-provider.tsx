@@ -127,7 +127,12 @@ export function DnsProvider(props: DnsProviderProps) {
     config = { provider, settings: {} }
   } else if ('settings' in provider) {
     config = provider
-  } else if (provider && typeof provider === 'object' && 'type' in provider && (provider as any).type === ExternalDns) {
+  } else if (
+    provider &&
+    typeof provider === 'object' &&
+    'type' in provider &&
+    (provider as any).type === ExternalDns
+  ) {
     // r8s JSX element — call the component with its props
     config = ExternalDns((provider as any).props)
   } else {

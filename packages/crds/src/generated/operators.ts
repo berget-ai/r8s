@@ -40,10 +40,10 @@ export const operators: Record<string, (version?: string) => Operator> = {
     namespace: "envoy-gateway-system",
     crds: ["gatewayclasses.gateway.networking.k8s.io","gateways.gateway.networking.k8s.io","httproutes.gateway.networking.k8s.io","grpcroutes.gateway.networking.k8s.io","tlsroutes.gateway.networking.k8s.io","tcproutes.gateway.networking.k8s.io","udproutes.gateway.networking.k8s.io","envoyproxies.gateway.envoyproxy.io","backendtrafficpolicies.gateway.envoyproxy.io","clienttrafficpolicies.gateway.envoyproxy.io","securitypolicies.gateway.envoyproxy.io"],
   }),
-  "external-dns": (version = "0.14.0") => ({
+  "external-dns": (version = "1.21.1") => ({
     name: "external-dns",
     description: "ExternalDNS for automatic DNS management",
-    source: { type: 'manifest', url: expandVersion("https://raw.githubusercontent.com/kubernetes-sigs/external-dns/v{version}/docs/sources/manifest.yaml", version), version, namespace: "external-dns" },
+    source: { type: 'helm', chart: "external-dns", repository: "https://kubernetes-sigs.github.io/external-dns/", version, namespace: "external-dns" },
     version,
     namespace: "external-dns",
     crds: ["dnsendpoints.externaldns.k8s.io"],
@@ -90,7 +90,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
   "vault-secrets-operator": (version = "0.5.0") => ({
     name: "vault-secrets-operator",
     description: "HashiCorp Vault Secrets Operator",
-    source: { type: 'manifest', url: expandVersion("https://raw.githubusercontent.com/hashicorp/vault-secrets-operator/v{version}/config/default/deploy.yaml", version), version, namespace: "vault-secrets-operator" },
+    source: { type: 'helm', chart: "vault-secrets-operator", repository: "https://helm.releases.hashicorp.com", version, namespace: "vault-secrets-operator" },
     version,
     namespace: "vault-secrets-operator",
     crds: ["vaultstaticsecrets.secrets.hashicorp.com","vaultdynamicsecrets.secrets.hashicorp.com","vaultauths.secrets.hashicorp.com","vaultconnections.secrets.hashicorp.com"],
@@ -149,7 +149,7 @@ export const operatorMetadata: OperatorMeta[] = [
     name: "external-dns",
     description: "ExternalDNS for automatic DNS management",
     category: "Networking",
-    version: "0.14.0",
+    version: "1.21.1",
     crds: ["dnsendpoints.externaldns.k8s.io"],
   },
   {

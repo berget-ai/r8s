@@ -1,6 +1,12 @@
 import { jsx, useContext, declareOperator } from '@r8s/core'
 import { Cluster } from '@r8s/crds/postgresql'
-import { DatabaseContext, SecretContext, OperatorContext, ClusterContext } from '@r8s/core/defaults'
+import {
+  DatabaseContext,
+  SecretContext,
+  OperatorContext,
+  ClusterContext,
+  Namespace,
+} from '@r8s/core/defaults'
 import { cnpgOperator } from './operators'
 
 export interface DatabaseProps {
@@ -54,12 +60,17 @@ export interface DatabaseProps {
 export function Database(props: DatabaseProps) {
   const {
     name,
-    namespace = 'default',
+    namespace: namespaceProp,
     storage = '10Gi',
     operatorVersion,
     password,
     children,
   } = props
+
+  // Inherit namespace from <Platform> context if not explicitly set
+  const contextNamespace = useContext(Namespace)
+  const namespace =
+    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
 
   const clusterConfig = useContext(ClusterContext)
   const secretProvider = useContext(SecretContext)

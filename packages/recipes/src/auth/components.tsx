@@ -121,7 +121,14 @@ export interface RealmProps extends RealmConfig {
  * </Realm>
  */
 export function Realm(props: RealmProps) {
-  const { id, displayName, enabled = true, identityProviders: propIdentityProviders = [], clients: propClients = [], children } = props
+  const {
+    id,
+    displayName,
+    enabled = true,
+    identityProviders: propIdentityProviders = [],
+    clients: propClients = [],
+    children,
+  } = props
 
   // Collect clients and identity providers from children
   const clients: ClientConfig[] = [...propClients]
@@ -193,7 +200,8 @@ export function Realm(props: RealmProps) {
   const existingRealms = useContext(RealmContext)
   const allRealms = [...existingRealms, { ...realm, clients }]
 
-  return jsx(RealmContext.Provider, { value: allRealms, children: null })
+  // Render children so nested components (Clients, EntraID, Google) are processed
+  return jsx(RealmContext.Provider, { value: allRealms, children })
 }
 
 export interface ClientsProps {
