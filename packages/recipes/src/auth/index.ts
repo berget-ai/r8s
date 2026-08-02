@@ -8,6 +8,7 @@ export {
   Client,
   EntraID,
   Google,
+  RealmContext,
   type RealmConfig,
   type ClientConfig,
   type IdentityProviderConfig,

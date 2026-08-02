@@ -38,10 +38,7 @@ export default (
     <Auth name="auth" host="auth.saas.example.com">
       <Realms>
         <Realm id="saas" displayName="SaaS Platform">
-          <Google
-            clientId="your-google-client-id"
-            clientSecret="${env:GOOGLE_CLIENT_SECRET}"
-          />
+          <Google clientId="your-google-client-id" clientSecret="${env:GOOGLE_CLIENT_SECRET}" />
           <Clients>
             <Client id="web" type="public" redirectUris={['https://app.saas.example.com/*']} />
             <Client id="api" type="bearer-only" />

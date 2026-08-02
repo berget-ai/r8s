@@ -35,15 +35,30 @@ async function renderExample(examplePath: string): Promise<{
         '@r8s/recipes': path.join(EXAMPLES_DIR, 'packages/recipes/src'),
         '@r8s/recipes/auth': path.join(EXAMPLES_DIR, 'packages/recipes/src/auth/index.ts'),
         '@r8s/crds': path.join(EXAMPLES_DIR, 'packages/crds/src'),
-        '@r8s/crds/postgresql': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/postgresql.ts'),
-        '@r8s/crds/cert-manager': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/cert-manager.ts'),
+        '@r8s/crds/postgresql': path.join(
+          EXAMPLES_DIR,
+          'packages/crds/src/generated/postgresql.ts'
+        ),
+        '@r8s/crds/cert-manager': path.join(
+          EXAMPLES_DIR,
+          'packages/crds/src/generated/cert-manager.ts'
+        ),
         '@r8s/crds/gateway': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/gateway.ts'),
         '@r8s/crds/redis': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/redis.ts'),
         '@r8s/crds/velero': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/velero.ts'),
-        '@r8s/crds/monitoring': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/monitoring.ts'),
+        '@r8s/crds/monitoring': path.join(
+          EXAMPLES_DIR,
+          'packages/crds/src/generated/monitoring.ts'
+        ),
         '@r8s/crds/keycloak': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/keycloak.ts'),
-        '@r8s/crds/externaldns': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/externaldns.ts'),
-        '@r8s/crds/clickhouse': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/clickhouse.ts'),
+        '@r8s/crds/externaldns': path.join(
+          EXAMPLES_DIR,
+          'packages/crds/src/generated/externaldns.ts'
+        ),
+        '@r8s/crds/clickhouse': path.join(
+          EXAMPLES_DIR,
+          'packages/crds/src/generated/clickhouse.ts'
+        ),
         '@r8s/crds/logging': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/logging.ts'),
         '@r8s/crds/loki': path.join(EXAMPLES_DIR, 'packages/crds/src/generated/loki.ts'),
         '@r8s/k8s-types': path.join(EXAMPLES_DIR, 'packages/k8s-types/src'),

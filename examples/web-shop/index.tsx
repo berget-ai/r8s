@@ -11,6 +11,13 @@
  * - Redis cache
  * - TLS certificates
  * - DNS records
+ *
+ * Required operators (install separately):
+ * - cnpg (manifest — auto-fetched)
+ * - cert-manager (manifest — auto-fetched)
+ * - keycloak-operator (manifest — auto-fetched)
+ * - external-dns (helm — install manually)
+ * - vault-secrets-operator (helm — install manually)
  */
 
 import { jsx } from '@r8s/core'
