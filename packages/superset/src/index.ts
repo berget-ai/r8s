@@ -1,4 +1,7 @@
-import { jsx, Fragment } from '@r8s/core'
+import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
+import { OperatorContext } from '@r8s/core/defaults'
+import { operators } from '@r8s/crds'
+import { RedisClusterComponent } from '@r8s/crds/redis'
 
 export interface SupersetProps {
   /** Resource name */
@@ -17,11 +20,12 @@ export interface SupersetProps {
     passwordSecret: string
     passwordKey?: string
   }
-  /** Redis connection */
-  redis: {
-    host: string
-    port?: number
-  }
+  /**
+   * Redis connection. Either point at an existing Redis (`host`) or let
+   * the component create a managed RedisCluster (`create: true`).
+   */
+  redis:
+    { host: string; port?: number; create?: false } | { create: true; host?: string; port?: number }
   /** Admin credentials secret */
   adminSecret: string
   /** Number of replicas (default: 1) */
@@ -87,6 +91,41 @@ export function Superset(props: SupersetProps) {
     })
   )
 
+  // Managed Redis — without this the Superset config references a Redis
+  // host that doesn't exist and the pod crash-loops.
+  let redisHost: string
+  let redisPort: number
+  if ('create' in redis && redis.create) {
+    const sharedOperators = useContext(OperatorContext)
+    const hasRedis = sharedOperators.some((op) => op.name === 'redis-operator')
+    if (!hasRedis) {
+      resources_list.push(declareOperator(operators['redis-operator']()))
+    }
+    const redisName = `${name}-redis`
+    resources_list.push(
+      RedisClusterComponent({
+        metadata: { name: redisName, namespace },
+        spec: {
+          clusterSize: 3,
+          kubernetesConfig: { image: 'redis:7.2-alpine' },
+          storage: {
+            volumeClaimTemplate: {
+              spec: {
+                accessModes: ['ReadWriteOnce'],
+                resources: { requests: { storage: '1Gi' } },
+              },
+            },
+          },
+        },
+      })
+    )
+    redisHost = redis.host ?? `${redisName}.${namespace}.svc.cluster.local`
+    redisPort = redis.port ?? 6379
+  } else {
+    redisHost = (redis as { host: string }).host
+    redisPort = redis.port ?? 6379
+  }
+
   // ConfigMap for superset_config.py
   const configScript = `
 import os
@@ -147,8 +186,8 @@ CACHE_CONFIG = {
                       },
                     },
                   },
-                  { name: 'REDIS_HOST', value: redis.host },
-                  { name: 'REDIS_PORT', value: String(redis.port || 6379) },
+                  { name: 'REDIS_HOST', value: redisHost },
+                  { name: 'REDIS_PORT', value: String(redisPort) },
                   ...(oauth
                     ? [
                         { name: 'KEYCLOAK_CLIENT_ID', value: oauth.clientId },

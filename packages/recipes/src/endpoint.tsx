@@ -117,6 +117,12 @@ export function Endpoint(props: EndpointProps) {
         metadata: {
           name: `${name}-gateway`,
           namespace,
+          // ExternalDNS gateway source picks up hostnames from this annotation
+          ...(createDnsRecord && {
+            annotations: {
+              'external-dns.alpha.kubernetes.io/hostname': host,
+            },
+          }),
         },
         spec: {
           gatewayClassName,
@@ -173,6 +179,8 @@ export function Endpoint(props: EndpointProps) {
         namespace,
         annotations: {
           'nginx.ingress.kubernetes.io/rewrite-target': '/',
+          // ExternalDNS ingress source picks up hostnames from this annotation
+          ...(createDnsRecord ? { 'external-dns.alpha.kubernetes.io/hostname': host } : {}),
           ...(tls?.clusterIssuer
             ? {
                 'cert-manager.io/cluster-issuer': tls.clusterIssuer,
@@ -216,28 +224,41 @@ export function Endpoint(props: EndpointProps) {
     resources.push(jsx('Ingress', ingress))
   }
 
-  // DNS record via ExternalDNS
+  // DNS record via ExternalDNS.
+  //
+  // Two modes:
+  // 1. Explicit targets (dnsTargets prop or dnsConfig.settings.targets):
+  //    create a DNSEndpoint CR with those targets (ExternalDNS crd source).
+  // 2. No targets: annotate the Gateway/Ingress with the hostname and let
+  //    ExternalDNS pick it up via its gateway/ingress source. Creating a
+  //    DNSEndpoint with empty targets would produce a DNS record pointing
+  //    nowhere, so we deliberately skip the CR in that case.
+  const dnsTargets = dnsConfig?.settings?.targets as string[] | undefined
   if (createDnsRecord) {
     const hasExternalDNS = sharedOperators.some((op) => op.name === 'external-dns')
     if (!hasExternalDNS) {
       resources.push(declareOperator(operators['external-dns']()))
     }
 
-    resources.push(
-      DNSEndpointComponent({
-        metadata: { name: `${name}-dns`, namespace },
-        spec: {
-          endpoints: [
-            {
-              dnsName: host,
-              recordType: 'A',
-              targets: [], // Populated by ExternalDNS from Ingress/Gateway status
-              recordTTL: dnsTtl,
-            },
-          ],
-        },
-      })
-    )
+    if (dnsTargets && dnsTargets.length > 0) {
+      resources.push(
+        DNSEndpointComponent({
+          metadata: { name: `${name}-dns`, namespace },
+          spec: {
+            endpoints: [
+              {
+                dnsName: host,
+                recordType: 'A',
+                targets: dnsTargets,
+                recordTTL: dnsTtl,
+              },
+            ],
+          },
+        })
+      )
+    }
+    // else: no targets known at render time — rely on ExternalDNS
+    // gateway/ingress source instead of creating an empty DNSEndpoint.
   }
 
   return jsx(Fragment, { children: resources })

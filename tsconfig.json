@@ -20,6 +20,7 @@
       "@r8s/core/jsx-dev-runtime": ["./packages/core/src/jsx-runtime.ts"],
       "@r8s/k8s-types": ["./packages/k8s-types/src/index.ts"],
       "@r8s/recipes": ["./packages/recipes/src/index.ts"],
+      "@r8s/recipes/auth": ["./packages/recipes/src/auth/index.ts"],
       "@r8s/crds": ["./packages/crds/src/index.ts"],
       "@r8s/crds/*": ["./packages/crds/src/generated/*"],
       "@r8s/r8s-controller": ["./packages/r8s-controller/src/controller.ts"],

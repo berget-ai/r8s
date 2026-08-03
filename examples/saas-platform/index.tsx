@@ -73,7 +73,7 @@ export default (
         user: 'superset',
         passwordSecret: 'superset-db-credentials',
       }}
-      redis={{ host: 'redis-master' }}
+      redis={{ create: true }}
       adminSecret="superset-admin"
       tls={{ secretName: 'superset-tls', clusterIssuer: 'letsencrypt-prod' }}
     />

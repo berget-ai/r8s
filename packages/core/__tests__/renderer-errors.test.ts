@@ -171,3 +171,72 @@ describe('Renderer Error Cases', () => {
     expect(result.operators[0].version).toBe('2.0.0') // Last one wins
   })
 })
+
+describe('Resource deduplication', () => {
+  it('should deduplicate resources by kind/namespace/name, keeping the first', () => {
+    // Platform, Superset, and RustFS can all declare the same Namespace —
+    // emitting duplicates produces invalid multi-doc YAML.
+    const element = jsx(Fragment, {
+      children: [
+        jsx('Namespace', {
+          apiVersion: 'v1',
+          kind: 'Namespace',
+          metadata: { name: 'shared', labels: { first: 'true' } },
+        }),
+        jsx('Namespace', {
+          apiVersion: 'v1',
+          kind: 'Namespace',
+          metadata: { name: 'shared', labels: { second: 'true' } },
+        }),
+      ],
+    })
+
+    const result = render(element)
+
+    const namespaces = result.resources.filter((r) => r.kind === 'Namespace')
+    expect(namespaces).toHaveLength(1)
+    expect((namespaces[0] as any).metadata.labels.first).toBe('true')
+  })
+
+  it('should not deduplicate resources with different namespaces', () => {
+    const element = jsx(Fragment, {
+      children: [
+        jsx('ConfigMap', {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: { name: 'cm', namespace: 'a' },
+        }),
+        jsx('ConfigMap', {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: { name: 'cm', namespace: 'b' },
+        }),
+      ],
+    })
+
+    const result = render(element)
+
+    expect(result.resources.filter((r) => r.kind === 'ConfigMap')).toHaveLength(2)
+  })
+
+  it('should not deduplicate resources with different kinds but same name', () => {
+    const element = jsx(Fragment, {
+      children: [
+        jsx('Service', {
+          apiVersion: 'v1',
+          kind: 'Service',
+          metadata: { name: 'app', namespace: 'x' },
+        }),
+        jsx('Deployment', {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: { name: 'app', namespace: 'x' },
+        }),
+      ],
+    })
+
+    const result = render(element)
+
+    expect(result.resources).toHaveLength(2)
+  })
+})

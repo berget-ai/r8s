@@ -86,6 +86,8 @@ describe('Platform', () => {
       const result = render(element)
 
       for (const res of result.resources) {
+        // Cluster-scoped resources (Namespace) have no metadata.namespace
+        if (res.kind === 'Namespace') continue
         expect(res.metadata?.namespace).toBe('production')
       }
     })
@@ -104,6 +106,8 @@ describe('Platform', () => {
       const result = render(element)
 
       for (const res of result.resources) {
+        // Cluster-scoped resources (Namespace) have no metadata.namespace
+        if (res.kind === 'Namespace') continue
         expect(res.metadata?.namespace).toBe('override-ns')
       }
     })
@@ -244,6 +248,55 @@ describe('Platform', () => {
 
       expect(gateways).toHaveLength(0)
       expect(ingresses).toHaveLength(2)
+    })
+  })
+
+  describe('namespace resource', () => {
+    it('should materialize a Namespace resource when namespace is set', () => {
+      // Without this, every rendered resource references a namespace that
+      // may not exist in the cluster — apply fails or lands in the wrong ns.
+      const element = jsx(Platform, {
+        namespace: 'production',
+        children: jsx(App, { name: 'api', image: 'api:v1', host: 'api.example.com' }),
+      })
+
+      const result = render(element)
+
+      const ns = result.resources.find((r) => r.kind === 'Namespace') as any
+      expect(ns).toBeDefined()
+      expect(ns.metadata.name).toBe('production')
+    })
+
+    it('should not render Namespace when namespace is not set', () => {
+      const element = jsx(Platform, {
+        children: jsx(App, { name: 'api', image: 'api:v1', host: 'api.example.com' }),
+      })
+
+      const result = render(element)
+
+      expect(result.resources.find((r) => r.kind === 'Namespace')).toBeUndefined()
+    })
+
+    it('should not duplicate Namespace when a child also creates it', () => {
+      // Superset/RustFS create their own Namespace resources — the renderer
+      // must deduplicate by kind/namespace/name.
+      const element = jsx(Platform, {
+        namespace: 'saas',
+        children: jsx(Fragment, {
+          children: [
+            jsx('Namespace', {
+              apiVersion: 'v1',
+              kind: 'Namespace',
+              metadata: { name: 'saas' },
+            }),
+          ],
+        }),
+      })
+
+      const result = render(element)
+
+      const namespaces = result.resources.filter((r) => r.kind === 'Namespace')
+      expect(namespaces).toHaveLength(1)
     })
   })
 })
