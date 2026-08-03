@@ -155,3 +155,129 @@ describe('Auth with hierarchical realms', () => {
     expect(clients[2].bearerOnly).toBe(true)
   })
 })
+
+describe('Auth — JSX children identity checks', () => {
+  // These tests guard against the module-duplication regression where
+  // esbuild bundled both src/ and dist/ copies of components, breaking
+  // `child.type === Component` identity checks in collectRealms et al.
+
+  it('should collect EntraID identity provider from JSX child component', async () => {
+    const { EntraID } = await import('../src/auth/index')
+    const element = jsx(Auth, {
+      name: 'auth',
+      host: 'auth.example.com',
+      children: jsx(Realms, {
+        children: jsx(Realm, {
+          id: 'company',
+          children: jsx(EntraID, {
+            tenantId: 'my-tenant',
+            clientId: 'my-client',
+            clientSecret: 'my-secret',
+          }),
+        }),
+      }),
+    })
+
+    const result = render(element)
+    const realmImport = result.resources.find((r) => r.kind === 'KeycloakRealmImport') as any
+
+    expect(realmImport).toBeDefined()
+    const idps = realmImport.spec.realm.identityProviders
+    expect(idps).toHaveLength(1)
+    expect(idps[0].alias).toBe('entra-id')
+    expect(idps[0].providerId).toBe('oidc')
+    expect(idps[0].config.clientId).toBe('my-client')
+    expect(idps[0].config.tokenUrl).toContain('my-tenant')
+  })
+
+  it('should collect Google identity provider from JSX child component', async () => {
+    const { Google } = await import('../src/auth/index')
+    const element = jsx(Auth, {
+      name: 'auth',
+      host: 'auth.example.com',
+      children: jsx(Realms, {
+        children: jsx(Realm, {
+          id: 'company',
+          children: jsx(Google, {
+            clientId: 'g-client',
+            clientSecret: 'g-secret',
+          }),
+        }),
+      }),
+    })
+
+    const result = render(element)
+    const realmImport = result.resources.find((r) => r.kind === 'KeycloakRealmImport') as any
+
+    const idps = realmImport.spec.realm.identityProviders
+    expect(idps).toHaveLength(1)
+    expect(idps[0].alias).toBe('google')
+    expect(idps[0].config.clientId).toBe('g-client')
+  })
+
+  it('should collect Realm as direct child without Realms wrapper', () => {
+    const element = jsx(Auth, {
+      name: 'auth',
+      host: 'auth.example.com',
+      children: jsx(Realm, { id: 'direct' }),
+    })
+
+    const result = render(element)
+    const realmImport = result.resources.find((r) => r.kind === 'KeycloakRealmImport') as any
+
+    expect(realmImport).toBeDefined()
+    expect(realmImport.spec.realm.realm).toBe('direct')
+  })
+
+  it('should collect Client as direct child without Clients wrapper', () => {
+    const element = jsx(Auth, {
+      name: 'auth',
+      host: 'auth.example.com',
+      children: jsx(Realms, {
+        children: jsx(Realm, {
+          id: 'shop',
+          children: jsx(Client, { id: 'web', type: 'public' }),
+        }),
+      }),
+    })
+
+    const result = render(element)
+    const realmImport = result.resources.find((r) => r.kind === 'KeycloakRealmImport') as any
+
+    expect(realmImport.spec.realm.clients).toHaveLength(1)
+    expect(realmImport.spec.realm.clients[0].clientId).toBe('web')
+  })
+
+  it('should merge identity providers from both prop and JSX children', async () => {
+    const { EntraID } = await import('../src/auth/index')
+    const element = jsx(Auth, {
+      name: 'auth',
+      host: 'auth.example.com',
+      children: jsx(Realms, {
+        children: jsx(Realm, {
+          id: 'company',
+          identityProviders: [
+            {
+              alias: 'saml-idp',
+              providerId: 'saml',
+              enabled: true,
+              config: {},
+            },
+          ],
+          children: jsx(EntraID, {
+            tenantId: 't',
+            clientId: 'c',
+            clientSecret: 's',
+          }),
+        }),
+      }),
+    })
+
+    const result = render(element)
+    const realmImport = result.resources.find((r) => r.kind === 'KeycloakRealmImport') as any
+
+    const aliases = realmImport.spec.realm.identityProviders.map((i: any) => i.alias)
+    expect(aliases).toContain('saml-idp')
+    expect(aliases).toContain('entra-id')
+  })
+})

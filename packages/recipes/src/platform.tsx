@@ -143,6 +143,21 @@ export function Platform(props: PlatformProps) {
 
   let result: unknown = children
 
+  // Materialize the Namespace resource so rendered output is self-contained.
+  // Without this, every resource references a namespace that may not exist.
+  if (namespace) {
+    result = jsx(Fragment, {
+      children: [
+        jsx('Namespace', {
+          apiVersion: 'v1',
+          kind: 'Namespace',
+          metadata: { name: namespace },
+        }),
+        result,
+      ],
+    })
+  }
+
   // Apply DNS context via DnsProvider (inside SecretProvider so it can access secrets)
   if (dns) {
     result = jsx(DnsProvider, { provider: dns, children: result })

@@ -31,6 +31,13 @@ export interface ExternalDnsProps {
     /** Provider-specific options */
     options?: Record<string, string>
   }
+  /**
+   * Explicit DNS targets (IPs or hostnames) for DNSEndpoint records.
+   * When set, Endpoint components create DNSEndpoint CRs with these targets.
+   * When omitted, Endpoints annotate Gateway/Ingress instead and let
+   * ExternalDNS discover hostnames via its gateway/ingress source.
+   */
+  targets?: string[]
 }
 
 export function ExternalDns(props: ExternalDnsProps): DnsConfig {

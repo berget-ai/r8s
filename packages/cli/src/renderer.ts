@@ -1,6 +1,7 @@
 import { render, r8sElement, fetchOperatorManifests } from '@r8s/core'
 import * as yaml from 'js-yaml'
-import { resolve } from 'path'
+import { resolve, dirname, join } from 'path'
+import { existsSync } from 'fs'
 
 interface EntryModule {
   default: r8sElement | ((props: unknown) => r8sElement)
@@ -9,6 +10,29 @@ interface EntryModule {
 export interface RenderOptions {
   includeOperators?: boolean
   operatorsOnly?: boolean
+}
+
+/**
+ * Find the monorepo root tsconfig (the one with `paths` for @r8s/*).
+ * Passing it to esbuild makes module resolution use a single source of
+ * truth — the workspace `src/` directories — so each module is bundled
+ * exactly once. Without this, some imports resolve via node_modules to
+ * `dist/` while others resolve to `src/`, producing two copies of every
+ * component function and breaking `child.type === Component` identity
+ * checks in the renderer.
+ */
+function findRootTsconfig(): string | undefined {
+  let dir = process.cwd()
+  for (let i = 0; i < 5; i++) {
+    const candidate = join(dir, 'tsconfig.json')
+    if (existsSync(candidate) && existsSync(join(dir, 'packages', 'core', 'src', 'index.ts'))) {
+      return candidate
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return undefined
 }
 
 async function bundleAndRender(entryFile: string) {
@@ -28,6 +52,7 @@ async function bundleAndRender(entryFile: string) {
       jsx: 'automatic',
       jsxImportSource: '@r8s/core',
       external: [],
+      tsconfig: findRootTsconfig(),
     })
   } catch (error) {
     throw new Error(

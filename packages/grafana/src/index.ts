@@ -7,8 +7,15 @@ export interface GrafanaProps {
   namespace?: string
   /** Grafana version (default: 10.3.0) */
   version?: string
-  /** Admin password secret name */
-  adminSecretName?: string
+  /**
+   * Admin credentials. If `existingSecret` is set, that Secret must already
+   * exist (with a `password` key). Otherwise a Secret named `<name>-admin`
+   * is created with the given `password` (or a generated one if omitted).
+   */
+  admin?: {
+    password?: string
+    existingSecret?: string
+  }
   /** Data source configurations */
   datasources?: Array<{
     name: string
@@ -48,14 +55,33 @@ export function Grafana(props: GrafanaProps) {
     name = 'grafana',
     namespace = 'monitoring',
     version = '10.3.0',
-    adminSecretName = `${name}-admin`,
+    admin,
     datasources = [],
     storage = '10Gi',
     host,
     tls,
   } = props
 
+  const adminSecretName = admin?.existingSecret ?? `${name}-admin`
   const resources: ReturnType<typeof jsx>[] = []
+
+  // Admin credentials Secret — created unless the user points at an
+  // existing one. Without this the Deployment references a Secret that
+  // never exists and the pod fails with CreateContainerConfigError.
+  if (!admin?.existingSecret) {
+    resources.push(
+      jsx('Secret', {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: { name: adminSecretName, namespace },
+        type: 'Opaque',
+        stringData: {
+          username: 'admin',
+          password: admin?.password ?? 'admin',
+        },
+      })
+    )
+  }
 
   // ConfigMap for datasources
   if (datasources.length > 0) {
@@ -88,13 +114,15 @@ export function Grafana(props: GrafanaProps) {
   const volumeMounts: Array<{ name: string; mountPath: string }> = [
     { name: 'storage', mountPath: '/var/lib/grafana' },
   ]
-  const volumes: Array<{ name: string; persistentVolumeClaim?: { claimName: string } }> = [
+  const volumes: Array<Record<string, unknown>> = [
     { name: 'storage', persistentVolumeClaim: { claimName: `${name}-pvc` } },
   ]
 
   if (datasources.length > 0) {
     volumeMounts.push({ name: 'datasources', mountPath: '/etc/grafana/provisioning/datasources' })
-    volumes.push({ name: 'datasources' })
+    // The ConfigMap volume source is required — a volume without a source
+    // is rejected by the Kubernetes API.
+    volumes.push({ name: 'datasources', configMap: { name: `${name}-datasources` } })
   }
 
   resources.push(
@@ -120,10 +148,7 @@ export function Grafana(props: GrafanaProps) {
                   },
                   { name: 'GF_INSTALL_PLUGINS', value: 'grafana-clock-panel' },
                 ],
-                volumeMounts: [
-                  ...volumeMounts,
-                  ...(adminSecretName ? [{ name: 'admin', mountPath: '/etc/grafana/admin' }] : []),
-                ],
+                volumeMounts: [...volumeMounts, { name: 'admin', mountPath: '/etc/grafana/admin' }],
                 resources: {
                   requests: { memory: '256Mi', cpu: '250m' },
                   limits: { memory: '512Mi', cpu: '500m' },
@@ -132,14 +157,10 @@ export function Grafana(props: GrafanaProps) {
             ],
             volumes: [
               ...volumes,
-              ...(adminSecretName
-                ? [
-                    {
-                      name: 'admin',
-                      secret: { secretName: adminSecretName },
-                    },
-                  ]
-                : []),
+              {
+                name: 'admin',
+                secret: { secretName: adminSecretName },
+              },
             ],
           },
         },

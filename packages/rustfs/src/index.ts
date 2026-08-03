@@ -13,8 +13,15 @@ export interface RustFSProps {
   storageClass?: string
   /** Root user (default: rustfs) */
   rootUser?: string
-  /** Root password secret */
-  rootPasswordSecret?: string
+  /**
+   * Root credentials. If `existingSecret` is set, that Secret must already
+   * exist (with `user` and `password` keys). Otherwise a Secret named
+   * `<name>-root-password` is created with the given `password`.
+   */
+  rootCredentials?: {
+    password?: string
+    existingSecret?: string
+  }
   /** Ingress host for S3 API */
   host?: string
   /** TLS config */
@@ -46,11 +53,12 @@ export function RustFS(props: RustFSProps) {
     storage = '100Gi',
     storageClass,
     rootUser = 'rustfs',
-    rootPasswordSecret = `${name}-root-password`,
+    rootCredentials,
     host,
     tls,
   } = props
 
+  const rootPasswordSecret = rootCredentials?.existingSecret ?? `${name}-root-password`
   const resources: ReturnType<typeof jsx>[] = []
 
   // Namespace
@@ -61,6 +69,24 @@ export function RustFS(props: RustFSProps) {
       metadata: { name: namespace },
     })
   )
+
+  // Root credentials Secret — created unless the user points at an
+  // existing one. Without this the StatefulSet references a Secret that
+  // never exists and pods fail to start.
+  if (!rootCredentials?.existingSecret) {
+    resources.push(
+      jsx('Secret', {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: { name: rootPasswordSecret, namespace },
+        type: 'Opaque',
+        stringData: {
+          user: rootUser,
+          password: rootCredentials?.password ?? 'rustfs-change-me',
+        },
+      })
+    )
+  }
 
   // Headless service for StatefulSet
   resources.push(
