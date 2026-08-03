@@ -259,8 +259,8 @@ export default function Page() {
           <a href="/llms.txt" className="text-moss hover:text-lichen">
             r8s.berget.ai/llms.txt
           </a>{' '}
-          — it contains the exact component model, the render → GitOps workflow, and the pitfalls
-          to avoid. The agent writes TSX, renders with the r8s CLI, and hands plain YAML to your
+          — it contains the exact component model, the render → GitOps workflow, and the pitfalls to
+          avoid. The agent writes TSX, renders with the r8s CLI, and hands plain YAML to your
           pipeline.
         </p>
         <div className="p-6 rounded-lg border border-white/10 space-y-4">
