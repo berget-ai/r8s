@@ -251,6 +251,32 @@ export default function Page() {
         </div>
       </div>
 
+      {/* For AI agents */}
+      <div className="space-y-6">
+        <h2 className="text-3xl tracking-tight">Deploy with AI agents</h2>
+        <p className="text-cloud/80 leading-relaxed max-w-2xl">
+          r8s is designed for LLM-driven workflows. Point your agent at{' '}
+          <a href="/llms.txt" className="text-moss hover:text-lichen">
+            r8s.berget.ai/llms.txt
+          </a>{' '}
+          — it contains the exact component model, the render → GitOps workflow, and the pitfalls
+          to avoid. The agent writes TSX, renders with the r8s CLI, and hands plain YAML to your
+          pipeline.
+        </p>
+        <div className="p-6 rounded-lg border border-white/10 space-y-4">
+          <div className="text-sm text-cloud/60 font-mono">PROMPT</div>
+          <CodeBlock
+            code={`Read https://r8s.berget.ai/llms.txt, then deploy my app with r8s:
+- namespace "shop", gateway routing, external-dns
+- api + web from registry.example.com, TLS via letsencrypt-prod
+- PostgreSQL via the Database recipe
+- Keycloak auth with an EntraID realm
+Render to k8s/manifest.yaml.`}
+            language="text"
+          />
+        </div>
+      </div>
+
       {/* Comparison */}
       <div className="space-y-6">
         <h2 className="text-3xl tracking-tight">Comparison</h2>
