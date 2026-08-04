@@ -52,7 +52,7 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@r8s/k8s-types": "*"
+    "@r8s/k8s-types": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",

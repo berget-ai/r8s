@@ -28,8 +28,8 @@
   },
   "dependencies": {
     "@kubernetes/client-node": "^0.20.0",
-    "@r8s/core": "*",
-    "@r8s/cli": "*"
+    "@r8s/core": "^0.1.0",
+    "@r8s/cli": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
