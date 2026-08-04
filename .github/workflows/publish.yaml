@@ -1,0 +1,92 @@
+name: Publish to npm
+
+on:
+  # Trigger on version tags: git tag v0.1.0 && git push origin v0.1.0
+  push:
+    tags:
+      - 'v*'
+  # Or trigger manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (npm publish --dry-run, nothing is uploaded)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all packages
+        run: npx tsc -b
+
+      - name: Run tests
+        run: npm test
+
+      - name: Verify versions match the tag
+        if: github.event_name == 'push'
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          for pkg in packages/*/package.json; do
+            VERSION=$(node -p "require('./$pkg').version")
+            NAME=$(node -p "require('./$pkg').name")
+            PRIVATE=$(node -p "require('./$pkg').private || false")
+            if [ "$PRIVATE" = "true" ]; then
+              echo "SKIP $NAME (private)"
+              continue
+            fi
+            if [ "$VERSION" != "$TAG_VERSION" ]; then
+              echo "ERROR: $NAME version $VERSION does not match tag $TAG_VERSION"
+              exit 1
+            fi
+            echo "OK $NAME@$VERSION"
+          done
+
+      - name: Publish packages in dependency order
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -e
+          # Dependency order: k8s-types first, cli last.
+          # Private packages (example) are skipped.
+          ORDER="k8s-types core crds element grafana rustfs superset wireguard recipes cli flux-controller r8s-controller"
+          for pkg in $ORDER; do
+            DIR="packages/$pkg"
+            [ -d "$DIR" ] || continue
+            PRIVATE=$(node -p "require('./$DIR/package.json').private || false")
+            if [ "$PRIVATE" = "true" ]; then
+              echo "SKIP $pkg (private)"
+              continue
+            fi
+            NAME=$(node -p "require('./$DIR/package.json').name")
+            VERSION=$(node -p "require('./$DIR/package.json').version")
+            # Skip if this exact version is already published
+            if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+              echo "SKIP $NAME@$VERSION (already published)"
+              continue
+            fi
+            echo "Publishing $NAME@$VERSION..."
+            if [ "$DRY_RUN" = "true" ]; then
+              npm publish --dry-run --access public --workspace "$NAME"
+            else
+              npm publish --access public --workspace "$NAME"
+            fi
+          done

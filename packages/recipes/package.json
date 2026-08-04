@@ -37,9 +37,9 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@r8s/core": "*",
-    "@r8s/k8s-types": "*",
-    "@r8s/crds": "*"
+    "@r8s/core": "^0.1.0",
+    "@r8s/k8s-types": "^0.1.0",
+    "@r8s/crds": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
