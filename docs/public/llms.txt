@@ -130,6 +130,17 @@ export function Service(props: ApiProps) {
         metadata={{ name }}
         spec={{ selector: { app: name }, ports: [{ port: 80, targetPort: 3000 }] }}
       />
+      <ingress
+        apiVersion="networking.k8s.io/v1"
+        kind="Ingress"
+        metadata={{ name }}
+        spec={{
+          rules: [{
+            host,
+            http: { paths: [{ path: '/', pathType: 'Prefix', backend: { service: { name, port: { number: 80 } } } }] },
+          }],
+        }}
+      />
     </>
   )
 }
@@ -158,16 +169,23 @@ import { Service } from './components'
 
 describe('Service', () => {
   it('creates a Deployment with correct replicas', () => {
-    const { resources } = render(<Service name="api" image="api:v1" host="x" replicas={3} />)
+    const { resources } = render(<Service name="api" image="api:v1" host="api.example.com" replicas={3} />)
     const deploy = resources.find(r => r.kind === 'Deployment')
     expect(deploy?.spec?.replicas).toBe(3)
   })
 
   it('wires Service selector to Deployment labels', () => {
-    const { resources } = render(<Service name="api" image="api:v1" host="x" />)
+    const { resources } = render(<Service name="api" image="api:v1" host="api.example.com" />)
     const svc = resources.find(r => r.kind === 'Service')
     const deploy = resources.find(r => r.kind === 'Deployment')
     expect(svc?.spec?.selector?.app).toBe(deploy?.spec?.selector?.matchLabels?.app)
+  })
+
+  it('creates an Ingress pointing at the Service', () => {
+    const { resources } = render(<Service name="api" image="api:v1" host="api.example.com" />)
+    const ingress = resources.find(r => r.kind === 'Ingress')
+    expect(ingress?.spec?.rules?.[0]?.host).toBe('api.example.com')
+    expect(ingress?.spec?.rules?.[0]?.http?.paths?.[0]?.backend?.service?.name).toBe('api')
   })
 })
 ```
