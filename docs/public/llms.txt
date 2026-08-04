@@ -23,7 +23,6 @@
 | `@r8s/superset` | `Superset` component (optionally managed Redis via `redis: { create: true }`) |
 | `@r8s/rustfs` | `RustFS` S3-compatible storage (StatefulSet, Services, root credentials Secret) |
 | `@r8s/wireguard` | WireGuard VPN component |
-
 ## The exact workflow when asked to "deploy with r8s"
 
 ### 1. Create or edit the entry TSX file
