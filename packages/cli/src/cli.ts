@@ -53,6 +53,9 @@ Commands:
   render     Render k8s/r8s.tsx to YAML (default)
   operators  Render only operator manifests
   init       Scaffold a new r8s project
+  list       List all available components and operators
+  info       Show props and example for a component (e.g. r8s info App)
+  context    Print a compact LLM context blob (component model + workflow)
 
 Options:
   --entry, -e <path>     Entry file path (default: k8s/r8s.tsx)
@@ -76,6 +79,10 @@ Examples:
   r8s init my-project --template fullstack
   r8s init my-project --strategy flux-controller
   r8s init my-project --operators cert-manager,openbao
+  r8s list
+  r8s info App
+  r8s info Database
+  r8s context
 `)
 }
 
@@ -662,6 +669,96 @@ async function main(): Promise<void> {
       console.error('Error:', error instanceof Error ? error.message : error)
       process.exit(1)
     }
+    return
+  }
+
+  if (command === 'list') {
+    const { allComponents, operators } = await import('./catalog.js')
+    const comps = allComponents()
+    console.log('\nComponents:\n')
+    const byCat = new Map<string, typeof comps>()
+    for (const c of comps) {
+      const arr = byCat.get(c.category) ?? []
+      arr.push(c)
+      byCat.set(c.category, arr)
+    }
+    for (const [cat, items] of byCat) {
+      console.log(`  ${cat}:`)
+      for (const c of items) {
+        console.log(`    ${c.name.padEnd(12)} ${c.package.padEnd(20)} ${c.description}`)
+      }
+      console.log()
+    }
+    console.log('Operators:\n')
+    for (const op of operators) {
+      console.log(`    ${op.name.padEnd(24)} ${op.description}`)
+    }
+    console.log('\nUse "r8s info <name>" for props and examples.')
+    return
+  }
+
+  if (command === 'info') {
+    const name = args[1]
+    if (!name) {
+      console.error('Usage: r8s info <component-name>')
+      console.error('Example: r8s info App')
+      process.exit(1)
+    }
+    const { findComponent } = await import('./catalog.js')
+    const comp = findComponent(name)
+    if (!comp) {
+      console.error(`Component not found: ${name}`)
+      console.error('Use "r8s list" to see available components.')
+      process.exit(1)
+    }
+    console.log(`\n${comp.name} (${comp.package})`)
+    console.log(`${comp.category}`)
+    console.log(`\n${comp.description}\n`)
+    console.log('Props:')
+    for (const p of comp.props) {
+      const req = p.required ? 'required' : 'optional'
+      const def = p.default ? ` [default: ${p.default}]` : ''
+      console.log(`  ${p.name.padEnd(16)} ${p.type.padEnd(36)} ${req}${def}`)
+      console.log(`  ${' '.repeat(18)}${p.description}`)
+    }
+    console.log('\nExample:')
+    console.log(`  ${comp.example}`)
+    return
+  }
+
+  if (command === 'context') {
+    const { allComponents, operators } = await import('./catalog.js')
+    const comps = allComponents()
+    console.log('# r8s context for LLMs\n')
+    console.log('## Workflow')
+    console.log('1. Write TSX that default-exports a JSX element')
+    console.log('2. Run: r8s render --entry <file.tsx> --out <file.yaml>')
+    console.log('3. Commit the YAML. GitOps (FluxCD/ArgoCD) applies it.')
+    console.log('4. Never hand-edit YAML — change TSX and re-render.\n')
+    console.log('## Rules')
+    console.log('- Lowercase elements (<deployment>, <service>) are raw K8s resources.')
+    console.log('- PascalCase elements (<App>, <Database>) are recipe components.')
+    console.log('- Components are TypeScript functions — testable with render() + vitest.')
+    console.log('- Entry file must default-export a JSX element or function.\n')
+    console.log('## Components\n')
+    for (const c of comps) {
+      const required = c.props.filter((p) => p.required).map((p) => `${p.name}: ${p.type}`)
+      console.log(`${c.name} (${c.package}) — ${c.description}`)
+      console.log(`  Required: ${required.join(', ') || 'none'}`)
+      console.log(`  Example: ${c.example.replace(/\n/g, ' ')}`)
+      console.log()
+    }
+    console.log('## Operators (auto-declared by recipes)')
+    for (const op of operators) {
+      console.log(`  ${op.name} — ${op.description}`)
+    }
+    console.log('\n## Commands')
+    console.log('  r8s init [name]              Scaffold a project')
+    console.log('  r8s render --entry f.tsx      Render to stdout')
+    console.log('  r8s render --out k8s.yaml     Render to file')
+    console.log('  r8s list                      List all components')
+    console.log('  r8s info <name>               Show props for a component')
+    console.log('  r8s context                   This output')
     return
   }
 
