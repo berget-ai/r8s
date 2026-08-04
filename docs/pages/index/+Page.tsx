@@ -259,18 +259,19 @@ export default function Page() {
           <a href="/llms.txt" className="text-moss hover:text-lichen">
             r8s.berget.ai/llms.txt
           </a>{' '}
-          — it contains the exact component model, the render → GitOps workflow, and the pitfalls to
-          avoid. The agent writes TSX, renders with the r8s CLI, and hands plain YAML to your
-          pipeline.
+          — it contains the quick-start, CLI reference, and the component model. The agent writes
+          TSX, renders with the r8s CLI, and hands plain YAML to your pipeline.
         </p>
         <div className="p-6 rounded-lg border border-white/10 space-y-4">
           <div className="text-sm text-cloud/60 font-mono">PROMPT</div>
           <CodeBlock
-            code={`Read https://r8s.berget.ai/llms.txt, then deploy my app with r8s:
-- namespace "shop", gateway routing, external-dns
-- api + web from registry.example.com, TLS via letsencrypt-prod
-- PostgreSQL via the Database recipe
-- Keycloak auth with an EntraID realm
+            code={`Read https://r8s.berget.ai/llms.txt, then:
+
+Create an r8s project for my API:
+- name: api, image: ghcr.io/myorg/api:v1.2.3
+- host: api.example.com, 3 replicas, port 3000
+- PostgreSQL database (20Gi)
+
 Render to k8s/manifest.yaml.`}
             language="text"
           />
