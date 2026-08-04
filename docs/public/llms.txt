@@ -96,7 +96,7 @@ Edit the TSX, re-render, commit. Never patch the rendered YAML.
 - **`Database`** = CloudNativePG `Cluster` + credentials secret via the configured secrets backend.
 - **`Auth`** = Keycloak (operator CR) + its database + Endpoint + `KeycloakRealmImport` built from `Realm` children. Identity providers come from `EntraID`/`Google` JSX children or the `identityProviders` prop.
 - **Secrets**: Database/Auth credentials are emitted as `OpenBaoStaticSecret`/`VaultStaticSecret`/sealed secrets depending on the Platform `secrets` backend — never plaintext.
-- **DNS**: without explicit `dns.settings.targets`, Endpoints annotate the Gateway/Ingress with `external-dns.alpha.kubernetes.io/hostname` (ExternalDNS source mode). With `targets`, a `DNSEndpoint` CR is created.
+- **DNS**: when DNS is enabled, Endpoints create a `DNSEndpoint` CR; `targets` is left empty and ExternalDNS populates it from the Ingress/Gateway status.
 - **Operators**: recipes declare needed operators automatically; the render output lists them so CI can verify/install before applying.
 
 ## Testing components (do this before deploying)
