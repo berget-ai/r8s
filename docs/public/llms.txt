@@ -1,0 +1,130 @@
+# r8s — Kubernetes Infrastructure as TypeScript Components
+
+> r8s lets you define Kubernetes infrastructure as TSX components and render them to plain YAML manifests. When a user asks you to "deploy with r8s", your job is to: (1) write a TSX file that composes r8s components, (2) render it to YAML with the r8s CLI, (3) hand the YAML to the user's GitOps pipeline (FluxCD/ArgoCD) or apply it. Never hand-edit the rendered YAML — change the TSX and re-render.
+
+## What r8s is
+
+- **JSX/TSX → Kubernetes YAML.** Components are TypeScript functions returning resource trees. `render()` walks the tree and emits a multi-document YAML manifest.
+- **Composability over templates.** No Helm values sprawl, no Kustomize patches. Logic (conditionals, loops, variables) is plain TypeScript.
+- **Type-safe.** Wrong field names and invalid values are compile errors, not `kubectl apply` failures.
+- **GitOps-native.** Rendered YAML is committed to git; FluxCD or ArgoCD applies it. No in-cluster mutation by r8s itself.
+- **Testable.** Components render in-memory via `render()` — assert on resources with Vitest/Jest before deploying.
+
+## Packages (npm scope: @r8s)
+
+| Package | Purpose |
+|---|---|
+| `@r8s/core` | JSX runtime, `render()`, contexts (Namespace, OperatorContext, SecretContext, DnsContext, RoutingContext), operator declarations |
+| `@r8s/recipes` | High-level components: `Platform`, `App`, `Database`, `Auth`, `Endpoint`, `Monitoring`, providers (secrets, DNS, routing) |
+| `@r8s/recipes/auth` | Auth sub-components: `Realms`, `Realm`, `Clients`, `Client`, `EntraID`, `Google` |
+| `@r8s/crds` | Typed CRD components (CloudNativePG, cert-manager, Gateway API, Keycloak, Redis, Loki, ExternalDNS, monitoring) + operator catalog |
+| `@r8s/cli` (`r8s`) | CLI: `r8s init`, `r8s render --entry <file.tsx> --out <file.yaml>` |
+| `@r8s/grafana` | `Grafana` component (Deployment, Service, PVC, datasources ConfigMap, admin Secret, Ingress) |
+| `@r8s/superset` | `Superset` component (optionally managed Redis via `redis: { create: true }`) |
+| `@r8s/rustfs` | `RustFS` S3-compatible storage (StatefulSet, Services, root credentials Secret) |
+| `@r8s/wireguard` | WireGuard VPN component |
+## The exact workflow when asked to "deploy with r8s"
+
+### 1. Create or edit the entry TSX file
+
+The entry file must **default-export a JSX element** (or a function returning one):
+
+```tsx
+// infra.tsx
+import { Platform, App, Database, Auth } from '@r8s/recipes'
+import { Realms, Realm, Clients, Client, EntraID } from '@r8s/recipes/auth'
+
+export default (
+  <Platform
+    namespace="my-app"
+    routing="gateway"                 // 'ingress' (nginx) or 'gateway' (Envoy Gateway API)
+    secrets={{ backend: 'openbao', mount: 'secret', path: 'my-app' }}
+    dns={{ provider: 'external-dns', settings: {} }}
+  >
+    <Auth name="auth" host="auth.example.com">
+      <Realms>
+        <Realm id="myapp" displayName="My App">
+          <EntraID tenantId="..." clientId="..." clientSecret="..." />
+          <Clients>
+            <Client id="web" type="public" redirectUris={['https://app.example.com/*']} />
+            <Client id="api" type="bearer-only" />
+          </Clients>
+        </Realm>
+      </Realms>
+    </Auth>
+
+    <Database name="app-db" storage="20Gi" />
+
+    <App
+      name="api"
+      image="registry.example.com/api:v1.2.3"
+      host="api.example.com"
+      tls={{ secretName: 'api-tls', clusterIssuer: 'letsencrypt-prod' }}
+      env={{ DATABASE_URL: 'postgresql://app-db-rw:5432/app-db' }}
+    />
+
+    <App
+      name="web"
+      image="registry.example.com/web:v1.2.3"
+      host="app.example.com"
+      tls={{ secretName: 'web-tls', clusterIssuer: 'letsencrypt-prod' }}
+    />
+  </Platform>
+)
+```
+
+### 2. Render to YAML
+
+```bash
+npx r8s render --entry infra.tsx --out k8s/manifest.yaml
+```
+
+This emits all Kubernetes resources (Deployment, Service, Gateway/HTTPRoute or Ingress, Certificate, Cluster, KeycloakRealmImport, Secrets, Namespace, ...) as one multi-document YAML. Operator declarations (CNPG, Keycloak, cert-manager, external-dns, ...) are collected separately — install operators first (`--include-operators` renders their manifests too).
+
+### 3. Deploy via GitOps
+
+Commit `k8s/manifest.yaml`. Point FluxCD (`Kustomization`) or ArgoCD at it. Do **not** `kubectl apply` by hand in production — git is the source of truth.
+
+### 4. To change anything
+
+Edit the TSX, re-render, commit. Never patch the rendered YAML.
+
+## Key concepts you must know
+
+- **`Platform`** wraps everything and provides contexts: `namespace` (materializes a Namespace resource + default ns for children), `routing` (`'ingress'` | `'gateway'`), `secrets` (openbao/vault/sealed-secrets backend), `dns` (external-dns config), `operators` (pre-installed operator list so recipes don't re-declare them).
+- **`App`** = Deployment + Service + Endpoint (routing + TLS cert + DNS annotation). `cache: true` adds a managed RedisCluster.
+- **`Database`** = CloudNativePG `Cluster` + credentials secret via the configured secrets backend.
+- **`Auth`** = Keycloak (operator CR) + its database + Endpoint + `KeycloakRealmImport` built from `Realm` children. Identity providers come from `EntraID`/`Google` JSX children or the `identityProviders` prop.
+- **Secrets**: Database/Auth credentials are emitted as `OpenBaoStaticSecret`/`VaultStaticSecret`/sealed secrets depending on the Platform `secrets` backend — never plaintext.
+- **DNS**: when DNS is enabled, Endpoints create a `DNSEndpoint` CR; `targets` is left empty and ExternalDNS populates it from the Ingress/Gateway status.
+- **Operators**: recipes declare needed operators automatically; the render output lists them so CI can verify/install before applying.
+
+## Testing components (do this before deploying)
+
+```tsx
+import { describe, it, expect } from 'vitest'
+import { render } from '@r8s/core'
+import { App } from '@r8s/recipes'
+
+it('renders a Deployment wired to a Service', () => {
+  const { resources } = render(<App name="api" image="api:v1" host="api.example.com" />)
+  expect(resources.find((r) => r.kind === 'Deployment')).toBeDefined()
+  expect(resources.find((r) => r.kind === 'Service')?.metadata.name).toBe('api')
+})
+```
+
+## Common pitfalls (avoid these)
+
+- **Don't** import auth sub-components from `@r8s/recipes` — they live in `@r8s/recipes/auth`.
+- **Don't** forget `default` export in the entry file — the CLI renders the default export.
+- **Don't** reference Secrets you didn't create — Grafana/RustFS/Superset create their credential Secrets by default, or accept `existingSecret` when you manage them externally.
+- **Don't** expect env-var substitution — strings like `${env:FOO}` in output are literal; they are expanded by the target system (e.g. Keycloak), not by r8s.
+- **Do** run `render()` in a test to verify the resource set before committing.
+
+## Reference examples
+
+- web-shop: Platform + Auth (EntraID) + Database + two Apps, gateway routing, TLS, DNS
+- saas-platform: Auth (Google) + two Databases + RustFS + Superset (managed Redis) + two Apps
+- monitoring-stack: Grafana (datasources, admin Secret, PVC) + LokiStack + ServiceMonitor
+
+Source: https://github.com/berget-ai/r8s — examples live in `examples/`, recipes in `packages/recipes/src/`, tests show expected rendered output in `packages/*/__tests__/`.
