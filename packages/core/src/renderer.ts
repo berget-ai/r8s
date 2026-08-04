@@ -140,6 +140,18 @@ export function render(element: r8sElement): RenderResult {
 
   const { resources, operators } = renderElement(element)
 
+  // Deduplicate resources by kind/namespace/name, keeping the first occurrence.
+  // Components like Platform, Superset, and RustFS may all declare the same
+  // Namespace — emitting it twice produces invalid multi-doc YAML.
+  const resourceMap = new Map<string, KubernetesResource>()
+  for (const res of resources) {
+    const meta = (res as { metadata?: { name?: string; namespace?: string } }).metadata ?? {}
+    const key = `${res.kind}/${meta.namespace ?? ''}/${meta.name ?? ''}`
+    if (!resourceMap.has(key)) {
+      resourceMap.set(key, res)
+    }
+  }
+
   // Deduplicate operators by name, keeping the last version
   const operatorMap = new Map<string, Operator>()
   for (const op of operators) {
@@ -147,7 +159,7 @@ export function render(element: r8sElement): RenderResult {
   }
 
   return {
-    resources,
+    resources: Array.from(resourceMap.values()),
     operators: Array.from(operatorMap.values()),
   }
 }

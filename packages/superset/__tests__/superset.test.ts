@@ -98,4 +98,39 @@ describe('Superset', () => {
     expect(ingress.spec.tls[0].secretName).toBe('superset-tls')
     expect(ingress.metadata.annotations['cert-manager.io/cluster-issuer']).toBe('letsencrypt')
   })
+
+  describe('managed Redis', () => {
+    it('should render RedisCluster when redis.create is true', () => {
+      const result = render(jsx(Superset, { ...baseProps, redis: { create: true } }))
+
+      const redis = result.resources.find((r) => r.kind === 'RedisCluster') as any
+      expect(redis).toBeDefined()
+      expect(redis.metadata.name).toBe('superset-redis')
+      expect(redis.metadata.namespace).toBe('superset')
+    })
+
+    it('should declare redis-operator when creating managed Redis', () => {
+      const result = render(jsx(Superset, { ...baseProps, redis: { create: true } }))
+
+      const op = result.operators.find((o) => o.name === 'redis-operator')
+      expect(op).toBeDefined()
+    })
+
+    it('should point REDIS_HOST at the managed cluster', () => {
+      const result = render(jsx(Superset, { ...baseProps, redis: { create: true } }))
+
+      const deployment = result.resources.find((r) => r.kind === 'Deployment') as any
+      const env = deployment.spec.template.spec.containers[0].env
+      expect(env.find((e: any) => e.name === 'REDIS_HOST').value).toBe(
+        'superset-redis.superset.svc.cluster.local'
+      )
+    })
+
+    it('should not render RedisCluster for external redis host', () => {
+      const result = render(jsx(Superset, baseProps))
+
+      const redis = result.resources.find((r) => r.kind === 'RedisCluster')
+      expect(redis).toBeUndefined()
+    })
+  })
 })

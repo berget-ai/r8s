@@ -6,5 +6,5 @@
     "composite": true
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../core" }, { "path": "../k8s-types" }]
+  "references": [{ "path": "../core" }, { "path": "../k8s-types" }, { "path": "../crds" }]
 }

@@ -108,8 +108,13 @@ describe('Provider Hierarchy', () => {
 
       // Should declare external-dns operator
       expect(result.operators.some((op) => op.name === 'external-dns')).toBe(true)
-      // Should create DNSEndpoint
-      expect(result.resources.some((r) => r.kind === 'DNSEndpoint')).toBe(true)
+      // Without explicit targets, no DNSEndpoint CR is created — the Ingress
+      // is annotated for the ExternalDNS ingress source instead.
+      expect(result.resources.some((r) => r.kind === 'DNSEndpoint')).toBe(false)
+      const ingress = result.resources.find((r) => r.kind === 'Ingress') as any
+      expect(ingress.metadata.annotations['external-dns.alpha.kubernetes.io/hostname']).toBe(
+        'test.example.com'
+      )
     })
 
     it('should accept component provider <ExternalDns>', () => {
@@ -136,8 +141,12 @@ describe('Provider Hierarchy', () => {
       expect(result.operators.some((op) => op.name === 'vault-secrets-operator')).toBe(true)
       // Should create OpenBaoStaticSecret for TSIG
       expect(result.resources.some((r) => r.kind === 'OpenBaoStaticSecret')).toBe(true)
-      // Should create DNSEndpoint
-      expect(result.resources.some((r) => r.kind === 'DNSEndpoint')).toBe(true)
+      // Without explicit targets, no DNSEndpoint CR is created
+      expect(result.resources.some((r) => r.kind === 'DNSEndpoint')).toBe(false)
+      const ingress = result.resources.find((r) => r.kind === 'Ingress') as any
+      expect(ingress.metadata.annotations['external-dns.alpha.kubernetes.io/hostname']).toBe(
+        'test.example.com'
+      )
     })
 
     it('should throw when tsig used without SecretProvider', () => {
@@ -156,7 +165,7 @@ describe('Provider Hierarchy', () => {
       expect(() => render(element)).toThrow(/tsig requires SecretProvider/)
     })
 
-    it('should auto-create DNS records for all Endpoint children', () => {
+    it('should annotate all Endpoint children for ExternalDNS source mode', () => {
       const element = jsx(DnsProvider, {
         provider: 'external-dns',
         children: jsx(Fragment, {
@@ -168,9 +177,19 @@ describe('Provider Hierarchy', () => {
       })
 
       const result = render(element)
-      const dnsEndpoints = result.resources.filter((r) => r.kind === 'DNSEndpoint')
 
-      expect(dnsEndpoints).toHaveLength(2)
+      // No DNSEndpoint CRs without explicit targets — both Ingresses get
+      // the external-dns hostname annotation instead.
+      const dnsEndpoints = result.resources.filter((r) => r.kind === 'DNSEndpoint')
+      expect(dnsEndpoints).toHaveLength(0)
+
+      const ingresses = result.resources.filter((r) => r.kind === 'Ingress') as any[]
+      expect(ingresses).toHaveLength(2)
+      const hostnames = ingresses.map(
+        (i) => i.metadata.annotations['external-dns.alpha.kubernetes.io/hostname']
+      )
+      expect(hostnames).toContain('api.example.com')
+      expect(hostnames).toContain('web.example.com')
     })
   })
 
@@ -251,7 +270,12 @@ describe('Provider Hierarchy', () => {
       expect(kinds).toContain('Service')
       expect(kinds).toContain('Gateway')
       expect(kinds).toContain('HTTPRoute')
-      expect(kinds).toContain('DNSEndpoint')
+      // No DNSEndpoint without explicit targets — Gateway is annotated instead
+      expect(kinds).not.toContain('DNSEndpoint')
+      const gateway = result.resources.find((r) => r.kind === 'Gateway') as any
+      expect(gateway.metadata.annotations['external-dns.alpha.kubernetes.io/hostname']).toBe(
+        'api.example.com'
+      )
     })
 
     it('should compose all providers manually', () => {
@@ -286,7 +310,12 @@ describe('Provider Hierarchy', () => {
       expect(kinds).toContain('Service')
       expect(kinds).toContain('Gateway')
       expect(kinds).toContain('HTTPRoute')
-      expect(kinds).toContain('DNSEndpoint')
+      // No DNSEndpoint without explicit targets — Gateway is annotated instead
+      expect(kinds).not.toContain('DNSEndpoint')
+      const gateway = result.resources.find((r) => r.kind === 'Gateway') as any
+      expect(gateway.metadata.annotations['external-dns.alpha.kubernetes.io/hostname']).toBe(
+        'api.example.com'
+      )
       expect(kinds).toContain('OpenBaoStaticSecret')
     })
 

@@ -5,6 +5,7 @@ import { nginxIngressOperator } from '../src/operators'
 import { operators } from '@r8s/crds'
 
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
+import { DnsContext } from '../src/dns-provider'
 
 describe('Endpoint — ingress mode (default)', () => {
   it('should render Ingress when no RoutingContext is provided', () => {
@@ -453,5 +454,107 @@ describe('App with RoutingContext', () => {
     const ingressKinds = ingressResources.map((r) => r.kind)
     expect(ingressKinds).toContain('Ingress')
     expect(ingressKinds).not.toContain('Gateway')
+  })
+})
+
+describe('Endpoint — DNS records', () => {
+  const dnsConfig = { provider: 'external-dns' as const, settings: {} }
+
+  it('should NOT create DNSEndpoint when no targets are configured', () => {
+    // Empty targets produce DNS records pointing nowhere — the Endpoint
+    // must annotate the Ingress/Gateway for the ExternalDNS source mode
+    // instead of creating an empty DNSEndpoint CR.
+    const element = jsx(DnsContext.Provider, {
+      value: dnsConfig,
+      children: jsx(Endpoint, {
+        name: 'api',
+        host: 'api.example.com',
+        serviceName: 'api',
+      }),
+    })
+
+    const result = render(element)
+
+    expect(result.resources.find((r) => r.kind === 'DNSEndpoint')).toBeUndefined()
+    // external-dns operator is still declared so the source mode works
+    expect(result.operators.some((o) => o.name === 'external-dns')).toBe(true)
+  })
+
+  it('should annotate Ingress with external-dns hostname when DNS is active', () => {
+    const element = jsx(DnsContext.Provider, {
+      value: dnsConfig,
+      children: jsx(Endpoint, {
+        name: 'api',
+        host: 'api.example.com',
+        serviceName: 'api',
+      }),
+    })
+
+    const result = render(element)
+
+    const ingress = result.resources.find((r) => r.kind === 'Ingress') as any
+    expect(ingress.metadata.annotations['external-dns.alpha.kubernetes.io/hostname']).toBe(
+      'api.example.com'
+    )
+  })
+
+  it('should annotate Gateway with external-dns hostname in gateway mode', () => {
+    const element = jsx(DnsContext.Provider, {
+      value: dnsConfig,
+      children: jsx(RoutingContext.Provider, {
+        value: { mode: 'gateway' },
+        children: jsx(Endpoint, {
+          name: 'api',
+          host: 'api.example.com',
+          serviceName: 'api',
+        }),
+      }),
+    })
+
+    const result = render(element)
+
+    const gateway = result.resources.find((r) => r.kind === 'Gateway') as any
+    expect(gateway.metadata.annotations['external-dns.alpha.kubernetes.io/hostname']).toBe(
+      'api.example.com'
+    )
+  })
+
+  it('should create DNSEndpoint with targets when explicitly configured', () => {
+    const element = jsx(DnsContext.Provider, {
+      value: { provider: 'external-dns' as const, settings: { targets: ['203.0.113.10'] } },
+      children: jsx(Endpoint, {
+        name: 'api',
+        host: 'api.example.com',
+        serviceName: 'api',
+      }),
+    })
+
+    const result = render(element)
+
+    const dns = result.resources.find((r) => r.kind === 'DNSEndpoint') as any
+    expect(dns).toBeDefined()
+    expect(dns.spec.endpoints[0].dnsName).toBe('api.example.com')
+    expect(dns.spec.endpoints[0].targets).toEqual(['203.0.113.10'])
+    expect(dns.spec.endpoints[0].targets.length).toBeGreaterThan(0)
+  })
+
+  it('should not create any DNS resources when dns is explicitly disabled', () => {
+    const element = jsx(DnsContext.Provider, {
+      value: dnsConfig,
+      children: jsx(Endpoint, {
+        name: 'api',
+        host: 'api.example.com',
+        serviceName: 'api',
+        dns: false,
+      }),
+    })
+
+    const result = render(element)
+
+    expect(result.resources.find((r) => r.kind === 'DNSEndpoint')).toBeUndefined()
+    const ingress = result.resources.find((r) => r.kind === 'Ingress') as any
+    expect(
+      ingress.metadata.annotations['external-dns.alpha.kubernetes.io/hostname']
+    ).toBeUndefined()
   })
 })
