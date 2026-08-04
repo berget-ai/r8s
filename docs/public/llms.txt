@@ -38,6 +38,19 @@ r8s render --entry infra/app.tsx   # Render a specific file
 r8s render --out k8s/manifest.yaml # Write to file
 r8s render --include-operators     # Include operator manifests in output
 r8s operators --out operators.yaml # Only operator manifests
+
+# Discovery (no docs browsing needed):
+r8s list                           # All components + operators
+r8s info App                       # Props table + example for one component
+r8s preview App                    # Render a component with dummy props, see YAML
+r8s explain App                    # What resources + operators a component creates
+r8s validate infra/app.tsx         # Type-check + reference-check rendered output
+r8s context                        # One-shot LLM context blob (everything above)
+
+# Community recipes (npm is the registry):
+r8s search database                # Search npm for r8s recipes (keywords: ["r8s"])
+r8s add @acme/r8s-redis            # Install a community recipe from npm
+
 r8s --help
 ```
 
@@ -243,8 +256,47 @@ Platform provides contexts (namespace, routing, DNS, secrets) that all children 
 ## Where to go next
 
 - **CLI help**: `r8s --help`
+- **Discover components**: `r8s list`, `r8s info <name>`, `r8s preview <name>`
 - **Type-check**: `npx tsc --noEmit`
+- **Validate**: `r8s validate infra/app.tsx`
 - **Test**: `npx vitest`
 - **Docs**: https://r8s.berget.ai
 - **Recipes reference**: https://r8s.berget.ai/recipes
 - **Source & examples**: https://github.com/berget-ai/r8s (see `examples/` for web-shop, saas-platform, monitoring-stack)
+
+## Community recipes
+
+r8s uses npm as its package registry — no separate chart repo needed. Any npm package with `r8s` in its `keywords` is discoverable via `r8s search`.
+
+### Publish your own recipe
+
+```json
+// package.json
+{
+  "name": "@yourorg/r8s-redis",
+  "version": "1.0.0",
+  "keywords": ["r8s"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "peerDependencies": {
+    "@r8s/core": "^0.1.0"
+  }
+}
+```
+
+```bash
+npm publish --access public
+```
+
+### Find and install community recipes
+
+```bash
+r8s search redis              # searches npm for packages with keyword "r8s"
+r8s add @yourorg/r8s-redis    # npm install + ready to import
+```
+
+```tsx
+import { RedisCache } from '@yourorg/r8s-redis'
+
+export default <RedisCache name="cache" storage="5Gi" />
+```
