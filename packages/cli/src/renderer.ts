@@ -35,7 +35,7 @@ function findRootTsconfig(): string | undefined {
   return undefined
 }
 
-async function bundleAndRender(entryFile: string) {
+export async function bundleAndRender(entryFile: string) {
   const absolutePath = resolve(entryFile)
 
   let result

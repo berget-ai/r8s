@@ -53,6 +53,14 @@ Commands:
   render     Render k8s/r8s.tsx to YAML (default)
   operators  Render only operator manifests
   init       Scaffold a new r8s project
+  list       List all available components and operators
+  info       Show props and example for a component (e.g. r8s info App)
+  context    Print a compact LLM context blob (component model + workflow)
+  search     Search npm for r8s community recipes (e.g. r8s search database)
+  add        Install a community recipe from npm (e.g. r8s add @acme/r8s-redis)
+  preview    Render a component with dummy defaults to see output (e.g. r8s preview App)
+  explain    Show resources and operators a component creates (e.g. r8s explain App)
+  validate   Type-check and validate rendered output (e.g. r8s validate infra.tsx)
 
 Options:
   --entry, -e <path>     Entry file path (default: k8s/r8s.tsx)
@@ -76,6 +84,15 @@ Examples:
   r8s init my-project --template fullstack
   r8s init my-project --strategy flux-controller
   r8s init my-project --operators cert-manager,openbao
+  r8s list
+  r8s info App
+  r8s info Database
+  r8s context
+  r8s search database
+  r8s add @acme/r8s-redis
+  r8s preview App
+  r8s explain App
+  r8s validate infra.tsx
 `)
 }
 
@@ -660,6 +677,393 @@ async function main(): Promise<void> {
       }
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error)
+      process.exit(1)
+    }
+    return
+  }
+
+  if (command === 'list') {
+    const { allComponents, operators } = await import('./catalog.js')
+    const comps = allComponents()
+    console.log('\nComponents:\n')
+    const byCat = new Map<string, typeof comps>()
+    for (const c of comps) {
+      const arr = byCat.get(c.category) ?? []
+      arr.push(c)
+      byCat.set(c.category, arr)
+    }
+    for (const [cat, items] of byCat) {
+      console.log(`  ${cat}:`)
+      for (const c of items) {
+        console.log(`    ${c.name.padEnd(12)} ${c.package.padEnd(20)} ${c.description}`)
+      }
+      console.log()
+    }
+    console.log('Operators:\n')
+    for (const op of operators) {
+      console.log(`    ${op.name.padEnd(24)} ${op.description}`)
+    }
+    console.log('\nUse "r8s info <name>" for props and examples.')
+    return
+  }
+
+  if (command === 'info') {
+    const name = args[1]
+    if (!name) {
+      console.error('Usage: r8s info <component-name>')
+      console.error('Example: r8s info App')
+      process.exit(1)
+    }
+    const { findComponent } = await import('./catalog.js')
+    const comp = findComponent(name)
+    if (!comp) {
+      console.error(`Component not found: ${name}`)
+      console.error('Use "r8s list" to see available components.')
+      process.exit(1)
+    }
+    console.log(`\n${comp.name} (${comp.package})`)
+    console.log(`${comp.category}`)
+    console.log(`\n${comp.description}\n`)
+    console.log('Props:')
+    for (const p of comp.props) {
+      const req = p.required ? 'required' : 'optional'
+      const def = p.default ? ` [default: ${p.default}]` : ''
+      console.log(`  ${p.name.padEnd(16)} ${p.type.padEnd(36)} ${req}${def}`)
+      console.log(`  ${' '.repeat(18)}${p.description}`)
+    }
+    console.log('\nExample:')
+    console.log(`  ${comp.example}`)
+    return
+  }
+
+  if (command === 'context') {
+    const { allComponents, operators } = await import('./catalog.js')
+    const comps = allComponents()
+    console.log('# r8s context for LLMs\n')
+    console.log('## Workflow')
+    console.log('1. Write TSX that default-exports a JSX element')
+    console.log('2. Run: r8s render --entry <file.tsx> --out <file.yaml>')
+    console.log('3. Commit the YAML. GitOps (FluxCD/ArgoCD) applies it.')
+    console.log('4. Never hand-edit YAML — change TSX and re-render.\n')
+    console.log('## Rules')
+    console.log('- Lowercase elements (<deployment>, <service>) are raw K8s resources.')
+    console.log('- PascalCase elements (<App>, <Database>) are recipe components.')
+    console.log('- Components are TypeScript functions — testable with render() + vitest.')
+    console.log('- Entry file must default-export a JSX element or function.\n')
+    console.log('## Components\n')
+    for (const c of comps) {
+      const required = c.props.filter((p) => p.required).map((p) => `${p.name}: ${p.type}`)
+      console.log(`${c.name} (${c.package}) — ${c.description}`)
+      console.log(`  Required: ${required.join(', ') || 'none'}`)
+      console.log(`  Example: ${c.example.replace(/\n/g, ' ')}`)
+      console.log()
+    }
+    console.log('## Operators (auto-declared by recipes)')
+    for (const op of operators) {
+      console.log(`  ${op.name} — ${op.description}`)
+    }
+    console.log('\n## Commands')
+    console.log('  r8s init [name]              Scaffold a project')
+    console.log('  r8s render --entry f.tsx      Render to stdout')
+    console.log('  r8s render --out k8s.yaml     Render to file')
+    console.log('  r8s list                      List all components')
+    console.log('  r8s info <name>               Show props for a component')
+    console.log('  r8s preview <name>            Render a component with dummy props')
+    console.log('  r8s explain <name>            Show resources + operators a component creates')
+    console.log('  r8s validate <file.tsx>       Type-check + reference-check')
+    console.log('  r8s search <term>             Search npm for community recipes')
+    console.log('  r8s add <package>             Install a community recipe from npm')
+    console.log('  r8s context                   This output')
+    return
+  }
+
+  if (command === 'search') {
+    const term = args.slice(1).join(' ')
+    if (!term) {
+      console.error('Usage: r8s search <term>')
+      console.error('Example: r8s search database')
+      process.exit(1)
+    }
+    console.log(`Searching npm for r8s recipes matching "${term}"...\n`)
+    try {
+      const url = `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(`keywords:r8s ${term}`)}&size=25`
+      const res = await fetch(url)
+      const data: any = await res.json()
+      if (!data.objects || data.objects.length === 0) {
+        console.log('No packages found.')
+        console.log('\nTo publish a recipe, add "r8s" to the keywords in package.json.')
+        return
+      }
+      console.log('Package                         Version    Description')
+      console.log('─'.repeat(80))
+      for (const obj of data.objects) {
+        const pkg = obj.package
+        const name = pkg.name.padEnd(30)
+        const version = pkg.version.padEnd(10)
+        const desc = (pkg.description ?? '').substring(0, 38)
+        console.log(`${name} ${version} ${desc}`)
+      }
+      console.log(`\n${data.total} package(s) found.`)
+      console.log('Install with: r8s add <package-name>')
+    } catch (error) {
+      console.error('Search failed:', error instanceof Error ? error.message : error)
+      process.exit(1)
+    }
+    return
+  }
+
+  if (command === 'add') {
+    const packageName = args[1]
+    if (!packageName) {
+      console.error('Usage: r8s add <package-name>')
+      console.error('Example: r8s add @acme/r8s-redis')
+      process.exit(1)
+    }
+    console.log(`Installing ${packageName}...`)
+    const { execSync } = await import('child_process')
+    try {
+      execSync(`npm install ${packageName}`, { stdio: 'inherit' })
+      console.log(`\n✅ ${packageName} installed.`)
+      console.log(`Import components in your TSX:`)
+      console.log(`  import { MyComponent } from '${packageName}'`)
+    } catch (error) {
+      console.error('Install failed:', error instanceof Error ? error.message : error)
+      process.exit(1)
+    }
+    return
+  }
+
+  if (command === 'preview') {
+    const name = args[1]
+    if (!name) {
+      console.error('Usage: r8s preview <component-name>')
+      console.error('Example: r8s preview App')
+      process.exit(1)
+    }
+    const { findComponent } = await import('./catalog.js')
+    const comp = findComponent(name)
+    if (!comp) {
+      console.error(`Component not found: ${name}`)
+      console.error('Use "r8s list" to see available components.')
+      process.exit(1)
+    }
+    // Build a TSX file that renders the component with dummy required props
+    const requiredProps = comp.props.filter((p) => p.required)
+    const dummyValues: Record<string, string> = {
+      name: '"example"',
+      image: '"example/app:v1"',
+      host: '"example.com"',
+      serviceName: '"example"',
+      children: 'null',
+      selector: '{ app: "example" }',
+    }
+    const propsStr = requiredProps
+      .map((p) => `${p.name}={${dummyValues[p.name] ?? '"dummy"'}}`)
+      .join(' ')
+    const tsx = `import { ${comp.name} } from '${comp.package}'\nexport default <${comp.name} ${propsStr} />\n`
+    const tmpFile = resolve(`.r8s-preview-${Date.now()}.tsx`)
+    writeFileSync(tmpFile, tsx, 'utf-8')
+    try {
+      const { renderToYaml } = await import('./renderer.js')
+      const yaml = await renderToYaml(tmpFile)
+      console.log(`# Preview of ${comp.name} with dummy required props\n`)
+      console.log(yaml)
+    } catch (error) {
+      console.error('Preview failed:', error instanceof Error ? error.message : error)
+      console.error('\nThis component may require a Platform context or specific props.')
+      process.exit(1)
+    } finally {
+      try {
+        require('fs').unlinkSync(tmpFile)
+      } catch {}
+    }
+    return
+  }
+
+  if (command === 'explain') {
+    const name = args[1]
+    if (!name) {
+      console.error('Usage: r8s explain <component-name>')
+      console.error('Example: r8s explain App')
+      process.exit(1)
+    }
+    const { findComponent, operators } = await import('./catalog.js')
+    const comp = findComponent(name)
+    if (!comp) {
+      console.error(`Component not found: ${name}`)
+      process.exit(1)
+    }
+    console.log(`\n${comp.name} (${comp.package})`)
+    console.log(`${comp.description}\n`)
+    // Render with dummy props to discover what resources it creates
+    const requiredProps = comp.props.filter((p) => p.required)
+    const dummyValues: Record<string, string> = {
+      name: '"example"',
+      image: '"example/app:v1"',
+      host: '"example.com"',
+      serviceName: '"example"',
+      children: 'null',
+      selector: '{ app: "example" }',
+    }
+    const propsStr = requiredProps
+      .map((p) => `${p.name}={${dummyValues[p.name] ?? '"dummy"'}}`)
+      .join(' ')
+    const tsx = `import { ${comp.name} } from '${comp.package}'\nexport default <${comp.name} ${propsStr} />\n`
+    const tmpFile = resolve(`.r8s-explain-${Date.now()}.tsx`)
+    writeFileSync(tmpFile, tsx, 'utf-8')
+    try {
+      const { bundleAndRender } = await import('./renderer.js')
+      const result = await bundleAndRender(tmpFile)
+      console.log('Resources created:')
+      for (const r of result.resources) {
+        console.log(
+          `  ${r.kind.padEnd(24)} ${r.metadata?.namespace ?? ''}/${r.metadata?.name ?? ''}`
+        )
+      }
+      if (result.operators.length > 0) {
+        console.log('\nOperators required:')
+        for (const op of result.operators) {
+          const meta = operators.find((o) => o.name === op.name)
+          console.log(`  ${op.name.padEnd(24)} ${meta?.description ?? ''}`)
+        }
+      }
+      console.log(
+        `\n${result.resources.length} resource(s), ${result.operators.length} operator(s).`
+      )
+    } catch (error) {
+      console.error('Explain failed:', error instanceof Error ? error.message : error)
+      console.error('\nThis component may require a Platform context.')
+      process.exit(1)
+    } finally {
+      try {
+        require('fs').unlinkSync(tmpFile)
+      } catch {}
+    }
+    return
+  }
+
+  if (command === 'validate') {
+    const entryFile = args[1]
+    if (!entryFile) {
+      console.error('Usage: r8s validate <file.tsx>')
+      console.error('Example: r8s validate infra/app.tsx')
+      process.exit(1)
+    }
+    const resolved = resolve(entryFile)
+    if (!existsSync(resolved)) {
+      console.error(`File not found: ${resolved}`)
+      process.exit(1)
+    }
+    console.log(`Validating: ${resolved}\n`)
+    // 1. Type-check with tsc using the project tsconfig
+    try {
+      const { execSync } = await import('child_process')
+      // Use --noEmit with the project's tsconfig if available, else minimal flags
+      const tsconfigPath = resolve('tsconfig.json')
+      const tscCmd = existsSync(tsconfigPath)
+        ? `npx tsc --noEmit -p ${tsconfigPath}`
+        : `npx tsc --noEmit --jsx react-jsx --jsxImportSource @r8s/core --moduleResolution bundler --target es2022 --module esnext ${resolved}`
+      execSync(tscCmd, {
+        stdio: 'pipe',
+        cwd: process.cwd(),
+      })
+      console.log('✅ TypeScript: no errors')
+    } catch (error: any) {
+      const stdout = error.stdout?.toString() ?? ''
+      const stderr = error.stderr?.toString() ?? ''
+      console.error('❌ TypeScript errors:')
+      console.error(stdout || stderr || error.message)
+      process.exit(1)
+    }
+    // 2. Render and check references
+    try {
+      const { bundleAndRender } = await import('./renderer.js')
+      const result = await bundleAndRender(resolved)
+      const resources = result.resources as any[]
+      const names = new Set(
+        resources.map(
+          (r: any) => `${r.kind}/${r.metadata?.namespace ?? ''}/${r.metadata?.name ?? ''}`
+        )
+      )
+      const issues: string[] = []
+      // Check HTTPRoute backendRefs
+      for (const route of resources.filter(
+        (r: any) => r.kind === 'HTTPRoute' || r.kind === 'Ingress'
+      )) {
+        const refs =
+          route.kind === 'HTTPRoute'
+            ? (route.spec?.rules?.flatMap((r: any) => r.backendRefs ?? []) ?? [])
+            : (route.spec?.rules?.flatMap(
+                (r: any) => r.http?.paths?.map((p: any) => p.backend?.service) ?? []
+              ) ?? [])
+        for (const ref of refs) {
+          const svcName = ref.name
+          const svc = resources.find((r) => r.kind === 'Service' && r.metadata.name === svcName)
+          if (!svc) {
+            issues.push(
+              `⚠️  ${route.kind} ${route.metadata.name} → Service "${svcName}" not found (operator-managed?)`
+            )
+          }
+        }
+      }
+      // Check Deployment volume refs
+      for (const d of resources.filter(
+        (r: any) => r.kind === 'Deployment' || r.kind === 'StatefulSet'
+      )) {
+        const vols = d.spec?.template?.spec?.volumes ?? []
+        for (const vol of vols) {
+          if (vol.secret) {
+            const sec = resources.find(
+              (r) => r.kind === 'Secret' && r.metadata.name === vol.secret.secretName
+            )
+            if (!sec)
+              issues.push(
+                `⚠️  ${d.kind} ${d.metadata.name} → Secret "${vol.secret.secretName}" not found`
+              )
+          }
+          if (vol.configMap) {
+            const cm = resources.find(
+              (r) => r.kind === 'ConfigMap' && r.metadata.name === vol.configMap.name
+            )
+            if (!cm)
+              issues.push(
+                `⚠️  ${d.kind} ${d.metadata.name} → ConfigMap "${vol.configMap.name}" not found`
+              )
+          }
+          if (vol.persistentVolumeClaim) {
+            const pvc = resources.find(
+              (r) =>
+                r.kind === 'PersistentVolumeClaim' &&
+                r.metadata.name === vol.persistentVolumeClaim.claimName
+            )
+            if (!pvc)
+              issues.push(
+                `⚠️  ${d.kind} ${d.metadata.name} → PVC "${vol.persistentVolumeClaim.claimName}" not found`
+              )
+          }
+        }
+      }
+      // Check empty DNSEndpoint targets
+      for (const dns of resources.filter((r) => r.kind === 'DNSEndpoint')) {
+        for (const ep of dns.spec?.endpoints ?? []) {
+          if (!ep.targets || ep.targets.length === 0) {
+            issues.push(`⚠️  DNSEndpoint ${dns.metadata.name} has empty targets`)
+          }
+        }
+      }
+      console.log(`✅ Render: ${resources.length} resources, ${result.operators.length} operators`)
+      if (issues.length > 0) {
+        console.log(`\n${issues.length} reference issue(s) found:`)
+        for (const issue of issues) {
+          console.log(`  ${issue}`)
+        }
+        console.log('\nSome references may be operator-managed (e.g. Keycloak Service).')
+        process.exit(1)
+      } else {
+        console.log('✅ References: all resolved')
+      }
+    } catch (error) {
+      console.error('❌ Render failed:', error instanceof Error ? error.message : error)
       process.exit(1)
     }
     return
