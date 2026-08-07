@@ -151,7 +151,8 @@ export const components: ComponentInfo[] = [
         name: 'children',
         type: 'unknown',
         required: false,
-        description: 'Child components (e.g. Keycloak CR)',
+        description:
+          'App/Database/Auth components (optional — can set up cluster infra standalone)',
       },
     ],
     example: `import { Database } from '@r8s/recipes'\n\nexport default <Database name="api-db" storage="20Gi" />`,

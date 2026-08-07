@@ -1,4 +1,4 @@
-import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
+import { jsx, Fragment, useContext } from '@r8s/core'
 import { OperatorContext, Labels } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
 import { LokiStackComponent } from '@r8s/crds/loki'
@@ -65,8 +65,10 @@ export interface R8sClusterProps {
   /**
    * Application components (App, Database, Auth, etc.).
    * Children inherit routing, secrets, and DNS contexts.
+   * Optional — R8sCluster can be used standalone to set up cluster
+   * infrastructure without any apps.
    */
-  children: unknown
+  children?: unknown
 }
 
 /**
@@ -268,8 +270,8 @@ export function R8sCluster(props: R8sClusterProps) {
   // Apply routing context (Envoy Gateway)
   result = jsx(EndpointProvider, { provider: endpointProvider, children: result })
 
-  // Apply operators context (all declared + preinstalled)
-  const allOperators = [...preinstalled, ...declared]
+  // Apply operators context — merge parent operators + preinstalled + declared
+  const allOperators = [...sharedOperators, ...preinstalled, ...declared]
   if (allOperators.length > 0) {
     result = jsx(OperatorContext.Provider, { value: allOperators, children: result })
   }
