@@ -8,9 +8,10 @@ export default (
       database: 'superset',
       user: 'superset',
       passwordSecret: 'superset-db-credentials',
+      password: 'change-me',
     }}
     redis={{ host: 'redis-master' }}
-    adminSecret="superset-admin"
+    admin={{ password: 'change-me' }}
     tls={{ secretName: 'superset-tls', clusterIssuer: 'letsencrypt' }}
   />
 )
