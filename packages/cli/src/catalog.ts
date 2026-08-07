@@ -433,7 +433,12 @@ export const components: ComponentInfo[] = [
         required: true,
         description: 'External or managed Redis',
       },
-      { name: 'adminSecret', type: 'string', required: true, description: 'Admin secret name' },
+      {
+        name: 'admin',
+        type: '{ password? } | { existingSecret? }',
+        required: true,
+        description: 'Admin credentials (creates Secret by default)',
+      },
       {
         name: 'name',
         type: 'string',
@@ -455,7 +460,7 @@ export const components: ComponentInfo[] = [
         description: 'TLS config',
       },
     ],
-    example: `import { Superset } from '@r8s/superset'\n\nexport default <Superset host="analytics.example.com" database={{ host: 'db-rw', database: 'superset', user: 'superset', passwordSecret: 'superset-db' }} redis={{ create: true }} adminSecret="superset-admin" />`,
+    example: `import { Superset } from '@r8s/superset'\n\nexport default <Superset host="analytics.example.com" database={{ host: 'db-rw', database: 'superset', user: 'superset', passwordSecret: 'superset-db', password: 'change-me' }} redis={{ create: true }} admin={{ password: 'change-me' }} />`,
   },
   {
     name: 'RustFS',

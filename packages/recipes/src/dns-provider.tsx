@@ -174,7 +174,7 @@ export function DnsProvider(props: DnsProviderProps) {
     const SecretKind = secrets.backend === 'openbao' ? 'OpenBaoStaticSecret' : 'VaultStaticSecret'
     resources.push(
       jsx(SecretKind, {
-        apiVersion: 'secrets.hashicorp.com/v1alpha1',
+        apiVersion: 'secrets.hashicorp.com/v1beta1',
         kind: SecretKind,
         metadata: { name: secretName, namespace: 'external-dns' },
         spec: {

@@ -17,8 +17,12 @@ export interface SupersetProps {
     host: string
     database: string
     user: string
+    /** Name of the Secret containing the DB password */
     passwordSecret: string
     passwordKey?: string
+    /** If set, the Secret is created with this password. Otherwise the
+     * Secret must already exist. */
+    password?: string
   }
   /**
    * Redis connection. Either point at an existing Redis (`host`) or let
@@ -26,8 +30,10 @@ export interface SupersetProps {
    */
   redis:
     { host: string; port?: number; create?: false } | { create: true; host?: string; port?: number }
-  /** Admin credentials secret */
-  adminSecret: string
+  /** Admin credentials. If `existingSecret` is set, that Secret must
+   * already exist (with a `secretKey` key). Otherwise a Secret named
+   * `<name>-admin` is created with a generated secret key. */
+  admin: { existingSecret: string } | { password?: string }
   /** Number of replicas (default: 1) */
   replicas?: number
   /** Resources */
@@ -58,7 +64,7 @@ export interface SupersetProps {
  *   host="superset.example.com"
  *   database={{ host: "superset-db-rw", database: "superset", user: "superset", passwordSecret: "superset-db-credentials" }}
  *   redis={{ host: "redis-master" }}
- *   adminSecret="superset-admin"
+ *   admin={{ password: "change-me" }}
  *   tls={{ secretName: "superset-tls", clusterIssuer: "letsencrypt" }}
  * />
  */
@@ -70,7 +76,7 @@ export function Superset(props: SupersetProps) {
     host,
     database,
     redis,
-    adminSecret,
+    admin,
     replicas = 1,
     resources = {
       requests: { cpu: '250m', memory: '1Gi' },
@@ -80,6 +86,7 @@ export function Superset(props: SupersetProps) {
     oauth,
   } = props
 
+  const adminSecretName = 'existingSecret' in admin ? admin.existingSecret : `${name}-admin`
   const resources_list: ReturnType<typeof jsx>[] = []
 
   // Namespace
@@ -90,6 +97,38 @@ export function Superset(props: SupersetProps) {
       metadata: { name: namespace },
     })
   )
+
+  // Admin Secret — created unless the user points at an existing one.
+  if (!('existingSecret' in admin)) {
+    resources_list.push(
+      jsx('Secret', {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: { name: adminSecretName, namespace },
+        type: 'Opaque',
+        stringData: {
+          secretKey: admin.password ?? 'change-me-superset-secret-key',
+        },
+      })
+    )
+  }
+
+  // Database credentials Secret — the user provides the name via
+  // database.passwordSecret; if it doesn't exist in the output we
+  // create it with the given password.
+  if (database.password) {
+    resources_list.push(
+      jsx('Secret', {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: { name: database.passwordSecret, namespace },
+        type: 'Opaque',
+        stringData: {
+          password: database.password,
+        },
+      })
+    )
+  }
 
   // Managed Redis — without this the Superset config references a Redis
   // host that doesn't exist and the pod crash-loops.
@@ -119,7 +158,9 @@ export function Superset(props: SupersetProps) {
         },
       })
     )
-    redisHost = redis.host ?? `${redisName}.${namespace}.svc.cluster.local`
+    // OT-Container-Kit Redis operator creates services named
+    // <redisName>-master and <redisName>-headless.
+    redisHost = redis.host ?? `${redisName}-master.${namespace}.svc.cluster.local`
     redisPort = redis.port ?? 6379
   } else {
     redisHost = (redis as { host: string }).host
@@ -172,7 +213,7 @@ CACHE_CONFIG = {
                 env: [
                   {
                     name: 'SUPERSET_SECRET_KEY',
-                    valueFrom: { secretKeyRef: { name: adminSecret, key: 'secretKey' } },
+                    valueFrom: { secretKeyRef: { name: adminSecretName, key: 'secretKey' } },
                   },
                   { name: 'DB_HOST', value: database.host },
                   { name: 'DB_NAME', value: database.database },
