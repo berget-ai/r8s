@@ -190,18 +190,12 @@ export const components: ComponentInfo[] = [
     example: `import { Endpoint } from '@r8s/recipes'\n\nexport default <Endpoint name="api" host="api.example.com" serviceName="api" />`,
   },
   {
-    name: 'Stack',
+    name: 'R8sCluster',
     package: '@r8s/recipes',
     category: 'Complete Solution',
     description:
       'Opinionated cluster foundation: cert-manager, external-dns (TSIG), Envoy Gateway, OpenBao VSO, Prometheus, Loki + FluentBit. All operators declared automatically.',
     props: [
-      {
-        name: 'namespace',
-        type: 'string',
-        required: true,
-        description: 'Default namespace (materializes Namespace resource)',
-      },
       {
         name: 'secrets',
         type: '{ mount, path, authRef? }',
@@ -213,12 +207,6 @@ export const components: ComponentInfo[] = [
         type: '{ server, zone, tsigPath, tsigKey? }',
         required: true,
         description: 'ExternalDNS with TSIG for RFC 2136',
-      },
-      {
-        name: 'domain',
-        type: 'string',
-        required: false,
-        description: 'Base domain for the cluster',
       },
       {
         name: 'gatewayClassName',
@@ -240,18 +228,18 @@ export const components: ComponentInfo[] = [
         description: 'Pre-installed operators (skip auto-declare)',
       },
       {
+        name: 'logsNamespace',
+        type: 'string',
+        required: false,
+        default: "'logging'",
+        description: 'Namespace for LokiStack and logging resources',
+      },
+      {
         name: 'logsStorageClass',
         type: 'string',
         required: false,
         default: "'standard'",
         description: 'Storage class for Loki logs',
-      },
-      {
-        name: 'logsRetention',
-        type: 'string',
-        required: false,
-        default: "'168h'",
-        description: 'Log retention period',
       },
       {
         name: 'children',
@@ -260,7 +248,7 @@ export const components: ComponentInfo[] = [
         description: 'App/Database/Auth components',
       },
     ],
-    example: `import { Stack } from '@r8s/recipes'\nimport { App, Database } from '@r8s/recipes'\n\nexport default (\n  <Stack\n    namespace="production"\n    domain="example.com"\n    secrets={{ mount: 'secret', path: 'production' }}\n    dns={{ server: 'ns1.example.com', zone: 'example.com', tsigPath: 'dns/tsig' }}\n  >\n    <Database name="api-db" storage="20Gi" />\n    <App name="api" image="api:v1" host="api.example.com" />\n  </Stack>\n)`,
+    example: `import { R8sCluster, Platform, App, Database } from '@r8s/recipes'\n\nexport default (\n  <R8sCluster\n    secrets={{ mount: 'secret', path: 'production' }}\n    dns={{ server: 'ns1.example.com', zone: 'example.com', tsigPath: 'dns/tsig' }}\n  >\n    <Platform namespace="production">\n      <Database name="api-db" storage="20Gi" />\n      <App name="api" image="api:v1" host="api.example.com" />\n    </Platform>\n  </R8sCluster>\n)`,
   },
   {
     name: 'Platform',

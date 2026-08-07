@@ -1,5 +1,5 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
-import { OperatorContext, Namespace, Labels, Domain } from '@r8s/core/defaults'
+import { OperatorContext, Labels } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
 import { LokiStackComponent } from '@r8s/crds/loki'
 import { LoggingComponent, FlowComponent, OutputComponent } from '@r8s/crds/logging'
@@ -8,20 +8,12 @@ import { DnsProvider, ExternalDns } from './dns-provider'
 import { EndpointProvider, EnvoyGateway } from './endpoint-provider'
 import type { Operator } from '@r8s/k8s-types'
 
-export interface StackProps {
-  /**
-   * Default namespace for all child resources. A Namespace resource is
-   * materialized so the rendered output is self-contained.
-   */
-  namespace: string
-  /**
-   * Base domain for the cluster (e.g., 'example.com'). Endpoints derive
-   * their hostnames from this unless overridden.
-   */
-  domain?: string
+export interface R8sClusterProps {
   /**
    * OpenBao secrets backend configuration. VSO (Vault Secrets Operator)
-   * is declared automatically.
+   * is declared automatically. This context is inherited by all
+   * children (App, Database, Auth, etc.) so credentials are managed
+   * by VSO — never plaintext.
    */
   secrets: {
     /** OpenBao mount path (e.g., 'secret') */
@@ -34,7 +26,8 @@ export interface StackProps {
   /**
    * ExternalDNS configuration with TSIG for secure RFC 2136 updates.
    * The external-dns operator is declared automatically, and a
-   * VaultStaticSecret is created for the TSIG key.
+   * VaultStaticSecret is created for the TSIG key in the external-dns
+   * namespace.
    */
   dns: {
     /** RFC 2136 DNS server (e.g., 'ns1.example.com') */
@@ -56,27 +49,30 @@ export interface StackProps {
    */
   labels?: Record<string, string>
   /**
-   * Pre-installed operators. Stack won't re-declare these.
+   * Pre-installed operators. R8sCluster won't re-declare these.
    */
   operators?: Operator[]
+  /**
+   * Namespace for LokiStack and logging resources (default: 'logging').
+   * This is separate from app namespaces — logging infra lives in
+   * its own namespace.
+   */
+  logsNamespace?: string
   /**
    * Storage class for Loki logs (default: 'standard').
    */
   logsStorageClass?: string
   /**
-   * Log retention period (default: '168h' = 7 days).
-   */
-  logsRetention?: string
-  /**
    * Application components (App, Database, Auth, etc.).
+   * Children inherit routing, secrets, and DNS contexts.
    */
   children: unknown
 }
 
 /**
- * Stack — opinionated cluster foundation with all recommended operators.
+ * R8sCluster — opinionated cluster foundation with all recommended operators.
  *
- * @title Stack
+ * @title R8sCluster
  * @category Complete Solution
  *
  * Sets up a complete cluster foundation in one component:
@@ -87,40 +83,45 @@ export interface StackProps {
  * - **Prometheus** for metrics and alerting
  * - **Loki + FluentBit** for log aggregation of all user pods
  *
- * All operators are declared automatically. Children inherit namespace,
- * routing, secrets, and DNS contexts — just add your apps.
+ * All operators are declared automatically. Children inherit routing,
+ * secrets, and DNS contexts — just add your apps.
+ *
+ * R8sCluster is cluster-scoped — it does not take a namespace. Operators
+ * install to their own namespaces (cert-manager, external-dns, etc.).
+ * Logging infrastructure lives in a dedicated namespace (default:
+ * 'logging'). App namespaces are managed by Platform or the apps
+ * themselves.
  *
  * @example
- * import { Stack } from '@r8s/recipes'
- * import { App, Database } from '@r8s/recipes'
+ * import { R8sCluster, Platform, App, Database } from '@r8s/recipes'
  *
  * export default (
- *   <Stack
- *     namespace="production"
- *     domain="example.com"
- *     secrets={{ mount: 'secret', path: 'production' }}
- *     dns={{ server: 'ns1.example.com', zone: 'example.com', tsigPath: 'dns/tsig' }}
- *   >
- *     <Database name="api-db" storage="20Gi" />
- *     <App name="api" image="api:v1" host="api.example.com" />
- *   </Stack>
+ *   <>
+ *     <R8sCluster
+ *       secrets={{ mount: 'secret', path: 'production' }}
+ *       dns={{ server: 'ns1.example.com', zone: 'example.com', tsigPath: 'dns/tsig' }}
+ *     >
+ *       <Platform namespace="production">
+ *         <Database name="api-db" storage="20Gi" />
+ *         <App name="api" image="api:v1" host="api.example.com" />
+ *       </Platform>
+ *     </R8sCluster>
+ *   </>
  * )
  */
-export function Stack(props: StackProps) {
+export function R8sCluster(props: R8sClusterProps) {
   const {
-    namespace,
-    domain,
     secrets,
     dns,
     gatewayClassName = 'eg',
     labels,
     operators: preinstalled = [],
+    logsNamespace = 'logging',
     logsStorageClass = 'standard',
-    logsRetention = '168h',
     children,
   } = props
 
-  // Build the operator list — Stack declares all cluster operators
+  // Build the operator list — R8sCluster declares all cluster operators
   // so children don't have to. Children can still declare more (e.g.
   // cnpg, keycloak) via their own logic.
   const sharedOperators = useContext(OperatorContext)
@@ -165,19 +166,19 @@ export function Stack(props: StackProps) {
   // Build the endpoint provider (Envoy Gateway)
   const endpointProvider = EnvoyGateway({ className: gatewayClassName })
 
-  // Cluster-level logging: FluentBit collects logs from ALL pods in
-  // the namespace and ships to Loki. A ClusterFlow matches everything.
-  const loggingName = `${namespace}-logging`
-  const lokiName = `${namespace}-loki`
-  const lokiOutputName = `${namespace}-loki-output`
-  const lokiStorageSecret = `${namespace}-loki-storage`
+  // Cluster-level logging: FluentBit collects logs from ALL pods
+  // and ships to Loki. Resources live in the logs namespace.
+  const loggingName = 'cluster-logging'
+  const lokiName = 'cluster-loki'
+  const lokiOutputName = 'cluster-loki-output'
+  const lokiStorageSecret = 'cluster-loki-storage'
 
   const clusterResources: ReturnType<typeof jsx>[] = []
 
-  // LokiStack — log aggregation backend
+  // LokiStack — log aggregation backend (in logs namespace)
   clusterResources.push(
     LokiStackComponent({
-      metadata: { name: lokiName, namespace },
+      metadata: { name: lokiName, namespace: logsNamespace },
       spec: {
         size: '1x.small',
         storageClassName: logsStorageClass,
@@ -211,34 +212,36 @@ export function Stack(props: StackProps) {
   )
 
   // Logging — Banzai Cloud Logging Operator with FluentBit
+  // FluentBit runs as a DaemonSet on every node, collecting all
+  // container logs from /var/log/containers/.
   clusterResources.push(
     LoggingComponent({
-      metadata: { name: loggingName, namespace },
+      metadata: { name: loggingName, namespace: logsNamespace },
       spec: {
         fluentd: {},
         fluentbit: {},
-        controlNamespace: namespace,
+        controlNamespace: logsNamespace,
       },
     })
   )
 
-  // Output — ship all logs to Loki
+  // Output — ship logs to Loki gateway
   clusterResources.push(
     OutputComponent({
-      metadata: { name: lokiOutputName, namespace },
+      metadata: { name: lokiOutputName, namespace: logsNamespace },
       spec: {
         loki: {
-          url: `http://loki-gateway.${namespace}.svc.cluster.local`,
+          url: `http://loki-gateway.${logsNamespace}.svc.cluster.local`,
           tenant: 'application',
         },
       },
     })
   )
 
-  // Flow — match ALL pods in the namespace
+  // Flow — match ALL pods (empty selector = match everything)
   clusterResources.push(
     FlowComponent({
-      metadata: { name: `${namespace}-flow`, namespace },
+      metadata: { name: 'cluster-flow', namespace: logsNamespace },
       spec: {
         match: [{ select: { labels: {} } }],
         localOutputRefs: [lokiOutputName],
@@ -246,21 +249,14 @@ export function Stack(props: StackProps) {
     })
   )
 
-  // Assemble the full context stack (same pattern as Platform, but
-  // with all providers pre-configured).
+  // Assemble the full context stack. R8sCluster does NOT set a namespace
+  // context — it's cluster-scoped. Children (or Platform) handle
+  // app namespaces.
   let result: unknown = children
 
-  // Materialize Namespace + cluster-level resources first
+  // Cluster-level resources first (LokiStack, Logging, Flow, Output)
   result = jsx(Fragment, {
-    children: [
-      jsx('Namespace', {
-        apiVersion: 'v1',
-        kind: 'Namespace',
-        metadata: { name: namespace },
-      }),
-      ...clusterResources,
-      result,
-    ],
+    children: [...clusterResources, result],
   })
 
   // Apply DNS context (inside SecretProvider so it can access TSIG secret)
@@ -281,14 +277,6 @@ export function Stack(props: StackProps) {
   // Apply labels context
   if (labels) {
     result = jsx(Labels.Provider, { value: labels, children: result })
-  }
-
-  // Apply namespace context
-  result = jsx(Namespace.Provider, { value: namespace, children: result })
-
-  // Apply domain context if set
-  if (domain) {
-    result = jsx(Domain.Provider, { value: domain, children: result })
   }
 
   return result
