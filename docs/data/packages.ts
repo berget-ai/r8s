@@ -70477,7 +70477,7 @@ export const packages: Package[] = [
             description: 'Grafana version (default: 10.3.0)',
           },
           {
-            name: 'adminSecretName',
+            name: 'admin',
             type: 'string',
             required: false,
             description: 'Admin password secret name',
@@ -70613,7 +70613,7 @@ export const packages: Package[] = [
             description: 'Redis connection',
           },
           {
-            name: 'adminSecret',
+            name: 'admin',
             type: 'string',
             required: true,
             description: 'Admin credentials secret',
@@ -70645,7 +70645,7 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'import { Superset } from \'@r8s/superset\'\n\nexport default (\n  <Superset\n    host="superset.example.com"\n    database={{ host: "superset-db-rw", database: "superset", user: "superset", passwordSecret: "superset-db-credentials" }}\n    redis={{ host: "redis-master" }}\n    adminSecret="superset-admin"\n    tls={{ secretName: "superset-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
+            tsx: 'import { Superset } from \'@r8s/superset\'\n\nexport default (\n  <Superset\n    host="superset.example.com"\n    database={{ host: "superset-db-rw", database: "superset", user: "superset", passwordSecret: "superset-db-credentials" }}\n    redis={{ host: "redis-master" }}\n    admin={{ password: "change-me" }}\n    tls={{ secretName: "superset-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
             yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: superset\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: superset-config\n  namespace: superset\ndata:\n  superset_config.py: |\n\n    import os\n\n    SECRET_KEY = os.environ.get('SUPERSET_SECRET_KEY', 'change-me')\n    SQLALCHEMY_DATABASE_URI = f\"postgresql://{os.environ['DB_USER']}:{os.environ['DB_PASS']}@{os.environ['DB_HOST']}/{os.environ['DB_NAME']}\"\n    CACHE_CONFIG = {\n        'CACHE_TYPE': 'RedisCache',\n        'CACHE_DEFAULT_TIMEOUT': 300,\n        'CACHE_KEY_PREFIX': 'superset_',\n        'CACHE_REDIS_HOST': os.environ.get('REDIS_HOST', 'localhost'),\n        'CACHE_REDIS_PORT': int(os.environ.get('REDIS_PORT', '6379')),\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: superset\n  template:\n    metadata:\n      labels:\n        app: superset\n    spec:\n      containers:\n        - name: superset\n          image: apache/superset:4.0.0\n          ports:\n            - containerPort: 8088\n              name: http\n          env:\n            - name: SUPERSET_SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: superset-admin\n                  key: secretKey\n            - name: DB_HOST\n              value: superset-db-rw\n            - name: DB_NAME\n              value: superset\n            - name: DB_USER\n              value: superset\n            - name: DB_PASS\n              valueFrom:\n                secretKeyRef:\n                  name: superset-db-credentials\n                  key: password\n            - name: REDIS_HOST\n              value: redis-master\n            - name: REDIS_PORT\n              value: '6379'\n          volumeMounts:\n            - name: config\n              mountPath: /app/pythonpath\n              readOnly: true\n          resources:\n            requests:\n              cpu: 250m\n              memory: 1Gi\n            limits:\n              cpu: 1000m\n              memory: 2Gi\n      volumes:\n        - name: config\n          configMap:\n            name: superset-config\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  selector:\n    app: superset\n  ports:\n    - port: 80\n      targetPort: 8088\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: superset\n  namespace: superset\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\n    nginx.ingress.kubernetes.io/proxy-body-size: 50m\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'\nspec:\n  rules:\n    - host: superset.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: superset\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - superset.example.com\n      secretName: superset-tls\n",
           },
         ],
