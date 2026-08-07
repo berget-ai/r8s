@@ -42,6 +42,19 @@ export default (
         },
       }}
     />
+    {/* S3 credentials for Loki — must exist before LokiStack reconciles */}
+    <secret
+      apiVersion="v1"
+      kind="Secret"
+      metadata={{ name: 'loki-storage', namespace: 'monitoring' }}
+      type="Opaque"
+      stringData={{
+        bucketnames: 'loki',
+        endpoint: 'https://s3.example.com',
+        access_key_id: 'change-me',
+        access_key_secret: 'change-me',
+      }}
+    />
 
     {/* Grafana for dashboards */}
     <Grafana
@@ -55,7 +68,10 @@ export default (
       tls={{ secretName: 'grafana-tls', clusterIssuer: 'letsencrypt-prod' }}
     />
 
-    {/* ServiceMonitor for app metrics */}
+    {/* ServiceMonitor for app metrics.
+        This monitors a Service with label app=api in another namespace.
+        The Service itself is not part of this monitoring stack — it's
+        deployed with the app. Shown here to demonstrate the pattern. */}
     <ServiceMonitorComponent
       metadata={{ name: 'app-monitor', namespace: 'monitoring', labels: { app: 'api' } }}
       spec={{

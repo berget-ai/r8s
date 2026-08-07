@@ -35,7 +35,11 @@ export default (
     }}
   >
     {/* SSO */}
-    <Auth name="auth" host="auth.saas.example.com">
+    <Auth
+      name="auth"
+      host="auth.saas.example.com"
+      tls={{ secretName: 'auth-tls', clusterIssuer: 'letsencrypt-prod' }}
+    >
       <Realms>
         <Realm id="saas" displayName="SaaS Platform">
           <Google clientId="your-google-client-id" clientSecret="${env:GOOGLE_CLIENT_SECRET}" />
@@ -68,13 +72,14 @@ export default (
     <Superset
       host="analytics.saas.example.com"
       database={{
-        host: 'analytics-db-rw',
-        database: 'analytics',
+        host: 'analytics-db-rw.saas.svc.cluster.local',
+        database: 'analytics-db',
         user: 'superset',
         passwordSecret: 'superset-db-credentials',
+        password: 'superset-db-password',
       }}
       redis={{ create: true }}
-      adminSecret="superset-admin"
+      admin={{ password: 'superset-admin-password' }}
       tls={{ secretName: 'superset-tls', clusterIssuer: 'letsencrypt-prod' }}
     />
 
@@ -85,7 +90,7 @@ export default (
       host="api.saas.example.com"
       tls={{ secretName: 'api-tls', clusterIssuer: 'letsencrypt-prod' }}
       env={{
-        DATABASE_URL: 'postgresql://platform-db-rw:5432/platform',
+        DATABASE_URL: 'postgresql://platform-db-rw:5432/platform-db',
         S3_ENDPOINT: 'https://s3.saas.example.com',
         KEYCLOAK_URL: 'https://auth.saas.example.com',
       }}

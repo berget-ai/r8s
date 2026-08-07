@@ -11,16 +11,16 @@ const baseProps = {
     passwordSecret: 'superset-db-credentials',
   },
   redis: { host: 'redis-master' },
-  adminSecret: 'superset-admin',
+  admin: { password: 'test-secret' },
 }
 
 describe('Superset', () => {
   it('should render Namespace, ConfigMap, Deployment, Service and Ingress', () => {
     const result = render(jsx(Superset, baseProps))
 
-    expect(result.resources).toHaveLength(5)
+    expect(result.resources).toHaveLength(6)
     const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).toEqual(['Namespace', 'ConfigMap', 'Deployment', 'Service', 'Ingress'])
+    expect(kinds).toEqual(['Namespace', 'Secret', 'ConfigMap', 'Deployment', 'Service', 'Ingress'])
   })
 
   it('should use default name, namespace and version', () => {
@@ -122,7 +122,7 @@ describe('Superset', () => {
       const deployment = result.resources.find((r) => r.kind === 'Deployment') as any
       const env = deployment.spec.template.spec.containers[0].env
       expect(env.find((e: any) => e.name === 'REDIS_HOST').value).toBe(
-        'superset-redis.superset.svc.cluster.local'
+        'superset-redis-master.superset.svc.cluster.local'
       )
     })
 

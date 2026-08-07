@@ -38,7 +38,11 @@ export default (
     }}
   >
     {/* Identity Provider */}
-    <Auth name="auth" host="auth.shop.example.com">
+    <Auth
+      name="auth"
+      host="auth.shop.example.com"
+      tls={{ secretName: 'auth-tls', clusterIssuer: 'letsencrypt-prod' }}
+    >
       <Realms>
         <Realm id="shop" displayName="Web Shop">
           <EntraID
