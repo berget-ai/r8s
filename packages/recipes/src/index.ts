@@ -4,6 +4,7 @@
 // underlying tools.
 
 export { Platform, type PlatformProps, type RoutingMode } from './platform'
+export { Stack, type StackProps } from './stack'
 export { App, type AppProps } from './app'
 export { Database, type DatabaseProps } from './database'
 export { Endpoint, type EndpointProps } from './endpoint'
