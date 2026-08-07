@@ -151,7 +151,8 @@ export const components: ComponentInfo[] = [
         name: 'children',
         type: 'unknown',
         required: false,
-        description: 'Child components (e.g. Keycloak CR)',
+        description:
+          'App/Database/Auth components (optional — can set up cluster infra standalone)',
       },
     ],
     example: `import { Database } from '@r8s/recipes'\n\nexport default <Database name="api-db" storage="20Gi" />`,
@@ -188,6 +189,67 @@ export const components: ComponentInfo[] = [
       { name: 'dns', type: 'boolean', required: false, description: 'Override DNS creation' },
     ],
     example: `import { Endpoint } from '@r8s/recipes'\n\nexport default <Endpoint name="api" host="api.example.com" serviceName="api" />`,
+  },
+  {
+    name: 'R8sCluster',
+    package: '@r8s/recipes',
+    category: 'Complete Solution',
+    description:
+      'Opinionated cluster foundation: cert-manager, external-dns (TSIG), Envoy Gateway, OpenBao VSO, Prometheus, Loki + FluentBit. All operators declared automatically.',
+    props: [
+      {
+        name: 'secrets',
+        type: '{ mount, path, authRef? }',
+        required: true,
+        description: 'OpenBao secrets backend config',
+      },
+      {
+        name: 'dns',
+        type: '{ server, zone, tsigPath, tsigKey? }',
+        required: true,
+        description: 'ExternalDNS with TSIG for RFC 2136',
+      },
+      {
+        name: 'gatewayClassName',
+        type: 'string',
+        required: false,
+        default: "'eg'",
+        description: 'Envoy Gateway class name',
+      },
+      {
+        name: 'labels',
+        type: 'Record<string, string>',
+        required: false,
+        description: 'Default labels',
+      },
+      {
+        name: 'operators',
+        type: 'Operator[]',
+        required: false,
+        description: 'Pre-installed operators (skip auto-declare)',
+      },
+      {
+        name: 'logsNamespace',
+        type: 'string',
+        required: false,
+        default: "'logging'",
+        description: 'Namespace for LokiStack and logging resources',
+      },
+      {
+        name: 'logsStorageClass',
+        type: 'string',
+        required: false,
+        default: "'standard'",
+        description: 'Storage class for Loki logs',
+      },
+      {
+        name: 'children',
+        type: 'unknown',
+        required: true,
+        description: 'App/Database/Auth components',
+      },
+    ],
+    example: `import { R8sCluster, Platform, App, Database } from '@r8s/recipes'\n\nexport default (\n  <R8sCluster\n    secrets={{ mount: 'secret', path: 'production' }}\n    dns={{ server: 'ns1.example.com', zone: 'example.com', tsigPath: 'dns/tsig' }}\n  >\n    <Platform namespace="production">\n      <Database name="api-db" storage="20Gi" />\n      <App name="api" image="api:v1" host="api.example.com" />\n    </Platform>\n  </R8sCluster>\n)`,
   },
   {
     name: 'Platform',
