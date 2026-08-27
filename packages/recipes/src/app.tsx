@@ -17,8 +17,9 @@ export interface AppProps {
   port?: number
   /** Number of pod replicas (defaults to 2) */
   replicas?: number
-  /** Domain name (e.g., 'api.example.com') the endpoint should accept traffic for */
-  host: string
+  /** Domain name (e.g., 'api.example.com') the endpoint should accept traffic for.
+   *  When omitted, no Endpoint/Ingress/Gateway is created (useful for manual routing). */
+  host?: string
   /** TLS certificate configuration for HTTPS */
   tls?: TLSConfig
   /** Plain environment variables (non-sensitive) */
@@ -136,18 +137,21 @@ export function App(props: AppProps) {
     })
   )
 
-  elements.push(
-    jsx(Endpoint, {
-      name: `${name}-endpoint`,
-      namespace,
-      host,
-      serviceName: name,
-      servicePort: 80,
-      tls,
-      dns,
-      ...(sharedGateway && { sharedGateway }),
-    })
-  )
+  // Only create Endpoint if host is provided
+  if (host) {
+    elements.push(
+      jsx(Endpoint, {
+        name: `${name}-endpoint`,
+        namespace,
+        host,
+        serviceName: name,
+        servicePort: 80,
+        tls,
+        dns,
+        ...(sharedGateway && { sharedGateway }),
+      })
+    )
+  }
 
   // Redis cache
   if (cache) {
