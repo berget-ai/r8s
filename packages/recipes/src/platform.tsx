@@ -27,6 +27,12 @@ export interface PlatformProps {
   routing?: RoutingMode
   /** Gateway class name (only used when routing='gateway', default: 'eg') */
   gatewayClassName?: string
+  /**
+   * Reference to a shared Gateway for all child endpoints.
+   * When set, App/Endpoint create only HTTPRoutes (no per-app Gateway),
+   * avoiding a new LoadBalancer IP per app.
+   */
+  sharedGateway?: { name: string; namespace?: string }
   /** Default namespace for all child resources */
   namespace?: string
   /** Default labels applied to all child resources */

@@ -19,6 +19,12 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   dns?: boolean
   /** DNS record TTL in seconds (default: 300) */
   dnsTtl?: number
+  /**
+   * Reference to an existing shared Gateway instead of creating a new one.
+   * Set this to avoid allocating a new LoadBalancer IP per app.
+   * When set, only an HTTPRoute is created (no Gateway resource).
+   */
+  sharedGateway?: { name: string; namespace?: string }
 }
 
 /**
@@ -60,6 +66,7 @@ export function Endpoint(props: EndpointProps) {
     annotations = {},
     dns,
     dnsTtl = 300,
+    sharedGateway,
   } = props
 
   const routing = useContext(RoutingContext)
@@ -110,47 +117,66 @@ export function Endpoint(props: EndpointProps) {
 
     // HTTPS listener with TLS, HTTP listener without
     const useHttps = !!tls
+
+    // Only create a Gateway when no sharedGateway is provided.
+    // When sharedGateway is set, attach an HTTPRoute to the existing
+    // gateway instead of allocating a new LoadBalancer IP.
+    if (!sharedGateway) {
+      resources.push(
+        jsx('Gateway', {
+          apiVersion: 'gateway.networking.k8s.io/v1',
+          kind: 'Gateway',
+          metadata: {
+            name: `${name}-gateway`,
+            namespace,
+            // ExternalDNS gateway source picks up hostnames from this annotation
+            ...(createDnsRecord && {
+              annotations: {
+                'external-dns.alpha.kubernetes.io/hostname': host,
+              },
+            }),
+          },
+          spec: {
+            gatewayClassName,
+            listeners: [
+              {
+                name: useHttps ? 'https' : 'http',
+                protocol: useHttps ? 'HTTPS' : 'HTTP',
+                port: useHttps ? 443 : 80,
+                hostname: host,
+                ...(tls && {
+                  tls: {
+                    mode: 'Terminate',
+                    certificateRefs: [{ name: secretName }],
+                  },
+                }),
+              },
+            ],
+          },
+        })
+      )
+    }
+
+    const parentRef = sharedGateway
+      ? { name: sharedGateway.name, ...(sharedGateway.namespace && { namespace: sharedGateway.namespace }) }
+      : { name: `${name}-gateway` }
+
     resources.push(
-      jsx('Gateway', {
+      jsx('HTTPRoute', {
         apiVersion: 'gateway.networking.k8s.io/v1',
-        kind: 'Gateway',
+        kind: 'HTTPRoute',
         metadata: {
-          name: `${name}-gateway`,
+          name: `${name}-route`,
           namespace,
-          // ExternalDNS gateway source picks up hostnames from this annotation
-          ...(createDnsRecord && {
+          // ExternalDNS picks up hostnames from HTTPRoute annotations
+          ...(createDnsRecord && sharedGateway && {
             annotations: {
               'external-dns.alpha.kubernetes.io/hostname': host,
             },
           }),
         },
         spec: {
-          gatewayClassName,
-          listeners: [
-            {
-              name: useHttps ? 'https' : 'http',
-              protocol: useHttps ? 'HTTPS' : 'HTTP',
-              port: useHttps ? 443 : 80,
-              hostname: host,
-              ...(tls && {
-                tls: {
-                  mode: 'Terminate',
-                  certificateRefs: [{ name: secretName }],
-                },
-              }),
-            },
-          ],
-        },
-      })
-    )
-
-    resources.push(
-      jsx('HTTPRoute', {
-        apiVersion: 'gateway.networking.k8s.io/v1',
-        kind: 'HTTPRoute',
-        metadata: { name: `${name}-route`, namespace },
-        spec: {
-          parentRefs: [{ name: `${name}-gateway` }],
+          parentRefs: [parentRef],
           hostnames: [host],
           rules: [
             {

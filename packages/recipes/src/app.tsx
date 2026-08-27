@@ -36,6 +36,11 @@ export interface AppProps {
   cache?: boolean
   /** Create a DNS record via ExternalDNS (default: false) */
   dns?: boolean
+  /**
+   * Reference to a shared Gateway instead of creating a per-app Gateway.
+   * Avoids allocating a new LoadBalancer IP per app.
+   */
+  sharedGateway?: { name: string; namespace?: string }
   /** Child components rendered as sibling resources (e.g., a BackgroundWorker) */
   children?: unknown
 }
@@ -106,6 +111,7 @@ export function App(props: AppProps) {
     resources,
     cache = false,
     dns,
+    sharedGateway,
     children,
   } = props
 
@@ -139,6 +145,7 @@ export function App(props: AppProps) {
       servicePort: 80,
       tls,
       dns,
+      ...(sharedGateway && { sharedGateway }),
     })
   )
 
@@ -167,7 +174,7 @@ export function App(props: AppProps) {
       })
     )
     // Auto-wire REDIS_URL env var
-    env.REDIS_URL = `redis://${name}-cache.${namespace}.svc.cluster.local:6379`
+    env.REDIS_URL = `redis://${name}-cache-leader.${namespace}.svc.cluster.local:6379`
   }
 
   // Children render as sibling resources (e.g. <BackgroundWorker />).

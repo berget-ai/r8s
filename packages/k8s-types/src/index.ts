@@ -21,6 +21,7 @@ export interface LabelSelector {
 export interface Container {
   name: string
   image: string
+  imagePullPolicy?: 'Always' | 'Never' | 'IfNotPresent'
   command?: string[]
   args?: string[]
   ports?: ContainerPort[]

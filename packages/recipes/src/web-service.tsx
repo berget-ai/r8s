@@ -210,6 +210,7 @@ export function WebService(props: WebServiceProps) {
             {
               name: 'app',
               image,
+              imagePullPolicy: 'Always',
               ports: [{ containerPort: port }],
               env: envVars,
               ...(resources && { resources }),
