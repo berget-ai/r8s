@@ -66,8 +66,10 @@ jobs:
         run: |
           set -e
           # Dependency order: k8s-types first, cli last.
+          # App recipe packages (n8n … eneo) come after recipes — they
+          # depend on core/k8s-types/crds/recipes, never on each other.
           # Private packages (example) are skipped.
-          ORDER="k8s-types core crds element grafana rustfs superset wireguard recipes cli flux-controller r8s-controller"
+          ORDER="k8s-types core crds element grafana rustfs superset wireguard recipes n8n outline nextcloud chromadb supabase odoo open-webui librechat eurooffice paperclip eneo cli flux-controller r8s-controller"
           for pkg in $ORDER; do
             DIR="packages/$pkg"
             [ -d "$DIR" ] || continue

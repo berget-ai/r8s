@@ -1,6 +1,6 @@
 {
   "name": "@r8s/r8s-controller",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "r8s Kubernetes controller - renders TSX to YAML in-cluster",
   "license": "MIT",
   "author": "Berget AI AB",
@@ -28,8 +28,8 @@
   },
   "dependencies": {
     "@kubernetes/client-node": "^0.20.0",
-    "@r8s/core": "^0.1.0",
-    "@r8s/cli": "^0.1.0"
+    "@r8s/core": "^0.2.0",
+    "@r8s/cli": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

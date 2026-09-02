@@ -1,6 +1,6 @@
 {
   "name": "@r8s/grafana",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Grafana observability dashboard components for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
@@ -35,8 +35,8 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@r8s/core": "^0.1.0",
-    "@r8s/k8s-types": "^0.1.0"
+    "@r8s/core": "^0.2.0",
+    "@r8s/k8s-types": "^0.2.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
