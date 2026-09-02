@@ -20,7 +20,6 @@ const EXCLUDED_DIRS = new Set([
   'dist',
   'rendered',
   'test-temp',
-  'test-temp',
   '__tests__',
   '.git',
   'coverage',

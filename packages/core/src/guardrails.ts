@@ -231,14 +231,14 @@ export const noPlaintextSecrets: GuardrailRule = {
     const errors: ValidationError[] = []
     const seen = new Set<string>()
 
-    const push = (where: string, field: string, suggestion: string) => {
+    const push = (kind: string, where: string, field: string, suggestion: string) => {
       const dedupeKey = `${where}:${field}`
       if (seen.has(dedupeKey)) return
       seen.add(dedupeKey)
       errors.push({
         code: 'PLAINTEXT_SECRET',
         message: `Plaintext credential in ${where}`,
-        resource: 'Secret',
+        resource: kind,
         field,
         suggestion,
       })
@@ -248,12 +248,14 @@ export const noPlaintextSecrets: GuardrailRule = {
       if (typeof value !== 'string' || value.length === 0) return
       if (connectionStringPassword(value) !== null) {
         push(
+          'Secret',
           where,
           field,
           'Connection string embeds a password. Inject the credential at runtime via secretKeyRef or $(VAR) expansion instead'
         )
       } else if (value.startsWith('-----BEGIN') && value.includes('PRIVATE KEY')) {
         push(
+          'Secret',
           where,
           field,
           'PEM private key is embedded in the manifest. Store it in a secrets backend or a sealed secret instead'
@@ -282,6 +284,7 @@ export const noPlaintextSecrets: GuardrailRule = {
                 !SECRET_REFERENCE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
               if (isCredentialKey && typeof value === 'string' && value.length > 0) {
                 push(
+                  'Secret',
                   `Secret "${resource.metadata?.name}" (${map}.${key})`,
                   `${map}.${key}`,
                   'Use a secrets backend (openbao/vault/sealed-secrets) or let the operator provision the credential'
@@ -310,6 +313,7 @@ export const noPlaintextSecrets: GuardrailRule = {
           const hasConnectionString = connectionStringPassword(env.value) !== null
           if (isSecretName && !looksLikeReference(env.value)) {
             push(
+              resource.kind,
               `${kindName} container "${container.name}" env "${env.name}"`,
               `spec.template.spec.containers[].env[name=${env.name}].value`,
               'Use valueFrom.secretKeyRef, a Vault/OpenBao secret reference, or $(VAR) expansion'
@@ -317,6 +321,7 @@ export const noPlaintextSecrets: GuardrailRule = {
           }
           if (hasConnectionString) {
             push(
+              resource.kind,
               `${kindName} container "${container.name}" env "${env.name}"`,
               `spec.template.spec.containers[].env[name=${env.name}].value`,
               'Connection string embeds a password. Split into individual vars and reference the secret'
@@ -331,7 +336,10 @@ export const noPlaintextSecrets: GuardrailRule = {
           node.forEach((item, i) => walk(item, `${path}[${i}]`))
           return
         }
-        if (!node || typeof node !== 'object') return
+        if (!node || typeof node !== 'object') {
+          if (typeof node === 'string') scanValue(`${kindName} (${path})`, path, node)
+          return
+        }
         for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
           // sealed-secrets ciphertext is encrypted with the cluster key
           if (key === 'encryptedData') continue
@@ -346,12 +354,20 @@ export const noPlaintextSecrets: GuardrailRule = {
             !looksLikeReference(value)
           ) {
             push(
+              resource.kind,
               `${kindName} (${path}.${key})`,
               `${path}.${key}`,
               'Move the credential into a secrets backend and reference it by name'
             )
           }
-          scanValue(`${kindName} (${path}.${key})`, `${path}.${key}`, value)
+          // Recurse into child objects/arrays so credentials are caught at
+          // every depth (pod templates, CRD specs, realm users, …); leaf
+          // strings are scanned for connection strings / PEM keys
+          if (value && typeof value === 'object') {
+            walk(value, `${path}.${key}`)
+          } else {
+            scanValue(`${kindName} (${path}.${key})`, `${path}.${key}`, value)
+          }
         }
       }
       walk(anyResource.spec, 'spec')
