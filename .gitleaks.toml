@@ -1,0 +1,15 @@
+# gitleaks config — extends the default ruleset
+title = "r8s gitleaks config"
+
+[extend]
+useDefault = true
+
+# Build artifacts (dist/, rendered output) are generated from src and
+# scanned in their source form — skip them.
+[allowlist]
+description = "generated build artifacts"
+paths = [
+  '''(^|/)dist/''',
+  '''(^|/)rendered/''',
+  '''(^|/)node_modules/''',
+]

@@ -1,0 +1,5 @@
+# false positive: the PEM-matching regex used by the redaction module itself
+# (history scan fingerprint)
+7fbbc7c0d6119d1d1baa8192e66fde3a83738386:packages/core/src/redact.ts:private-key:21
+# (working-tree / --no-git fingerprint)
+packages/core/src/redact.ts:private-key:21
