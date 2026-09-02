@@ -522,7 +522,7 @@ export const components: ComponentInfo[] = [
         description: 'TLS config',
       },
     ],
-    example: `import { Superset } from '@r8s/superset'\n\nexport default <Superset host="analytics.example.com" database={{ host: 'db-rw', database: 'superset', user: 'superset', passwordSecret: 'superset-db', password: 'change-me' }} redis={{ create: true }} admin={{ password: 'change-me' }} />`,
+    example: `import { Superset } from '@r8s/superset'\n\nexport default <Superset host="analytics.example.com" database={{ host: 'db-rw', database: 'superset', user: 'superset', passwordSecret: 'superset-db', passwordKey: 'password' }} redis={{ create: true }} admin={{ existingSecret: 'superset-admin-credentials' }} />`,
   },
   {
     name: 'RustFS',

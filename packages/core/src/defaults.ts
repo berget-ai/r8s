@@ -15,7 +15,7 @@ export interface DatabaseConnection {
 
 /** Secret provider configuration */
 export interface SecretProvider {
-  backend: 'vault' | 'openbao' | 'sealed-secrets' | 'manual-secrets'
+  backend: 'vault' | 'openbao' | 'sealed-secrets' | 'manual-secrets' | 'kubernetes'
   mount?: string
   path?: string
   authRef?: string

@@ -18,12 +18,6 @@ export interface DatabaseProps {
   storage?: string
   /** Operator version override. If not set, reads from OperatorContext or uses default. */
   operatorVersion?: string
-  /**
-   * Password for the database. Only needed when no secrets backend is
-   * configured on the Platform. When a secrets backend (openbao, vault,
-   * sealed-secrets) is active, credentials are managed automatically.
-   */
-  password?: string
   /** Child components rendered with this database's connection info in context */
   children?: unknown
 }
@@ -39,7 +33,10 @@ export interface DatabaseProps {
  * connection info via DatabaseContext automatically.
  *
  * Credentials are managed by the secrets backend configured on the Platform.
- * Without a secrets backend, CNPG manages the bootstrap secret automatically.
+ * Without a backend, credentials are CNPG-managed (bootstrap secret is
+ * generated automatically in-cluster). Plaintext password props are NOT
+ * supported — rendered YAML is committed to git and applied to clusters,
+ * so a plaintext password there is a credential leak.
  *
  * @example
  * import { Database } from '@r8s/recipes'
@@ -58,14 +55,26 @@ export interface DatabaseProps {
  * )
  */
 export function Database(props: DatabaseProps) {
-  const {
-    name,
-    namespace: namespaceProp,
-    storage = '10Gi',
-    operatorVersion,
-    password,
-    children,
-  } = props
+  const { name, namespace: namespaceProp, storage = '10Gi', operatorVersion, children } = props
+
+  // Plaintext password props are forbidden. This also catches untyped/JS
+  // callers that pass `password` to Database regardless of backend — the
+  // rendered Secret would leak the credential into git and cluster state.
+  const legacyPassword = (props as { password?: unknown }).password
+  if (legacyPassword !== undefined && legacyPassword !== null && legacyPassword !== '') {
+    throw new Error(
+      `Database "${name}" received a plaintext password. ` +
+        `Plaintext credentials in rendered manifests are no longer supported — ` +
+        `the YAML is committed to git and applied to clusters, which leaks the credential.\n` +
+        `\n` +
+        `Fix: configure a secrets backend on the Platform and let it manage credentials:\n` +
+        `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n` +
+        `    <Database name="${name}" />\n` +
+        `  </Platform>\n` +
+        `\n` +
+        `Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes', 'manual-secrets'`
+    )
+  }
 
   // Inherit namespace from <Platform> context if not explicitly set
   const contextNamespace = useContext(Namespace)
@@ -91,16 +100,7 @@ export function Database(props: DatabaseProps) {
       vendor: 'postgres' as const,
     }
 
-    resources.push(
-      ...createSecretResources(
-        name,
-        namespace,
-        secretName,
-        secretProvider,
-        password,
-        clusterConfig.host
-      )
-    )
+    resources.push(...createSecretResources(name, namespace, secretName, secretProvider, 'shared'))
 
     if (children) {
       resources.push(jsx(DatabaseContext.Provider, { value: connection, children }))
@@ -144,19 +144,11 @@ export function Database(props: DatabaseProps) {
     resources.push(jsx('Cluster', cluster))
 
     // For dedicated clusters with a secrets backend, the backend manages
-    // credentials. For kubernetes backend, CNPG manages the bootstrap secret
-    // automatically — but we still validate that a password was provided
-    // when kubernetes backend is explicitly chosen.
+    // credentials. For kubernetes/manual-secrets backend, CNPG manages the
+    // bootstrap secret automatically — no plaintext Secret is rendered.
     if (secretProvider) {
       resources.push(
-        ...createSecretResources(
-          name,
-          namespace,
-          secretName,
-          secretProvider,
-          password,
-          `${name}-rw`
-        )
+        ...createSecretResources(name, namespace, secretName, secretProvider, 'dedicated')
       )
     }
 
@@ -170,46 +162,38 @@ export function Database(props: DatabaseProps) {
 
 /**
  * Create the secret resources for a database based on the active secrets
- * backend. Throws a descriptive error when a password is needed but not
- * provided, or when the backend is not configured.
+ * backend. Plaintext credentials are never rendered — backends either
+ * reference credentials stored externally (openbao/vault), hold
+ * user-sealed ciphertext (sealed-secrets), or delegate to CNPG's
+ * in-cluster bootstrap secret generation (kubernetes/manual-secrets on
+ * dedicated clusters).
  */
 function createSecretResources(
   name: string,
   namespace: string,
   secretName: string,
   secretProvider: { backend: string; mount?: string; path?: string; authRef?: string } | null,
-  password: string | undefined,
-  host: string
+  mode: 'shared' | 'dedicated'
 ): ReturnType<typeof jsx>[] {
   const resources: ReturnType<typeof jsx>[] = []
 
   if (!secretProvider) {
-    if (!password) {
-      throw new Error(
-        `Database "${name}" has no secrets backend configured and no password provided.\n` +
-          `\n` +
-          `Fix: either set a secrets backend on the Platform:\n` +
-          `  <Platform secrets={{ backend: 'openbao' }}>\n` +
-          `    <Database name="${name}" />\n` +
-          `  </Platform>\n` +
-          `\n` +
-          `Or provide a password directly (not recommended for production):\n` +
-          `  <Database name="${name}" password="..." />`
-      )
+    if (mode === 'dedicated') {
+      // CNPG generates the bootstrap secret in-cluster — no credential
+      // in the rendered manifest at all.
+      return resources
     }
-    resources.push(
-      jsx('Secret', {
-        apiVersion: 'v1',
-        kind: 'Secret',
-        metadata: { name: secretName, namespace },
-        stringData: {
-          password,
-          username: name,
-          uri: `postgresql://${name}:${password}@${host}:5432/${name}`,
-        },
-      })
+    throw new Error(
+      `Database "${name}" is attached to a shared Cluster without a secrets backend.\n` +
+        `\n` +
+        `CNPG only provisions credentials for databases on dedicated clusters, so a ` +
+        `shared-cluster database needs a managed secrets backend:\n` +
+        `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n` +
+        `    <Database name="${name}" />\n` +
+        `  </Platform>\n` +
+        `\n` +
+        `Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes', 'manual-secrets'`
     )
-    return resources
   }
 
   switch (secretProvider.backend) {
@@ -267,36 +251,30 @@ function createSecretResources(
       break
 
     case 'kubernetes':
-      if (!password) {
+    case 'manual-secrets':
+      // Plain Kubernetes Secrets — but the credential itself must never be
+      // in the rendered manifest. On dedicated clusters CNPG generates the
+      // bootstrap secret in-cluster; on shared clusters there is nothing to
+      // generate the credential, so a managed backend is required.
+      if (mode === 'shared') {
         throw new Error(
-          `Database "${name}" uses the 'kubernetes' secrets backend, which requires a password.\n` +
+          `Database "${name}" uses the '${secretProvider.backend}' secrets backend on a shared Cluster.\n` +
             `\n` +
-            `The kubernetes backend stores credentials as plain Kubernetes Secrets.\n` +
-            `For production, use a managed backend instead:\n` +
-            `  <Platform secrets={{ backend: 'openbao' }}>\n` +
+            `Credentials for shared-cluster databases cannot be provisioned automatically. ` +
+            `Use a managed backend instead:\n` +
+            `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n` +
+            `    <Database name="${name}" />\n` +
+            `  </Platform>\n` +
             `\n` +
-            `Or provide a password explicitly:\n` +
-            `  <Database name="${name}" password="..." />`
+            `Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes', 'manual-secrets'`
         )
       }
-      resources.push(
-        jsx('Secret', {
-          apiVersion: 'v1',
-          kind: 'Secret',
-          metadata: { name: secretName, namespace },
-          stringData: {
-            password,
-            username: name,
-            uri: `postgresql://${name}:${password}@${host}:5432/${name}`,
-          },
-        })
-      )
       break
 
     default:
       throw new Error(
         `Database "${name}" has an unknown secrets backend "${secretProvider.backend}".\n` +
-          `Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes'`
+          `Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes', 'manual-secrets'`
       )
   }
 

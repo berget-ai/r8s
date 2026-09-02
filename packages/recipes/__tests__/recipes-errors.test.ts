@@ -2,8 +2,16 @@ import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
 import { validateResource } from '@r8s/core'
 import { Database, App, WebService, Endpoint } from '../src/index'
-import { OperatorContext, SecretContext } from '@r8s/core/defaults'
+import { OperatorContext, SecretContext, ClusterContext } from '@r8s/core/defaults'
 import { cnpgOperator, nginxIngressOperator } from '../src/operators'
+
+const sharedClusterConfig = {
+  name: 'main',
+  namespace: 'db',
+  storage: '100Gi',
+  host: 'main-rw',
+  secretName: 'main-credentials',
+}
 
 describe('Recipes Error Cases', () => {
   describe('Database', () => {
@@ -140,7 +148,7 @@ describe('Recipes Error Cases', () => {
         value: [cnpgOperator('1.22.5'), nginxIngressOperator('1.15.1')],
         children: jsx(Fragment, {
           children: [
-            jsx(Database, { name: 'app-db', storage: '10Gi', password: 'test-pass' }),
+            jsx(Database, { name: 'app-db', storage: '10Gi' }),
             jsx(App, {
               name: 'api',
               image: 'myapp/api:v1',
@@ -162,7 +170,6 @@ describe('Recipes Error Cases', () => {
         children: jsx(Database, {
           name: 'app-db',
           storage: '10Gi',
-          password: 'test-pass',
         }),
       })
 
@@ -172,26 +179,57 @@ describe('Recipes Error Cases', () => {
   })
 
   describe('Secrets backend errors', () => {
-    it('should throw when kubernetes backend has no password', () => {
-      expect(() => {
-        render(
-          jsx(SecretContext.Provider, {
-            value: { backend: 'kubernetes' },
-            children: jsx(Database, { name: 'my-db' }),
-          })
-        )
-      }).toThrow(/uses the 'kubernetes' secrets backend, which requires a password/)
+    it('should throw when a plaintext password prop is provided', () => {
+      const element = jsx(Database, { name: 'my-db', password: 'test-pass' } as any)
+      expect(() => render(element)).toThrow(/received a plaintext password/)
+      expect(() => render(element)).toThrow(/secrets backend/)
     })
 
-    it('should suggest openbao as production alternative for kubernetes backend', () => {
-      expect(() => {
-        render(
-          jsx(SecretContext.Provider, {
-            value: { backend: 'kubernetes' },
-            children: jsx(Database, { name: 'my-db' }),
-          })
-        )
-      }).toThrow(/backend: 'openbao'/)
+    it('should not render plaintext Secrets with the kubernetes backend', () => {
+      const element = jsx(SecretContext.Provider, {
+        value: { backend: 'kubernetes' },
+        children: jsx(Database, { name: 'my-db' }),
+      })
+      const result = render(element)
+
+      const kinds = result.resources.map((r) => r.kind)
+      expect(kinds).toContain('Cluster')
+      // CNPG provisions the bootstrap secret in-cluster — nothing plaintext in the manifest
+      expect(kinds).not.toContain('Secret')
+    })
+
+    it('should not render plaintext Secrets with the manual-secrets backend', () => {
+      const element = jsx(SecretContext.Provider, {
+        value: { backend: 'manual-secrets' },
+        children: jsx(Database, { name: 'my-db' }),
+      })
+      const result = render(element)
+
+      const kinds = result.resources.map((r) => r.kind)
+      expect(kinds).toContain('Cluster')
+      expect(kinds).not.toContain('Secret')
+    })
+
+    it('should throw for a shared cluster without a secrets backend', () => {
+      const element = jsx(ClusterContext.Provider, {
+        value: sharedClusterConfig,
+        children: jsx(Database, { name: 'my-db' }),
+      })
+
+      expect(() => render(element)).toThrow(/shared Cluster without a secrets backend/)
+    })
+
+    it('should throw for the kubernetes backend on a shared cluster', () => {
+      const element = jsx(SecretContext.Provider, {
+        value: { backend: 'kubernetes' } as any,
+        children: jsx(ClusterContext.Provider, {
+          value: sharedClusterConfig,
+          children: jsx(Database, { name: 'my-db' }),
+        }),
+      })
+
+      expect(() => render(element)).toThrow(/shared Cluster/)
+      expect(() => render(element)).toThrow(/backend: 'openbao'/)
     })
 
     it('should throw on unknown backend', () => {
@@ -213,7 +251,9 @@ describe('Recipes Error Cases', () => {
             children: jsx(Database, { name: 'my-db' }),
           })
         )
-      }).toThrow(/Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes'/)
+      }).toThrow(
+        /Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes', 'manual-secrets'/
+      )
     })
 
     it('should succeed with openbao backend and no password', () => {
@@ -250,17 +290,6 @@ describe('Recipes Error Cases', () => {
       const kinds = result.resources.map((r) => r.kind)
       expect(kinds).toContain('Cluster')
       expect(kinds).toContain('SealedSecret')
-    })
-
-    it('should succeed with kubernetes backend and explicit password', () => {
-      const element = jsx(SecretContext.Provider, {
-        value: { backend: 'kubernetes' },
-        children: jsx(Database, { name: 'my-db', password: 'test-pass' }),
-      })
-      const result = render(element)
-
-      const kinds = result.resources.map((r) => r.kind)
-      expect(kinds).toContain('Cluster')
     })
 
     it('should succeed with no backend and no password (CNPG manages bootstrap secret)', () => {

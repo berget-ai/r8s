@@ -147,7 +147,7 @@ export interface SecretProviderProps {
  *
  * export default (
  *   <SecretProvider provider="sealed-secrets">
- *     <Database name="app-db" password="supersecret" />
+ *     <Database name="app-db" />
  *   </SecretProvider>
  * )
  */

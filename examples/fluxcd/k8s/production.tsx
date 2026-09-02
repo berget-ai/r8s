@@ -1,75 +1,31 @@
-import { Postgres, CustomIngress } from '@r8s/recipes'
-import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager'
+import { Database, WebService, Endpoint } from '@r8s/recipes'
 
+/**
+ * Production environment.
+ *
+ * Production credentials should come from a secrets backend — wrap the
+ * tree in a Platform with a backend when you deploy for real:
+ *
+ *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'production' }}>
+ *     ...
+ *   </Platform>
+ *
+ * CNPG generates the bootstrap secret in-cluster either way; plaintext
+ * passwords never appear in this file or in the rendered YAML.
+ */
 export default function ProductionApp() {
   return (
-    <>
-      <LetsEncryptIssuer name="letsencrypt-prod" email="admin@example.com" server="production" />
+    <Database name="app-db" namespace="production" storage="50Gi">
+      <WebService name="app" image="myapp/app:v1.2.3" port={3000} replicas={5} />
 
-      <ManagedCertificate
-        name="app-tls"
-        namespace="production"
-        secretName="app-tls"
-        issuerName="letsencrypt-prod"
-        dnsNames={['app.example.com']}
-      />
-
-      <Postgres
-        name="app-db"
-        namespace="production"
-        database="app"
-        user="app"
-        password="${DB_PASSWORD}"
-        storage="50Gi"
-      />
-
-      <deployment
-        apiVersion="apps/v1"
-        kind="Deployment"
-        metadata={{ name: 'app', namespace: 'production', labels: { app: 'app' } }}
-        spec={{
-          replicas: 5,
-          selector: { matchLabels: { app: 'app' } },
-          template: {
-            metadata: { labels: { app: 'app' } },
-            spec: {
-              containers: [
-                {
-                  name: 'app',
-                  image: 'myapp/app:v1.2.3',
-                  ports: [{ containerPort: 3000 }],
-                  env: [
-                    {
-                      name: 'DATABASE_URL',
-                      value: 'postgresql://app:${DB_PASSWORD}@app-db:5432/app',
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-        }}
-      />
-
-      <service
-        apiVersion="v1"
-        kind="Service"
-        metadata={{ name: 'app', namespace: 'production' }}
-        spec={{
-          type: 'ClusterIP',
-          selector: { app: 'app' },
-          ports: [{ port: 80, targetPort: 3000 }],
-        }}
-      />
-
-      <CustomIngress
+      <Endpoint
         name="app-ingress"
         namespace="production"
         host="app.example.com"
         serviceName="app"
         servicePort={80}
-        tlsSecretName="app-tls"
+        tls={{ secretName: 'app-tls', clusterIssuer: 'letsencrypt-prod' }}
       />
-    </>
+    </Database>
   )
 }

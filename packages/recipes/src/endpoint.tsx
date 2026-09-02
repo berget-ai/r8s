@@ -158,7 +158,10 @@ export function Endpoint(props: EndpointProps) {
     }
 
     const parentRef = sharedGateway
-      ? { name: sharedGateway.name, ...(sharedGateway.namespace && { namespace: sharedGateway.namespace }) }
+      ? {
+          name: sharedGateway.name,
+          ...(sharedGateway.namespace && { namespace: sharedGateway.namespace }),
+        }
       : { name: `${name}-gateway` }
 
     resources.push(
@@ -169,11 +172,12 @@ export function Endpoint(props: EndpointProps) {
           name: `${name}-route`,
           namespace,
           // ExternalDNS picks up hostnames from HTTPRoute annotations
-          ...(createDnsRecord && sharedGateway && {
-            annotations: {
-              'external-dns.alpha.kubernetes.io/hostname': host,
-            },
-          }),
+          ...(createDnsRecord &&
+            sharedGateway && {
+              annotations: {
+                'external-dns.alpha.kubernetes.io/hostname': host,
+              },
+            }),
         },
         spec: {
           parentRefs: [parentRef],

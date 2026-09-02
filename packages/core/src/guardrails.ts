@@ -117,33 +117,238 @@ export const requireLabels = (requiredLabels: string[]): GuardrailRule => ({
   },
 })
 
-/** Check that no secrets contain plaintext passwords */
+/**
+ * Keys whose value is a credential when they appear with these endings
+ * (normalized: lowercased, `-`/`_`/`.` removed).
+ */
+const SECRET_KEY_SUFFIXES = [
+  'password',
+  'passwd',
+  'pwd',
+  'secretkey',
+  'secretaccesskey',
+  'accesskey',
+  'accesskeyid',
+  'privatekey',
+  'clientsecret',
+  'apikey',
+  'authtoken',
+  'connectionstring',
+]
+
+/** Key endings that hold the *name* of a secret, not a credential value. */
+const SECRET_REFERENCE_SUFFIXES = [
+  'secretname',
+  'secretref',
+  'passwordsecret',
+  'passwordkey',
+  'passwordref',
+  'passwordname',
+  'secretkeyref',
+  'secretkeyname',
+  'tokenname',
+  'tokenref',
+  'keyref',
+  'keyname',
+  'credentialsref',
+]
+
+/** Env var names that suggest the value is a credential. */
+const SECRET_ENV_NAME_PATTERN =
+  /(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|client[_-]?secret)/i
+
+/** Matches scheme://[user[:password]@]host — a credentials-bearing URI. */
+const CONNECTION_STRING_RE = /[a-z][a-z0-9+.-]*:\/\/([^/\s:@]*):([^@/\s]+)@/i
+
+/** Secret types that hold non-credential material (TLS certs, SA tokens managed in-cluster). */
+const EXEMPT_SECRET_TYPES = [
+  'kubernetes.io/tls',
+  'kubernetes.io/ssl',
+  'kubernetes.io/service-account-token',
+  'bootstrap.kubernetes.io/token',
+  'helm.sh/release.v1',
+]
+
+function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/[-_.]/g, '')
+}
+
+/** Values that are references/placeholders rather than live credentials. */
+function looksLikeReference(value: string): boolean {
+  return (
+    value.includes('$(') ||
+    /^\$\{.+\}/.test(value) ||
+    value.startsWith('${') ||
+    value.startsWith('$') ||
+    value.startsWith('file://')
+  )
+}
+
+function connectionStringPassword(value: string): string | null {
+  const match = value.match(CONNECTION_STRING_RE)
+  if (!match) return null
+  const [, , password] = match
+  // Kubernetes $(VAR) expansion and env interpolation — the credential is
+  // injected at runtime, not embedded in the manifest.
+  if (password.includes('$(') || password.includes('${')) return null
+  return password
+}
+
+/** Collect pod containers from any workload-shaped resource. */
+function workloadsContainers(resource: KubernetesResource): any[] {
+  const anyResource = resource as any
+  const kind: string = anyResource.kind
+  if (kind === 'CronJob') {
+    return [
+      ...(anyResource.spec?.jobTemplate?.spec?.template?.spec?.containers ?? []),
+      ...(anyResource.spec?.jobTemplate?.spec?.template?.spec?.initContainers ?? []),
+    ]
+  }
+  const podSpec = anyResource.spec?.template?.spec ?? anyResource.spec ?? {}
+  return [...(podSpec.containers ?? []), ...(podSpec.initContainers ?? [])]
+}
+
+/**
+ * Check that no credentials are rendered as plaintext. Covers:
+ * - Secret stringData/data values for credential keys, connection-string
+ *   URIs, and PEM private keys (encryptedData from sealed-secrets and
+ *   system TLS/service-account secrets are exempt)
+ * - Workload env vars that embed credentials via `value` (secretKeyRef or
+ *   $(VAR) runtime expansion are fine)
+ * - Any nested field (CRD specs, realm users, …) holding a plaintext
+ *   credential value
+ */
 export const noPlaintextSecrets: GuardrailRule = {
   id: 'no-plaintext-secrets',
-  description: 'Secrets should not contain plaintext passwords in rendered output',
+  description: 'Manifests must not contain plaintext credentials',
   severity: 'error',
   test: (resources) => {
     const errors: ValidationError[] = []
+    const seen = new Set<string>()
+
+    const push = (where: string, field: string, suggestion: string) => {
+      const dedupeKey = `${where}:${field}`
+      if (seen.has(dedupeKey)) return
+      seen.add(dedupeKey)
+      errors.push({
+        code: 'PLAINTEXT_SECRET',
+        message: `Plaintext credential in ${where}`,
+        resource: 'Secret',
+        field,
+        suggestion,
+      })
+    }
+
+    const scanValue = (where: string, field: string, value: unknown) => {
+      if (typeof value !== 'string' || value.length === 0) return
+      if (connectionStringPassword(value) !== null) {
+        push(
+          where,
+          field,
+          'Connection string embeds a password. Inject the credential at runtime via secretKeyRef or $(VAR) expansion instead'
+        )
+      } else if (value.startsWith('-----BEGIN') && value.includes('PRIVATE KEY')) {
+        push(
+          where,
+          field,
+          'PEM private key is embedded in the manifest. Store it in a secrets backend or a sealed secret instead'
+        )
+      }
+    }
 
     for (const resource of resources) {
+      const kindName = `${resource.kind} "${resource.metadata?.name ?? '?'}"`
+      const anyResource = resource as any
+
+      // 1. Kubernetes Secret resources
       if (resource.kind === 'Secret') {
-        const data = (resource as any).stringData || (resource as any).data || {}
-        for (const [key, value] of Object.entries(data)) {
-          if (typeof value === 'string' && value.length > 0) {
-            // Check if it looks like a password (not a reference)
-            if (key.toLowerCase().includes('password') || key.toLowerCase().includes('secret')) {
-              errors.push({
-                code: 'PLAINTEXT_SECRET',
-                message: `Secret "${resource.metadata?.name}" contains plaintext value for key "${key}"`,
-                resource: 'Secret',
-                field: `stringData.${key}`,
-                suggestion:
-                  'Use Vault, Sealed Secrets, or external secret management instead of plaintext',
-              })
+        const secretType = (anyResource.type as string) || ''
+        const isEncrypted = anyResource.encryptedData !== undefined
+        const exempt = EXEMPT_SECRET_TYPES.includes(secretType)
+
+        if (!exempt && !isEncrypted) {
+          for (const map of ['stringData', 'data'] as const) {
+            const data = anyResource[map]
+            if (!data || typeof data !== 'object') continue
+            for (const [key, value] of Object.entries(data)) {
+              const normalized = normalizeKey(key)
+              const isCredentialKey =
+                SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
+                !SECRET_REFERENCE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+              if (isCredentialKey && typeof value === 'string' && value.length > 0) {
+                push(
+                  `Secret "${resource.metadata?.name}" (${map}.${key})`,
+                  `${map}.${key}`,
+                  'Use a secrets backend (openbao/vault/sealed-secrets) or let the operator provision the credential'
+                )
+              }
+              scanValue(
+                `Secret "${resource.metadata?.name}" (${map}.${key})`,
+                `${map}.${key}`,
+                value
+              )
             }
           }
         }
+        continue
       }
+
+      // 2. Workload env vars
+      for (const container of workloadsContainers(resource)) {
+        for (const env of container.env ?? []) {
+          if (!env || typeof env !== 'object' || !env.name) continue
+          // Only `value` embeds the credential — valueFrom is a reference.
+          if (env.value === undefined || env.valueFrom) continue
+          if (typeof env.value !== 'string') continue
+          const isSecretName = SECRET_ENV_NAME_PATTERN.test(env.name)
+          const hasConnectionString = connectionStringPassword(env.value) !== null
+          if (isSecretName && !looksLikeReference(env.value)) {
+            push(
+              `${kindName} container "${container.name}" env "${env.name}"`,
+              `spec.template.spec.containers[].env[name=${env.name}].value`,
+              'Use valueFrom.secretKeyRef, a Vault/OpenBao secret reference, or $(VAR) expansion'
+            )
+          }
+          if (hasConnectionString) {
+            push(
+              `${kindName} container "${container.name}" env "${env.name}"`,
+              `spec.template.spec.containers[].env[name=${env.name}].value`,
+              'Connection string embeds a password. Split into individual vars and reference the secret'
+            )
+          }
+        }
+      }
+
+      // 3. Nested fields — credentials anywhere in the resource tree
+      const walk = (node: unknown, path: string) => {
+        if (Array.isArray(node)) {
+          node.forEach((item, i) => walk(item, `${path}[${i}]`))
+          return
+        }
+        if (!node || typeof node !== 'object') return
+        for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+          // sealed-secrets ciphertext is encrypted with the cluster key
+          if (key === 'encryptedData') continue
+          const normalized = normalizeKey(key)
+          const isCredentialKey =
+            SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
+            !SECRET_REFERENCE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+          if (
+            isCredentialKey &&
+            typeof value === 'string' &&
+            value.length > 0 &&
+            !looksLikeReference(value)
+          ) {
+            push(
+              `${kindName} (${path}.${key})`,
+              `${path}.${key}`,
+              'Move the credential into a secrets backend and reference it by name'
+            )
+          }
+          scanValue(`${kindName} (${path}.${key})`, `${path}.${key}`, value)
+        }
+      }
+      walk(anyResource.spec, 'spec')
     }
 
     return errors

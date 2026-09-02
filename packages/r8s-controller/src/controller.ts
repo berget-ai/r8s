@@ -1,5 +1,6 @@
 import { KubeConfig, CustomObjectsApi, Watch, KubernetesObject } from '@kubernetes/client-node'
 import { renderToYaml } from '@r8s/cli/src/renderer.js'
+import { sanitizeErrorMessage } from '@r8s/core'
 import { execSync } from 'child_process'
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
@@ -161,7 +162,10 @@ export class R8sController {
       // Cleanup
       rmSync(tmpDir, { recursive: true, force: true })
     } catch (error: any) {
-      console.error(`[r8s-controller] Failed: ${name}:`, error.message)
+      // Status messages and logs are written to the API server and CI
+      // output — scrub credential material before they go anywhere.
+      const message = sanitizeErrorMessage(error?.message ?? String(error))
+      console.error(`[r8s-controller] Failed: ${name}:`, message)
 
       await this.updateStatus(name, namespace, {
         observedGeneration: generation,
@@ -170,7 +174,7 @@ export class R8sController {
             type: 'Ready',
             status: 'False',
             reason: 'ReconciliationFailed',
-            message: error.message,
+            message,
             lastTransitionTime: new Date().toISOString(),
           },
         ],

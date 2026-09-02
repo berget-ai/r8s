@@ -1,4 +1,11 @@
-import { render, r8sElement, fetchOperatorManifests } from '@r8s/core'
+import {
+  render,
+  r8sElement,
+  fetchOperatorManifests,
+  runGuardrails,
+  noPlaintextSecrets,
+  maskSecretValues,
+} from '@r8s/core'
 import * as yaml from 'js-yaml'
 import { resolve, dirname, join } from 'path'
 import { existsSync } from 'fs'
@@ -10,6 +17,19 @@ interface EntryModule {
 export interface RenderOptions {
   includeOperators?: boolean
   operatorsOnly?: boolean
+  /**
+   * Skip the plaintext-credentials guardrail in the render pipeline.
+   * Explicit opt-out — a warning is emitted on stderr, and the rendered
+   * YAML must never be committed or applied to a cluster.
+   */
+  skipSecretGuardrails?: boolean
+  /**
+   * Mask plaintext credential values in the produced YAML. Automatically
+   * combined with skipSecretGuardrails when output goes to stdout (logs),
+   * so skipping the guardrail never leaks live credentials into CI logs.
+   * Output written to --out files stays faithful when redaction is off.
+   */
+  redactSecrets?: boolean
 }
 
 /**
@@ -92,6 +112,50 @@ export async function bundleAndRender(entryFile: string) {
   return render(element)
 }
 
+/**
+ * Enforce the no-plaintext-secrets guardrail on rendered resources.
+ * Runs by default so plaintext credentials can never reach rendered YAML,
+ * CI logs, or cluster state. Passing `skipSecretGuardrails` bypasses it —
+ * every caller must make that an explicit, user-visible decision.
+ */
+function enforceSecretGuardrails(
+  resources: ReturnType<typeof render>['resources'],
+  options: RenderOptions
+): void {
+  if (options.skipSecretGuardrails) {
+    console.error(
+      '⚠️  Secret guardrails SKIPPED — the rendered output may contain plaintext credentials. ' +
+        'Do not commit or apply this output.'
+    )
+    return
+  }
+
+  const { errors } = runGuardrails(resources as any[], [noPlaintextSecrets])
+  if (errors.length === 0) return
+
+  const details = errors
+    .map((error) => {
+      const lines = [`  ✗ ${error.message}`]
+      if (error.resource && error.resource !== 'Secret') {
+        lines.push(`    resource: ${error.resource}`)
+      }
+      if (error.field) lines.push(`    field: ${error.field}`)
+      if (error.suggestion) lines.push(`    fix: ${error.suggestion}`)
+      return lines.join('\n')
+    })
+    .join('\n')
+
+  throw new Error(
+    `Rendered manifests contain plaintext credentials (guardrail: no-plaintext-secrets).\n` +
+      `\n` +
+      `${details}\n` +
+      `\n` +
+      `Fix: configure a secrets backend (<Platform secrets={{ backend: 'openbao' }}>), ` +
+      `reference secrets via secretKeyRef/$(VAR) expansion, or — only for local development — ` +
+      `re-render with --skip-secret-guardrails.`
+  )
+}
+
 export async function renderToYaml(
   entryFile: string,
   options: RenderOptions = {}
@@ -105,6 +169,12 @@ export async function renderToYaml(
     )
   }
 
+  // Guardrail enforcement runs before anything is serialized — plaintext
+  // credentials must not reach YAML output, files, or logs.
+  if (!options.operatorsOnly) {
+    enforceSecretGuardrails(renderResult.resources, options)
+  }
+
   const yamlDocs: string[] = []
 
   // Include operators if requested
@@ -115,7 +185,10 @@ export async function renderToYaml(
 
   // Include resources unless operators-only
   if (!options.operatorsOnly) {
-    const resourceDocs = renderResult.resources.map((resource) =>
+    const source = options.redactSecrets
+      ? renderResult.resources.map(maskSecretValues)
+      : renderResult.resources
+    const resourceDocs = source.map((resource) =>
       yaml.dump(resource, {
         sortKeys: false,
         noRefs: true,

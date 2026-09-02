@@ -33,7 +33,11 @@ export default function EcommercePlatform() {
         replicas={2}
         allowedClients={['api-gateway']}
         env={[
-          { name: 'DATABASE_URL', value: 'postgresql://user:pass@user-db:5432/users' },
+          { name: 'DATABASE_URL', value: 'postgresql://user:$(PGPASSWORD)@user-db:5432/users' },
+          {
+            name: 'PGPASSWORD',
+            valueFrom: { secretKeyRef: { name: 'user-db-credentials', key: 'password' } },
+          },
           { name: 'REDIS_URL', value: 'redis://user-cache:6379' },
         ]}
       />
@@ -47,7 +51,11 @@ export default function EcommercePlatform() {
         replicas={3}
         allowedClients={['api-gateway', 'user-service']}
         env={[
-          { name: 'DATABASE_URL', value: 'postgresql://order:pass@order-db:5432/orders' },
+          { name: 'DATABASE_URL', value: 'postgresql://order:$(PGPASSWORD)@order-db:5432/orders' },
+          {
+            name: 'PGPASSWORD',
+            valueFrom: { secretKeyRef: { name: 'order-db-credentials', key: 'password' } },
+          },
           { name: 'KAFKA_BROKERS', value: 'kafka:9092' },
         ]}
       />
@@ -63,7 +71,11 @@ export default function EcommercePlatform() {
         env={[
           {
             name: 'DATABASE_URL',
-            value: 'postgresql://inventory:pass@inventory-db:5432/inventory',
+            value: 'postgresql://inventory:$(PGPASSWORD)@inventory-db:5432/inventory',
+          },
+          {
+            name: 'PGPASSWORD',
+            valueFrom: { secretKeyRef: { name: 'inventory-db-credentials', key: 'password' } },
           },
         ]}
       />
