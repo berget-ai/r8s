@@ -1,6 +1,6 @@
 {
   "name": "@r8s/supabase",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Supabase backend platform — Postgres core with GoTrue auth, PostgREST, Realtime, Storage API (S3/RustFS) and ImgProxy. This is Supabase, NOT Apache Superset.",
   "license": "MIT",
   "author": "Berget AI AB",
@@ -11,7 +11,6 @@
     "directory": "packages/supabase"
   },
   "bugs": "https://github.com/berget-ai/r8s/issues",
-  "private": true,
   "keywords": [
     "supabase",
     "backend",
@@ -31,10 +30,10 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@r8s/core": "^0.1.0",
-    "@r8s/crds": "^0.1.0",
-    "@r8s/k8s-types": "^0.1.0",
-    "@r8s/recipes": "^0.1.0"
+    "@r8s/core": "^0.2.0",
+    "@r8s/crds": "^0.2.0",
+    "@r8s/k8s-types": "^0.2.0",
+    "@r8s/recipes": "^0.2.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
