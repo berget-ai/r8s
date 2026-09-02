@@ -294,10 +294,15 @@ export function WebService(props: WebServiceProps) {
     spec: {
       type: 'ClusterIP',
       selector: { app: name },
-      // Expose the app port directly so Endpoints/in Drivers targeting
-      // servicePort: port connect (docker-style port 80 shims would break
-      // consumer references and dependent env vars)
-      ports: [{ port, targetPort: port }],
+      // Expose the app port directly (so consumers can reference it) while
+      // keeping 80 as a stable backward-compatible alias: existing
+      // Endpoints/default servicePort=80 users keep routing during
+      // migration to explicit servicePort
+      ports: [
+        { port, targetPort: port },
+        // eslint-disable-next-line -- 80 alias for legacy servicePort=80 consumers
+        ...(port !== 80 ? [{ port: 80, targetPort: port }] : []),
+      ],
     },
   }
 
