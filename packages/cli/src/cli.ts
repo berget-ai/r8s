@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { resolve, join } from 'path'
 import { renderToYaml } from './renderer'
+import { sanitizeErrorMessage } from '@r8s/core'
 
 interface CliOptions {
   entry?: string
@@ -13,6 +14,7 @@ interface CliOptions {
   strategy?: 'github-actions' | 'flux-controller'
   includeOperators?: boolean
   operatorsOnly?: boolean
+  skipSecretGuardrails?: boolean
 }
 
 function parseArgs(args: string[]): CliOptions {
@@ -35,6 +37,8 @@ function parseArgs(args: string[]): CliOptions {
       options.includeOperators = true
     } else if (arg === '--operators-only') {
       options.operatorsOnly = true
+    } else if (arg === '--skip-secret-guardrails') {
+      options.skipSecretGuardrails = true
     } else if (arg === '--help' || arg === '-h') {
       options.help = true
     }
@@ -67,6 +71,8 @@ Options:
   --out, -o <path>       Output file path (default: stdout)
   --include-operators    Include operator manifests in rendered output
   --operators-only       Render only operator manifests (with render command)
+  --skip-secret-guardrails  Bypass the plaintext-credentials guardrail (local dev only).
+                         Stdout output is masked; never commit or apply skipped output.
   --template, -t <name>  Template for init (basic, fullstack) [default: basic]
   --operators <list>     Comma-separated list of operators to include
   --strategy, -s <name>  Deployment strategy:
@@ -1063,7 +1069,10 @@ async function main(): Promise<void> {
         console.log('✅ References: all resolved')
       }
     } catch (error) {
-      console.error('❌ Render failed:', error instanceof Error ? error.message : error)
+      console.error(
+        '❌ Render failed:',
+        sanitizeErrorMessage(error instanceof Error ? error.message : String(error))
+      )
       process.exit(1)
     }
     return
@@ -1083,6 +1092,11 @@ async function main(): Promise<void> {
     const yamlOutput = await renderToYaml(entryFile, {
       includeOperators: options.includeOperators,
       operatorsOnly: options.operatorsOnly,
+      skipSecretGuardrails: options.skipSecretGuardrails,
+      // Skipping the guardrail is explicit consent, but stdout is a log
+      // channel (CI output) — credentials are masked there. --out files
+      // stay faithful so local dev workflows still apply real values.
+      redactSecrets: options.skipSecretGuardrails && !options.out,
     })
 
     if (options.out) {
@@ -1095,7 +1109,10 @@ async function main(): Promise<void> {
       console.log(yamlOutput)
     }
   } catch (error) {
-    console.error('Error:', error instanceof Error ? error.message : error)
+    console.error(
+      'Error:',
+      sanitizeErrorMessage(error instanceof Error ? error.message : String(error))
+    )
     process.exit(1)
   }
 }

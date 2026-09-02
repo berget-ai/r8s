@@ -68,7 +68,9 @@ export default (
       tls={{ secretName: 's3-tls', clusterIssuer: 'letsencrypt-prod' }}
     />
 
-    {/* Analytics */}
+    {/* Analytics — database password comes from passwordSecret
+        (provisioned by the Vault backend); the admin dashboard key is
+        injected at deploy time via a sealed secret or CI environment. */}
     <Superset
       host="analytics.saas.example.com"
       database={{
@@ -76,10 +78,10 @@ export default (
         database: 'analytics-db',
         user: 'superset',
         passwordSecret: 'superset-db-credentials',
-        password: 'superset-db-password',
+        passwordKey: 'password',
       }}
       redis={{ create: true }}
-      admin={{ password: 'superset-admin-password' }}
+      admin={{ existingSecret: 'superset-admin-credentials' }}
       tls={{ secretName: 'superset-tls', clusterIssuer: 'letsencrypt-prod' }}
     />
 

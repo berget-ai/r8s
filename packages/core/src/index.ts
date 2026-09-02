@@ -25,3 +25,9 @@ export {
   noRootContainers,
 } from './guardrails'
 export type { GuardrailRule } from './guardrails'
+export {
+  sanitizeErrorMessage,
+  redactConnectionStrings,
+  redactPrivateKeys,
+  maskSecretValues,
+} from './redact'

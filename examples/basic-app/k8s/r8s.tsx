@@ -1,67 +1,33 @@
-import { Postgres, CustomIngress } from '@r8s/recipes'
+import { Database, WebService, Endpoint } from '@r8s/recipes'
 
+/**
+ * Basic app — a PostgreSQL database and a web service.
+ *
+ * Credentials are NOT included in this file. The `<WebService>` inside
+ * `<Database>` receives connection info via DatabaseContext and injects
+ * PGPASSWORD via secretKeyRef. With no secrets backend configured, CNPG
+ * generates the bootstrap secret in-cluster — plaintext passwords never
+ * appear in this source or in the rendered YAML.
+ *
+ * For production, configure a secrets backend on the Platform:
+ *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ */
 export default function App() {
   return (
-    <>
-      <Postgres
-        name="myapp-db"
-        namespace="production"
-        database="myapp"
-        user="myapp"
-        password="supersecret"
-        storage="20Gi"
-      />
+    <Database name="myapp-db" namespace="production" storage="20Gi">
+      <WebService name="myapp-web" image="myapp/web:v1.2.3" port={3000} replicas={3} />
 
-      <deployment
-        apiVersion="apps/v1"
-        kind="Deployment"
-        metadata={{ name: 'myapp-web', namespace: 'production', labels: { app: 'myapp-web' } }}
-        spec={{
-          replicas: 3,
-          selector: { matchLabels: { app: 'myapp-web' } },
-          template: {
-            metadata: { labels: { app: 'myapp-web' } },
-            spec: {
-              containers: [
-                {
-                  name: 'web',
-                  image: 'myapp/web:v1.2.3',
-                  ports: [{ containerPort: 3000 }],
-                  env: [
-                    {
-                      name: 'DATABASE_URL',
-                      value: 'postgresql://myapp:supersecret@myapp-db:5432/myapp',
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-        }}
-      />
-
-      <service
-        apiVersion="v1"
-        kind="Service"
-        metadata={{ name: 'myapp-web', namespace: 'production' }}
-        spec={{
-          type: 'ClusterIP',
-          selector: { app: 'myapp-web' },
-          ports: [{ port: 80, targetPort: 3000 }],
-        }}
-      />
-
-      <CustomIngress
+      <Endpoint
         name="myapp-ingress"
         namespace="production"
         host="myapp.example.com"
         serviceName="myapp-web"
         servicePort={80}
-        tlsSecretName="myapp-tls"
+        tls={{ secretName: 'myapp-tls', clusterIssuer: 'letsencrypt-prod' }}
         annotations={{
           'nginx.ingress.kubernetes.io/rate-limit': '100',
         }}
       />
-    </>
+    </Database>
   )
 }

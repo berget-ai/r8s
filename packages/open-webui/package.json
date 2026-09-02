@@ -1,0 +1,42 @@
+{
+  "name": "@r8s/open-webui",
+  "version": "0.1.0",
+  "description": "Open WebUI — chat frontend for OpenAI-compatible backends, Postgres persistence, uploads/RAG storage, OIDC SSO, optional Redis cache",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/open-webui"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "private": true,
+  "keywords": [
+    "open-webui",
+    "chat",
+    "llm",
+    "ai",
+    "recipe"
+  ],
+  "r8s": {
+    "category": "AI & Chat"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@r8s/core": "^0.1.0",
+    "@r8s/crds": "^0.1.0",
+    "@r8s/k8s-types": "^0.1.0",
+    "@r8s/recipes": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "@r8s/eneo",
+  "version": "0.1.0",
+  "description": "Eneo — open AI platform from Sundsvall municipality (agent workspaces, assistants, document AI)",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/eneo"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "private": true,
+  "keywords": [
+    "eneo",
+    "ai",
+    "agents",
+    "assistants",
+    "document-ai",
+    "recipe"
+  ],
+  "r8s": {
+    "category": "Agent Platforms"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@r8s/core": "^0.1.0",
+    "@r8s/crds": "^0.1.0",
+    "@r8s/k8s-types": "^0.1.0",
+    "@r8s/recipes": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

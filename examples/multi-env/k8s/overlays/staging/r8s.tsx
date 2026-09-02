@@ -1,10 +1,10 @@
 import { Fragment } from '@r8s/core'
-import { WebApp, Database } from '../../components/shared'
+import { AppDatabase, WebApp } from '../../components/shared'
 
 export default function Staging() {
   return (
     <>
-      <Database name="app-db" namespace="staging" storage="5Gi" password="staging-password" />
+      <AppDatabase name="app-db" namespace="staging" storage="5Gi" />
 
       <WebApp
         name="app"
@@ -12,7 +12,6 @@ export default function Staging() {
         image="myapp/app:staging"
         replicas={1}
         dbHost="app-db"
-        dbPassword="staging-password"
         ingressHost="staging.myapp.example.com"
       />
     </>

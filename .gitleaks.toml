@@ -1,0 +1,18 @@
+# gitleaks config — extends the default ruleset
+title = "r8s gitleaks config"
+
+[extend]
+useDefault = true
+
+# Build artifacts (dist/, rendered output) are generated from src and
+# scanned in their source form — skip them. Test suites contain
+# credential-named fixtures (env-name assertions, dummy tokens) — the
+# secret-hygiene unit test covers sources; gitleaks skips test files.
+[allowlist]
+description = "generated build artifacts and test fixtures"
+paths = [
+  '''(^|/)dist/''',
+  '''(^|/)rendered/''',
+  '''(^|/)node_modules/''',
+  '''__tests__/''',
+]

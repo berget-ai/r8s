@@ -59,7 +59,7 @@ describe('Provider Hierarchy', () => {
     it('should accept string provider "sealed-secrets"', () => {
       const element = jsx(SecretProvider, {
         provider: 'sealed-secrets',
-        children: jsx(Database, { name: 'test-db', password: 'secret123' }),
+        children: jsx(Database, { name: 'test-db' }),
       })
 
       const result = render(element)
@@ -71,25 +71,29 @@ describe('Provider Hierarchy', () => {
       expect(kinds).toContain('SealedSecret')
     })
 
-    it('should accept string provider "kubernetes"', () => {
-      const element = jsx(SecretProvider, {
-        provider: 'kubernetes',
-        children: jsx(Database, { name: 'test-db', password: 'test-password' }),
-      })
-
-      const result = render(element)
-
-      // Should NOT declare vault-secrets-operator
-      expect(result.operators.some((op) => op.name === 'vault-secrets-operator')).toBe(false)
-    })
-
-    it('should throw when kubernetes provider used without password', () => {
+    it('should accept string provider "kubernetes" without rendering plaintext Secrets', () => {
       const element = jsx(SecretProvider, {
         provider: 'kubernetes',
         children: jsx(Database, { name: 'test-db' }),
       })
 
-      expect(() => render(element)).toThrow(/requires a password/)
+      const result = render(element)
+      const kinds = result.resources.map((r) => r.kind)
+
+      // Should NOT declare vault-secrets-operator
+      expect(result.operators.some((op) => op.name === 'vault-secrets-operator')).toBe(false)
+      // CNPG provisions credentials in-cluster — no plaintext Secret in the manifest
+      expect(kinds).toContain('Cluster')
+      expect(kinds).not.toContain('Secret')
+    })
+
+    it('should reject plaintext password props on Database via SecretProvider', () => {
+      const element = jsx(SecretProvider, {
+        provider: 'sealed-secrets',
+        children: jsx(Database, { name: 'test-db', password: 'secret123' } as any),
+      })
+
+      expect(() => render(element)).toThrow(/received a plaintext password/)
     })
   })
 

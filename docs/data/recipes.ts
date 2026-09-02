@@ -725,7 +725,7 @@ export const recipes: Recipe[] = [
           yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.hashicorp.com/v1beta1\nkind: VaultStaticSecret\nmetadata:\n  name: app-db-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/app-db\n  destination:\n    create: true\n    name: app-db-db-credentials\n',
         },
         {
-          tsx: 'import { SecretProvider, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider="sealed-secrets">\n    <Database name="app-db" password="supersecret" />\n  </SecretProvider>\n)',
+          tsx: 'import { SecretProvider, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider="sealed-secrets">\n    <Database name="app-db" />\n  </SecretProvider>\n)',
           yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: bitnami.com/v1alpha1\nkind: SealedSecret\nmetadata:\n  name: app-db-db-credentials\n  namespace: default\nspec:\n  encryptedData:\n    password: REPLACE_WITH_SEALED_VALUE\n',
         },
       ],

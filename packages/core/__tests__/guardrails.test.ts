@@ -162,6 +162,66 @@ describe('Guardrails', () => {
       const result = runGuardrails(resources, [noPlaintextSecrets])
       expect(result.passed).toBe(false)
       expect(result.errors[0].code).toBe('PLAINTEXT_SECRET')
+      expect(result.errors[0].resource).toBe('Secret')
+    })
+
+    it('reports the offending resource kind for deployment env violations', () => {
+      const resources = [
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: { name: 'api' },
+          spec: {
+            template: {
+              spec: {
+                containers: [
+                  {
+                    name: 'api',
+                    env: [{ name: 'DB_PASSWORD', value: 'supersecret123' }],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ]
+
+      const result = runGuardrails(resources, [noPlaintextSecrets])
+      expect(result.passed).toBe(false)
+      expect(result.errors[0].code).toBe('PLAINTEXT_SECRET')
+      expect(result.errors[0].resource).toBe('Deployment')
+      expect(result.errors[0].field).toBe(
+        'spec.template.spec.containers[].env[name=DB_PASSWORD].value'
+      )
+    })
+
+    it('recurses into nested specs and catches deep credentials', () => {
+      const resources = [
+        {
+          apiVersion: 'keycloak.org/v1alpha1',
+          kind: 'KeycloakRealm',
+          metadata: { name: 'demo' },
+          spec: {
+            realm: 'demo',
+            users: [
+              {
+                username: 'admin',
+                credentials: [
+                  {
+                    type: 'password',
+                    password: 'supersecret123',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ]
+
+      const result = runGuardrails(resources, [noPlaintextSecrets])
+      expect(result.passed).toBe(false)
+      expect(result.errors[0].resource).toBe('KeycloakRealm')
+      expect(result.errors[0].field).toBe('spec.users[0].credentials[0].password')
     })
   })
 

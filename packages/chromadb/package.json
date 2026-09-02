@@ -1,0 +1,42 @@
+{
+  "name": "@r8s/chromadb",
+  "version": "0.1.0",
+  "description": "ChromaDB vector database — persistent storage, optional Postgres metadata backend, token auth, CPU autoscaling",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/chromadb"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "private": true,
+  "keywords": [
+    "chromadb",
+    "vector",
+    "embeddings",
+    "ai",
+    "recipe"
+  ],
+  "r8s": {
+    "category": "AI & Embeddings"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@r8s/core": "^0.1.0",
+    "@r8s/crds": "^0.1.0",
+    "@r8s/k8s-types": "^0.1.0",
+    "@r8s/recipes": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

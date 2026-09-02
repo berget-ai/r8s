@@ -1,66 +1,26 @@
-import { Postgres, CustomIngress } from '@r8s/recipes'
-import { LetsEncryptIssuer, ManagedCertificate } from '@r8s/cert-manager'
+import { Database, WebService, Endpoint } from '@r8s/recipes'
 
+/**
+ * Staging environment.
+ *
+ * Credentials are managed outside the manifest: CNPG generates the
+ * bootstrap secret in-cluster, and `<WebService>` inside `<Database>`
+ * injects PGPASSWORD via secretKeyRef. Nothing sensitive lives in this
+ * file or in the rendered YAML.
+ */
 export default function StagingApp() {
   return (
-    <>
-      <LetsEncryptIssuer name="letsencrypt-staging" email="admin@example.com" server="staging" />
+    <Database name="app-db" namespace="staging" storage="5Gi">
+      <WebService name="app" image="myapp/app:staging" port={3000} replicas={1} />
 
-      <Postgres
-        name="app-db"
-        namespace="staging"
-        database="app"
-        user="app"
-        password="staging-password"
-        storage="5Gi"
-      />
-
-      <deployment
-        apiVersion="apps/v1"
-        kind="Deployment"
-        metadata={{ name: 'app', namespace: 'staging', labels: { app: 'app' } }}
-        spec={{
-          replicas: 1,
-          selector: { matchLabels: { app: 'app' } },
-          template: {
-            metadata: { labels: { app: 'app' } },
-            spec: {
-              containers: [
-                {
-                  name: 'app',
-                  image: 'myapp/app:staging',
-                  ports: [{ containerPort: 3000 }],
-                  env: [
-                    {
-                      name: 'DATABASE_URL',
-                      value: 'postgresql://app:staging-password@app-db:5432/app',
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-        }}
-      />
-
-      <service
-        apiVersion="v1"
-        kind="Service"
-        metadata={{ name: 'app', namespace: 'staging' }}
-        spec={{
-          type: 'ClusterIP',
-          selector: { app: 'app' },
-          ports: [{ port: 80, targetPort: 3000 }],
-        }}
-      />
-
-      <CustomIngress
+      <Endpoint
         name="app-ingress"
         namespace="staging"
         host="staging-app.example.com"
         serviceName="app"
         servicePort={80}
+        tls={{ secretName: 'app-tls-staging', clusterIssuer: 'letsencrypt-staging' }}
       />
-    </>
+    </Database>
   )
 }

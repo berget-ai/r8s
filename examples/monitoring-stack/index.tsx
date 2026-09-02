@@ -42,7 +42,10 @@ export default (
         },
       }}
     />
-    {/* S3 credentials for Loki — must exist before LokiStack reconciles */}
+    {/* Loki ingest secret — reference an S3 secret provisioned by the
+        secrets backend (OpenBao/Vault) or a SealedSecret. The values
+        below are placeholder NAMES, never live credentials:
+        kubectl kubeseal --format yaml < loki-s3.yaml > loki-storage.yaml */}
     <secret
       apiVersion="v1"
       kind="Secret"
@@ -51,8 +54,6 @@ export default (
       stringData={{
         bucketnames: 'loki',
         endpoint: 'https://s3.example.com',
-        access_key_id: 'change-me',
-        access_key_secret: 'change-me',
       }}
     />
 
