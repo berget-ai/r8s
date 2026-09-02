@@ -29,7 +29,18 @@
       "@r8s/grafana": ["./packages/grafana/src/index.ts"],
       "@r8s/rustfs": ["./packages/rustfs/src/index.ts"],
       "@r8s/superset": ["./packages/superset/src/index.ts"],
-      "@r8s/wireguard": ["./packages/wireguard/src/index.ts"]
+      "@r8s/wireguard": ["./packages/wireguard/src/index.ts"],
+      "@r8s/n8n": ["./packages/n8n/src/index.tsx"],
+      "@r8s/outline": ["./packages/outline/src/index.tsx"],
+      "@r8s/nextcloud": ["./packages/nextcloud/src/index.tsx"],
+      "@r8s/chromadb": ["./packages/chromadb/src/index.tsx"],
+      "@r8s/supabase": ["./packages/supabase/src/index.tsx"],
+      "@r8s/odoo": ["./packages/odoo/src/index.tsx"],
+      "@r8s/open-webui": ["./packages/open-webui/src/index.tsx"],
+      "@r8s/librechat": ["./packages/librechat/src/index.tsx"],
+      "@r8s/eurooffice": ["./packages/eurooffice/src/index.tsx"],
+      "@r8s/paperclip": ["./packages/paperclip/src/index.tsx"],
+      "@r8s/eneo": ["./packages/eneo/src/index.tsx"]
     }
   },
   "files": [],
@@ -45,6 +56,17 @@
     { "path": "./packages/grafana" },
     { "path": "./packages/rustfs" },
     { "path": "./packages/superset" },
-    { "path": "./packages/wireguard" }
+    { "path": "./packages/wireguard" },
+    { "path": "./packages/n8n" },
+    { "path": "./packages/outline" },
+    { "path": "./packages/nextcloud" },
+    { "path": "./packages/chromadb" },
+    { "path": "./packages/supabase" },
+    { "path": "./packages/odoo" },
+    { "path": "./packages/open-webui" },
+    { "path": "./packages/librechat" },
+    { "path": "./packages/eurooffice" },
+    { "path": "./packages/paperclip" },
+    { "path": "./packages/eneo" }
   ]
 }

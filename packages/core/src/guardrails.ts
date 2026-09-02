@@ -157,6 +157,11 @@ const SECRET_REFERENCE_SUFFIXES = [
 const SECRET_ENV_NAME_PATTERN =
   /(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|client[_-]?secret)/i
 
+/** Env var names that carry policy/lifetime metadata, not credentials
+ *  (e.g. REFRESH_TOKEN_EXPIRY, ACCESS_TOKEN_TTL, JWT_LIFESPAN). */
+const NON_SECRET_ENV_NAME_PATTERN =
+  /(_expiry|_expires(_at|_in)?$|_ttl$|max[_-]age|lifespan|_timeout$|_url|_uri|_endpoint$|_provider$|_issuer$|_audience$|_header$|_transport$)/i
+
 /** Matches scheme://[user[:password]@]host — a credentials-bearing URI. */
 const CONNECTION_STRING_RE = /[a-z][a-z0-9+.-]*:\/\/([^/\s:@]*):([^@/\s]+)@/i
 
@@ -300,7 +305,8 @@ export const noPlaintextSecrets: GuardrailRule = {
           // Only `value` embeds the credential — valueFrom is a reference.
           if (env.value === undefined || env.valueFrom) continue
           if (typeof env.value !== 'string') continue
-          const isSecretName = SECRET_ENV_NAME_PATTERN.test(env.name)
+          const isSecretName =
+            SECRET_ENV_NAME_PATTERN.test(env.name) && !NON_SECRET_ENV_NAME_PATTERN.test(env.name)
           const hasConnectionString = connectionStringPassword(env.value) !== null
           if (isSecretName && !looksLikeReference(env.value)) {
             push(

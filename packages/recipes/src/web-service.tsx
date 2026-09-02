@@ -21,6 +21,21 @@ export interface VaultSecretRef {
   vaultAuthRef?: string
 }
 
+export interface ProbeSpec {
+  /** HTTP path for httpGet probes */
+  path?: string
+  /** TCP probe when path is omitted */
+  tcp?: boolean
+  /** Port for the probe (defaults to the container port) */
+  port?: number
+  /** Seconds after container start before probing (default: 10) */
+  initialDelaySeconds?: number
+  /** Seconds between probes (default: 10) */
+  periodSeconds?: number
+  /** Consecutive failures before giving up (default: 3) */
+  failureThreshold?: number
+}
+
 export interface WebServiceProps {
   /** Resource name */
   name: string
@@ -32,12 +47,26 @@ export interface WebServiceProps {
   port?: number
   /** Number of pod replicas (defaults to 2) */
   replicas?: number
+  /**
+   * Probe overrides. Default probes are httpGet /health (liveness) and
+   * /ready (readiness) on the container port. Override when the app
+   * exposes different endpoints (e.g. { liveness: { path: '/healthz' },
+   * readiness: { tcp: true } }). Set both to null to disable.
+   */
+  probes?: {
+    liveness?: ProbeSpec | null
+    readiness?: ProbeSpec | null
+  }
   /** Plain environment variables (non-sensitive) */
   env?: Record<string, string>
   /** Secrets from Kubernetes Secrets — safe by default */
   secrets?: Record<string, SecretRef | string>
   /** Secrets from Vault — creates VaultStaticSecret objects */
   vault?: Record<string, VaultSecretRef>
+  /** Container command override (e.g. a worker entrypoint). Defaults to the image's entrypoint */
+  command?: string[]
+  /** Container args appended to the command */
+  args?: string[]
   /** Raw env vars for advanced use cases */
   rawEnv?: EnvVar[]
   /** CPU and memory requests/limits for the app container */
@@ -45,6 +74,10 @@ export interface WebServiceProps {
     requests?: { cpu?: string; memory?: string }
     limits?: { cpu?: string; memory?: string }
   }
+  /** Container securityContext (runAsNonRoot, capabilities, …) */
+  securityContext?: Record<string, unknown>
+  /** Pod-level securityContext */
+  podSecurityContext?: Record<string, unknown>
 }
 
 /**
@@ -91,22 +124,44 @@ export function WebService(props: WebServiceProps) {
     image,
     port = 3000,
     replicas = 2,
+    probes,
     env = {},
     secrets = {},
     vault = {},
+    command,
+    args,
     rawEnv = [],
     resources,
+    securityContext,
+    podSecurityContext,
   } = props
+
+  const buildProbe = (spec: ProbeSpec | null | undefined, fallbackPath: string) => {
+    if (spec === null) return undefined
+    if (!spec)
+      return { httpGet: { path: fallbackPath, port }, initialDelaySeconds: 10, periodSeconds: 10 }
+    const initialDelaySeconds = spec.initialDelaySeconds ?? 10
+    const periodSeconds = spec.periodSeconds ?? 10
+    if (spec.tcp) {
+      return { tcpSocket: { port: spec.port ?? port }, initialDelaySeconds, periodSeconds }
+    }
+    return {
+      httpGet: { path: spec.path ?? fallbackPath, port: spec.port ?? port },
+      initialDelaySeconds,
+      periodSeconds,
+      ...(spec.failureThreshold && { failureThreshold: spec.failureThreshold }),
+    }
+  }
+
+  const livenessProbe = buildProbe(probes?.liveness, '/health')
+  const readinessProbe = buildProbe(probes?.readiness, '/ready')
 
   const envVars: EnvVar[] = []
   const vaultResources: ReturnType<typeof jsx>[] = []
 
-  // Plain env vars
-  for (const [key, value] of Object.entries(env)) {
-    envVars.push({ name: key, value })
-  }
-
-  // Secrets from Kubernetes Secrets
+  // Secrets from Kubernetes Secrets — pushed before plain env vars so
+  // Kubernetes dependent-variable expansion lets env values reference
+  // secret-backed vars via $(VAR).
   for (const [envName, ref] of Object.entries(secrets)) {
     if (typeof ref === 'string') {
       // Simple string: secret name, key = env name
@@ -121,6 +176,11 @@ export function WebService(props: WebServiceProps) {
         valueFrom: { secretKeyRef: { name: ref.secret, key: ref.key || envName } },
       })
     }
+  }
+
+  // Plain env vars
+  for (const [key, value] of Object.entries(env)) {
+    envVars.push({ name: key, value })
   }
 
   // Vault secrets — create VaultStaticSecret objects
@@ -206,24 +266,20 @@ export function WebService(props: WebServiceProps) {
       template: {
         metadata: { labels: { app: name } },
         spec: {
+          ...(podSecurityContext && { securityContext: podSecurityContext }),
           containers: [
             {
               name: 'app',
               image,
               imagePullPolicy: 'Always',
+              ...(command && { command }),
+              ...(args && { args }),
               ports: [{ containerPort: port }],
               env: envVars,
               ...(resources && { resources }),
-              livenessProbe: {
-                httpGet: { path: '/health', port },
-                initialDelaySeconds: 10,
-                periodSeconds: 10,
-              },
-              readinessProbe: {
-                httpGet: { path: '/ready', port },
-                initialDelaySeconds: 5,
-                periodSeconds: 5,
-              },
+              ...(securityContext && { securityContext }),
+              ...(livenessProbe && { livenessProbe }),
+              ...(readinessProbe && { readinessProbe }),
             },
           ],
         },
@@ -238,7 +294,10 @@ export function WebService(props: WebServiceProps) {
     spec: {
       type: 'ClusterIP',
       selector: { app: name },
-      ports: [{ port: 80, targetPort: port }],
+      // Expose the app port directly so Endpoints/in Drivers targeting
+      // servicePort: port connect (docker-style port 80 shims would break
+      // consumer references and dependent env vars)
+      ports: [{ port, targetPort: port }],
     },
   }
 

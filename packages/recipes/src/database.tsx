@@ -18,6 +18,13 @@ export interface DatabaseProps {
   storage?: string
   /** Operator version override. If not set, reads from OperatorContext or uses default. */
   operatorVersion?: string
+  /**
+   * SQL statements run once after the initial database bootstrap
+   * (CNPG `bootstrap.initdb.postInitApplicationSQL`). Use for schema
+   * extensions the application requires on a fresh cluster — e.g.
+   * creating roles or extensions. Parameterized by the CNPG operator.
+   */
+  postInitSQL?: string[]
   /** Child components rendered with this database's connection info in context */
   children?: unknown
 }
@@ -55,7 +62,14 @@ export interface DatabaseProps {
  * )
  */
 export function Database(props: DatabaseProps) {
-  const { name, namespace: namespaceProp, storage = '10Gi', operatorVersion, children } = props
+  const {
+    name,
+    namespace: namespaceProp,
+    storage = '10Gi',
+    operatorVersion,
+    postInitSQL,
+    children,
+  } = props
 
   // Plaintext password props are forbidden. This also catches untyped/JS
   // callers that pass `password` to Database regardless of backend — the
@@ -121,6 +135,11 @@ export function Database(props: DatabaseProps) {
             database: name,
             owner: name,
             secret: { name: secretName },
+            // Roles/extensions the application needs on a fresh cluster —
+            // applied once by CNPG after the initial bootstrap.
+            ...(postInitSQL && postInitSQL.length > 0
+              ? { postInitApplicationSQL: postInitSQL }
+              : {}),
           },
         },
         monitoring: { enablePodMonitor: true },

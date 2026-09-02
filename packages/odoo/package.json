@@ -1,0 +1,41 @@
+{
+  "name": "@r8s/odoo",
+  "version": "0.1.0",
+  "description": "Odoo ERP — Postgres persistence, filestore PVC, worker tuning, master password via secrets backend",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/odoo"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "private": true,
+  "keywords": [
+    "odoo",
+    "erp",
+    "business-applications",
+    "recipe"
+  ],
+  "r8s": {
+    "category": "Business Applications"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@r8s/core": "^0.1.0",
+    "@r8s/crds": "^0.1.0",
+    "@r8s/k8s-types": "^0.1.0",
+    "@r8s/recipes": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

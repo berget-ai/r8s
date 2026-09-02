@@ -15,6 +15,14 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
   serviceName: string
   /** Service port (default: 80) */
   servicePort?: number
+  /**
+   * Request path to route (default: '/'). Path-based routes are rendered
+   * as Prefix paths in Ingress mode AND PathPrefix matches in Gateway
+   * (HTTPRoute) mode so one host can serve multiple services.
+   */
+  path?: string
+  /** Ingress pathType when `path` is set (default: 'Prefix') */
+  pathType?: 'Prefix' | 'Exact' | 'ImplementationSpecific'
   /** Create a DNS record via ExternalDNS (default: false, or true when DnsProvider is set) */
   dns?: boolean
   /** DNS record TTL in seconds (default: 300) */
@@ -62,6 +70,8 @@ export function Endpoint(props: EndpointProps) {
     host,
     serviceName,
     servicePort = 80,
+    path,
+    pathType,
     tls,
     annotations = {},
     dns,
@@ -184,6 +194,16 @@ export function Endpoint(props: EndpointProps) {
           hostnames: [host],
           rules: [
             {
+              ...(path && {
+                matches: [
+                  {
+                    path: {
+                      type: 'PathPrefix',
+                      value: path,
+                    },
+                  },
+                ],
+              }),
               backendRefs: [{ name: serviceName, port: servicePort }],
             },
           ],
@@ -208,7 +228,10 @@ export function Endpoint(props: EndpointProps) {
         name,
         namespace,
         annotations: {
-          'nginx.ingress.kubernetes.io/rewrite-target': '/',
+          // NOTE: no rewrite-target on host-level routes — setting it to
+          // '/' rewrites EVERY request path to '/' and breaks path-based
+          // upstreams (webhooks, APIs, OAuth callbacks). Set annotations
+          // explicitly when a captured-regex path needs one.
           // ExternalDNS ingress source picks up hostnames from this annotation
           ...(createDnsRecord ? { 'external-dns.alpha.kubernetes.io/hostname': host } : {}),
           ...(tls?.clusterIssuer
@@ -227,8 +250,8 @@ export function Endpoint(props: EndpointProps) {
             http: {
               paths: [
                 {
-                  path: '/',
-                  pathType: 'Prefix',
+                  path: path ?? '/',
+                  pathType: pathType ?? 'Prefix',
                   backend: {
                     service: {
                       name: serviceName,
