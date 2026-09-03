@@ -1614,21 +1614,21 @@ export const components: ComponentInfo[] = [
       },
       {
         name: 'sso',
-        type: '{ issuer: string clientId: string clientSecretRef?: SecretRef }',
+        type: '{ issuer: string clientId: string clientSecretRef?: string humanName?: string scope?: string }',
         required: false,
         description:
           'OIDC SSO upstream for MAS (Keycloak from the Auth recipe). Disables local password login when set. Requires a secrets backend or clientSecretRef — never inline secrets.',
       },
       {
         name: 'database',
-        type: '{ instances?: number storage?: string backup?: { destinationPath: string endpointURL: string credentialsSecret?: string } }',
+        type: '{ replicas?: number storage?: string storageClass?: string backup?: { destinationPath: string endpointURL: string credentialsSecret?: string retention?: string schedule?: string } | null }',
         required: false,
         description:
           'Per-database sizing for the two CNPG clusters (synapse-db, mas-db). Backup is explicit opt-in: barman object store with 30d retention + ScheduledBackup.',
       },
       {
         name: 'rtc',
-        type: '{ enabled?: boolean manualIP?: string }',
+        type: '{ enabled?: boolean manualIP?: string turnPort?: number stunServers?: string[] sfuVersion?: string }',
         required: false,
         description:
           'LiveKit SFU for Element Call. Renders a combined LoadBalancer service (numeric UDP targetPort 30002 — upstream chart bug workaround). Disable for text-only deployments.',

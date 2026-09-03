@@ -105,12 +105,21 @@ describe('Matrix — resource rendering', () => {
     expect(hosts).not.toContain('element.example.com')
   })
 
-  it('renders SFU with UDP ports and combined service (numeric targetPorts)', () => {
+  it('renders SFU with UDP ports on a LoadBalancer service (numeric targetPorts)', () => {
     const result = renderMatrix()
     const svc = find(result, 'Service', 'matrix-sfu') as any
+    // RTC without external exposure is silently broken — never ClusterIP
+    expect(svc.spec.type).toBe('LoadBalancer')
+    expect(svc.spec.externalTrafficPolicy).toBe('Local')
     const udp = svc.spec.ports.find((p: any) => p.name === 'rtc-muxed-udp')
     expect(udp.protocol).toBe('UDP')
     expect(udp.targetPort).toBe(30002)
+  })
+
+  it('pins a manual external IP on the SFU LoadBalancer when given', () => {
+    const result = renderMatrix({ rtc: { manualIP: '203.0.113.10' } })
+    const svc = find(result, 'Service', 'matrix-sfu') as any
+    expect(svc.spec.loadBalancerIP).toBe('203.0.113.10')
   })
 
   it('disables RTC entirely when rtc.enabled is false', () => {
@@ -132,6 +141,9 @@ describe('Matrix — resource rendering', () => {
       const spread = dep.spec.template.spec.topologySpreadConstraints
       if (dep.spec.replicas !== 1) {
         expect(spread).toBeDefined()
+        // Scoped to this component's pods — unscoped constraints match every
+        // pod in the namespace and misbehave as the namespace grows
+        expect(spread[0].labelSelector.matchLabels.app).toBe(dep.metadata.name)
       }
     }
   })
@@ -191,8 +203,14 @@ describe('Matrix — secrets backends', () => {
       sso: { issuer: 'https://keycloak.example.com/realms/x', clientId: 'matrix' },
       database: { backup: { destinationPath: 's3://b/x', endpointURL: 'https://s3.example.com' } },
     })
-    expect(find(result, 'OpenBaoStaticSecret', 'matrix-keycloak-oidc')).toBeDefined()
-    expect(find(result, 'OpenBaoStaticSecret', 'matrix-backup-credentials')).toBeDefined()
+    const oidc = find(result, 'OpenBaoStaticSecret', 'matrix-keycloak-oidc') as any
+    const backup = find(result, 'OpenBaoStaticSecret', 'matrix-backup-credentials') as any
+    expect(oidc).toBeDefined()
+    expect(backup).toBeDefined()
+    // CRD field name — a vaultAuthRef here produces an invalid OpenBao spec
+    expect(oidc.spec.openbaoAuthRef).toBe('openbao-auth')
+    expect(oidc.spec.vaultAuthRef).toBeUndefined()
+    expect(backup.spec.openbaoAuthRef).toBe('openbao-auth')
   })
 
   it('wires the MAS OIDC secret via secretKeyRef', () => {

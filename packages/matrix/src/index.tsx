@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import type { EnvVar } from '@r8s/k8s-types'
-import { Namespace, OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
+import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
 import { ClusterComponent, ScheduledBackupComponent } from '@r8s/crds/postgresql'
 import { Endpoint } from '@r8s/recipes'
@@ -23,11 +23,14 @@ const HA_TOLERATIONS = [
   },
 ]
 
-const HA_TOPOLOGY_SPREAD = [
+const haTopologySpread = (app: string) => [
   {
     maxSkew: 1,
     topologyKey: 'kubernetes.io/hostname',
     whenUnsatisfiable: 'ScheduleAnyway',
+    // Scope the skew calculation to this component's pods — a constraint
+    // without a selector matches every pod in the namespace.
+    labelSelector: { matchLabels: { app } },
   },
 ]
 
@@ -228,7 +231,6 @@ export function Matrix(props: MatrixProps) {
   // --- secrets: backend or explicit refs ------------------------------------
   const backend = secretProvider?.backend
   const hasBackend = backend === 'openbao' || backend === 'vault'
-  const secrets: { name: string; key: string; ref: string }[] = []
 
   if (sso && !sso.clientSecretRef && !hasBackend) {
     throw new Error(
@@ -281,8 +283,8 @@ export function Matrix(props: MatrixProps) {
         kind: StaticSecretComponent,
         metadata: { name: def.name, namespace },
         spec: {
-          ...(backend === 'openbao' && secretProvider!.authRef
-            ? { authRef: secretProvider!.authRef }
+          ...(backend === 'openbao'
+            ? { openbaoAuthRef: secretProvider!.authRef ?? 'openbao-auth' }
             : { vaultAuthRef: secretProvider!.authRef ?? 'vault-auth' }),
           mount: secretProvider!.mount ?? 'secret',
           type: 'kv-v2',
@@ -620,10 +622,10 @@ export function Matrix(props: MatrixProps) {
         strategy: { type: 'Recreate' },
         selector: { matchLabels: { app: `${name}-synapse` } },
         template: {
-          metadata: { labels: { app: `${name}-synapse` } },
+          metadata: { labels: { app: `-synapse` } },
           spec: {
             tolerations: HA_TOLERATIONS,
-            topologySpreadConstraints: HA_TOPOLOGY_SPREAD,
+            topologySpreadConstraints: haTopologySpread(`${name}-synapse`),
             securityContext: { fsGroup: 991, fsGroupChangePolicy: 'OnRootMismatch' },
             containers: [
               {
@@ -712,10 +714,10 @@ export function Matrix(props: MatrixProps) {
         strategy: { type: 'RollingUpdate', rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } },
         selector: { matchLabels: { app: `${name}-mas` } },
         template: {
-          metadata: { labels: { app: `${name}-mas` } },
+          metadata: { labels: { app: `-mas` } },
           spec: {
             tolerations: HA_TOLERATIONS,
-            topologySpreadConstraints: HA_TOPOLOGY_SPREAD,
+            topologySpreadConstraints: haTopologySpread(`${name}-mas`),
             containers: [
               {
                 name: 'mas',
@@ -757,10 +759,10 @@ export function Matrix(props: MatrixProps) {
         replicas,
         selector: { matchLabels: { app: `${name}-web` } },
         template: {
-          metadata: { labels: { app: `${name}-web` } },
+          metadata: { labels: { app: `-web` } },
           spec: {
             tolerations: HA_TOLERATIONS,
-            topologySpreadConstraints: HA_TOPOLOGY_SPREAD,
+            topologySpreadConstraints: haTopologySpread(`${name}-web`),
             containers: [
               {
                 name: 'web',
@@ -799,10 +801,10 @@ export function Matrix(props: MatrixProps) {
         replicas,
         selector: { matchLabels: { app: `${name}-admin` } },
         template: {
-          metadata: { labels: { app: `${name}-admin` } },
+          metadata: { labels: { app: `-admin` } },
           spec: {
             tolerations: HA_TOLERATIONS,
-            topologySpreadConstraints: HA_TOPOLOGY_SPREAD,
+            topologySpreadConstraints: haTopologySpread(`${name}-admin`),
             containers: [
               {
                 name: 'admin',
@@ -875,6 +877,8 @@ export function Matrix(props: MatrixProps) {
 
     // Combined LoadBalancer for all SFU traffic — one external IP for
     // TCP+UDP (Harvester CCM shares the pool IP via ipam annotation).
+    // Always LoadBalancer: as ClusterIP the UDP/TURN ports are unreachable,
+    // which silently breaks MatrixRTC.
     // Numeric targetPorts: the pod's muxed-UDP port is sometimes declared
     // TCP by charts — numeric bypasses that entirely.
     resources.push(
@@ -884,15 +888,14 @@ export function Matrix(props: MatrixProps) {
         metadata: {
           name: `${name}-sfu`,
           namespace,
-          ...(rtc.manualIP && {
-            annotations: {
-              'cloudprovider.harvesterhci.io/ipam': 'pool',
-            },
-          }),
+          annotations: {
+            'cloudprovider.harvesterhci.io/ipam': 'pool',
+          },
         },
         spec: {
-          type: rtc.manualIP ? 'LoadBalancer' : 'ClusterIP',
-          externalTrafficPolicy: rtc.manualIP ? 'Local' : undefined,
+          type: 'LoadBalancer',
+          externalTrafficPolicy: 'Local',
+          ...(rtc.manualIP && { loadBalancerIP: rtc.manualIP }),
           selector: { app: `${name}-sfu` },
           ports: [
             { name: 'api', port: 7880, targetPort: 7880, protocol: 'TCP' },
