@@ -93,6 +93,7 @@ async function renderToYaml(code: string): Promise<string | null> {
             '@r8s/eurooffice': [path.join(ROOT, 'packages/eurooffice/src/index.tsx')],
             '@r8s/paperclip': [path.join(ROOT, 'packages/paperclip/src/index.tsx')],
             '@r8s/eneo': [path.join(ROOT, 'packages/eneo/src/index.tsx')],
+            '@r8s/matrix': [path.join(ROOT, 'packages/matrix/src/index.tsx')],
           },
         },
       }),
@@ -130,6 +131,7 @@ async function renderToYaml(code: string): Promise<string | null> {
         '@r8s/eurooffice': path.join(ROOT, 'packages/eurooffice/src/index.tsx'),
         '@r8s/paperclip': path.join(ROOT, 'packages/paperclip/src/index.tsx'),
         '@r8s/eneo': path.join(ROOT, 'packages/eneo/src/index.tsx'),
+        '@r8s/matrix': path.join(ROOT, 'packages/matrix/src/index.tsx'),
       },
     })
 
@@ -701,7 +703,7 @@ async function generatePackages(): Promise<PackageDoc[]> {
 
   // Also scan app packages (element, grafana, rustfs, superset, wireguard,
   // plus the app-store recipes: n8n, nextcloud, outline, chromadb, supabase,
-  // odoo, open-webui, librechat, eurooffice, paperclip, eneo)
+  // odoo, open-webui, librechat, eurooffice, paperclip, eneo, matrix)
   const appPackages = [
     'element',
     'grafana',
@@ -719,6 +721,7 @@ async function generatePackages(): Promise<PackageDoc[]> {
     'eurooffice',
     'paperclip',
     'eneo',
+    'matrix',
   ]
   for (const dir of appPackages) {
     const srcPath =
@@ -1087,7 +1090,7 @@ async function writeRecipes(recipes: PackageDoc[]) {
     '  name: string;',
     '  description: string;',
     '  props: ComponentProp[];',
-    '  examples: { tsx: string; yaml: string | null }[];',
+    '  examples: { tsx: string; yaml: string | null; title?: string }[];',
     '}',
     '',
     'export interface Recipe {',
