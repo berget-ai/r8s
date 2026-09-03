@@ -1668,10 +1668,10 @@ export const components: ComponentInfo[] = [
       },
       {
         name: 'appservices',
-        type: '{ name: string registration: Record<string, unknown> }[]',
+        type: '({ name: string; registration: Record<string, unknown> } | { name: string; secretRef: string; key?: string })[]',
         required: false,
         description:
-          'Appservice registrations (hookshot, bots). Each becomes a ConfigMap with registration.yaml mounted into Synapse.',
+          'Appservice registrations (hookshot, bots). Inline registration renders as a Secret (never ConfigMap — use token placeholders or expect the guardrail to flag live values); secretRef mounts an existing Secret holding registration.yaml.',
       },
       {
         name: 'version',
