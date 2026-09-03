@@ -19,6 +19,14 @@ export interface SecretProvider {
   mount?: string
   path?: string
   authRef?: string
+  /**
+   * How often the secrets operator re-syncs from the backend (e.g. '3600s'),
+   * rendered as `refreshAfter` on every generated
+   * VaultStaticSecret/OpenBaoStaticSecret. Enables credential rotation —
+   * combine with `rolloutRestartTargets` on consumers so pods pick up
+   * rotated values.
+   */
+  refreshAfter?: string
 }
 
 /**
