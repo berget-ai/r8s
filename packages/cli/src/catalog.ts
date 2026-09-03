@@ -156,14 +156,14 @@ export const components: ComponentInfo[] = [
       },
       {
         name: 'backup',
-        type: '{ destinationPath: string endpointURL: string credentialsSecret?: string retention?: string schedule?: string compression?: string encryption?: string }',
+        type: '{ destinationPath: string; endpointURL: string; credentialsSecret?: string; retention?: string; schedule?: string; compression?: string; encryption?: string }',
         required: false,
         description:
           'Opt-in barman backup to S3 + ScheduledBackup. Credentials from the secrets backend or an existing Secret (keys access-key-id/secret-access-key) — never plaintext.',
       },
       {
         name: 'rolloutRestartTargets',
-        type: '{ kind?: string name: string apiVersion?: string }[]',
+        type: '{ kind?: string; name: string; apiVersion?: string }[]',
         required: false,
         description:
           'Workloads restarted when credentials rotate (rendered on the credentials static secret)',
