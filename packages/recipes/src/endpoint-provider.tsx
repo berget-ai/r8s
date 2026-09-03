@@ -148,8 +148,25 @@ export interface EndpointProviderProps {
 export function EndpointProvider(props: EndpointProviderProps) {
   const { provider, children } = props
 
-  // Resolve provider config
-  const config: EndpointConfig = typeof provider === 'string' ? { provider } : provider
+  // Resolve provider config. Accepts:
+  //  - string ('nginx' | 'envoy-gateway')
+  //  - a plain EndpointConfig object
+  //  - a JSX element of a provider component (e.g. <EnvoyGateway className="eg" />)
+  //    — invoked here to produce its EndpointConfig
+  let config: EndpointConfig
+  if (typeof provider === 'string') {
+    config = { provider }
+  } else if (provider && typeof provider === 'object') {
+    const element = provider as { type?: unknown; props?: object }
+    if (typeof element.type === 'function') {
+      const ProviderComponent = element.type as (p: object) => EndpointConfig
+      config = ProviderComponent(element.props ?? {})
+    } else {
+      config = provider as EndpointConfig
+    }
+  } else {
+    config = provider as EndpointConfig
+  }
 
   // Map to RoutingContext for backward compatibility
   const routing = {
