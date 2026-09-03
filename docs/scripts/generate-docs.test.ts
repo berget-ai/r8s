@@ -22,8 +22,9 @@ describe('Generated docs data', () => {
 
     it('should have no duplicate component names within a package', () => {
       const content = fs.readFileSync(path.join(ROOT, 'docs', 'data', 'packages.ts'), 'utf-8')
-      // Parse the packages array structure
-      const packageBlocks = content.split(/(?=\s{4}slug: ")/)
+      // Parse the packages array structure (generator may emit either
+      // double-quoted strings or prettier-normalized single quotes)
+      const packageBlocks = content.split(/(?=\s{4}slug: ['"])/)
       for (const block of packageBlocks) {
         // Only match component-level names (8-space indent) — nested prop
         // type names at deeper indentation are not component names

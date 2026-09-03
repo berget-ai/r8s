@@ -15,7 +15,7 @@
     "nextcloud",
     "files",
     "collaboration",
-    "recipe"
+    "calendar"
   ],
   "r8s": {
     "category": "File & Collaboration"
@@ -27,6 +27,7 @@
     "test": "vitest run",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
+  "category": "Collaboration & Productivity",
   "dependencies": {
     "@r8s/core": "^0.2.0",
     "@r8s/crds": "^0.2.0",
