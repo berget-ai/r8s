@@ -1220,37 +1220,93 @@ export const components: ComponentInfo[] = [
       'LibreChat multi-model AI chat — MongoDB (provisioned externally), Redis sessions, optional Meilisearch, OIDC SSO',
     props: [
       {
+        name: 'name',
+        type: 'string',
+        required: false,
+        description: "Resource name (defaults to 'librechat')",
+      },
+      {
+        name: 'namespace',
+        type: 'string',
+        required: false,
+        description: "Kubernetes namespace (defaults to 'default')",
+      },
+      {
+        name: 'version',
+        type: 'string',
+        required: false,
+        description: "Container image tag (defaults to 'latest' — pin a version in production)",
+      },
+      {
         name: 'host',
         type: 'string',
         required: true,
-        description: 'MongoDB host (cluster-internal service or external host)',
+        description: 'Public hostname for the chat UI (required)',
       },
       {
         name: 'port',
         type: 'number',
         required: false,
-        description: 'MongoDB port (defaults to 27017)',
+        description: 'Port the app listens on in-container (defaults to 3080)',
       },
       {
-        name: 'username',
-        type: 'string',
+        name: 'replicas',
+        type: 'number',
         required: false,
-        description:
-          'Database username. Inlined as a plain env var — usernames are identifiers, not secrets (same convention as the n8n/outline DB recipes). When omitted, the username is read from the password secret (key: `username`).',
+        description: 'Number of replicas (defaults to 1)',
       },
       {
-        name: 'passwordSecret',
-        type: 'string',
+        name: 'mongodb',
+        type: 'MongoConnection',
         required: true,
         description:
-          'Name of an existing Secret holding the MongoDB credentials. Keys: `username`, `password`.',
+          'External MongoDB connection (REQUIRED). LibreChat stores users, conversations and messages in MongoDB — this component does NOT provision it. Run MongoDB separately (replica-set StatefulSet, operator or managed service) and point this prop at it.',
       },
       {
-        name: 'authSource',
+        name: 'cache',
+        type: 'boolean',
+        required: false,
+        description: 'Provision a redis replication group for session caching (default: true)',
+      },
+      {
+        name: 'search',
+        type: 'boolean',
+        required: false,
+        description:
+          'Add a Meilisearch sidecar service for full-text / RAG search (default: false). MEILI_MASTER_KEY is shared from the app secrets bundle (key: meiliMasterKey). Sets SEARCH=true on the app so it actually queries the meilisearch instance.',
+      },
+      {
+        name: 'sso',
+        type: '{ issuer: string clientId: string clientSecretRef: SecretRef scopes?: string }',
+        required: false,
+        description:
+          'OIDC SSO client — register LibreChat as a client in Keycloak (the Auth recipe) and reference the client secret through the backend. Uses the upstream OPENID_* env names; ALLOW_SOCIAL_LOGIN plus DOMAIN_SERVER/DOMAIN_CLIENT are set from `host`.',
+      },
+      {
+        name: 'backend',
         type: 'string',
         required: false,
         description:
-          "authSource query parameter appended to MONGO_URI when set (e.g. 'admin' for databases authenticating against the admin db).",
+          'OpenAI-compatible API base URL for model calls (defaults to https://api.berget.ai/v1)',
+      },
+      {
+        name: 'secretsName',
+        type: 'string',
+        required: false,
+        description:
+          'Name of an existing Secret holding `secretKey`, `modelApiKey`, the multi-user session credentials `jwtSecret`, `jwtRefreshSecret`, `credsKey`, `credsIv` — and `meiliMasterKey` when `search` is enabled. Hex sizing: jwtSecret / jwtRefreshSecret / credsKey are 64 hex chars (32 bytes); credsIv is 32 hex chars (16 bytes — AES-IV). Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions them. Plaintext secrets are not supported.',
+      },
+      {
+        name: 'resources',
+        type: '{ requests?: { cpu?: string; memory?: string } limits?: { cpu?: string; memory?: string } }',
+        required: false,
+        description: 'Requested resources',
+      },
+      {
+        name: 'tls',
+        type: '{ secretName: string clusterIssuer: string }',
+        required: false,
+        description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
       },
     ],
     example:

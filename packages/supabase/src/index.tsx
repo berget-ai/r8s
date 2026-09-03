@@ -67,7 +67,7 @@ export interface SupabaseProps {
 /**
  * Supabase — open-source Firebase alternative: auth, REST, realtime and
  * storage on Postgres. This is the Supabase backend platform, NOT Apache
- * Superset (see the @r8s/superset package for that).
+ * Superset (which ships in the separate r8s/superset package).
  *
  * @title Supabase
  * @category Backend Platforms

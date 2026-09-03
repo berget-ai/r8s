@@ -87,12 +87,19 @@ export function Endpoint(props: EndpointProps) {
   // DNS defaults to true when DnsProvider is set, unless explicitly disabled
   const createDnsRecord = dns ?? dnsConfig !== null
 
+  // Mode resolution: the Platform RoutingContext describes the cluster, but
+  // an explicit EndpointProvider with <EnvoyGateway /> opts this endpoint
+  // into Gateway API even without a Platform (or CLI route-level default)
+  const gatewayMode = routing.mode === 'gateway' || endpointConfig.provider === 'envoy-gateway'
+
   const resources: ReturnType<typeof jsx>[] = []
 
-  if (routing.mode === 'gateway') {
-    const gatewayClassName = routing.gatewayClassName || 'eg'
+  if (gatewayMode) {
+    const gatewayClassName =
+      endpointConfig.settings?.gatewayClassName ?? routing.gatewayClassName ?? 'eg'
     const secretName = tls?.secretName || `${name}-tls`
-    const issuerName = tls?.clusterIssuer || 'letsencrypt-prod'
+    const issuerName =
+      tls?.clusterIssuer ?? endpointConfig.settings?.tls?.clusterIssuer ?? 'letsencrypt-prod'
 
     const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager')
     const hasEnvoyGateway = sharedOperators.some((op) => op.name === 'envoy-gateway')
