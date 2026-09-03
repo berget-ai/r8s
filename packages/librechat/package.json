@@ -13,10 +13,9 @@
   "bugs": "https://github.com/berget-ai/r8s/issues",
   "keywords": [
     "librechat",
-    "ai",
     "chat",
     "llm",
-    "recipe"
+    "rag"
   ],
   "r8s": {
     "category": "AI & Chat"
@@ -28,6 +27,7 @@
     "test": "vitest run",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
+  "category": "AI & Assistants",
   "dependencies": {
     "@r8s/core": "^0.2.0",
     "@r8s/crds": "^0.2.0",

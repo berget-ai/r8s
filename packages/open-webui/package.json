@@ -15,8 +15,7 @@
     "open-webui",
     "chat",
     "llm",
-    "ai",
-    "recipe"
+    "ai"
   ],
   "r8s": {
     "category": "AI & Chat"
@@ -28,6 +27,7 @@
     "test": "vitest run",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
+  "category": "AI & Assistants",
   "dependencies": {
     "@r8s/core": "^0.2.0",
     "@r8s/crds": "^0.2.0",

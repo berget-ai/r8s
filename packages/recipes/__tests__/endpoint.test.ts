@@ -6,6 +6,7 @@ import { operators } from '@r8s/crds'
 
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
 import { DnsContext } from '../src/dns-provider'
+import { EndpointContext, EnvoyGateway, Nginx } from '../src/endpoint-provider'
 
 describe('Endpoint — ingress mode (default)', () => {
   it('should render Ingress when no RoutingContext is provided', () => {
@@ -130,6 +131,42 @@ describe('Endpoint — gateway mode', () => {
     const kinds = result.resources.map((r) => r.kind)
     expect(kinds).toContain('Gateway')
     expect(kinds).toContain('HTTPRoute')
+  })
+
+  it('should honor an explicit EndpointProvider with EnvoyGateway without a Platform', () => {
+    const element = jsx(EndpointContext.Provider, {
+      value: EnvoyGateway({ className: 'internal-eg' }),
+      children: jsx(Endpoint, {
+        name: 'api-endpoint',
+        host: 'api.example.com',
+        serviceName: 'api',
+      }),
+    })
+
+    const result = render(element)
+
+    const kinds = result.resources.map((r) => r.kind)
+    expect(kinds).toContain('Gateway')
+    expect(kinds).toContain('HTTPRoute')
+    const gateway = result.resources.find((r) => r.kind === 'Gateway') as any
+    expect(gateway.spec.gatewayClassName).toBe('internal-eg')
+  })
+
+  it('should fall back to Ingress when EndpointProvider has Nginx', () => {
+    const element = jsx(EndpointContext.Provider, {
+      value: Nginx({ className: 'nginx-internal' }),
+      children: jsx(Endpoint, {
+        name: 'api-endpoint',
+        host: 'api.example.com',
+        serviceName: 'api',
+      }),
+    })
+
+    const result = render(element)
+
+    const ingress = result.resources.find((r) => r.kind === 'Ingress') as any
+    expect(ingress).toBeDefined()
+    expect(ingress.spec.ingressClassName).toBe('nginx-internal')
   })
 
   it('should render Certificate when TLS is enabled in gateway mode', () => {

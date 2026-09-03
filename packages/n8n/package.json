@@ -13,9 +13,9 @@
   "bugs": "https://github.com/berget-ai/r8s/issues",
   "keywords": [
     "n8n",
-    "workflow",
     "automation",
-    "recipe"
+    "workflows",
+    "integrations"
   ],
   "r8s": {
     "category": "Automation"
@@ -27,6 +27,7 @@
     "test": "vitest run",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
+  "category": "Apps & Automation",
   "dependencies": {
     "@r8s/core": "^0.2.0",
     "@r8s/crds": "^0.2.0",

@@ -82,6 +82,17 @@ async function renderToYaml(code: string): Promise<string | null> {
             '@r8s/rustfs': [path.join(ROOT, 'packages/rustfs/src/index.ts')],
             '@r8s/superset': [path.join(ROOT, 'packages/superset/src/index.ts')],
             '@r8s/wireguard': [path.join(ROOT, 'packages/wireguard/src/index.ts')],
+            '@r8s/n8n': [path.join(ROOT, 'packages/n8n/src/index.tsx')],
+            '@r8s/nextcloud': [path.join(ROOT, 'packages/nextcloud/src/index.tsx')],
+            '@r8s/outline': [path.join(ROOT, 'packages/outline/src/index.tsx')],
+            '@r8s/chromadb': [path.join(ROOT, 'packages/chromadb/src/index.tsx')],
+            '@r8s/supabase': [path.join(ROOT, 'packages/supabase/src/index.tsx')],
+            '@r8s/odoo': [path.join(ROOT, 'packages/odoo/src/index.tsx')],
+            '@r8s/open-webui': [path.join(ROOT, 'packages/open-webui/src/index.tsx')],
+            '@r8s/librechat': [path.join(ROOT, 'packages/librechat/src/index.tsx')],
+            '@r8s/eurooffice': [path.join(ROOT, 'packages/eurooffice/src/index.tsx')],
+            '@r8s/paperclip': [path.join(ROOT, 'packages/paperclip/src/index.tsx')],
+            '@r8s/eneo': [path.join(ROOT, 'packages/eneo/src/index.tsx')],
           },
         },
       }),
@@ -108,6 +119,17 @@ async function renderToYaml(code: string): Promise<string | null> {
         '@r8s/rustfs': path.join(ROOT, 'packages/rustfs/src/index.ts'),
         '@r8s/superset': path.join(ROOT, 'packages/superset/src/index.ts'),
         '@r8s/wireguard': path.join(ROOT, 'packages/wireguard/src/index.ts'),
+        '@r8s/n8n': path.join(ROOT, 'packages/n8n/src/index.tsx'),
+        '@r8s/nextcloud': path.join(ROOT, 'packages/nextcloud/src/index.tsx'),
+        '@r8s/outline': path.join(ROOT, 'packages/outline/src/index.tsx'),
+        '@r8s/chromadb': path.join(ROOT, 'packages/chromadb/src/index.tsx'),
+        '@r8s/supabase': path.join(ROOT, 'packages/supabase/src/index.tsx'),
+        '@r8s/odoo': path.join(ROOT, 'packages/odoo/src/index.tsx'),
+        '@r8s/open-webui': path.join(ROOT, 'packages/open-webui/src/index.tsx'),
+        '@r8s/librechat': path.join(ROOT, 'packages/librechat/src/index.tsx'),
+        '@r8s/eurooffice': path.join(ROOT, 'packages/eurooffice/src/index.tsx'),
+        '@r8s/paperclip': path.join(ROOT, 'packages/paperclip/src/index.tsx'),
+        '@r8s/eneo': path.join(ROOT, 'packages/eneo/src/index.tsx'),
       },
     })
 
@@ -593,11 +615,15 @@ async function generatePackages(): Promise<PackageDoc[]> {
     ? extractExamples(examplesPath)
     : new Map<string, { name: string; code: string }[]>()
 
-  // Scan generated group files (skip index.ts and operators.ts)
+  // Scan generated group files (skip index.ts, operators.ts and
+  // declaration .d.ts files — the latter shadowed real groups and
+  // produced duplicate "cert-manager.d"-style package entries)
   const generatedDir = path.join(ROOT, 'packages/crds/src/generated')
   const groupFiles = fs
     .readdirSync(generatedDir)
-    .filter((f) => f.endsWith('.ts') && f !== 'index.ts' && f !== 'operators.ts')
+    .filter(
+      (f) => f.endsWith('.ts') && !f.endsWith('.d.ts') && f !== 'index.ts' && f !== 'operators.ts'
+    )
 
   for (const file of groupFiles) {
     const groupKey = file.replace('.ts', '')
@@ -673,10 +699,33 @@ async function generatePackages(): Promise<PackageDoc[]> {
     })
   }
 
-  // Also scan app packages (element, grafana, rustfs, superset, wireguard)
-  const appPackages = ['element', 'grafana', 'rustfs', 'superset', 'wireguard']
+  // Also scan app packages (element, grafana, rustfs, superset, wireguard,
+  // plus the app-store recipes: n8n, nextcloud, outline, chromadb, supabase,
+  // odoo, open-webui, librechat, eurooffice, paperclip, eneo)
+  const appPackages = [
+    'element',
+    'grafana',
+    'rustfs',
+    'superset',
+    'wireguard',
+    'n8n',
+    'nextcloud',
+    'outline',
+    'chromadb',
+    'supabase',
+    'odoo',
+    'open-webui',
+    'librechat',
+    'eurooffice',
+    'paperclip',
+    'eneo',
+  ]
   for (const dir of appPackages) {
-    const srcPath = path.join(ROOT, 'packages', dir, 'src', 'index.ts')
+    const srcPath =
+      [
+        path.join(ROOT, 'packages', dir, 'src', 'index.tsx'),
+        path.join(ROOT, 'packages', dir, 'src', 'index.ts'),
+      ].find((p) => fs.existsSync(p)) ?? ''
     if (!fs.existsSync(srcPath)) continue
     const sourceFile = parseSourceFile(srcPath)
     const components = await extractComponents(sourceFile, srcPath)

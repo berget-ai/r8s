@@ -13,11 +13,10 @@
   "bugs": "https://github.com/berget-ai/r8s/issues",
   "keywords": [
     "supabase",
-    "backend",
-    "baas",
-    "postgrest",
-    "gotrue",
-    "recipe"
+    "postgres",
+    "auth",
+    "realtime",
+    "storage"
   ],
   "r8s": {
     "category": "Backend Platforms"
@@ -29,6 +28,7 @@
     "test": "vitest run",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
+  "category": "Data & Analytics",
   "dependencies": {
     "@r8s/core": "^0.2.0",
     "@r8s/crds": "^0.2.0",

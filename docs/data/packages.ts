@@ -3235,7 +3235,7 @@ export const packages: Package[] = [
     description: 'ExternalDNS for automatic DNS management',
     category: 'Networking',
     operator: 'external-dns',
-    operatorVersion: '0.14.0',
+    operatorVersion: '1.21.1',
     keywords: ['externaldns'],
     providerInterfaces: ['dns'],
     components: [
@@ -70443,7 +70443,7 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'import { Element } from \'@r8s/element\'\n\nexport default (\n  <Element\n    host="chat.example.com"\n    homeserverUrl="https://matrix.example.com"\n    tls={{ secretName: "element-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
+            tsx: "import { Element } from '@r8s/element'\n\nexport default (\n  <Element\n    host=\"chat.example.com\"\n    homeserverUrl=\"https://matrix.example.com\"\n    tls={{ secretName: 'element-tls', clusterIssuer: 'letsencrypt' }}\n  />\n)\n",
             yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: element\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: element-config\n  namespace: element\ndata:\n  config.json: |-\n    {\n      "default_server_config": {\n        "m.homeserver": {\n          "base_url": "https://matrix.example.com",\n          "server_name": "chat.example.com"\n        }\n      },\n      "brand": "Element",\n      "integrations_ui_url": "https://scalar.vector.im/",\n      "integrations_rest_url": "https://scalar.vector.im/api",\n      "integrations_widgets_urls": [\n        "https://scalar.vector.im/_matrix/integrations/v1",\n        "https://scalar.vector.im/api",\n        "https://scalar-staging.vector.im/_matrix/integrations/v1",\n        "https://scalar-staging.vector.im/api"\n      ],\n      "bug_report_endpoint_url": "https://element.io/bugreports/submit",\n      "uisi_autorageshared_sigs": true,\n      "show_labs_settings": true,\n      "room_directory": {\n        "servers": [\n          "chat.example.com"\n        ]\n      }\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: element\n  namespace: element\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: element\n  template:\n    metadata:\n      labels:\n        app: element\n    spec:\n      containers:\n        - name: element\n          image: vectorim/element-web:latest\n          ports:\n            - containerPort: 80\n              name: http\n          volumeMounts:\n            - name: config\n              mountPath: /app/config.json\n              subPath: config.json\n              readOnly: true\n          resources:\n            requests:\n              memory: 64Mi\n              cpu: 50m\n            limits:\n              memory: 256Mi\n              cpu: 200m\n      volumes:\n        - name: config\n          configMap:\n            name: element-config\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: element\n  namespace: element\nspec:\n  selector:\n    app: element\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: element\n  namespace: element\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  rules:\n    - host: chat.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: element\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - chat.example.com\n      secretName: element-tls\n',
           },
         ],
@@ -70478,9 +70478,10 @@ export const packages: Package[] = [
           },
           {
             name: 'admin',
-            type: 'string',
+            type: '{ password?: string, existingSecret?: string }',
             required: false,
-            description: 'Admin password secret name',
+            description:
+              'Admin credentials. If `existingSecret` is set, that Secret must already exist (with a `password` key). Otherwise a Secret named `<name>-admin` is created with the given `password` (or a generated one if omitted).',
           },
           {
             name: 'datasources',
@@ -70504,8 +70505,8 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: "import { Grafana } from '@r8s/grafana'\n\nexport default (\n  <Grafana\n    name=\"grafana\"\n    namespace=\"monitoring\"\n    host=\"grafana.example.com\"\n    datasources={[{ name: 'Prometheus', type: 'prometheus', url: 'http://prometheus:9090' }]}\n  />\n)\n",
-            yaml: 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: grafana-datasources\n  namespace: monitoring\ndata:\n  datasources.yaml: |-\n    {\n      "apiVersion": 1,\n      "datasources": [\n        {\n          "name": "Prometheus",\n          "type": "prometheus",\n          "url": "http://prometheus:9090",\n          "access": "proxy",\n          "isDefault": false\n        }\n      ]\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: grafana\n  template:\n    metadata:\n      labels:\n        app: grafana\n    spec:\n      containers:\n        - name: grafana\n          image: grafana/grafana:10.3.0\n          ports:\n            - containerPort: 3000\n              name: http\n          env:\n            - name: GF_SECURITY_ADMIN_PASSWORD__FILE\n              value: /etc/grafana/admin/password\n            - name: GF_INSTALL_PLUGINS\n              value: grafana-clock-panel\n          volumeMounts:\n            - name: storage\n              mountPath: /var/lib/grafana\n            - name: datasources\n              mountPath: /etc/grafana/provisioning/datasources\n            - name: admin\n              mountPath: /etc/grafana/admin\n          resources:\n            requests:\n              memory: 256Mi\n              cpu: 250m\n            limits:\n              memory: 512Mi\n              cpu: 500m\n      volumes:\n        - name: storage\n          persistentVolumeClaim:\n            claimName: grafana-pvc\n        - name: datasources\n        - name: admin\n          secret:\n            secretName: grafana-admin\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  selector:\n    app: grafana\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: grafana-pvc\n  namespace: monitoring\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 10Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  rules:\n    - host: grafana.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: grafana\n                port:\n                  number: 80\n',
+            tsx: "import { Grafana } from '@r8s/grafana'\n\nexport default (\n  <Grafana\n    name=\"grafana\"\n    namespace=\"monitoring\"\n    host=\"grafana.example.com\"\n    admin={{ existingSecret: 'grafana-admin-credentials' }}\n    datasources={[{ name: 'Prometheus', type: 'prometheus', url: 'http://prometheus:9090' }]}\n  />\n)\n",
+            yaml: 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: grafana-datasources\n  namespace: monitoring\ndata:\n  datasources.yaml: |-\n    {\n      "apiVersion": 1,\n      "datasources": [\n        {\n          "name": "Prometheus",\n          "type": "prometheus",\n          "url": "http://prometheus:9090",\n          "access": "proxy",\n          "isDefault": false\n        }\n      ]\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: grafana\n  template:\n    metadata:\n      labels:\n        app: grafana\n    spec:\n      containers:\n        - name: grafana\n          image: grafana/grafana:10.3.0\n          ports:\n            - containerPort: 3000\n              name: http\n          env:\n            - name: GF_SECURITY_ADMIN_PASSWORD__FILE\n              value: /etc/grafana/admin/password\n            - name: GF_INSTALL_PLUGINS\n              value: grafana-clock-panel\n          volumeMounts:\n            - name: storage\n              mountPath: /var/lib/grafana\n            - name: datasources\n              mountPath: /etc/grafana/provisioning/datasources\n            - name: admin\n              mountPath: /etc/grafana/admin\n          resources:\n            requests:\n              memory: 256Mi\n              cpu: 250m\n            limits:\n              memory: 512Mi\n              cpu: 500m\n      volumes:\n        - name: storage\n          persistentVolumeClaim:\n            claimName: grafana-pvc\n        - name: datasources\n          configMap:\n            name: grafana-datasources\n        - name: admin\n          secret:\n            secretName: grafana-admin-credentials\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  selector:\n    app: grafana\n  ports:\n    - port: 80\n      targetPort: 3000\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: grafana-pvc\n  namespace: monitoring\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 10Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: grafana\n  namespace: monitoring\nspec:\n  rules:\n    - host: grafana.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: grafana\n                port:\n                  number: 80\n',
           },
         ],
       },
@@ -70551,10 +70552,11 @@ export const packages: Package[] = [
             description: 'Root user (default: rustfs)',
           },
           {
-            name: 'rootPasswordSecret',
-            type: 'string',
+            name: 'rootCredentials',
+            type: '{ password?: string, existingSecret?: string }',
             required: false,
-            description: 'Root password secret',
+            description:
+              'Root credentials. If `existingSecret` is set, that Secret must already exist (with `user` and `password` keys). Otherwise a Secret named `<name>-root-password` is created with the given `password`.',
           },
           { name: 'host', type: 'string', required: false, description: 'Ingress host for S3 API' },
           {
@@ -70566,8 +70568,8 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'import { RustFS } from \'@r8s/rustfs\'\n\nexport default (\n  <RustFS\n    name="storage"\n    namespace="rustfs"\n    instances={4}\n    storage="500Gi"\n    host="s3.example.com"\n    tls={{ secretName: "s3-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
-            yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: rustfs\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: storage-headless\n  namespace: rustfs\nspec:\n  clusterIP: None\n  selector:\n    app: storage\n  ports:\n    - port: 9000\n      name: s3\n    - port: 9001\n      name: console\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: storage\n  namespace: rustfs\nspec:\n  selector:\n    app: storage\n  ports:\n    - port: 80\n      targetPort: 9000\n      name: s3\n    - port: 9001\n      targetPort: 9001\n      name: console\n---\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: storage\n  namespace: rustfs\nspec:\n  serviceName: storage-headless\n  replicas: 4\n  selector:\n    matchLabels:\n      app: storage\n  template:\n    metadata:\n      labels:\n        app: storage\n    spec:\n      containers:\n        - name: rustfs\n          image: rustfs/rustfs:latest\n          ports:\n            - containerPort: 9000\n              name: s3\n            - containerPort: 9001\n              name: console\n          env:\n            - name: RUSTFS_ROOT_USER\n              value: rustfs\n            - name: RUSTFS_ROOT_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: storage-root-password\n                  key: password\n          volumeMounts:\n            - name: data\n              mountPath: /data\n          resources:\n            requests:\n              memory: 1Gi\n              cpu: 500m\n            limits:\n              memory: 4Gi\n              cpu: 2000m\n  volumeClaimTemplates:\n    - metadata:\n        name: data\n      spec:\n        accessModes:\n          - ReadWriteOnce\n        resources:\n          requests:\n            storage: 500Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: storage\n  namespace: rustfs\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  rules:\n    - host: s3.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: storage\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - s3.example.com\n      secretName: s3-tls\n',
+            tsx: 'import { RustFS } from \'@r8s/rustfs\'\n\nexport default (\n  <RustFS\n    name="storage"\n    namespace="rustfs"\n    instances={4}\n    storage="500Gi"\n    host="s3.example.com"\n    tls={{ secretName: \'s3-tls\', clusterIssuer: \'letsencrypt\' }}\n  />\n)\n',
+            yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: rustfs\n---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: storage-root-password\n  namespace: rustfs\ntype: Opaque\nstringData:\n  user: rustfs\n  password: rustfs-change-me\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: storage-headless\n  namespace: rustfs\nspec:\n  clusterIP: None\n  selector:\n    app: storage\n  ports:\n    - port: 9000\n      name: s3\n    - port: 9001\n      name: console\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: storage\n  namespace: rustfs\nspec:\n  selector:\n    app: storage\n  ports:\n    - port: 80\n      targetPort: 9000\n      name: s3\n    - port: 9001\n      targetPort: 9001\n      name: console\n---\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: storage\n  namespace: rustfs\nspec:\n  serviceName: storage-headless\n  replicas: 4\n  selector:\n    matchLabels:\n      app: storage\n  template:\n    metadata:\n      labels:\n        app: storage\n    spec:\n      containers:\n        - name: rustfs\n          image: rustfs/rustfs:latest\n          ports:\n            - containerPort: 9000\n              name: s3\n            - containerPort: 9001\n              name: console\n          env:\n            - name: RUSTFS_ROOT_USER\n              value: rustfs\n            - name: RUSTFS_ROOT_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: storage-root-password\n                  key: password\n          volumeMounts:\n            - name: data\n              mountPath: /data\n          resources:\n            requests:\n              memory: 1Gi\n              cpu: 500m\n            limits:\n              memory: 4Gi\n              cpu: 2000m\n  volumeClaimTemplates:\n    - metadata:\n        name: data\n      spec:\n        accessModes:\n          - ReadWriteOnce\n        resources:\n          requests:\n            storage: 500Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: storage\n  namespace: rustfs\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  rules:\n    - host: s3.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: storage\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - s3.example.com\n      secretName: s3-tls\n',
           },
         ],
       },
@@ -70602,21 +70604,23 @@ export const packages: Package[] = [
           { name: 'host', type: 'string', required: true, description: 'Hostname for Superset' },
           {
             name: 'database',
-            type: '{ host: string, database: string, user: string, passwordSecret: string, passwordKey?: string }',
+            type: '{ host: string, database: string, user: string, passwordSecret: string, passwordKey?: string, password?: string }',
             required: true,
             description: 'Database connection',
           },
           {
             name: 'redis',
-            type: '{ host: string, port?: number }',
+            type: '{ host: string, port?: number, create?: false } | { create: true, host?: string, port?: number }',
             required: true,
-            description: 'Redis connection',
+            description:
+              'Redis connection. Either point at an existing Redis (`host`) or let the component create a managed RedisCluster (`create: true`).',
           },
           {
             name: 'admin',
-            type: 'string',
+            type: '{ existingSecret: string } | { password?: string }',
             required: true,
-            description: 'Admin credentials secret',
+            description:
+              'Admin credentials. If `existingSecret` is set, that Secret must already exist (with a `secretKey` key). Otherwise a Secret named `<name>-admin` is created with a generated secret key.',
           },
           {
             name: 'replicas',
@@ -70645,8 +70649,8 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'import { Superset } from \'@r8s/superset\'\n\nexport default (\n  <Superset\n    host="superset.example.com"\n    database={{ host: "superset-db-rw", database: "superset", user: "superset", passwordSecret: "superset-db-credentials" }}\n    redis={{ host: "redis-master" }}\n    admin={{ existingSecret: "superset-admin-credentials" }}\n    tls={{ secretName: "superset-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
-            yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: superset\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: superset-config\n  namespace: superset\ndata:\n  superset_config.py: |\n\n    import os\n\n    SECRET_KEY = os.environ.get('SUPERSET_SECRET_KEY'])\n    SQLALCHEMY_DATABASE_URI = f\"postgresql://{os.environ['DB_USER']}:{os.environ['DB_PASS']}@{os.environ['DB_HOST']}/{os.environ['DB_NAME']}\"\n    CACHE_CONFIG = {\n        'CACHE_TYPE': 'RedisCache',\n        'CACHE_DEFAULT_TIMEOUT': 300,\n        'CACHE_KEY_PREFIX': 'superset_',\n        'CACHE_REDIS_HOST': os.environ.get('REDIS_HOST', 'localhost'),\n        'CACHE_REDIS_PORT': int(os.environ.get('REDIS_PORT', '6379')),\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: superset\n  template:\n    metadata:\n      labels:\n        app: superset\n    spec:\n      containers:\n        - name: superset\n          image: apache/superset:4.0.0\n          ports:\n            - containerPort: 8088\n              name: http\n          env:\n            - name: SUPERSET_SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: superset-admin\n                  key: secretKey\n            - name: DB_HOST\n              value: superset-db-rw\n            - name: DB_NAME\n              value: superset\n            - name: DB_USER\n              value: superset\n            - name: DB_PASS\n              valueFrom:\n                secretKeyRef:\n                  name: superset-db-credentials\n                  key: password\n            - name: REDIS_HOST\n              value: redis-master\n            - name: REDIS_PORT\n              value: '6379'\n          volumeMounts:\n            - name: config\n              mountPath: /app/pythonpath\n              readOnly: true\n          resources:\n            requests:\n              cpu: 250m\n              memory: 1Gi\n            limits:\n              cpu: 1000m\n              memory: 2Gi\n      volumes:\n        - name: config\n          configMap:\n            name: superset-config\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  selector:\n    app: superset\n  ports:\n    - port: 80\n      targetPort: 8088\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: superset\n  namespace: superset\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\n    nginx.ingress.kubernetes.io/proxy-body-size: 50m\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'\nspec:\n  rules:\n    - host: superset.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: superset\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - superset.example.com\n      secretName: superset-tls\n",
+            tsx: "import { Superset } from '@r8s/superset'\n\n/**\n * Database credentials come from `passwordSecret` — provisioned by the\n * secrets backend running in the cluster. The admin dashboard key comes\n * from `existingSecret` (a SealedSecret or operator-managed secret).\n * No plaintext credential appears in this file or in the rendered YAML.\n */\nexport default (\n  <Superset\n    host=\"superset.example.com\"\n    database={{\n      host: 'superset-db-rw',\n      database: 'superset',\n      user: 'superset',\n      passwordSecret: 'superset-db-credentials',\n      passwordKey: 'password',\n    }}\n    redis={{ host: 'redis-master' }}\n    admin={{ existingSecret: 'superset-admin-credentials' }}\n    tls={{ secretName: 'superset-tls', clusterIssuer: 'letsencrypt' }}\n  />\n)\n",
+            yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: superset\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: superset-config\n  namespace: superset\ndata:\n  superset_config.py: |\n\n    import os\n\n    SECRET_KEY = os.environ.get('SUPERSET_SECRET_KEY', 'change-me')\n    SQLALCHEMY_DATABASE_URI = f\"postgresql://{os.environ['DB_USER']}:{os.environ['DB_PASS']}@{os.environ['DB_HOST']}/{os.environ['DB_NAME']}\"\n    CACHE_CONFIG = {\n        'CACHE_TYPE': 'RedisCache',\n        'CACHE_DEFAULT_TIMEOUT': 300,\n        'CACHE_KEY_PREFIX': 'superset_',\n        'CACHE_REDIS_HOST': os.environ.get('REDIS_HOST', 'localhost'),\n        'CACHE_REDIS_PORT': int(os.environ.get('REDIS_PORT', '6379')),\n    }\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: superset\n  template:\n    metadata:\n      labels:\n        app: superset\n    spec:\n      containers:\n        - name: superset\n          image: apache/superset:4.0.0\n          ports:\n            - containerPort: 8088\n              name: http\n          env:\n            - name: SUPERSET_SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: superset-admin-credentials\n                  key: secretKey\n            - name: DB_HOST\n              value: superset-db-rw\n            - name: DB_NAME\n              value: superset\n            - name: DB_USER\n              value: superset\n            - name: DB_PASS\n              valueFrom:\n                secretKeyRef:\n                  name: superset-db-credentials\n                  key: password\n            - name: REDIS_HOST\n              value: redis-master\n            - name: REDIS_PORT\n              value: '6379'\n          volumeMounts:\n            - name: config\n              mountPath: /app/pythonpath\n              readOnly: true\n          resources:\n            requests:\n              cpu: 250m\n              memory: 1Gi\n            limits:\n              cpu: 1000m\n              memory: 2Gi\n      volumes:\n        - name: config\n          configMap:\n            name: superset-config\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: superset\n  namespace: superset\nspec:\n  selector:\n    app: superset\n  ports:\n    - port: 80\n      targetPort: 8088\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: superset\n  namespace: superset\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\n    nginx.ingress.kubernetes.io/proxy-body-size: 50m\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'\nspec:\n  rules:\n    - host: superset.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: superset\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - superset.example.com\n      secretName: superset-tls\n",
           },
         ],
       },
@@ -70718,8 +70722,1171 @@ export const packages: Package[] = [
         ],
         examples: [
           {
-            tsx: 'import { WireGuard } from \'@r8s/wireguard\'\n\nexport default (\n  <WireGuard\n    host="vpn.example.com"\n    passwordSecret="wg-password"\n    nodePort={31820}\n    tls={{ secretName: "wg-tls", clusterIssuer: "letsencrypt" }}\n  />\n)\n',
+            tsx: "import { WireGuard } from '@r8s/wireguard'\n\nexport default (\n  <WireGuard\n    host=\"vpn.example.com\"\n    passwordSecret=\"wg-password\"\n    nodePort={31820}\n    tls={{ secretName: 'wg-tls', clusterIssuer: 'letsencrypt' }}\n  />\n)\n",
             yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: wireguard\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: wireguard\n  namespace: wireguard\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: wireguard\n  template:\n    metadata:\n      labels:\n        app: wireguard\n    spec:\n      containers:\n        - name: wg-easy\n          image: ghcr.io/wg-easy/wg-easy:latest\n          ports:\n            - containerPort: 51820\n              protocol: UDP\n              name: wg\n            - containerPort: 51821\n              name: web\n          env:\n            - name: WG_HOST\n              value: vpn.example.com\n            - name: PASSWORD_HASH\n              valueFrom:\n                secretKeyRef:\n                  name: wg-password\n                  key: password\n            - name: WG_PORT\n              value: '51820'\n            - name: WG_DEFAULT_ADDRESS\n              value: 10.8.0.x\n            - name: WG_DEFAULT_DNS\n              value: 1.1.1.1, 8.8.8.8\n            - name: UI_TRAFFIC_STATS\n              value: 'true'\n            - name: UI_CHART_TYPE\n              value: '2'\n          volumeMounts:\n            - name: data\n              mountPath: /etc/wireguard\n          securityContext:\n            capabilities:\n              add:\n                - NET_ADMIN\n                - SYS_MODULE\n          resources:\n            requests:\n              memory: 64Mi\n              cpu: 50m\n            limits:\n              memory: 256Mi\n              cpu: 200m\n      volumes:\n        - name: data\n          persistentVolumeClaim:\n            claimName: wireguard-pvc\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: wireguard\n  namespace: wireguard\nspec:\n  type: NodePort\n  selector:\n    app: wireguard\n  ports:\n    - port: 51820\n      targetPort: 51820\n      protocol: UDP\n      name: wg\n      nodePort: 31820\n    - port: 51821\n      targetPort: 51821\n      name: web\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: wireguard-pvc\n  namespace: wireguard\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 1Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: wireguard\n  namespace: wireguard\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  rules:\n    - host: vpn.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: wireguard\n                port:\n                  number: 51821\n  tls:\n    - hosts:\n        - vpn.example.com\n      secretName: wg-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'n8n',
+    name: '@r8s/n8n',
+    title: 'n8n',
+    description:
+      'n8n workflow automation — editor, Postgres persistence, Redis queue mode, webhook endpoints',
+    category: 'Automation',
+    keywords: ['n8n', 'automation', 'workflows', 'integrations'],
+    components: [
+      {
+        name: 'N8n',
+        description: 'n8n — fair-code workflow automation.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'n8n')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace (inherited from Platform context when omitted)',
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "Container image tag (defaults to 'latest' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the editor and webhooks (required)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description: 'Number of editor replicas when not running in queue mode (defaults to 1)',
+          },
+          {
+            name: 'queueMode',
+            type: 'boolean',
+            required: false,
+            description:
+              'Redis-backed queue mode. Adds a Redis master/replica set and a worker Deployment so webhook ingestion and heavy executions scale independently.',
+          },
+          {
+            name: 'workers',
+            type: 'number',
+            required: false,
+            description: 'Queue worker replicas (defaults to 2, only used with queueMode)',
+          },
+          {
+            name: 'storage',
+            type: 'string',
+            required: false,
+            description: "Storage request for the CNPG Postgres cluster (defaults to '10Gi')",
+          },
+          {
+            name: 'encryptionKeySecretName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret containing key `encryptionKey`. n8n encrypts all workflow credentials with this key — lose it and every stored credential is unreadable. Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions the key automatically. Plaintext keys are not supported.',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested editor resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { N8n } from '@r8s/n8n'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <N8n name=\"n8n\" host=\"n8n.example.com\" queueMode workers={3} />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: n8n-encryption\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/n8n/encryption\n  destination:\n    create: true\n    name: n8n-encryption-key\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: n8n\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: n8n\n      owner: n8n\n      secret:\n        name: n8n-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: n8n-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/n8n\n  destination:\n    create: true\n    name: n8n-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: n8n\n  namespace: default\n  labels:\n    app: n8n\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: n8n\n  template:\n    metadata:\n      labels:\n        app: n8n\n    spec:\n      containers:\n        - name: app\n          image: docker.n8n.io/n8nio/n8n:latest\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 5678\n          env:\n            - name: DB_POSTGRESDB_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: n8n-db-credentials\n                  key: password\n            - name: N8N_ENCRYPTION_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: n8n-encryption-key\n                  key: encryptionKey\n            - name: DB_TYPE\n              value: postgresdb\n            - name: DB_POSTGRESDB_HOST\n              value: n8n-rw\n            - name: DB_POSTGRESDB_PORT\n              value: '5432'\n            - name: DB_POSTGRESDB_DATABASE\n              value: n8n\n            - name: DB_POSTGRESDB_USER\n              value: n8n\n            - name: N8N_HOST\n              value: n8n.example.com\n            - name: N8N_PORT\n              value: '5678'\n            - name: N8N_PROTOCOL\n              value: https\n            - name: WEBHOOK_URL\n              value: https://n8n.example.com/\n            - name: NODE_FUNCTION_ALLOW_BUILTIN\n              value: '*'\n            - name: N8N_DEFAULT_BINARY_DATA_MODE\n              value: default\n            - name: EXECUTIONS_MODE\n              value: queue\n            - name: QUEUE_BULL_REDIS_HOST\n              value: n8n-redis\n            - name: QUEUE_BULL_REDIS_PORT\n              value: '6379'\n            - name: PGHOST\n              value: n8n-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: n8n\n            - name: PGUSER\n              value: n8n\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: n8n-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /healthz\n              port: 5678\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /healthz\n              port: 5678\n            initialDelaySeconds: 15\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: n8n\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: n8n\n  ports:\n    - port: 5678\n      targetPort: 5678\n    - port: 80\n      targetPort: 5678\n---\napiVersion: redis.redis.opstreelabs.in/v1beta2\nkind: RedisReplication\nmetadata:\n  name: n8n-redis\n  namespace: default\nspec:\n  clusterSize: 3\n  kubernetesConfig:\n    image: redis:7.2-alpine\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: n8n-worker\n  namespace: default\n  labels:\n    app: n8n-worker\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: n8n-worker\n  template:\n    metadata:\n      labels:\n        app: n8n-worker\n    spec:\n      containers:\n        - name: app\n          image: docker.n8n.io/n8nio/n8n:latest\n          imagePullPolicy: Always\n          command:\n            - n8n\n            - worker\n            - '--concurrency=10'\n          ports:\n            - containerPort: 5678\n          env:\n            - name: DB_POSTGRESDB_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: n8n-db-credentials\n                  key: password\n            - name: N8N_ENCRYPTION_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: n8n-encryption-key\n                  key: encryptionKey\n            - name: DB_TYPE\n              value: postgresdb\n            - name: DB_POSTGRESDB_HOST\n              value: n8n-rw\n            - name: DB_POSTGRESDB_PORT\n              value: '5432'\n            - name: DB_POSTGRESDB_DATABASE\n              value: n8n\n            - name: DB_POSTGRESDB_USER\n              value: n8n\n            - name: N8N_HOST\n              value: n8n.example.com\n            - name: N8N_PORT\n              value: '5678'\n            - name: N8N_PROTOCOL\n              value: https\n            - name: WEBHOOK_URL\n              value: https://n8n.example.com/\n            - name: NODE_FUNCTION_ALLOW_BUILTIN\n              value: '*'\n            - name: N8N_DEFAULT_BINARY_DATA_MODE\n              value: default\n            - name: EXECUTIONS_MODE\n              value: queue\n            - name: QUEUE_BULL_REDIS_HOST\n              value: n8n-redis\n            - name: QUEUE_BULL_REDIS_PORT\n              value: '6379'\n            - name: QUEUE_HEALTH_CHECK_ACTIVE\n              value: 'true'\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 2000m\n          livenessProbe:\n            httpGet:\n              path: /healthz\n              port: 5678\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /healthz\n              port: 5678\n            initialDelaySeconds: 20\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: n8n-worker\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: n8n-worker\n  ports:\n    - port: 5678\n      targetPort: 5678\n    - port: 80\n      targetPort: 5678\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: n8n-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: n8n.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: n8n\n                port:\n                  number: 5678\n  tls:\n    - hosts:\n        - n8n.example.com\n      secretName: n8n-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'nextcloud',
+    name: '@r8s/nextcloud',
+    title: 'nextcloud',
+    description:
+      'Nextcloud file cloud — Postgres file index, Redis cache, S3-compatible primary storage, cron background jobs',
+    category: 'File & Collaboration',
+    keywords: ['nextcloud', 'files', 'collaboration', 'calendar'],
+    components: [
+      {
+        name: 'Nextcloud',
+        description:
+          'Nextcloud — self-hosted file cloud with Postgres, Redis, S3 primary storage and background cron jobs.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'nextcloud')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description:
+              "Container image tag (defaults to '31-apache' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the web UI and WebDAV (required)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description:
+              'Number of replicas. Safe to scale beyond 1 when `objectStorage` is configured (file blobs live in S3) and `cache` is enabled — Nextcloud becomes effectively stateless. Requires a StorageClass with ReadWriteMany support for the /var/www/html claim.',
+          },
+          {
+            name: 'cache',
+            type: 'boolean',
+            required: false,
+            description:
+              'Provision a Redis replication set for file locking and caching (default: true)',
+          },
+          {
+            name: 'storage',
+            type: 'string',
+            required: false,
+            description:
+              "Size of the PersistentVolumeClaim backing /var/www/html (defaults to '10Gi'). Apps, config and the data directory all live in this tree.",
+          },
+          {
+            name: 'storageClassName',
+            type: 'string',
+            required: false,
+            description:
+              'StorageClass for the /var/www/html PersistentVolumeClaim. Must provide ReadWriteMany when `replicas` > 1 (e.g. NFS or EFS). Defaults to the cluster default StorageClass when omitted.',
+          },
+          {
+            name: 'objectStorage',
+            type: '{ endpoint: string, bucket: string, credentialsSecret: string, region?: string, port?: number, ssl?: boolean }',
+            required: false,
+            description:
+              'S3-compatible object storage used as primary storage for files (RustFS in the platform). Reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
+          },
+          {
+            name: 'secretsName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret holding the Nextcloud app secrets (key: adminPassword). Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions them automatically. Plaintext admin passwords are not supported.',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { Nextcloud } from '@r8s/nextcloud'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Nextcloud\n      name=\"cloud\"\n      host=\"cloud.example.com\"\n      objectStorage={{\n        endpoint: 's3.internal.example.com',\n        bucket: 'cloud-files',\n        credentialsSecret: 'cloud-files-credentials',\n      }}\n    />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: cloud-secrets\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/cloud/secrets\n  destination:\n    create: true\n    name: cloud-app-secrets\n---\napiVersion: redis.redis.opstreelabs.in/v1beta2\nkind: RedisReplication\nmetadata:\n  name: cloud-redis\n  namespace: default\nspec:\n  clusterSize: 3\n  kubernetesConfig:\n    image: redis:7.2-alpine\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: cloud-html\n  namespace: default\n  labels:\n    app: cloud\nspec:\n  accessModes:\n    - ReadWriteMany\n  resources:\n    requests:\n      storage: 10Gi\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: cloud\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: cloud\n      owner: cloud\n      secret:\n        name: cloud-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: cloud-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/cloud\n  destination:\n    create: true\n    name: cloud-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: cloud\n  namespace: default\n  labels:\n    app: cloud\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: cloud\n  template:\n    metadata:\n      labels:\n        app: cloud\n    spec:\n      containers:\n        - name: app\n          image: nextcloud:31-apache\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 80\n          env:\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: cloud-db-credentials\n                  key: password\n            - name: NEXTCLOUD_ADMIN_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: cloud-app-secrets\n                  key: adminPassword\n            - name: AWS_ACCESS_KEY_ID\n              valueFrom:\n                secretKeyRef:\n                  name: cloud-files-credentials\n                  key: accessKey\n            - name: AWS_SECRET_ACCESS_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: cloud-files-credentials\n                  key: secretKey\n            - name: POSTGRES_HOST\n              value: cloud-rw\n            - name: POSTGRES_PORT\n              value: '5432'\n            - name: POSTGRES_DB\n              value: cloud\n            - name: POSTGRES_USER\n              value: cloud\n            - name: POSTGRES_PASSWORD\n              value: $(PGPASSWORD)\n            - name: NEXTCLOUD_ADMIN_USER\n              value: admin\n            - name: NEXTCLOUD_TRUSTED_DOMAINS\n              value: cloud.example.com\n            - name: OVERWRITEHOST\n              value: cloud.example.com\n            - name: OVERWRITEPROTOCOL\n              value: https\n            - name: OVERWRITECLIURL\n              value: https://cloud.example.com\n            - name: REDIS_HOST\n              value: cloud-redis\n            - name: REDIS_HOST_PORT\n              value: '6379'\n            - name: OBJECTSTORE_S3_HOST\n              value: s3.internal.example.com\n            - name: OBJECTSTORE_S3_BUCKET\n              value: cloud-files\n            - name: OBJECTSTORE_S3_REGION\n              value: us-east-1\n            - name: OBJECTSTORE_S3_SSL\n              value: 'true'\n            - name: OBJECTSTORE_S3_USEPATH_STYLE\n              value: 'true'\n            - name: OBJECTSTORE_S3_AUTOCREATE\n              value: 'true'\n            - name: OBJECTSTORE_S3_KEY\n              value: $(AWS_ACCESS_KEY_ID)\n            - name: OBJECTSTORE_S3_SECRET\n              value: $(AWS_SECRET_ACCESS_KEY)\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /status.php\n              port: 80\n            initialDelaySeconds: 30\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /status.php\n              port: 80\n            initialDelaySeconds: 20\n            periodSeconds: 10\n            failureThreshold: 5\n          volumeMounts:\n            - name: html\n              mountPath: /var/www/html\n      volumes:\n        - name: html\n          persistentVolumeClaim:\n            claimName: cloud-html\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: cloud\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: cloud\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: batch/v1\nkind: CronJob\nmetadata:\n  name: cloud-cron\n  namespace: default\nspec:\n  schedule: '*/5 * * * *'\n  concurrencyPolicy: Forbid\n  successfulJobsHistoryLimit: 1\n  failedJobsHistoryLimit: 1\n  jobTemplate:\n    spec:\n      backoffLimit: 2\n      template:\n        metadata:\n          labels:\n            app: cloud-cron\n        spec:\n          restartPolicy: OnFailure\n          containers:\n            - name: nextcloud-cron\n              image: nextcloud:31-apache\n              command:\n                - php\n                - '-f'\n                - /var/www/html/cron.php\n              env:\n                - name: POSTGRES_HOST\n                  value: cloud-rw\n                - name: POSTGRES_PORT\n                  value: '5432'\n                - name: POSTGRES_DB\n                  value: cloud\n                - name: POSTGRES_USER\n                  value: cloud\n                - name: PGPASSWORD\n                  valueFrom:\n                    secretKeyRef:\n                      name: cloud-db-credentials\n                      key: password\n                - name: REDIS_HOST\n                  value: cloud-redis\n              resources:\n                requests:\n                  memory: 128Mi\n                  cpu: 100m\n                limits:\n                  memory: 512Mi\n                  cpu: 500m\n              volumeMounts:\n                - name: html\n                  mountPath: /var/www/html\n          volumes:\n            - name: html\n              persistentVolumeClaim:\n                claimName: cloud-html\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: cloud-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: cloud.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: cloud\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - cloud.example.com\n      secretName: cloud-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'outline',
+    name: '@r8s/outline',
+    title: 'outline',
+    description:
+      'Outline wiki — Postgres persistence, Redis queue, S3 attachments, OIDC SSO via Keycloak',
+    category: 'Knowledge & Documentation',
+    keywords: ['outline', 'wiki', 'documentation', 'knowledge'],
+    components: [
+      {
+        name: 'Outline',
+        description: 'Outline — team wiki with Postgres, Redis, S3 attachments and OIDC SSO.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'outline')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "Container image tag (defaults to 'latest' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the wiki',
+          },
+          {
+            name: 'storage',
+            type: 'string',
+            required: false,
+            description: "Storage request for the CNPG Postgres cluster (defaults to '10Gi')",
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description: 'Number of replicas (Outline is stateless — scale freely)',
+          },
+          {
+            name: 'cache',
+            type: 'boolean',
+            required: false,
+            description:
+              'Provision a Redis cluster for the queue and rate limiting (default: true)',
+          },
+          {
+            name: 'objectStorage',
+            type: '{ endpoint: string, bucket: string, credentialsSecret: string, region?: string }',
+            required: false,
+            description:
+              'S3-compatible object storage for attachments (RustFS in the platform). Reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
+          },
+          {
+            name: 'sso',
+            type: '{ issuer: string, clientId: string, clientSecretRef: SecretRef, scopes?: string }',
+            required: false,
+            description:
+              'OIDC SSO client — register Outline as a client in Keycloak (the Auth recipe) and reference the client secret through the backend.',
+          },
+          {
+            name: 'secretsName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret holding `secretKey` and `utilsSecret`. Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions them.',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { Outline } from '@r8s/outline'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Outline\n      name=\"wiki\"\n      host=\"wiki.example.com\"\n      objectStorage={{\n        endpoint: 'https://s3.internal.example.com',\n        bucket: 'wiki-attachments',\n        credentialsSecret: 'wiki-attachments-credentials',\n      }}\n      sso={{\n        issuer: 'https://keycloak.example.com/realms/platform',\n        clientId: 'outline',\n        clientSecretRef: { secret: 'outline-sso', key: 'clientSecret' },\n      }}\n    />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: wiki-secrets\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/wiki/secrets\n  destination:\n    create: true\n    name: wiki-app-secrets\n---\napiVersion: redis.redis.opstreelabs.in/v1beta2\nkind: RedisReplication\nmetadata:\n  name: wiki-redis\n  namespace: default\nspec:\n  clusterSize: 3\n  kubernetesConfig:\n    image: redis:7.2-alpine\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: wiki\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: wiki\n      owner: wiki\n      secret:\n        name: wiki-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: wiki-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/wiki\n  destination:\n    create: true\n    name: wiki-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: wiki\n  namespace: default\n  labels:\n    app: wiki\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: wiki\n  template:\n    metadata:\n      labels:\n        app: wiki\n    spec:\n      containers:\n        - name: app\n          image: outlinewiki/outline:latest\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 3000\n          env:\n            - name: SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: wiki-app-secrets\n                  key: secretKey\n            - name: UTILS_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: wiki-app-secrets\n                  key: utilsSecret\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: wiki-db-credentials\n                  key: password\n            - name: AWS_ACCESS_KEY_ID\n              valueFrom:\n                secretKeyRef:\n                  name: wiki-attachments-credentials\n                  key: accessKey\n            - name: AWS_SECRET_ACCESS_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: wiki-attachments-credentials\n                  key: secretKey\n            - name: OIDC_CLIENT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: outline-sso\n                  key: clientSecret\n            - name: PORT\n              value: '3000'\n            - name: DATABASE_URL\n              value: postgresql://wiki:$(PGPASSWORD)@wiki-rw:5432/wiki\n            - name: SECRET_KEY\n              value: $(SECRET_KEY)\n            - name: UTILS_SECRET\n              value: $(UTILS_SECRET)\n            - name: URL\n              value: https://wiki.example.com\n            - name: APP_URL\n              value: https://wiki.example.com\n            - name: PROXY_HEADERS_TRUSTED\n              value: 'true'\n            - name: REDIS_URL\n              value: redis://wiki-redis:6379\n            - name: FILE_STORAGE\n              value: s3\n            - name: AWS_REGION\n              value: us-east-1\n            - name: AWS_S3_UPLOAD_BUCKET_URL\n              value: https://s3.internal.example.com/wiki-attachments\n            - name: AWS_S3_UPLOAD_BUCKET_NAME\n              value: wiki-attachments\n            - name: AWS_S3_FORCE_PATH_STYLE\n              value: 'true'\n            - name: AWS_S3_ACL\n              value: private\n            - name: OIDC_ISSUER\n              value: https://keycloak.example.com/realms/platform\n            - name: OIDC_CLIENT_ID\n              value: outline\n            - name: OIDC_CLIENT_SECRET\n              value: $(OIDC_CLIENT_SECRET)\n            - name: OIDC_SCOPES\n              value: openid email profile\n            - name: OIDC_AUTH_URI\n              value: $(OIDC_ISSUER)/protocol/openid-connect/auth\n            - name: OIDC_TOKEN_URI\n              value: $(OIDC_ISSUER)/protocol/openid-connect/token\n            - name: OIDC_USERINFO_URI\n              value: $(OIDC_ISSUER)/protocol/openid-connect/userinfo\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 15\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: wiki\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: wiki\n  ports:\n    - port: 3000\n      targetPort: 3000\n    - port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: wiki-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: wiki.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: wiki\n                port:\n                  number: 3000\n  tls:\n    - hosts:\n        - wiki.example.com\n      secretName: wiki-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'chromadb',
+    name: '@r8s/chromadb',
+    title: 'chromadb',
+    description:
+      'ChromaDB vector database — persistent storage, optional Postgres metadata backend, token auth, CPU autoscaling',
+    category: 'AI & Embeddings',
+    keywords: ['chromadb', 'vector-database', 'embeddings', 'rag'],
+    components: [
+      {
+        name: 'ChromaDb',
+        description: 'ChromaDB — open-source vector database for AI embeddings.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'chromadb')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "Container image tag (defaults to 'latest' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the vector API (required)',
+          },
+          {
+            name: 'port',
+            type: 'number',
+            required: false,
+            description: 'Port Chroma listens on (defaults to 8000)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description:
+              'Number of replicas (defaults to 1). The embedded data PVC is ReadWriteOnce — extra replicas on other nodes cause Multi-Attach errors; scale out only with a ReadWriteMany StorageClass via `storageClassName` (required for `autoscaling`).',
+          },
+          {
+            name: 'storage',
+            type: 'string',
+            required: false,
+            description:
+              "Persistent storage size for the embedded data volume (defaults to '50Gi')",
+          },
+          {
+            name: 'storageClassName',
+            type: 'string',
+            required: false,
+            description:
+              'StorageClass for the data PersistentVolumeClaim (optional — cluster default)',
+          },
+          {
+            name: 'probePath',
+            type: 'string',
+            required: false,
+            description:
+              "HTTP path for liveness/readiness probes (defaults to '/api/v2/heartbeat' — the current image API). Set '/api/v1/heartbeat' for older images still serving the v1 API.",
+          },
+          {
+            name: 'auth',
+            type: 'boolean',
+            required: false,
+            description: 'Require token authentication for the server (defaults to false)',
+          },
+          {
+            name: 'authTokenSecretName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret holding key `token` — the Chroma server auth credential. Required when `auth` is true, unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions the token at path `<path>/<name>/auth-token` (key: token). Plaintext credentials are not supported.',
+          },
+          {
+            name: 'autoscaling',
+            type: 'boolean',
+            required: false,
+            description:
+              'Autoscale the Deployment via a CPU-based HorizontalPodAutoscaler (defaults to false)',
+          },
+          {
+            name: 'pg',
+            type: 'boolean',
+            required: false,
+            description:
+              'Provision a CNPG Postgres cluster as the metadata store (defaults to false)',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: 'import { ChromaDb } from \'@r8s/chromadb\'\n\nexport default <ChromaDb name="vectors" host="vectors.example.com" />\n',
+            yaml: "apiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: vectors-data\n  namespace: default\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 50Gi\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: vectors\n  namespace: default\n  labels:\n    app: vectors\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: vectors\n  template:\n    metadata:\n      labels:\n        app: vectors\n    spec:\n      containers:\n        - name: chroma\n          image: ghcr.io/chroma-core/chroma:latest\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 8000\n          env:\n            - name: CHROMA_SERVER_HTTP_PORT\n              value: '8000'\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          volumeMounts:\n            - name: data\n              mountPath: /data\n          livenessProbe:\n            httpGet:\n              path: /api/v2/heartbeat\n              port: 8000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /api/v2/heartbeat\n              port: 8000\n            initialDelaySeconds: 5\n            periodSeconds: 5\n      volumes:\n        - name: data\n          persistentVolumeClaim:\n            claimName: vectors-data\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: vectors\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: vectors\n  ports:\n    - name: http\n      port: 8000\n      targetPort: 8000\n      protocol: TCP\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: vectors-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: vectors.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: vectors\n                port:\n                  number: 8000\n  tls:\n    - hosts:\n        - vectors.example.com\n      secretName: vectors-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'supabase',
+    name: '@r8s/supabase',
+    title: 'supabase',
+    description:
+      'Supabase backend platform — Postgres core with GoTrue auth, PostgREST, Realtime, Storage API (S3/RustFS) and ImgProxy. This is Supabase, NOT Apache Superset.',
+    category: 'Backend Platforms',
+    keywords: ['supabase', 'postgres', 'auth', 'realtime', 'storage'],
+    components: [
+      {
+        name: 'Supabase',
+        description:
+          'Supabase — open-source Firebase alternative: auth, REST, realtime and storage on Postgres. This is the Supabase backend platform, NOT Apache Superset (which ships in the separate r8s/superset package).',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name — base for every derived resource (defaults to 'supabase')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the REST API root — PostgREST (required)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description:
+              'Replicas per service (defaults to 1; PostgREST/GoTrue scale horizontally)',
+          },
+          {
+            name: 'storage',
+            type: 'string',
+            required: false,
+            description: "Postgres cluster storage size for the Database core (defaults to '10Gi')",
+          },
+          {
+            name: 'storageApi',
+            type: 'boolean',
+            required: false,
+            description:
+              'Render the Storage API service (defaults to true). Set false to run a minimal auth + REST-only Supabase. The S3 objectStorage prop is always required so a bucket is declared for the platform.',
+          },
+          {
+            name: 'objectStorage',
+            type: '{ endpoint: string, bucket: string, credentialsSecret: string }',
+            required: true,
+            description:
+              'S3-compatible object storage for the Storage API (RustFS in the platform). Reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
+          },
+          {
+            name: 'region',
+            type: 'string',
+            required: false,
+            description:
+              "S3 region reported to the Storage API (GLOBAL_S3_REGION, defaults to 'us-east-1'). For S3-compatible stores like RustFS any consistent region works — keep it aligned with the provider's default.",
+          },
+          {
+            name: 'jwtSecretsName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret holding the Supabase JWT bundle with keys `jwtSecret`, `anonKey`, `serviceRoleKey` and `referrerURLs`. Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions the bundle at path `<path>/<name>/jwt`. Plaintext JWT secrets are not supported.',
+          },
+          {
+            name: 'uriAllowList',
+            type: 'string | string[]',
+            required: false,
+            description:
+              "Additional redirect URLs GoTrue may send users to after signup, magic-link or OAuth flows (GOTRUE_URI_ALLOW_LIST). The site URL is always allowed; pass a list (joined with ',') or a pre-joined string.",
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested resources — applied to every service in the suite',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { Supabase } from '@r8s/supabase'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Supabase\n      name=\"backend\"\n      host=\"backend.example.com\"\n      objectStorage={{\n        endpoint: 'https://s3.internal.example.com',\n        bucket: 'backend-uploads',\n        credentialsSecret: 'backend-object-store-credentials',\n      }}\n    />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: backend-jwt\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/backend/jwt\n  destination:\n    create: true\n    name: backend-jwt\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: backend\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: backend\n      owner: backend\n      secret:\n        name: backend-db-credentials\n      postInitApplicationSQL:\n        - CREATE EXTENSION IF NOT EXISTS pgcrypto;\n        - CREATE EXTENSION IF NOT EXISTS pgjwt;\n        - CREATE ROLE anon NOLOGIN;\n        - CREATE ROLE authenticated NOLOGIN;\n        - CREATE ROLE service_role NOLOGIN;\n        - CREATE ROLE authenticator NOLOGIN;\n        - GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;\n        - CREATE SCHEMA IF NOT EXISTS auth;\n        - CREATE SCHEMA IF NOT EXISTS storage;\n        - CREATE SCHEMA IF NOT EXISTS realtime;\n        - GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;\n        - GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;\n        - GRANT USAGE ON SCHEMA realtime TO anon, authenticated, service_role;\n        - GRANT anon TO authenticator;\n        - GRANT authenticated TO authenticator;\n        - GRANT service_role TO authenticator;\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: backend-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/backend\n  destination:\n    create: true\n    name: backend-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend-gotrue\n  namespace: default\n  labels:\n    app: backend-gotrue\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: backend-gotrue\n  template:\n    metadata:\n      labels:\n        app: backend-gotrue\n    spec:\n      containers:\n        - name: app\n          image: supabase/gotrue:v2\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 9999\n          env:\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: backend-db-credentials\n                  key: password\n            - name: GOTRUE_JWT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: backend-jwt\n                  key: jwtSecret\n            - name: GOTRUE_API_HOST\n              value: 0.0.0.0\n            - name: GOTRUE_API_PORT\n              value: '9999'\n            - name: GOTRUE_SITE_URL\n              value: https://backend.example.com\n            - name: API_EXTERNAL_URL\n              value: https://backend.example.com\n            - name: GOTRUE_DB_DRIVER\n              value: postgres\n            - name: GOTRUE_DB_DATABASE_URL\n              value: postgresql://backend:$(PGPASSWORD)@backend-rw:5432/backend\n            - name: GOTRUE_JWT_ISSUER\n              value: https://backend.example.com/auth/v1\n            - name: GOTRUE_JWT_ADMIN_ROLES\n              value: service_role\n            - name: GOTRUE_JWT_AUD\n              value: authenticated\n            - name: GOTRUE_JWT_DEFAULT_GROUP_NAME\n              value: authenticated\n            - name: GOTRUE_JWT_EXP\n              value: '3600'\n            - name: PGHOST\n              value: backend-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: backend\n            - name: PGUSER\n              value: backend\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: backend-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 9999\n            initialDelaySeconds: 15\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /health\n              port: 9999\n            initialDelaySeconds: 15\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: backend-gotrue\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: backend-gotrue\n  ports:\n    - port: 9999\n      targetPort: 9999\n    - port: 80\n      targetPort: 9999\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend-postgrest\n  namespace: default\n  labels:\n    app: backend-postgrest\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: backend-postgrest\n  template:\n    metadata:\n      labels:\n        app: backend-postgrest\n    spec:\n      containers:\n        - name: app\n          image: postgrest/postgrest:v12\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 3000\n          env:\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: backend-db-credentials\n                  key: password\n            - name: PGRST_JWT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: backend-jwt\n                  key: jwtSecret\n            - name: PGRST_SERVER_PORT\n              value: '3000'\n            - name: PGRST_DB_URI\n              value: postgresql://backend:$(PGPASSWORD)@backend-rw:5432/backend\n            - name: PGRST_DB_SCHEMAS\n              value: public,storage,graphql_public\n            - name: PGRST_DB_ANON_ROLE\n              value: anon\n            - name: PGRST_DB_USE_LEGACY_GUCS\n              value: 'false'\n            - name: PGHOST\n              value: backend-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: backend\n            - name: PGUSER\n              value: backend\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: backend-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: backend-postgrest\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: backend-postgrest\n  ports:\n    - port: 3000\n      targetPort: 3000\n    - port: 80\n      targetPort: 3000\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend-realtime\n  namespace: default\n  labels:\n    app: backend-realtime\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: backend-realtime\n  template:\n    metadata:\n      labels:\n        app: backend-realtime\n    spec:\n      containers:\n        - name: app\n          image: supabase/realtime:v2\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 4000\n          env:\n            - name: DB_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: backend-db-credentials\n                  key: password\n            - name: API_JWT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: backend-jwt\n                  key: jwtSecret\n            - name: PORT\n              value: '4000'\n            - name: DB_HOST\n              value: backend-rw\n            - name: DB_PORT\n              value: '5432'\n            - name: DB_USER\n              value: backend\n            - name: DB_NAME\n              value: backend\n            - name: DB_ENC_KEY\n              value: supabaserealtime\n            - name: SECURE_CHANNELS\n              value: 'true'\n            - name: PGHOST\n              value: backend-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: backend\n            - name: PGUSER\n              value: backend\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: backend-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 4000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /health\n              port: 4000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: backend-realtime\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: backend-realtime\n  ports:\n    - port: 4000\n      targetPort: 4000\n    - port: 80\n      targetPort: 4000\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend-storage-api\n  namespace: default\n  labels:\n    app: backend-storage-api\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: backend-storage-api\n  template:\n    metadata:\n      labels:\n        app: backend-storage-api\n    spec:\n      containers:\n        - name: app\n          image: supabase/storage-api:v0\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 5000\n          env:\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: backend-db-credentials\n                  key: password\n            - name: PGRST_JWT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: backend-jwt\n                  key: jwtSecret\n            - name: ANON_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: backend-jwt\n                  key: anonKey\n            - name: SERVICE_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: backend-jwt\n                  key: serviceRoleKey\n            - name: GLOBAL_S3_ACCESS_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: backend-object-store-credentials\n                  key: accessKey\n            - name: GLOBAL_S3_SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: backend-object-store-credentials\n                  key: secretKey\n            - name: PORT\n              value: '5000'\n            - name: DATABASE_URL\n              value: postgresql://backend:$(PGPASSWORD)@backend-rw:5432/backend\n            - name: STORAGE_BACKEND\n              value: s3\n            - name: GLOBAL_S3_BUCKET\n              value: backend-uploads\n            - name: GLOBAL_S3_ENDPOINT\n              value: https://s3.internal.example.com\n            - name: GLOBAL_S3_REGION\n              value: us-east-1\n            - name: GLOBAL_S3_FORCE_PATH_STYLE\n              value: 'true'\n            - name: IMGPROXY_URL\n              value: http://backend-imgproxy:8080\n            - name: FILE_SIZE_LIMIT\n              value: 50GiB\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /status\n              port: 5000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /status\n              port: 5000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: backend-storage-api\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: backend-storage-api\n  ports:\n    - port: 5000\n      targetPort: 5000\n    - port: 80\n      targetPort: 5000\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend-imgproxy\n  namespace: default\n  labels:\n    app: backend-imgproxy\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: backend-imgproxy\n  template:\n    metadata:\n      labels:\n        app: backend-imgproxy\n    spec:\n      containers:\n        - name: app\n          image: darthsim/imgproxy:v3\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 8080\n          env:\n            - name: IMGPROXY_ALLOW_ORIGIN\n              value: '*'\n            - name: IMGPROXY_ENABLE_WEBP_DETECTION\n              value: 'true'\n            - name: IMGPROXY_MAX_SRC_RESOLUTION\n              value: '50'\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 8080\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /health\n              port: 8080\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: backend-imgproxy\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: backend-imgproxy\n  ports:\n    - port: 8080\n      targetPort: 8080\n    - port: 80\n      targetPort: 8080\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: backend-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: backend.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: backend-postgrest\n                port:\n                  number: 3000\n  tls:\n    - hosts:\n        - backend.example.com\n      secretName: backend-tls\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: backend-auth-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: backend.example.com\n      http:\n        paths:\n          - path: /auth/v1\n            pathType: Prefix\n            backend:\n              service:\n                name: backend-gotrue\n                port:\n                  number: 9999\n  tls:\n    - hosts:\n        - backend.example.com\n      secretName: backend-tls\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: backend-rest-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: backend.example.com\n      http:\n        paths:\n          - path: /rest/v1\n            pathType: Prefix\n            backend:\n              service:\n                name: backend-postgrest\n                port:\n                  number: 3000\n  tls:\n    - hosts:\n        - backend.example.com\n      secretName: backend-tls\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: backend-realtime-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\n    nginx.ingress.kubernetes.io/proxy-buffering: 'off'\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'\n    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: backend.example.com\n      http:\n        paths:\n          - path: /realtime/v1\n            pathType: Prefix\n            backend:\n              service:\n                name: backend-realtime\n                port:\n                  number: 4000\n  tls:\n    - hosts:\n        - backend.example.com\n      secretName: backend-tls\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: backend-storage-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: backend.example.com\n      http:\n        paths:\n          - path: /storage/v1\n            pathType: Prefix\n            backend:\n              service:\n                name: backend-storage-api\n                port:\n                  number: 5000\n  tls:\n    - hosts:\n        - backend.example.com\n      secretName: backend-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'odoo',
+    name: '@r8s/odoo',
+    title: 'odoo',
+    description:
+      'Odoo ERP — Postgres persistence, filestore PVC, worker tuning, master password via secrets backend',
+    category: 'Business Applications',
+    keywords: ['odoo', 'erp', 'crm', 'business'],
+    components: [
+      {
+        name: 'Odoo',
+        description: 'Odoo — open-source ERP / business applications suite.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'odoo')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "Container image tag (defaults to '18' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the ERP web UI (required)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description:
+              'Number of replicas. Must stay at 1 — the filestore PVC is ReadWriteOnce and cannot attach to multiple pods (defaults to 1).',
+          },
+          {
+            name: 'filestore',
+            type: 'string',
+            required: false,
+            description:
+              "Size of the filestore PersistentVolumeClaim (defaults to '20Gi'). Odoo stores attachments and binary fields here.",
+          },
+          {
+            name: 'workers',
+            type: 'number',
+            required: false,
+            description:
+              'Odoo process-level worker processes, rendered into odoo.conf (defaults to 2). Rule of thumb: (CPU threads * 2) + 1, accounting for cron workers.',
+          },
+          {
+            name: 'masterPasswordSecretName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret containing key `masterPassword`. Odoo requires this to manage the super-admin (`/web/database/manager`). Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions the password automatically. Plaintext passwords are not supported.',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { Odoo } from '@r8s/odoo'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Odoo name=\"erp\" host=\"erp.example.com\" workers={4} />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: erp-master-password\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/erp/master\n  destination:\n    create: true\n    name: erp-master-password\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: erp-config\n  namespace: default\n  labels:\n    app: erp\ndata:\n  odoo.conf: |\n    [options]\n    proxy_mode = True\n    workers = 4\n    limit_memory_hard = 2147483648\n    limit_memory_soft = 1717986918\n    max_requests = 80\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: erp-filestore\n  namespace: default\n  labels:\n    app: erp\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 20Gi\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: erp\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: erp\n      owner: erp\n      secret:\n        name: erp-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: erp-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/erp\n  destination:\n    create: true\n    name: erp-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: erp\n  namespace: default\n  labels:\n    app: erp\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: erp\n  template:\n    metadata:\n      labels:\n        app: erp\n    spec:\n      containers:\n        - name: odoo\n          image: odoo:18\n          ports:\n            - name: http\n              containerPort: 8069\n          env:\n            - name: MASTER_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: erp-master-password\n                  key: masterPassword\n            - name: DB_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: erp-db-credentials\n                  key: password\n            - name: DB_HOST\n              value: erp-rw\n            - name: DB_PORT\n              value: '5432'\n            - name: DB_USER\n              value: erp\n            - name: ODOO_DB\n              value: erp\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /web/health\n              port: 8069\n            initialDelaySeconds: 60\n            periodSeconds: 30\n          readinessProbe:\n            httpGet:\n              path: /web/health\n              port: 8069\n            initialDelaySeconds: 30\n            periodSeconds: 10\n          volumeMounts:\n            - name: filestore\n              mountPath: /var/lib/odoo\n            - name: config\n              mountPath: /etc/odoo/odoo.conf\n              subPath: odoo.conf\n      volumes:\n        - name: filestore\n          persistentVolumeClaim:\n            claimName: erp-filestore\n        - name: config\n          configMap:\n            name: erp-config\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: erp\n  namespace: default\n  labels:\n    app: erp\nspec:\n  type: ClusterIP\n  selector:\n    app: erp\n  ports:\n    - name: http\n      port: 8069\n      targetPort: 8069\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: erp-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: erp.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: erp\n                port:\n                  number: 8069\n  tls:\n    - hosts:\n        - erp.example.com\n      secretName: erp-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'open-webui',
+    name: '@r8s/open-webui',
+    title: 'open-webui',
+    description:
+      'Open WebUI — chat frontend for OpenAI-compatible backends, Postgres persistence, uploads/RAG storage, OIDC SSO, optional Redis cache',
+    category: 'AI & Chat',
+    keywords: ['open-webui', 'chat', 'llm', 'ai'],
+    components: [
+      {
+        name: 'OpenWebui',
+        description: 'Open WebUI — self-hosted chat frontend for OpenAI-compatible backends.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'open-webui')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "Container image tag (defaults to 'latest' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the chat UI (required)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description:
+              'Number of replicas (defaults to 1). Multiple replicas need a shared object store for uploads/RAG (this recipe errors when `storage` is set with replicas > 1 — its PVC is ReadWriteOnce) and Redis-backed websocket coordination (WEBSOCKET_MANAGER=redis + REDIS_URL).',
+          },
+          {
+            name: 'storage',
+            type: 'string',
+            required: false,
+            description:
+              "PVC size for uploads and RAG document storage (e.g. '10Gi'). When set, a `${name}-uploads` PersistentVolumeClaim is rendered and mounted at /app/backend/data. WebService cannot express volume mounts, which is why this component composes a raw Deployment (probes /health:8080). The PVC is ReadWriteOnce — combining this with replicas > 1 throws (single-node attach); multi-replica installs must move files/RAG to an S3-compatible store and set WEBSOCKET_MANAGER=redis.",
+          },
+          {
+            name: 'backend',
+            type: 'string',
+            required: false,
+            description:
+              "OpenAI-compatible API base URL for the model backend (defaults to 'https://api.berget.ai/v1'). The key itself is never passed as a prop — it arrives via secretKeyRef from the secrets bundle below.",
+          },
+          {
+            name: 'secretsName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret holding `modelApiKey` (the key used to call `backend`) and `secretKey` (the WEBUI_SECRET_KEY used to sign auth tokens). Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions both keys automatically. Plaintext keys are not supported.',
+          },
+          {
+            name: 'sso',
+            type: '{ issuer: string, clientId: string, clientSecretRef: SecretRef, scopes?: string }',
+            required: false,
+            description:
+              'OAuth/OIDC SSO client — register Open WebUI as a client in Keycloak (the Auth recipe) and reference the client secret through the backend. Uses the upstream OAUTH_* env names; OPENID_PROVIDER_URL carries the issuer (Open WebUI appends /.well-known/openid-configuration itself).',
+          },
+          {
+            name: 'cache',
+            type: 'boolean',
+            required: false,
+            description:
+              'Provision a redis-backed replication group for caching/events (default: false)',
+          },
+          {
+            name: 'offline',
+            type: 'boolean',
+            required: false,
+            description:
+              'Air-gapped installs: sets OFFLINE_MODE (disable runtime model/param fetches), removes the update checks and disables the native Ollama API — only OpenAI-compatible backends are served (default: false).',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { OpenWebui } from '@r8s/open-webui'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <OpenWebui name=\"chat\" host=\"chat.example.com\" version=\"v0.6.5\" storage=\"10Gi\" />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: chat-secrets\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/chat/secrets\n  destination:\n    create: true\n    name: chat-secrets\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: chat-uploads\n  namespace: default\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 10Gi\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: chat\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: chat\n      owner: chat\n      secret:\n        name: chat-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: chat-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/chat\n  destination:\n    create: true\n    name: chat-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: chat\n  namespace: default\n  labels:\n    app: chat\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: chat\n  template:\n    metadata:\n      labels:\n        app: chat\n    spec:\n      containers:\n        - name: open-webui\n          image: ghcr.io/open-webui/open-webui:v0.6.5\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 8080\n          env:\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: chat-db-credentials\n                  key: password\n            - name: OPENAI_API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: chat-secrets\n                  key: modelApiKey\n            - name: WEBUI_SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: chat-secrets\n                  key: secretKey\n            - name: WEBUI_URL\n              value: https://chat.example.com\n            - name: ENABLE_OPENAI_API\n              value: 'true'\n            - name: ENABLE_OLLAMA_API\n              value: 'false'\n            - name: OPENAI_API_BASE_URL\n              value: https://api.berget.ai/v1\n            - name: DATABASE_URL\n              value: postgresql://chat:$(PGPASSWORD)@chat-rw:5432/chat\n          resources:\n            requests:\n              memory: 1Gi\n              cpu: 500m\n            limits:\n              memory: 4Gi\n              cpu: 2000m\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 8080\n            initialDelaySeconds: 30\n            periodSeconds: 10\n            failureThreshold: 6\n          readinessProbe:\n            httpGet:\n              path: /health\n              port: 8080\n            initialDelaySeconds: 30\n            periodSeconds: 5\n            failureThreshold: 6\n          volumeMounts:\n            - name: uploads\n              mountPath: /app/backend/data\n      volumes:\n        - name: uploads\n          persistentVolumeClaim:\n            claimName: chat-uploads\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: chat\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: chat\n  ports:\n    - port: 8080\n      targetPort: 8080\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: chat-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'\n    nginx.ingress.kubernetes.io/proxy-send-timeout: '300'\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: chat.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: chat\n                port:\n                  number: 8080\n  tls:\n    - hosts:\n        - chat.example.com\n      secretName: chat-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'librechat',
+    name: '@r8s/librechat',
+    title: 'librechat',
+    description:
+      'LibreChat multi-model AI chat — MongoDB (provisioned externally), Redis sessions, optional Meilisearch, OIDC SSO',
+    category: 'AI & Chat',
+    keywords: ['librechat', 'chat', 'llm', 'rag'],
+    components: [
+      {
+        name: 'LibreChat',
+        description:
+          'LibreChat — multi-model AI chat UI with external MongoDB, Redis sessions, optional Meilisearch and OIDC SSO.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'librechat')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "Container image tag (defaults to 'latest' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the chat UI (required)',
+          },
+          {
+            name: 'port',
+            type: 'number',
+            required: false,
+            description: 'Port the app listens on in-container (defaults to 3080)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description: 'Number of replicas (defaults to 1)',
+          },
+          {
+            name: 'mongodb',
+            type: 'MongoConnection',
+            required: true,
+            description:
+              'External MongoDB connection (REQUIRED). LibreChat stores users, conversations and messages in MongoDB — this component does NOT provision it. Run MongoDB separately (replica-set StatefulSet, operator or managed service) and point this prop at it.',
+          },
+          {
+            name: 'cache',
+            type: 'boolean',
+            required: false,
+            description: 'Provision a redis replication group for session caching (default: true)',
+          },
+          {
+            name: 'search',
+            type: 'boolean',
+            required: false,
+            description:
+              'Add a Meilisearch sidecar service for full-text / RAG search (default: false). MEILI_MASTER_KEY is shared from the app secrets bundle (key: meiliMasterKey). Sets SEARCH=true on the app so it actually queries the meilisearch instance.',
+          },
+          {
+            name: 'sso',
+            type: '{ issuer: string, clientId: string, clientSecretRef: SecretRef, scopes?: string }',
+            required: false,
+            description:
+              'OIDC SSO client — register LibreChat as a client in Keycloak (the Auth recipe) and reference the client secret through the backend. Uses the upstream OPENID_* env names; ALLOW_SOCIAL_LOGIN plus DOMAIN_SERVER/DOMAIN_CLIENT are set from `host`.',
+          },
+          {
+            name: 'backend',
+            type: 'string',
+            required: false,
+            description:
+              'OpenAI-compatible API base URL for model calls (defaults to https://api.berget.ai/v1)',
+          },
+          {
+            name: 'secretsName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret holding `secretKey`, `modelApiKey`, the multi-user session credentials `jwtSecret`, `jwtRefreshSecret`, `credsKey`, `credsIv` — and `meiliMasterKey` when `search` is enabled. Hex sizing: jwtSecret / jwtRefreshSecret / credsKey are 64 hex chars (32 bytes); credsIv is 32 hex chars (16 bytes — AES-IV). Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions them. Plaintext secrets are not supported.',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { LibreChat } from '@r8s/librechat'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <LibreChat\n      name=\"chat\"\n      host=\"chat.example.com\"\n      mongodb={{ host: 'mongo.data.svc.cluster.local', passwordSecret: 'chat-mongodb-credentials' }}\n      sso={{\n        issuer: 'https://keycloak.example.com/realms/platform',\n        clientId: 'librechat',\n        clientSecretRef: { secret: 'librechat-sso', key: 'clientSecret' },\n      }}\n    />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: chat-secrets\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/chat/secrets\n  destination:\n    create: true\n    name: chat-secrets\n---\napiVersion: redis.redis.opstreelabs.in/v1beta2\nkind: RedisReplication\nmetadata:\n  name: chat-redis\n  namespace: default\nspec:\n  clusterSize: 3\n  kubernetesConfig:\n    image: redis:7.2-alpine\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: chat-config\n  namespace: default\ndata:\n  REFRESH_TOKEN_EXPIRY: '604800'\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: chat\n  namespace: default\n  labels:\n    app: chat\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: chat\n  template:\n    metadata:\n      labels:\n        app: chat\n    spec:\n      containers:\n        - name: app\n          image: ghcr.io/danny-avila/librechat:latest\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 3080\n          env:\n            - name: MONGO_USERNAME\n              valueFrom:\n                secretKeyRef:\n                  name: chat-mongodb-credentials\n                  key: username\n            - name: MONGO_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: chat-mongodb-credentials\n                  key: password\n            - name: SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: chat-secrets\n                  key: secretKey\n            - name: OPENAI_API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: chat-secrets\n                  key: modelApiKey\n            - name: JWT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: chat-secrets\n                  key: jwtSecret\n            - name: JWT_REFRESH_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: chat-secrets\n                  key: jwtRefreshSecret\n            - name: CREDS_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: chat-secrets\n                  key: credsKey\n            - name: CREDS_IV\n              valueFrom:\n                secretKeyRef:\n                  name: chat-secrets\n                  key: credsIv\n            - name: OPENID_CLIENT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: librechat-sso\n                  key: clientSecret\n            - name: HOST\n              value: 0.0.0.0\n            - name: PORT\n              value: '3080'\n            - name: MONGO_URI\n              value: mongodb://$(MONGO_USERNAME):$(MONGO_PASSWORD)@mongo.data.svc.cluster.local:27017/chat\n            - name: OPENAI_REVERSE_PROXY\n              value: https://api.berget.ai/v1/chat/completions\n            - name: USE_REDIS\n              value: 'true'\n            - name: REDIS_URI\n              value: redis://chat-redis:6379\n            - name: ALLOW_SOCIAL_LOGIN\n              value: 'true'\n            - name: DOMAIN_SERVER\n              value: https://chat.example.com\n            - name: DOMAIN_CLIENT\n              value: https://chat.example.com\n            - name: OPENID_ISSUER\n              value: https://keycloak.example.com/realms/platform\n            - name: OPENID_CLIENT_ID\n              value: librechat\n            - name: OPENID_SCOPES\n              value: openid profile email\n            - name: OPENID_CALLBACK_URL\n              value: https://chat.example.com/oauth/openid/callback\n            - name: REFRESH_TOKEN_EXPIRY\n              valueFrom:\n                configMapKeyRef:\n                  name: chat-config\n                  key: REFRESH_TOKEN_EXPIRY\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3080\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3080\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: chat\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: chat\n  ports:\n    - port: 3080\n      targetPort: 3080\n    - port: 80\n      targetPort: 3080\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: chat-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'\n    nginx.ingress.kubernetes.io/proxy-send-timeout: '300'\n    nginx.ingress.kubernetes.io/proxy-buffering: 'off'\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: chat.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: chat\n                port:\n                  number: 3080\n  tls:\n    - hosts:\n        - chat.example.com\n      secretName: chat-tls\n",
+          },
+        ],
+        expandedTypes: [
+          {
+            name: 'MongoConnection',
+            props: [
+              {
+                name: 'host',
+                type: 'string',
+                required: true,
+                description: 'MongoDB host (cluster-internal service or external host)',
+              },
+              {
+                name: 'port',
+                type: 'number',
+                required: false,
+                description: 'MongoDB port (defaults to 27017)',
+              },
+              {
+                name: 'username',
+                type: 'string',
+                required: false,
+                description:
+                  'Database username. Inlined as a plain env var — usernames are\nidentifiers, not secrets (same convention as the n8n/outline DB\nrecipes). When omitted, the username is read from the password\nsecret (key: `username`).',
+              },
+              {
+                name: 'passwordSecret',
+                type: 'string',
+                required: true,
+                description:
+                  'Name of an existing Secret holding the MongoDB credentials.\nKeys: `username`, `password`.',
+              },
+              {
+                name: 'authSource',
+                type: 'string',
+                required: false,
+                description:
+                  "authSource query parameter appended to MONGO_URI when set\n(e.g. 'admin' for databases authenticating against the admin db).",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'eurooffice',
+    name: '@r8s/eurooffice',
+    title: 'eurooffice',
+    description:
+      'EuroOffice collaborative document suite — Postgres persistence, S3 blob storage, LibreOffice conversions, SMTP delivery and websocket collaboration',
+    category: 'Productivity & Documents',
+    keywords: ['eurooffice', 'libreoffice', 'documents', 'conversion'],
+    components: [
+      {
+        name: 'EuroOffice',
+        description: 'EuroOffice — collaborative document suite.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'eurooffice')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "Container image tag (defaults to 'latest' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the document suite (required)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description:
+              'Number of app replicas. With `websockets` enabled (the default) this defaults to **1**: websocket sessions are pinned to the pod that accepted the connection and the workload has no session affinity, so >1 replicas means collaborators on different pods stop seeing each other live. An explicitly set `replicas` is rendered as asked — pair it with a sticky-session (source-IP) ingress strategy for live co-editing. With `websockets: false` the default is 2 (the app is stateless — scale freely).',
+          },
+          {
+            name: 'websockets',
+            type: 'boolean',
+            required: false,
+            description:
+              'Collaborative editing over websockets (default: true). Disable only for single-user or read-only deployments — document presence, cursor sharing and live co-editing all rely on websockets.',
+          },
+          {
+            name: 'objectStorage',
+            type: '{ endpoint: string, bucket: string, credentialsSecret: string, region?: string }',
+            required: true,
+            description:
+              'S3-compatible object storage for document blobs and attachments (RustFS in the platform). Required — reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
+          },
+          {
+            name: 'smtp',
+            type: '{ host: string, port?: number, from?: string }',
+            required: false,
+            description:
+              'Outgoing SMTP for invitations and notifications. The SMTP password is delivered via secretKeyRef from the `${name}-secrets` bundle (key: smtpPassword) — never plaintext.',
+          },
+          {
+            name: 'conversions',
+            type: 'boolean',
+            required: false,
+            description:
+              'LibreOffice headless document-conversion workers (same app image, which must include soffice). Adds a `${name}-soffice` Deployment + Service; the app reaches it at SOFFICE_HOST:SOFFICE_PORT. Workers serve the UNO socket (TCP), not HTTP — their probes probe the socket.',
+          },
+          {
+            name: 'conversionWorkers',
+            type: 'number',
+            required: false,
+            description:
+              'LibreOffice conversion worker replicas (defaults to 1, only used with conversions)',
+          },
+          {
+            name: 'secretsName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret holding `secretKey` and `smtpPassword`. Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions them. Plaintext values are not supported.',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested app resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { EuroOffice } from '@r8s/eurooffice'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <EuroOffice\n      name=\"docs\"\n      host=\"docs.example.com\"\n      objectStorage={{\n        endpoint: 'https://s3.internal.example.com',\n        bucket: 'docs-blobs',\n        credentialsSecret: 'docs-blobs-credentials',\n      }}\n      smtp={{ host: 'smtp.example.com', port: 587, from: 'no-reply@${env:MAIL_DOMAIN}' }}\n    />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: docs-secrets\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/docs/secrets\n  destination:\n    create: true\n    name: docs-secrets\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: docs\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: docs\n      owner: docs\n      secret:\n        name: docs-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: docs-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/docs\n  destination:\n    create: true\n    name: docs-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: docs\n  namespace: default\n  labels:\n    app: docs\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: docs\n  template:\n    metadata:\n      labels:\n        app: docs\n    spec:\n      containers:\n        - name: app\n          image: ghcr.io/berget-ai/eurooffice:latest\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 3000\n          env:\n            - name: APP_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: docs-secrets\n                  key: secretKey\n            - name: SMTP_PASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: docs-secrets\n                  key: smtpPassword\n            - name: AWS_ACCESS_KEY_ID\n              valueFrom:\n                secretKeyRef:\n                  name: docs-blobs-credentials\n                  key: accessKey\n            - name: AWS_SECRET_ACCESS_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: docs-blobs-credentials\n                  key: secretKey\n            - name: PORT\n              value: '3000'\n            - name: APP_URL\n              value: https://docs.example.com\n            - name: WEBSOCKETS_ENABLED\n              value: 'true'\n            - name: AWS_REGION\n              value: us-east-1\n            - name: AWS_S3_UPLOAD_BUCKET_URL\n              value: https://s3.internal.example.com/docs-blobs\n            - name: AWS_S3_UPLOAD_BUCKET_NAME\n              value: docs-blobs\n            - name: AWS_S3_ENDPOINT\n              value: https://s3.internal.example.com\n            - name: AWS_S3_FORCE_PATH_STYLE\n              value: 'true'\n            - name: SMTP_HOST\n              value: smtp.example.com\n            - name: SMTP_PORT\n              value: '587'\n            - name: SMTP_FROM\n              value: no-reply@${env:MAIL_DOMAIN}\n            - name: PGHOST\n              value: docs-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: docs\n            - name: PGUSER\n              value: docs\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: docs-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: docs\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: docs\n  ports:\n    - port: 3000\n      targetPort: 3000\n    - port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: docs-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: docs.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: docs\n                port:\n                  number: 3000\n  tls:\n    - hosts:\n        - docs.example.com\n      secretName: docs-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'paperclip',
+    name: '@r8s/paperclip',
+    title: 'paperclip',
+    description: "Paperclip — Berget's agent platform (tasks, documents, agent orchestration)",
+    category: 'Agent Platforms',
+    keywords: ['paperclip', 'agents', 'documents', 'automation'],
+    components: [
+      {
+        name: 'Paperclip',
+        description: "Paperclip — Berget's agent platform (tasks, documents, agent orchestration).",
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'paperclip')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "Container image tag (defaults to 'latest' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the web app and API (required)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description: 'Number of app replicas (defaults to 2)',
+          },
+          {
+            name: 'dbStorage',
+            type: 'string',
+            required: false,
+            description: "Storage size for the Postgres cluster (defaults to '10Gi')",
+          },
+          {
+            name: 'websockets',
+            type: 'boolean',
+            required: false,
+            description: 'Enable websockets for live task and agent updates (defaults to false)',
+          },
+          {
+            name: 'agents',
+            type: '{ sandboxReplicas?: number, resources?: { requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } } }',
+            required: false,
+            description:
+              'Sandbox agent workers. Workers run the same image with a command override (paperclip agent --sandbox) and share the model API key and database credentials via secretKeyRef. They run with a hardened securityContext (non-root, no privilege escalation, RuntimeDefault seccomp, all capabilities dropped) by default.',
+          },
+          {
+            name: 'secretsName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret containing key `modelApiKey`. Paperclip uses this key to call LLM providers on behalf of agents. Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions the key automatically. Plaintext keys are not supported.',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested app resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { Paperclip } from '@r8s/paperclip'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Paperclip name=\"paperclip\" host=\"paperclip.example.com\" agents={{ sandboxReplicas: 3 }} />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: paperclip-secrets\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/paperclip/secrets\n  destination:\n    create: true\n    name: paperclip-secrets\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: paperclip\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: paperclip\n      owner: paperclip\n      secret:\n        name: paperclip-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: paperclip-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/paperclip\n  destination:\n    create: true\n    name: paperclip-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: paperclip\n  namespace: default\n  labels:\n    app: paperclip\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: paperclip\n  template:\n    metadata:\n      labels:\n        app: paperclip\n    spec:\n      containers:\n        - name: app\n          image: ghcr.io/berget-ai/paperclip:latest\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 3000\n          env:\n            - name: MODEL_API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: paperclip-secrets\n                  key: modelApiKey\n            - name: PORT\n              value: '3000'\n            - name: PGHOST\n              value: paperclip-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: paperclip\n            - name: PGUSER\n              value: paperclip\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: paperclip-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: paperclip\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: paperclip\n  ports:\n    - port: 3000\n      targetPort: 3000\n    - port: 80\n      targetPort: 3000\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: paperclip-agent-sandbox\n  namespace: default\n  labels:\n    app: paperclip-agent-sandbox\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: paperclip-agent-sandbox\n  template:\n    metadata:\n      labels:\n        app: paperclip-agent-sandbox\n    spec:\n      securityContext:\n        seccompProfile:\n          type: RuntimeDefault\n      containers:\n        - name: app\n          image: ghcr.io/berget-ai/paperclip:latest\n          imagePullPolicy: Always\n          command:\n            - paperclip\n            - agent\n            - '--sandbox'\n          ports:\n            - containerPort: 3000\n          env:\n            - name: MODEL_API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: paperclip-secrets\n                  key: modelApiKey\n            - name: PGHOST\n              value: paperclip-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: paperclip\n            - name: PGUSER\n              value: paperclip\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: paperclip-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              cpu: 250m\n              memory: 256Mi\n            limits:\n              cpu: 1000m\n              memory: 2Gi\n          securityContext:\n            runAsNonRoot: true\n            allowPrivilegeEscalation: false\n            seccompProfile:\n              type: RuntimeDefault\n            capabilities:\n              drop:\n                - ALL\n          livenessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: paperclip-agent-sandbox\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: paperclip-agent-sandbox\n  ports:\n    - port: 3000\n      targetPort: 3000\n    - port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: paperclip-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: paperclip.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: paperclip\n                port:\n                  number: 3000\n  tls:\n    - hosts:\n        - paperclip.example.com\n      secretName: paperclip-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'eneo',
+    name: '@r8s/eneo',
+    title: 'eneo',
+    description:
+      'Eneo — open AI platform from Sundsvall municipality (agent workspaces, assistants, document AI)',
+    category: 'Agent Platforms',
+    keywords: ['eneo', 'documents', 'corpora', 'knowledge'],
+    components: [
+      {
+        name: 'Eneo',
+        description:
+          'Eneo — open AI platform from Sundsvall municipality (agent workspaces, assistants, document AI).',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'eneo')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: "Kubernetes namespace (defaults to 'default')",
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "Container image tag (defaults to 'latest' — pin a version in production)",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: 'Public hostname for the Eneo web app (required)',
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description:
+              'Number of app replicas (defaults to 2 — scale freely, the app is stateless)',
+          },
+          {
+            name: 'objectStorage',
+            type: '{ endpoint: string, bucket: string, credentialsSecret: string, region?: string }',
+            required: true,
+            description:
+              'S3-compatible object storage for document corpora (RustFS in the platform). Required. Reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
+          },
+          {
+            name: 'sso',
+            type: '{ issuer: string, clientId: string, clientSecretRef: SecretRef, scopes?: string }',
+            required: false,
+            description:
+              'OIDC SSO client — register Eneo as a client in Keycloak (the Auth recipe) and reference the client secret through the backend.',
+          },
+          {
+            name: 'smtp',
+            type: '{ host: string, port?: number, from?: string }',
+            required: false,
+            description:
+              'Outgoing SMTP for invitations and notifications (mirror of the EuroOffice recipe). When set, SMTP_HOST / SMTP_PORT / SMTP_FROM are rendered as plain env and SMTP_PASSWORD is delivered via secretKeyRef from the `${name}-secrets` bundle (key: smtpPassword) — never plaintext. The bundle then requires the `smtpPassword` key as well; without `smtp` only `appSecret` is required from the bundle.',
+          },
+          {
+            name: 'secretsName',
+            type: 'string',
+            required: false,
+            description:
+              'Name of an existing Secret holding `appSecret` (and `smtpPassword` when `smtp` is set). Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions them.',
+          },
+          {
+            name: 'dbStorage',
+            type: 'string',
+            required: false,
+            description:
+              "Storage size for the Postgres cluster (defaults to '10Gi'). Document corpora live in object storage (`objectStorage`, S3/RustFS) — Eneo does not persist corpora on a local volume. A local corpus PVC (mounted volumes/sidecars on the app workload) is a v1.1 item.",
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'Requested app resources',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { Eneo } from '@r8s/eneo'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Eneo\n      name=\"eneo\"\n      host=\"eneo.example.com\"\n      objectStorage={{\n        endpoint: 'https://s3.internal.example.com',\n        bucket: 'eneo-corpora',\n        credentialsSecret: 'eneo-object-storage',\n      }}\n    />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: eneo-secrets\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/eneo/secrets\n  destination:\n    create: true\n    name: eneo-secrets\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: eneo\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: eneo\n      owner: eneo\n      secret:\n        name: eneo-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: eneo-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/eneo\n  destination:\n    create: true\n    name: eneo-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: eneo\n  namespace: default\n  labels:\n    app: eneo\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: eneo\n  template:\n    metadata:\n      labels:\n        app: eneo\n    spec:\n      containers:\n        - name: app\n          image: ghcr.io/berget-ai/eneo:latest\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 3000\n          env:\n            - name: APP_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: eneo-secrets\n                  key: appSecret\n            - name: AWS_ACCESS_KEY_ID\n              valueFrom:\n                secretKeyRef:\n                  name: eneo-object-storage\n                  key: accessKey\n            - name: AWS_SECRET_ACCESS_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: eneo-object-storage\n                  key: secretKey\n            - name: PORT\n              value: '3000'\n            - name: BASE_URL\n              value: https://eneo.example.com\n            - name: S3_ENDPOINT\n              value: https://s3.internal.example.com\n            - name: S3_BUCKET\n              value: eneo-corpora\n            - name: AWS_REGION\n              value: us-east-1\n            - name: PGHOST\n              value: eneo-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: eneo\n            - name: PGUSER\n              value: eneo\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: eneo-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: eneo\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: eneo\n  ports:\n    - port: 3000\n      targetPort: 3000\n    - port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: eneo-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: eneo.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: eneo\n                port:\n                  number: 3000\n  tls:\n    - hosts:\n        - eneo.example.com\n      secretName: eneo-tls\n",
           },
         ],
       },
