@@ -13,7 +13,7 @@ export interface ComponentDoc {
   name: string
   description: string
   props: ComponentProp[]
-  examples: { tsx: string; yaml: string | null }[]
+  examples: { tsx: string; yaml: string | null; title?: string }[]
 }
 
 export interface Recipe {
@@ -933,6 +933,19 @@ export const recipes: Recipe[] = [
           type: 'Record',
           required: false,
           description: 'Pod-level securityContext',
+        },
+        {
+          name: 'tolerations',
+          type: 'Record[]',
+          required: false,
+          description:
+            "Pod tolerations (e.g. faster eviction on node failure: { key: 'node.kubernetes.io/unreachable', effect: 'NoExecute', tolerationSeconds: 60 })",
+        },
+        {
+          name: 'topologySpreadConstraints',
+          type: 'Record[]',
+          required: false,
+          description: 'Pod topologySpreadConstraints (spread replicas across nodes)',
         },
       ],
       examples: [

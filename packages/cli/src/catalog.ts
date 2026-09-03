@@ -1574,6 +1574,90 @@ export const components: ComponentInfo[] = [
     example:
       "import { Platform } from '@r8s/recipes'\nimport { Eneo } from '@r8s/eneo'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Eneo\n      name=\"eneo\"\n      host=\"eneo.example.com\"\n      objectStorage={{\n        endpoint: 'https://s3.internal.example.com',\n        bucket: 'eneo-corpora',\n        credentialsSecret: 'eneo-object-storage',\n      }}\n    />\n  </Platform>\n)",
   },
+  {
+    name: 'Matrix',
+    package: '@r8s/matrix',
+    category: 'Collaboration & Productivity',
+    description:
+      'Matrix — full Element Server Suite (Synapse, MAS with OIDC SSO, Element Web/Admin, LiveKit SFU) with production HA defaults',
+    props: [
+      {
+        name: 'name',
+        type: 'string',
+        required: false,
+        description: "Resource name (defaults to 'matrix')",
+      },
+      {
+        name: 'namespace',
+        type: 'string',
+        required: false,
+        description: 'Kubernetes namespace (inherited from Platform when omitted)',
+      },
+      {
+        name: 'domain',
+        type: 'string',
+        required: true,
+        description:
+          'Base domain — derives the five public hosts (web: element., synapse: matrix., admin: element-admin., account: matrix-account., rtc: matrix-rtc.)',
+      },
+      {
+        name: 'hosts',
+        type: "Partial<Record<'web' | 'synapse' | 'admin' | 'account' | 'rtc', string>>",
+        required: false,
+        description: 'Per-hostname overrides for the five ingress hosts',
+      },
+      {
+        name: 'serverName',
+        type: 'string',
+        required: false,
+        description: 'Matrix server name used in user IDs (@user:serverName). Defaults to domain.',
+      },
+      {
+        name: 'sso',
+        type: '{ issuer: string clientId: string clientSecretRef?: string humanName?: string scope?: string }',
+        required: false,
+        description:
+          'OIDC SSO upstream for MAS (Keycloak from the Auth recipe). Disables local password login when set. Requires a secrets backend or clientSecretRef — never inline secrets.',
+      },
+      {
+        name: 'database',
+        type: '{ replicas?: number storage?: string storageClass?: string backup?: { destinationPath: string endpointURL: string credentialsSecret?: string retention?: string schedule?: string } | null }',
+        required: false,
+        description:
+          'Per-database sizing for the two CNPG clusters (synapse-db, mas-db). Backup is explicit opt-in: barman object store with 30d retention + ScheduledBackup.',
+      },
+      {
+        name: 'rtc',
+        type: '{ enabled?: boolean manualIP?: string turnPort?: number stunServers?: string[] sfuVersion?: string }',
+        required: false,
+        description:
+          'LiveKit SFU for Element Call. Renders a combined LoadBalancer service (numeric UDP targetPort 30002 — upstream chart bug workaround). Disable for text-only deployments.',
+      },
+      {
+        name: 'appservices',
+        type: '{ name: string registration: Record<string, unknown> }[]',
+        required: false,
+        description:
+          'Appservice registrations (hookshot, bots). Each becomes a ConfigMap with registration.yaml mounted into Synapse.',
+      },
+      {
+        name: 'version',
+        type: '{ synapse?: string mas?: string web?: string admin?: string sfu?: string }',
+        required: false,
+        description:
+          'Per-component image tags. Defaults are pinned for known upstream regressions (web v1.12.15 / sfu v1.10.1) — override only with intent.',
+      },
+      {
+        name: 'urlPreview',
+        type: 'boolean',
+        required: false,
+        description:
+          'Set false to disable the SSRF-hardened url_preview_ip_range_blacklist preset (default: enabled)',
+      },
+    ],
+    example:
+      "import { Platform } from '@r8s/recipes'\nimport { Matrix } from '@r8s/matrix'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Matrix\n      domain=\"example.com\"\n      sso={{\n        issuer: 'https://keycloak.example.com/realms/berget',\n        clientId: 'matrix',\n      }}\n      database={{\n        backup: {\n          destinationPath: 's3://backups/matrix-cnpg',\n          endpointURL: 'https://s3.example.com',\n        },\n      }}\n    />\n  </Platform>\n)",
+  },
 ]
 
 // Auth sub-components (from @r8s/recipes/auth)

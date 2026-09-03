@@ -40,33 +40,83 @@
       "@r8s/librechat": ["./packages/librechat/src/index.tsx"],
       "@r8s/eurooffice": ["./packages/eurooffice/src/index.tsx"],
       "@r8s/paperclip": ["./packages/paperclip/src/index.tsx"],
-      "@r8s/eneo": ["./packages/eneo/src/index.tsx"]
+      "@r8s/eneo": ["./packages/eneo/src/index.tsx"],
+      "@r8s/matrix": ["./packages/matrix/src/index.tsx"]
     }
   },
   "files": [],
   "references": [
-    { "path": "./packages/k8s-types" },
-    { "path": "./packages/core" },
-    { "path": "./packages/crds" },
-    { "path": "./packages/recipes" },
-    { "path": "./packages/r8s-controller" },
-    { "path": "./packages/cli" },
-    { "path": "./packages/example" },
-    { "path": "./packages/element" },
-    { "path": "./packages/grafana" },
-    { "path": "./packages/rustfs" },
-    { "path": "./packages/superset" },
-    { "path": "./packages/wireguard" },
-    { "path": "./packages/n8n" },
-    { "path": "./packages/outline" },
-    { "path": "./packages/nextcloud" },
-    { "path": "./packages/chromadb" },
-    { "path": "./packages/supabase" },
-    { "path": "./packages/odoo" },
-    { "path": "./packages/open-webui" },
-    { "path": "./packages/librechat" },
-    { "path": "./packages/eurooffice" },
-    { "path": "./packages/paperclip" },
-    { "path": "./packages/eneo" }
+    {
+      "path": "./packages/k8s-types"
+    },
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/crds"
+    },
+    {
+      "path": "./packages/recipes"
+    },
+    {
+      "path": "./packages/r8s-controller"
+    },
+    {
+      "path": "./packages/cli"
+    },
+    {
+      "path": "./packages/example"
+    },
+    {
+      "path": "./packages/element"
+    },
+    {
+      "path": "./packages/grafana"
+    },
+    {
+      "path": "./packages/rustfs"
+    },
+    {
+      "path": "./packages/superset"
+    },
+    {
+      "path": "./packages/wireguard"
+    },
+    {
+      "path": "./packages/n8n"
+    },
+    {
+      "path": "./packages/outline"
+    },
+    {
+      "path": "./packages/nextcloud"
+    },
+    {
+      "path": "./packages/chromadb"
+    },
+    {
+      "path": "./packages/supabase"
+    },
+    {
+      "path": "./packages/odoo"
+    },
+    {
+      "path": "./packages/open-webui"
+    },
+    {
+      "path": "./packages/librechat"
+    },
+    {
+      "path": "./packages/eurooffice"
+    },
+    {
+      "path": "./packages/paperclip"
+    },
+    {
+      "path": "./packages/eneo"
+    },
+    {
+      "path": "packages/matrix"
+    }
   ]
 }

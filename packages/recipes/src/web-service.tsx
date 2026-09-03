@@ -78,6 +78,13 @@ export interface WebServiceProps {
   securityContext?: Record<string, unknown>
   /** Pod-level securityContext */
   podSecurityContext?: Record<string, unknown>
+  /**
+   * Pod tolerations (e.g. faster eviction on node failure:
+   * { key: 'node.kubernetes.io/unreachable', effect: 'NoExecute', tolerationSeconds: 60 })
+   */
+  tolerations?: Record<string, unknown>[]
+  /** Pod topologySpreadConstraints (spread replicas across nodes) */
+  topologySpreadConstraints?: Record<string, unknown>[]
 }
 
 /**
@@ -134,6 +141,8 @@ export function WebService(props: WebServiceProps) {
     resources,
     securityContext,
     podSecurityContext,
+    tolerations,
+    topologySpreadConstraints,
   } = props
 
   const buildProbe = (spec: ProbeSpec | null | undefined, fallbackPath: string) => {
@@ -267,6 +276,8 @@ export function WebService(props: WebServiceProps) {
         metadata: { labels: { app: name } },
         spec: {
           ...(podSecurityContext && { securityContext: podSecurityContext }),
+          ...(tolerations && { tolerations }),
+          ...(topologySpreadConstraints && { topologySpreadConstraints }),
           containers: [
             {
               name: 'app',

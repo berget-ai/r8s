@@ -1,0 +1,53 @@
+{
+  "name": "@r8s/matrix",
+  "version": "0.2.0",
+  "description": "Matrix (Element Server Suite) — Synapse homeserver, MAS auth with Keycloak OIDC, Element Web/Admin, MatrixRTC/LiveKit SFU with HA defaults",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/berget-ai/r8s",
+    "directory": "packages/matrix"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "category": "Collaboration & Productivity",
+  "keywords": [
+    "matrix",
+    "element",
+    "synapse",
+    "chat",
+    "rtc",
+    "oidc"
+  ],
+  "dependencies": {
+    "@r8s/core": "^0.2.0",
+    "@r8s/crds": "^0.2.0",
+    "@r8s/k8s-types": "^0.2.0",
+    "@r8s/recipes": "^0.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "r8s": {
+    "category": "Collaboration & Productivity"
+  }
+}
