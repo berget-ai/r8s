@@ -101,7 +101,10 @@ export interface WebServiceProps {
   strategy?:
     | 'Recreate'
     | 'RollingUpdate'
-    | { type: string; rollingUpdate?: { maxUnavailable?: string | number; maxSurge?: string | number } }
+    | {
+        type: string
+        rollingUpdate?: { maxUnavailable?: string | number; maxSurge?: string | number }
+      }
   /** Pod volumes — combine with volumeMounts (e.g. PVCs, emptyDirs, ConfigMaps) */
   volumes?: ({ name: string } & Record<string, unknown>)[]
   /** Volume mounts for the app container */

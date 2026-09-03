@@ -75,7 +75,10 @@ describe('Database — backup', () => {
     expect(cluster.spec.backup.retentionPolicy).toBe('14d')
     expect(cluster.spec.backup.barmanObjectStore.data.compression).toBe('bzip2')
     expect(cluster.spec.backup.barmanObjectStore.wal.encryption).toBe('aws:kms')
-    expect(find(result, 'ScheduledBackup', 'app-db-backup')).toHaveProperty('spec.schedule', '0 4 * * *')
+    expect(find(result, 'ScheduledBackup', 'app-db-backup')).toHaveProperty(
+      'spec.schedule',
+      '0 4 * * *'
+    )
   })
 
   it('is opt-in: no backup resources without the prop', () => {
