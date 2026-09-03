@@ -615,11 +615,15 @@ async function generatePackages(): Promise<PackageDoc[]> {
     ? extractExamples(examplesPath)
     : new Map<string, { name: string; code: string }[]>()
 
-  // Scan generated group files (skip index.ts and operators.ts)
+  // Scan generated group files (skip index.ts, operators.ts and
+  // declaration .d.ts files — the latter shadowed real groups and
+  // produced duplicate "cert-manager.d"-style package entries)
   const generatedDir = path.join(ROOT, 'packages/crds/src/generated')
   const groupFiles = fs
     .readdirSync(generatedDir)
-    .filter((f) => f.endsWith('.ts') && f !== 'index.ts' && f !== 'operators.ts')
+    .filter(
+      (f) => f.endsWith('.ts') && !f.endsWith('.d.ts') && f !== 'index.ts' && f !== 'operators.ts'
+    )
 
   for (const file of groupFiles) {
     const groupKey = file.replace('.ts', '')
