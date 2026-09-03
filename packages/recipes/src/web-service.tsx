@@ -1,6 +1,6 @@
 import { jsx, declareOperator, useContext } from '@r8s/core'
 import { Deployment, Service, EnvVar } from '@r8s/k8s-types'
-import { OperatorContext, DatabaseContext } from '@r8s/core/defaults'
+import { OperatorContext, DatabaseContext, SecretContext } from '@r8s/core/defaults'
 import { vaultSecretsOperator } from './operators'
 
 export interface SecretRef {
@@ -19,6 +19,16 @@ export interface VaultSecretRef {
   key?: string
   /** VaultAuth reference name (defaults to 'default') */
   vaultAuthRef?: string
+  /** Re-sync interval (e.g. '3600s'). Defaults to the Platform secrets refreshAfter. */
+  refreshAfter?: string
+  /** Workloads restarted on rotation (rendered as rolloutRestartTargets) */
+  rolloutRestartTargets?: { kind?: string; name: string; apiVersion?: string }[]
+  /**
+   * Destination key → template text, rendered under
+   * `destination.transformation.templates`. Use to remap vault key names
+   * (e.g. snake_case `encryption_key` → `N8N_ENCRYPTION_KEY`).
+   */
+  templates?: Record<string, string>
 }
 
 export interface ProbeSpec {
@@ -56,6 +66,8 @@ export interface WebServiceProps {
   probes?: {
     liveness?: ProbeSpec | null
     readiness?: ProbeSpec | null
+    /** Startup probe — for slow-booting apps (e.g. migrations, document servers) */
+    startup?: ProbeSpec | null
   }
   /** Plain environment variables (non-sensitive) */
   env?: Record<string, string>
@@ -85,6 +97,30 @@ export interface WebServiceProps {
   tolerations?: Record<string, unknown>[]
   /** Pod topologySpreadConstraints (spread replicas across nodes) */
   topologySpreadConstraints?: Record<string, unknown>[]
+  /** Deployment update strategy — 'Recreate' for RWO-volume/migration apps */
+  strategy?:
+    | 'Recreate'
+    | 'RollingUpdate'
+    | {
+        type: string
+        rollingUpdate?: { maxUnavailable?: string | number; maxSurge?: string | number }
+      }
+  /** Pod volumes — combine with volumeMounts (e.g. PVCs, emptyDirs, ConfigMaps) */
+  volumes?: ({ name: string } & Record<string, unknown>)[]
+  /** Volume mounts for the app container */
+  volumeMounts?: { name: string; mountPath: string; readOnly?: boolean; subPath?: string }[]
+  /**
+   * Init containers run before the app starts (chown, schema setup, font
+   * installation, …). Pass-through shape: name/image required, the rest
+   * follows the Kubernetes container spec.
+   */
+  initContainers?: ({ name: string; image: string } & Record<string, unknown>)[]
+  /** Container lifecycle hooks (e.g. { preStop: { exec: { command: [...] } } }) */
+  lifecycle?: Record<string, unknown>
+  /** Image pull policy (defaults to 'Always') */
+  imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never'
+  /** Names of Secrets used to pull private registry images */
+  imagePullSecrets?: string[]
 }
 
 /**
@@ -143,6 +179,13 @@ export function WebService(props: WebServiceProps) {
     podSecurityContext,
     tolerations,
     topologySpreadConstraints,
+    strategy,
+    volumes,
+    volumeMounts,
+    initContainers,
+    lifecycle,
+    imagePullPolicy = 'Always',
+    imagePullSecrets,
   } = props
 
   const buildProbe = (spec: ProbeSpec | null | undefined, fallbackPath: string) => {
@@ -164,6 +207,7 @@ export function WebService(props: WebServiceProps) {
 
   const livenessProbe = buildProbe(probes?.liveness, '/health')
   const readinessProbe = buildProbe(probes?.readiness, '/ready')
+  const startupProbe = buildProbe(probes?.startup ?? null, '/health')
 
   const envVars: EnvVar[] = []
   const vaultResources: ReturnType<typeof jsx>[] = []
@@ -193,8 +237,15 @@ export function WebService(props: WebServiceProps) {
   }
 
   // Vault secrets — create VaultStaticSecret objects
+  const platformSecrets = useContext(SecretContext)
   for (const [envName, ref] of Object.entries(vault)) {
     const secretName = `${name}-${envName.toLowerCase().replace(/_/g, '-')}-vault`
+    const refreshAfter = ref.refreshAfter ?? platformSecrets?.refreshAfter
+    const targets = ref.rolloutRestartTargets?.map((t) => ({
+      apiVersion: t.apiVersion ?? 'apps/v1',
+      kind: t.kind ?? 'Deployment',
+      name: t.name,
+    }))
 
     // Create VaultStaticSecret
     vaultResources.push(
@@ -207,9 +258,19 @@ export function WebService(props: WebServiceProps) {
           mount: ref.mount,
           type: 'kv-v2',
           path: ref.path,
+          ...(refreshAfter && { refreshAfter }),
+          ...(targets && targets.length > 0 && { rolloutRestartTargets: targets }),
           destination: {
             create: true,
             name: secretName,
+            ...(ref.templates &&
+              Object.keys(ref.templates).length > 0 && {
+                transformation: {
+                  templates: Object.fromEntries(
+                    Object.entries(ref.templates).map(([k, text]) => [k, { text }])
+                  ),
+                },
+              }),
           },
         },
       })
@@ -271,6 +332,9 @@ export function WebService(props: WebServiceProps) {
     metadata: { name, namespace, labels: { app: name } },
     spec: {
       replicas,
+      ...(strategy && {
+        strategy: typeof strategy === 'string' ? { type: strategy } : strategy,
+      }),
       selector: { matchLabels: { app: name } },
       template: {
         metadata: { labels: { app: name } },
@@ -278,17 +342,27 @@ export function WebService(props: WebServiceProps) {
           ...(podSecurityContext && { securityContext: podSecurityContext }),
           ...(tolerations && { tolerations }),
           ...(topologySpreadConstraints && { topologySpreadConstraints }),
+          ...(imagePullSecrets &&
+            imagePullSecrets.length > 0 && {
+              imagePullSecrets: imagePullSecrets.map((name) => ({ name })),
+            }),
+          ...(initContainers &&
+            initContainers.length > 0 && { initContainers: initContainers as never }),
+          ...(volumes && volumes.length > 0 && { volumes: volumes as never }),
           containers: [
             {
               name: 'app',
               image,
-              imagePullPolicy: 'Always',
+              imagePullPolicy,
               ...(command && { command }),
               ...(args && { args }),
               ports: [{ containerPort: port }],
               env: envVars,
               ...(resources && { resources }),
               ...(securityContext && { securityContext }),
+              ...(lifecycle && { lifecycle: lifecycle as never }),
+              ...(volumeMounts && volumeMounts.length > 0 && { volumeMounts }),
+              ...(startupProbe && { startupProbe }),
               ...(livenessProbe && { livenessProbe }),
               ...(readinessProbe && { readinessProbe }),
             },

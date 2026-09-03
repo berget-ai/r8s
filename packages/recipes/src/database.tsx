@@ -9,13 +9,59 @@ import {
 } from '@r8s/core/defaults'
 import { cnpgOperator } from './operators'
 
+/**
+ * Continuous + scheduled backup configuration for a dedicated CNPG cluster.
+ * Renders `spec.backup.barmanObjectStore` on the Cluster plus a
+ * ScheduledBackup resource. Backup is explicit opt-in — nothing renders
+ * unless this prop is set.
+ */
+export interface DatabaseBackupProps {
+  /** S3 destination path, e.g. 's3://backups/myapp-cnpg' */
+  destinationPath: string
+  /** S3 endpoint URL, e.g. 'https://s3.example.com' (RustFS/Scaleway/…) */
+  endpointURL: string
+  /**
+   * Name of an existing Secret holding the S3 credentials with CNPG keys
+   * `access-key-id` and `secret-access-key`. When omitted, the Platform
+   * secrets backend (openbao/vault) provisions `<name>-backup-credentials`
+   * from `<path>/<name>-s3-credentials` — the backend entry must contain
+   * the same kebab-case keys. Without backend or secret this throws.
+   */
+  credentialsSecret?: string
+  /** Retention policy for barman backups (default: '30d') */
+  retention?: string
+  /** Cron schedule for the ScheduledBackup (default: '0 3 * * *') */
+  schedule?: string
+  /** Data/WAL compression — values valid for both streams (default: 'gzip') */
+  compression?: 'gzip' | 'bzip2' | 'snappy'
+  /** WAL encryption (default: 'AES256') */
+  encryption?: 'AES256' | 'aws:kms'
+}
+
 export interface DatabaseProps {
   /** Resource name (also the default database name) */
   name: string
   /** Kubernetes namespace (defaults to 'default') */
   namespace?: string
+  /** Number of CNPG instances in the dedicated cluster (defaults to 3) */
+  instances?: number
   /** Storage size (e.g., '10Gi') for the dedicated cluster data volume */
   storage?: string
+  /** Storage class name for the data volume (defaults to cluster default) */
+  storageClass?: string
+  /** PostgreSQL parameters, e.g. { max_connections: '200' } */
+  parameters?: Record<string, string>
+  /**
+   * Continuous barman backup to S3 object storage + ScheduledBackup.
+   * Explicit opt-in.
+   */
+  backup?: DatabaseBackupProps
+  /**
+   * Workloads that consume the database credentials. Rendered as
+   * `rolloutRestartTargets` on the generated VaultStaticSecret/
+   * OpenBaoStaticSecret so pods restart when credentials rotate.
+   */
+  rolloutRestartTargets?: { kind?: string; name: string; apiVersion?: string }[]
   /** Operator version override. If not set, reads from OperatorContext or uses default. */
   operatorVersion?: string
   /**
@@ -60,12 +106,39 @@ export interface DatabaseProps {
  *     </Database>
  *   </Platform>
  * )
+ *
+ * @example
+ * import { Platform, Database, WebService } from '@r8s/recipes'
+ *
+ * // HA database with continuous S3 backup — the backend provisions the
+ * // backup credentials, pods restart when they rotate.
+ * export default (
+ *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps', refreshAfter: '3600s' }}>
+ *     <Database
+ *       name="app-db"
+ *       storage="20Gi"
+ *       instances={2}
+ *       rolloutRestartTargets={[{ name: 'api' }]}
+ *       backup={{
+ *         destinationPath: 's3://backups/app-cnpg',
+ *         endpointURL: 'https://s3.example.com',
+ *       }}
+ *     >
+ *       <WebService name="api" image="myapp/api:v1" />
+ *     </Database>
+ *   </Platform>
+ * )
  */
 export function Database(props: DatabaseProps) {
   const {
     name,
     namespace: namespaceProp,
+    instances = 3,
     storage = '10Gi',
+    storageClass,
+    parameters,
+    backup,
+    rolloutRestartTargets,
     operatorVersion,
     postInitSQL,
     children,
@@ -114,7 +187,9 @@ export function Database(props: DatabaseProps) {
       vendor: 'postgres' as const,
     }
 
-    resources.push(...createSecretResources(name, namespace, secretName, secretProvider, 'shared'))
+    resources.push(
+      ...createSecretResources(name, namespace, secretName, secretProvider, 'shared', undefined)
+    )
 
     if (children) {
       resources.push(jsx(DatabaseContext.Provider, { value: connection, children }))
@@ -123,13 +198,40 @@ export function Database(props: DatabaseProps) {
     // Dedicated cluster — create full CNPG cluster
     const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg')
 
+    // Backup credentials: explicit existing Secret, or provisioned by the
+    // secrets backend. Plaintext is never rendered.
+    let backupCredentials: string | undefined
+    if (backup) {
+      if (backup.credentialsSecret) {
+        backupCredentials = backup.credentialsSecret
+      } else if (
+        secretProvider &&
+        (secretProvider.backend === 'openbao' || secretProvider.backend === 'vault')
+      ) {
+        backupCredentials = `${name}-backup-credentials`
+      } else {
+        throw new Error(
+          `Database "${name}" has backup configured without backup credentials.\n` +
+            `\n` +
+            `Set an existing Secret holding keys 'access-key-id' and 'secret-access-key':\n` +
+            `  backup={{ ..., credentialsSecret: 'my-backup-creds' }}\n` +
+            `\n` +
+            `or let the Platform secrets backend provision them from '<path>/${name}-s3-credentials':\n` +
+            `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>`
+        )
+      }
+    }
+
     const cluster: Cluster = {
       apiVersion: 'postgresql.cnpg.io/v1',
       kind: 'Cluster',
       metadata: { name, namespace },
       spec: {
-        instances: 3,
-        storage: { size: storage },
+        instances,
+        storage: {
+          size: storage,
+          ...(storageClass && { storageClass }),
+        },
         bootstrap: {
           initdb: {
             database: name,
@@ -143,6 +245,27 @@ export function Database(props: DatabaseProps) {
           },
         },
         monitoring: { enablePodMonitor: true },
+        ...(parameters && { postgresql: { parameters } }),
+        ...(backup && backupCredentials
+          ? {
+              backup: {
+                retentionPolicy: backup.retention ?? '30d',
+                barmanObjectStore: {
+                  destinationPath: backup.destinationPath,
+                  endpointURL: backup.endpointURL,
+                  s3Credentials: {
+                    accessKeyId: { name: backupCredentials, key: 'access-key-id' },
+                    secretAccessKey: { name: backupCredentials, key: 'secret-access-key' },
+                  },
+                  data: { compression: backup.compression ?? 'gzip' },
+                  wal: {
+                    compression: backup.compression ?? 'gzip',
+                    encryption: backup.encryption ?? 'AES256',
+                  },
+                },
+              },
+            }
+          : {}),
       },
     }
 
@@ -162,12 +285,48 @@ export function Database(props: DatabaseProps) {
 
     resources.push(jsx('Cluster', cluster))
 
+    if (backup && backupCredentials) {
+      resources.push(
+        jsx('ScheduledBackup', {
+          apiVersion: 'postgresql.cnpg.io/v1',
+          kind: 'ScheduledBackup',
+          metadata: { name: `${name}-backup`, namespace },
+          spec: {
+            cluster: { name },
+            schedule: backup.schedule ?? '0 3 * * *',
+            backupOwnerReference: 'self',
+          },
+        } as Parameters<typeof jsx>[1])
+      )
+
+      // Backend-provisioned S3 credentials for barman
+      if (!backup.credentialsSecret && secretProvider) {
+        resources.push(
+          ...createStaticSecretResource(
+            `${name}-backup-credentials`,
+            `${name}-backup-credentials`,
+            namespace,
+            secretProvider,
+            `${secretProvider.path}/${name}-s3-credentials`,
+            undefined
+          )
+        )
+      }
+    }
+
     // For dedicated clusters with a secrets backend, the backend manages
     // credentials. For kubernetes/manual-secrets backend, CNPG manages the
     // bootstrap secret automatically — no plaintext Secret is rendered.
     if (secretProvider) {
       resources.push(
-        ...createSecretResources(name, namespace, secretName, secretProvider, 'dedicated')
+        ...createSecretResources(
+          name,
+          namespace,
+          secretName,
+          secretProvider,
+          'dedicated',
+          rolloutRestartTargets
+        )
       )
     }
 
@@ -191,8 +350,15 @@ function createSecretResources(
   name: string,
   namespace: string,
   secretName: string,
-  secretProvider: { backend: string; mount?: string; path?: string; authRef?: string } | null,
-  mode: 'shared' | 'dedicated'
+  secretProvider: {
+    backend: string
+    mount?: string
+    path?: string
+    authRef?: string
+    refreshAfter?: string
+  } | null,
+  mode: 'shared' | 'dedicated',
+  rolloutRestartTargets: { kind?: string; name: string; apiVersion?: string }[] | undefined
 ): ReturnType<typeof jsx>[] {
   const resources: ReturnType<typeof jsx>[] = []
 
@@ -217,36 +383,16 @@ function createSecretResources(
 
   switch (secretProvider.backend) {
     case 'vault':
-      resources.push(
-        jsx('VaultStaticSecret', {
-          apiVersion: 'secrets.hashicorp.com/v1beta1',
-          kind: 'VaultStaticSecret',
-          metadata: { name: `${name}-db-secret`, namespace },
-          spec: {
-            vaultAuthRef: secretProvider.authRef,
-            mount: secretProvider.mount,
-            type: 'kv-v2',
-            path: `${secretProvider.path}/${name}`,
-            destination: { create: true, name: secretName },
-          },
-        })
-      )
-      break
-
     case 'openbao':
       resources.push(
-        jsx('OpenBaoStaticSecret', {
-          apiVersion: 'secrets.openbao.org/v1beta1',
-          kind: 'OpenBaoStaticSecret',
-          metadata: { name: `${name}-db-secret`, namespace },
-          spec: {
-            openbaoAuthRef: secretProvider.authRef,
-            mount: secretProvider.mount,
-            type: 'kv-v2',
-            path: `${secretProvider.path}/${name}`,
-            destination: { create: true, name: secretName },
-          },
-        })
+        ...createStaticSecretResource(
+          `${name}-db-secret`,
+          secretName,
+          namespace,
+          secretProvider,
+          `${secretProvider.path}/${name}`,
+          rolloutRestartTargets
+        )
       )
       break
 
@@ -298,4 +444,60 @@ function createSecretResources(
   }
 
   return resources
+}
+
+/**
+ * Render a VaultStaticSecret / OpenBaoStaticSecret syncing one backend entry
+ * into a Kubernetes Secret. Rotation semantics are first-class:
+ * `refreshAfter` comes from the provider (Platform secrets config),
+ * `rolloutRestartTargets` restarts consuming workloads on rotation.
+ * The secret content itself is never rendered into the manifest.
+ */
+function createStaticSecretResource(
+  resourceName: string,
+  destinationName: string,
+  namespace: string,
+  secretProvider: {
+    backend: string
+    mount?: string
+    path?: string
+    authRef?: string
+    refreshAfter?: string
+  },
+  vaultPath: string,
+  rolloutRestartTargets: { kind?: string; name: string; apiVersion?: string }[] | undefined
+): ReturnType<typeof jsx>[] {
+  const targets = rolloutRestartTargets?.map((t) => ({
+    apiVersion: t.apiVersion ?? 'apps/v1',
+    kind: t.kind ?? 'Deployment',
+    name: t.name,
+  }))
+
+  const spec = {
+    mount: secretProvider.mount,
+    type: 'kv-v2',
+    path: vaultPath,
+    ...(secretProvider.refreshAfter && { refreshAfter: secretProvider.refreshAfter }),
+    ...(targets && targets.length > 0 && { rolloutRestartTargets: targets }),
+    destination: { create: true, name: destinationName },
+  }
+
+  if (secretProvider.backend === 'openbao') {
+    return [
+      jsx('OpenBaoStaticSecret', {
+        apiVersion: 'secrets.openbao.org/v1beta1',
+        kind: 'OpenBaoStaticSecret',
+        metadata: { name: resourceName, namespace },
+        spec: { openbaoAuthRef: secretProvider.authRef, ...spec },
+      }),
+    ]
+  }
+  return [
+    jsx('VaultStaticSecret', {
+      apiVersion: 'secrets.hashicorp.com/v1beta1',
+      kind: 'VaultStaticSecret',
+      metadata: { name: resourceName, namespace },
+      spec: { vaultAuthRef: secretProvider.authRef, ...spec },
+    }),
+  ]
 }

@@ -18,6 +18,8 @@ export interface OpenBaoProps {
   path?: string
   /** Auth reference (OpenBaoAuth name) */
   authRef?: string
+  /** Re-sync interval for rotation (e.g. '3600s') — rendered as refreshAfter */
+  refreshAfter?: string
 }
 
 export function OpenBao(props: OpenBaoProps): SecretProviderConfig {
@@ -26,6 +28,7 @@ export function OpenBao(props: OpenBaoProps): SecretProviderConfig {
     mount: props.mount,
     path: props.path,
     authRef: props.authRef,
+    ...(props.refreshAfter && { refreshAfter: props.refreshAfter }),
   }
 }
 
@@ -39,6 +42,8 @@ export interface VaultProps {
   path?: string
   /** Auth reference (VaultAuth name) */
   authRef?: string
+  /** Re-sync interval for rotation (e.g. '3600s') — rendered as refreshAfter */
+  refreshAfter?: string
 }
 
 export function Vault(props: VaultProps): SecretProviderConfig {
@@ -47,6 +52,7 @@ export function Vault(props: VaultProps): SecretProviderConfig {
     mount: props.mount,
     path: props.path,
     authRef: props.authRef,
+    ...(props.refreshAfter && { refreshAfter: props.refreshAfter }),
   }
 }
 

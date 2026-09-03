@@ -129,6 +129,13 @@ export const components: ComponentInfo[] = [
         description: 'Kubernetes namespace',
       },
       {
+        name: 'instances',
+        type: 'number',
+        required: false,
+        default: '3',
+        description: 'CNPG cluster instances',
+      },
+      {
         name: 'storage',
         type: 'string',
         required: false,
@@ -136,16 +143,42 @@ export const components: ComponentInfo[] = [
         description: 'Storage size',
       },
       {
+        name: 'storageClass',
+        type: 'string',
+        required: false,
+        description: 'Storage class for the data volume',
+      },
+      {
+        name: 'parameters',
+        type: 'Record<string, string>',
+        required: false,
+        description: 'PostgreSQL parameters (e.g. { max_connections: "200" })',
+      },
+      {
+        name: 'backup',
+        type: '{ destinationPath: string; endpointURL: string; credentialsSecret?: string; retention?: string; schedule?: string; compression?: string; encryption?: string }',
+        required: false,
+        description:
+          'Opt-in barman backup to S3 + ScheduledBackup. Credentials from the secrets backend or an existing Secret (keys access-key-id/secret-access-key) — never plaintext.',
+      },
+      {
+        name: 'rolloutRestartTargets',
+        type: '{ kind?: string; name: string; apiVersion?: string }[]',
+        required: false,
+        description:
+          'Workloads restarted when credentials rotate (rendered on the credentials static secret)',
+      },
+      {
+        name: 'postInitSQL',
+        type: 'string[]',
+        required: false,
+        description: 'SQL run once after bootstrap (roles, extensions)',
+      },
+      {
         name: 'operatorVersion',
         type: 'string',
         required: false,
         description: 'CNPG operator version',
-      },
-      {
-        name: 'password',
-        type: 'string',
-        required: false,
-        description: 'Explicit password (else auto-generated)',
       },
       {
         name: 'children',
