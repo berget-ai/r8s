@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/berget-ai/r8s-docs:8ce466e
+          image: ghcr.io/berget-ai/r8s-docs:79684ee
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
