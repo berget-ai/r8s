@@ -333,4 +333,90 @@ describe('Guardrails', () => {
       expect(result.errors.length).toBeGreaterThan(0)
     })
   })
+
+  describe('noPlaintextSecrets — ConfigMap + embedded payloads', () => {
+    it('flags a live token key in ConfigMap data', () => {
+      const resources = [
+        {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: { name: 'appsettings' },
+          data: { apiToken: 's3cr3t-tok3n-value-12345' },
+        },
+      ]
+      const result = runGuardrails(resources as any, [noPlaintextSecrets])
+      expect(result.errors.length).toBeGreaterThan(0)
+    })
+
+    it('flags credential lines embedded in a ConfigMap YAML payload', () => {
+      const resources = [
+        {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: { name: 'hookshot-registration' },
+          data: {
+            'registration.yaml': [
+              'id: hookshot',
+              'url: http://hookshot:9993',
+              'as_token: s3cr3t-tok3n-value-12345',
+              'hs_token: an0ther-l0ng-token-67890',
+            ].join('\n'),
+          },
+        },
+      ]
+      const result = runGuardrails(resources as any, [noPlaintextSecrets])
+      expect(result.errors.length).toBeGreaterThan(0)
+    })
+
+    it('flags credential lines embedded in Secret stringData blobs', () => {
+      const resources = [
+        {
+          apiVersion: 'v1',
+          kind: 'Secret',
+          metadata: { name: 'appservice-registration' },
+          stringData: {
+            'registration.yaml': ['id: bot', 'as_token: s3cr3t-tok3n-value-12345'].join('\n'),
+          },
+        },
+      ]
+      const result = runGuardrails(resources as any, [noPlaintextSecrets])
+      expect(result.errors.length).toBeGreaterThan(0)
+    })
+
+    it('allows placeholders, references, credential metadata keys and file paths', () => {
+      const resources = [
+        {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: { name: 'synapse-config' },
+          data: {
+            'homeserver.yaml': [
+              'as_token: PROVIDED_VIA_GITOPS',
+              'hs_token: REPLACE_ME',
+              'oidc_token_endpoint: https://issuer.example.com/token',
+              'password_file: /secrets/db/password',
+              'token_secret_name: matrix-tokens',
+              'livekit_api_secret: $(LIVEKIT_API_SECRET)',
+            ].join('\n'),
+            appToken: 'PROVIDED_VIA_GITOPS',
+          },
+        },
+      ]
+      const result = runGuardrails(resources as any, [noPlaintextSecrets])
+      expect(result.errors).toEqual([])
+    })
+
+    it('flags dotenv-style credential lines', () => {
+      const resources = [
+        {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: { name: 'env-file' },
+          data: { '.env': 'APP_PORT=3000\nMATRIX_AS_TOKEN=tok3n-1n-dot3nv-format' },
+        },
+      ]
+      const result = runGuardrails(resources as any, [noPlaintextSecrets])
+      expect(result.errors.length).toBeGreaterThan(0)
+    })
+  })
 })

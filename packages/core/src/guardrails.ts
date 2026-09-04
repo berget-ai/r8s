@@ -132,6 +132,7 @@ const SECRET_KEY_SUFFIXES = [
   'privatekey',
   'clientsecret',
   'apikey',
+  'token', // bare token: csrf/as/hs/api tokens are all credentials
   'authtoken',
   'connectionstring',
 ]
@@ -189,6 +190,63 @@ function looksLikeReference(value: string): boolean {
   )
 }
 
+/** "Fill in via GitOps"-style placeholder values — not live credentials. */
+const PLACEHOLDER_VALUE_RE = /^(replace|provide|change|todo|fixme|your[_-]|xxx+|<|\.\.\.|\*+)/i
+
+/**
+ * Credential-looking `key: value` / `key=value` / `export key=value` lines
+ * inside multi-line text — embedded YAML/INI/dotenv payloads in ConfigMap
+ * data and Secret stringData blobs.
+ */
+const EMBEDDED_CREDENTIAL_LINE_RE =
+  /^[ \t]*(?:export[ \t]+)?([A-Za-z0-9_.-]*?(?:token|password|passwd|secret|secretaccesskey|private[_-]?key|api[_-]?key|access[_-]?key|client[_-]?secret|authtoken)[A-Za-z0-9_.-]*?)\s*[:=]\s*['"]?([^\s'"]{8,})['"]?[ \t]*$/gim
+
+/**
+ * Embedded keys whose value is metadata about a credential, not the
+ * credential itself (token_endpoint, password_file, secret_name, …).
+ */
+const EMBEDDED_KEY_EXCLUDE_SUFFIXES = [
+  'endpoint',
+  'url',
+  'uri',
+  'ttl',
+  'expiry',
+  'expires',
+  'maxage',
+  'lifespan',
+  'timeout',
+  'header',
+  'name',
+  'type',
+  'ref',
+  'file',
+  'path',
+  'algorithm',
+  'alg',
+  'issuer',
+  'audience',
+  'provider',
+  'transport',
+  'rotation',
+  'method', // e.g. token_endpoint_auth_method — OIDC metadata, not a credential
+]
+
+/** Find live credential values embedded in multi-line config text. */
+function embeddedCredentialLines(text: string): { key: string; value: string }[] {
+  const hits: { key: string; value: string }[] = []
+  for (const match of text.matchAll(EMBEDDED_CREDENTIAL_LINE_RE)) {
+    const [, key, value] = match
+    const normalized = normalizeKey(key)
+    if (EMBEDDED_KEY_EXCLUDE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))) continue
+    if (looksLikeReference(value)) continue
+    if (PLACEHOLDER_VALUE_RE.test(value)) continue
+    // Paths and URLs point at credentials; they are not credentials
+    if (value.startsWith('/') || /^[a-z][a-z0-9+.-]*:\/\//i.test(value)) continue
+    hits.push({ key, value })
+  }
+  return hits
+}
+
 function connectionStringPassword(value: string): string | null {
   const match = value.match(CONNECTION_STRING_RE)
   if (!match) return null
@@ -218,6 +276,9 @@ function workloadsContainers(resource: KubernetesResource): any[] {
  * - Secret stringData/data values for credential keys, connection-string
  *   URIs, and PEM private keys (encryptedData from sealed-secrets and
  *   system TLS/service-account secrets are exempt)
+ * - ConfigMap data — flat credential keys and credential-looking
+ *   `key: value` lines inside embedded YAML/INI payloads (e.g. appservice
+ *   registrations holding as_token/hs_token)
  * - Workload env vars that embed credentials via `value` (secretKeyRef or
  *   $(VAR) runtime expansion are fine)
  * - Any nested field (CRD specs, realm users, …) holding a plaintext
@@ -244,18 +305,18 @@ export const noPlaintextSecrets: GuardrailRule = {
       })
     }
 
-    const scanValue = (where: string, field: string, value: unknown) => {
+    const scanValue = (resourceKind: string, where: string, field: string, value: unknown) => {
       if (typeof value !== 'string' || value.length === 0) return
       if (connectionStringPassword(value) !== null) {
         push(
-          'Secret',
+          resourceKind,
           where,
           field,
           'Connection string embeds a password. Inject the credential at runtime via secretKeyRef or $(VAR) expansion instead'
         )
       } else if (value.startsWith('-----BEGIN') && value.includes('PRIVATE KEY')) {
         push(
-          'Secret',
+          resourceKind,
           where,
           field,
           'PEM private key is embedded in the manifest. Store it in a secrets backend or a sealed secret instead'
@@ -291,11 +352,69 @@ export const noPlaintextSecrets: GuardrailRule = {
                 )
               }
               scanValue(
+                'Secret',
                 `Secret "${resource.metadata?.name}" (${map}.${key})`,
                 `${map}.${key}`,
                 value
               )
+              // Multi-line values may embed YAML/INI with credential keys
+              // (e.g. appservice registration.yaml holding as_token)
+              if (typeof value === 'string' && value.includes('\n')) {
+                for (const hit of embeddedCredentialLines(value)) {
+                  push(
+                    'Secret',
+                    `Secret "${resource.metadata?.name}" (${map}.${key}) — embedded key "${hit.key}"`,
+                    `${map}.${key}`,
+                    'Move the credential into a secrets backend and reference it, or render this file as a sealed secret'
+                  )
+                }
+              }
             }
+          }
+        }
+        continue
+      }
+
+      // 1b. ConfigMap data — same exposure as Secrets when credentials are
+      // embedded (ConfigMaps are committed to git alongside everything else)
+      if (resource.kind === 'ConfigMap') {
+        const data = anyResource.data
+        if (data && typeof data === 'object') {
+          for (const [key, value] of Object.entries(data)) {
+            if (typeof value !== 'string' || value.length === 0) continue
+            const normalized = normalizeKey(key)
+            const isCredentialKey =
+              SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
+              !SECRET_REFERENCE_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
+              !EMBEDDED_KEY_EXCLUDE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+            if (
+              isCredentialKey &&
+              !looksLikeReference(value) &&
+              !PLACEHOLDER_VALUE_RE.test(value)
+            ) {
+              push(
+                'ConfigMap',
+                `ConfigMap "${resource.metadata?.name}" (data.${key})`,
+                `data.${key}`,
+                'ConfigMaps carry no protection — render credentials as a Secret (from a secrets backend or sealed secret) instead'
+              )
+            }
+            if (value.includes('\n')) {
+              for (const hit of embeddedCredentialLines(value)) {
+                push(
+                  'ConfigMap',
+                  `ConfigMap "${resource.metadata?.name}" (data.${key}) — embedded key "${hit.key}"`,
+                  `data.${key}`,
+                  'ConfigMaps carry no protection — render credentials as a Secret (from a secrets backend or sealed secret) instead'
+                )
+              }
+            }
+            scanValue(
+              'ConfigMap',
+              `ConfigMap "${resource.metadata?.name}" (data.${key})`,
+              `data.${key}`,
+              value
+            )
           }
         }
         continue
@@ -337,7 +456,8 @@ export const noPlaintextSecrets: GuardrailRule = {
           return
         }
         if (!node || typeof node !== 'object') {
-          if (typeof node === 'string') scanValue(`${kindName} (${path})`, path, node)
+          if (typeof node === 'string')
+            scanValue(resource.kind, `${kindName} (${path})`, path, node)
           return
         }
         for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
@@ -366,7 +486,7 @@ export const noPlaintextSecrets: GuardrailRule = {
           if (value && typeof value === 'object') {
             walk(value, `${path}.${key}`)
           } else {
-            scanValue(`${kindName} (${path}.${key})`, `${path}.${key}`, value)
+            scanValue(resource.kind, `${kindName} (${path}.${key})`, `${path}.${key}`, value)
           }
         }
       }

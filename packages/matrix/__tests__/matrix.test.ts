@@ -75,15 +75,58 @@ describe('Matrix — resource rendering', () => {
     expect(dep.spec.template.spec.volumes.map((v: any) => v.name)).toContain('db-credentials')
   })
 
-  it('mounts appservice registrations into synapse', () => {
+  it('renders appservice registrations as Secrets (tokens must never ride a ConfigMap)', () => {
     const result = renderMatrix({
       appservices: [{ name: 'hookshot', registration: { id: 'hookshot', as_token: 'x' } }],
     })
-    const cm = find(result, 'ConfigMap', 'matrix-appservice-hookshot')
-    expect(cm).toBeDefined()
+    expect(find(result, 'ConfigMap', 'matrix-appservice-hookshot')).toBeUndefined()
+    const secret = find(result, 'Secret', 'matrix-appservice-hookshot') as any
+    expect(secret).toBeDefined()
+    expect(secret.stringData['registration.yaml']).toContain('hookshot')
     const dep = find(result, 'Deployment', 'matrix-synapse') as any
     const mountNames = dep.spec.template.spec.containers[0].volumeMounts.map((m: any) => m.name)
     expect(mountNames).toContain('appservice-hookshot')
+    const volumes = dep.spec.template.spec.volumes
+    const volume = volumes.find((v: any) => v.name === 'appservice-hookshot')
+    expect(volume.secret.secretName).toBe('matrix-appservice-hookshot')
+  })
+
+  it('mounts an existing Secret via secretRef without rendering a resource', () => {
+    const result = renderMatrix({
+      appservices: [{ name: 'gitbot', secretRef: 'gitbot-registration-secret' }],
+    })
+    expect(find(result, 'Secret', 'matrix-appservice-gitbot')).toBeUndefined()
+    const dep = find(result, 'Deployment', 'matrix-synapse') as any
+    const volume = dep.spec.template.spec.volumes.find((v: any) => v.name === 'appservice-gitbot')
+    expect(volume.secret.secretName).toBe('gitbot-registration-secret')
+  })
+
+  it('flags live appservice tokens through the guardrail, allows placeholders', () => {
+    const live = renderMatrix({
+      appservices: [
+        {
+          name: 'hookshot',
+          registration: { id: 'hookshot', as_token: 's3cr3t-tok3n-value-12345' },
+        },
+      ],
+    })
+    const flagged = runGuardrails(live.resources, [noPlaintextSecrets])
+    expect(flagged.errors.length).toBeGreaterThan(0)
+
+    const placeholder = renderMatrix({
+      appservices: [
+        {
+          name: 'hookshot',
+          registration: {
+            id: 'hookshot',
+            as_token: 'PROVIDED_VIA_GITOPS',
+            hs_token: 'PROVIDED_VIA_GITOPS',
+          },
+        },
+      ],
+    })
+    const clean = runGuardrails(placeholder.resources, [noPlaintextSecrets])
+    expect(clean.errors).toEqual([])
   })
 
   it('renders the five public endpoints (web/synapse/admin/account/rtc)', () => {

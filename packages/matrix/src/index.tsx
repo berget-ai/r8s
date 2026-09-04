@@ -146,10 +146,22 @@ export interface MatrixProps {
   /** MatrixRTC / LiveKit SFU (Element Call backend) */
   rtc?: MatrixRTCProps
   /**
-   * Appservice registrations (hookshot, bots…). Each becomes a ConfigMap with
-   * `registration.yaml` mounted into Synapse's appservice directory.
+   * Appservice registrations (hookshot, bots…). Each mounts one
+   * `registration.yaml` into Synapse's appservice directory.
+   *
+   * Two modes per entry:
+   * - `registration`: inline YAML data rendered as a **Secret** (never a
+   *   ConfigMap — registrations carry as_token/hs_token). Use placeholders
+   *   for the tokens and let GitOps fill them, or expect the
+   *   noPlaintextSecrets guardrail to flag live token values.
+   * - `secretRef`: name of an existing Secret holding `registration.yaml`
+   *   (key override via `key`). Nothing rendered — the preferred mode when
+   *   the file lives in the secrets backend.
    */
-  appservices?: { name: string; registration: Record<string, unknown> }[]
+  appservices?: (
+    | { name: string; registration: Record<string, unknown>; secretRef?: never; key?: never }
+    | { name: string; secretRef: string; key?: string; registration?: never }
+  )[]
   /**
    * Version pinning per component (production: pin these — the defaults are
    * already pinned for known upstream regressions):
@@ -587,15 +599,20 @@ export function Matrix(props: MatrixProps) {
   }
 
   // --- Appservice registrations ---------------------------------------------
+  // Registrations carry as_token/hs_token — they render as Secrets, never
+  // ConfigMaps. Prefer `secretRef` (existing Secret from the secrets backend)
+  // or placeholders; the noPlaintextSecrets guardrail flags live token values.
   for (const appservice of appservices) {
-    resources.push(
-      jsx('ConfigMap', {
-        apiVersion: 'v1',
-        kind: 'ConfigMap',
-        metadata: { name: `${name}-appservice-${appservice.name}`, namespace },
-        data: { 'registration.yaml': toYaml(appservice.registration) },
-      })
-    )
+    if (!appservice.secretRef) {
+      resources.push(
+        jsx('Secret', {
+          apiVersion: 'v1',
+          kind: 'Secret',
+          metadata: { name: `${name}-appservice-${appservice.name}`, namespace },
+          stringData: { 'registration.yaml': toYaml(appservice.registration ?? {}) },
+        })
+      )
+    }
   }
 
   // --- Deployments ------------------------------------------------------------
@@ -649,7 +666,7 @@ export function Matrix(props: MatrixProps) {
                   ...appservices.map((a) => ({
                     name: `appservice-${a.name}`,
                     mountPath: `/appservices/${a.name}.yaml`,
-                    subPath: 'registration.yaml',
+                    subPath: a.key ?? 'registration.yaml',
                     readOnly: true,
                   })),
                 ],
@@ -676,7 +693,9 @@ export function Matrix(props: MatrixProps) {
               { name: 'tmp', emptyDir: { sizeLimit: '1Gi' } },
               ...appservices.map((a) => ({
                 name: `appservice-${a.name}`,
-                configMap: { name: `${name}-appservice-${a.name}` },
+                secret: {
+                  secretName: a.secretRef ?? `${name}-appservice-${a.name}`,
+                },
               })),
             ],
           },
