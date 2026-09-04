@@ -305,18 +305,18 @@ export const noPlaintextSecrets: GuardrailRule = {
       })
     }
 
-    const scanValue = (where: string, field: string, value: unknown) => {
+    const scanValue = (resourceKind: string, where: string, field: string, value: unknown) => {
       if (typeof value !== 'string' || value.length === 0) return
       if (connectionStringPassword(value) !== null) {
         push(
-          'Secret',
+          resourceKind,
           where,
           field,
           'Connection string embeds a password. Inject the credential at runtime via secretKeyRef or $(VAR) expansion instead'
         )
       } else if (value.startsWith('-----BEGIN') && value.includes('PRIVATE KEY')) {
         push(
-          'Secret',
+          resourceKind,
           where,
           field,
           'PEM private key is embedded in the manifest. Store it in a secrets backend or a sealed secret instead'
@@ -352,6 +352,7 @@ export const noPlaintextSecrets: GuardrailRule = {
                 )
               }
               scanValue(
+                'Secret',
                 `Secret "${resource.metadata?.name}" (${map}.${key})`,
                 `${map}.${key}`,
                 value
@@ -408,7 +409,12 @@ export const noPlaintextSecrets: GuardrailRule = {
                 )
               }
             }
-            scanValue(`ConfigMap "${resource.metadata?.name}" (data.${key})`, `data.${key}`, value)
+            scanValue(
+              'ConfigMap',
+              `ConfigMap "${resource.metadata?.name}" (data.${key})`,
+              `data.${key}`,
+              value
+            )
           }
         }
         continue
@@ -450,7 +456,8 @@ export const noPlaintextSecrets: GuardrailRule = {
           return
         }
         if (!node || typeof node !== 'object') {
-          if (typeof node === 'string') scanValue(`${kindName} (${path})`, path, node)
+          if (typeof node === 'string')
+            scanValue(resource.kind, `${kindName} (${path})`, path, node)
           return
         }
         for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
@@ -479,7 +486,7 @@ export const noPlaintextSecrets: GuardrailRule = {
           if (value && typeof value === 'object') {
             walk(value, `${path}.${key}`)
           } else {
-            scanValue(`${kindName} (${path}.${key})`, `${path}.${key}`, value)
+            scanValue(resource.kind, `${kindName} (${path}.${key})`, `${path}.${key}`, value)
           }
         }
       }
