@@ -22,7 +22,8 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/berget-ai/r8s-docs:4f1fec1
+          image: ghcr.io/berget-ai/r8s-docs:8ce466e
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           env: []
@@ -43,8 +44,8 @@ spec:
             httpGet:
               path: /ready
               port: 3000
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 10
+            periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
@@ -56,6 +57,8 @@ spec:
   selector:
     app: r8s-docs
   ports:
+    - port: 3000
+      targetPort: 3000
     - port: 80
       targetPort: 3000
 ---
