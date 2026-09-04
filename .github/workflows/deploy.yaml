@@ -58,6 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -79,10 +80,17 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
 
-      - name: Commit rendered manifests
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add k8s/rendered/manifest.yaml
-          git diff --quiet && git diff --staged --quiet || \
-            (git commit -m "chore: render manifests [skip ci]" && git push)
+      # Branch policy blocks pushes to main — the rendered manifest lands as
+      # an auto-updating PR instead. Merging it rolls the docs site via Flux.
+      - name: Open or update the rendered-manifests PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: k8s/rendered-manifests
+          delete-branch: true
+          title: 'chore: render manifests [skip ci]'
+          commit-message: 'chore: render manifests [skip ci]'
+          body: |
+            Auto-rendered r8s docs manifests with IMAGE_TAG pinned to the run
+            that produced them. Merge to roll the docs site via Flux.
+          labels: gitops
