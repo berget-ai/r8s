@@ -82,10 +82,15 @@ jobs:
 
       # Branch policy blocks pushes to main — the rendered manifest lands as
       # an auto-updating PR instead. Merging it rolls the docs site via Flux.
+      #
+      # NOTE: the berget-ai org blocks Actions from creating PRs with the
+      # default GITHUB_TOKEN. Create a fine-grained PAT (contents + pull
+      # requests, write, this repo only) and store it as secret RENDER_TOKEN;
+      # until then the step fails with the org's 403 message.
       - name: Open or update the rendered-manifests PR
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RENDER_TOKEN || secrets.GITHUB_TOKEN }}
           branch: k8s/rendered-manifests
           delete-branch: true
           title: 'chore: render manifests [skip ci]'
