@@ -41,7 +41,10 @@
       "@r8s/eurooffice": ["./packages/eurooffice/src/index.tsx"],
       "@r8s/paperclip": ["./packages/paperclip/src/index.tsx"],
       "@r8s/eneo": ["./packages/eneo/src/index.tsx"],
-      "@r8s/matrix": ["./packages/matrix/src/index.tsx"]
+      "@r8s/matrix": ["./packages/matrix/src/index.tsx"],
+      "@r8s/umami": ["./packages/umami/src/index.tsx"],
+      "@r8s/harbor": ["./packages/harbor/src/index.tsx"],
+      "@r8s/flux-controller": ["./packages/flux-controller/src/index.ts"]
     }
   },
   "files": [],
@@ -117,6 +120,15 @@
     },
     {
       "path": "packages/matrix"
+    },
+    {
+      "path": "./packages/umami"
+    },
+    {
+      "path": "./packages/harbor"
+    },
+    {
+      "path": "./packages/flux-controller"
     }
   ]
 }

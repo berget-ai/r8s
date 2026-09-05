@@ -1,6 +1,6 @@
 {
   "name": "@r8s/grafana",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Grafana observability dashboard components for r8s",
   "license": "MIT",
   "author": "Berget AI AB",

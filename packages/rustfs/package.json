@@ -1,6 +1,6 @@
 {
   "name": "@r8s/rustfs",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "RustFS S3-compatible object storage components for r8s",
   "license": "MIT",
   "author": "Berget AI AB",

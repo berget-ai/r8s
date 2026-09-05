@@ -1,6 +1,6 @@
 {
   "name": "@r8s/wireguard",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "WireGuard VPN server (wg-easy) components for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
