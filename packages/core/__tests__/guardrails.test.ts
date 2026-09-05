@@ -131,6 +131,26 @@ describe('Guardrails', () => {
   })
 
   describe('noPlaintextSecrets', () => {
+    it('passes existingSecret* chart parameter references (harbor/Bitnami convention)', () => {
+      const resources = [
+        {
+          apiVersion: 'helm.toolkit.fluxcd.io/v2',
+          kind: 'HelmRelease',
+          metadata: { name: 'harbor' },
+          spec: {
+            values: {
+              existingSecretAdminPassword: 'harbor-admin-secret',
+              existingSecretAdminPasswordKey: 'HARBOR_ADMIN_PASSWORD',
+              existingSecretSecretKey: 'harbor-secret',
+            },
+          },
+        },
+      ]
+
+      const result = runGuardrails(resources, [noPlaintextSecrets])
+      expect(result.passed).toBe(true)
+    })
+
     it('should pass when secrets use external references', () => {
       const resources = [
         {

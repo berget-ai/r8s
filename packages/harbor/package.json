@@ -1,0 +1,43 @@
+{
+  "name": "@r8s/harbor",
+  "version": "0.2.0",
+  "description": "Harbor container registry — chart release via Flux, CNPG persistence, S3 blob storage for r8s",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/harbor"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "harbor"
+  ],
+  "r8s": {
+    "category": "Security & Identity"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@r8s/core": "^0.2.0",
+    "@r8s/crds": "^0.2.0",
+    "@r8s/k8s-types": "^0.2.0",
+    "@r8s/recipes": "^0.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

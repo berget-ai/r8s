@@ -51,9 +51,16 @@ function builtinProvisionStaticSecret(provider: SecretProviderConfig, req: Stati
       overwrite: true,
       transformation: {
         excludeRaw: true,
-        templates: Object.fromEntries(
-          Object.entries(req.keys).map(([dest, src]) => [dest, { text: `{{ .Secrets.${src} }}` }])
-        ),
+        templates: {
+          ...Object.fromEntries(
+            Object.entries(req.keys).map(([dest, src]) => [dest, { text: `{{ .Secrets.${src} }}` }])
+          ),
+          // Raw passthrough templates (literals, composed templates) win
+          // over key-mapped entries on collision
+          ...Object.fromEntries(
+            Object.entries(req.templates ?? {}).map(([dest, tpl]) => [dest, { text: tpl }])
+          ),
+        },
       },
     },
   }
