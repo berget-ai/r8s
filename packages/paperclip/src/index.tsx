@@ -1,4 +1,5 @@
-import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
+import { jsx, Fragment, useContext } from '@r8s/core'
+import { declareIfMissing } from '@r8s/operator-paperclip'
 import { SecretContext, useNamespace } from '@r8s/core/defaults'
 import {
   Database,
@@ -8,7 +9,6 @@ import {
   useOperators,
   type DatabaseProps,
 } from '@r8s/recipes'
-import type { Operator } from '@r8s/k8s-types'
 
 export interface PaperclipProps {
   /** Resource name / Instance CR name (defaults to 'paperclip') */
@@ -181,31 +181,7 @@ export function Paperclip(props: PaperclipProps) {
   const resources_: ReturnType<typeof jsx>[] = []
 
   // --- Operator declaration (stateful workload owner) -----------------------
-  if (!sharedOperators.some((op) => op.name === 'paperclip-operator')) {
-    const paperclipOperator: Operator = {
-      name: 'paperclip-operator',
-      version: operatorVersion,
-      description: 'Paperclip operator — Instance CR → StatefulSet + PVC + ingress',
-      source: {
-        type: 'helm',
-        chart: 'paperclip-operator',
-        repository: 'oci://ghcr.io/paperclipinc/charts',
-        version: operatorVersion,
-        values: {
-          operator: {
-            resources: {
-              limits: { cpu: '500m', memory: '512Mi' },
-              requests: { cpu: '100m', memory: '128Mi' },
-            },
-          },
-          metrics: { enabled: true, serviceMonitor: { enabled: false } },
-          leaderElection: { enabled: false },
-        },
-      },
-      crds: ['instances.paperclip.inc'],
-    }
-    resources_.push(declareOperator(paperclipOperator))
-  }
+  resources_.push(...declareIfMissing(sharedOperators))
 
   // --- App secrets (better-auth) + LLM key ----------------------------------
   const appSecretsName = secretsName ?? `${name}-secrets`

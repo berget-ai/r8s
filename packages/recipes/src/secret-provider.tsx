@@ -6,7 +6,7 @@ import {
   type StaticSecretRequest,
 } from '@r8s/core/defaults'
 import { OperatorContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
+import { declareIfMissing } from '@r8s/operator-vault-secrets'
 
 /**
  * Provisioner resolution — THE single identity-aware point in the platform.
@@ -276,10 +276,7 @@ export function SecretProvider(props: SecretProviderProps) {
 
   // Declare VSO for vault/openbao
   if (config.backend === 'vault' || config.backend === 'openbao') {
-    const hasVSO = sharedOperators.some((op) => op.name === 'vault-secrets-operator')
-    if (!hasVSO) {
-      resources.push(declareOperator(operators['vault-secrets-operator']()))
-    }
+    resources.push(...declareIfMissing(sharedOperators))
   }
 
   return jsx(Fragment, {

@@ -18,6 +18,45 @@
     },
     {
       "path": "../operator-cnpg"
+    },
+    {
+      "path": "../operator-cert-manager"
+    },
+    {
+      "path": "../operator-clickhouse"
+    },
+    {
+      "path": "../operator-envoy-gateway"
+    },
+    {
+      "path": "../operator-external-dns"
+    },
+    {
+      "path": "../operator-keycloak"
+    },
+    {
+      "path": "../operator-logging"
+    },
+    {
+      "path": "../operator-loki"
+    },
+    {
+      "path": "../operator-prometheus"
+    },
+    {
+      "path": "../operator-redis"
+    },
+    {
+      "path": "../operator-vault-secrets"
+    },
+    {
+      "path": "../operator-velero"
+    },
+    {
+      "path": "../operator-nginx-ingress"
+    },
+    {
+      "path": "../operator-paperclip"
     }
   ]
 }

@@ -14,6 +14,8 @@ export interface ComponentInfo {
   example: string
 }
 
+import { operatorMetadata } from '@r8s/crds'
+
 export interface PropInfo {
   name: string
   type: string
@@ -107,7 +109,8 @@ export const components: ComponentInfo[] = [
       },
       { name: 'children', type: 'unknown', required: false, description: 'Child components' },
     ],
-    example: `import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:v1" host="api.example.com" />`,
+    example: `import { operatorMetadata } from '@r8s/crds'
+import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:v1" host="api.example.com" />`,
   },
   {
     name: 'Database',
@@ -1818,80 +1821,14 @@ export const authComponents: ComponentInfo[] = [
   },
 ]
 
-export const operators: OperatorInfo[] = [
-  {
-    name: 'cnpg',
-    description: 'CloudNativePG PostgreSQL operator',
-    category: 'Data',
-    crds: ['clusters.postgresql.cnpg.io'],
-  },
-  {
-    name: 'cert-manager',
-    description: 'TLS certificate automation',
-    category: 'Security',
-    crds: ['certificates.cert-manager.io'],
-  },
-  {
-    name: 'envoy-gateway',
-    description: 'Envoy Gateway API implementation',
-    category: 'Networking',
-    crds: ['gateways.gateway.networking.k8s.io'],
-  },
-  {
-    name: 'external-dns',
-    description: 'Automatic DNS management',
-    category: 'Networking',
-    crds: ['dnsendpoints.externaldns.k8s.io'],
-  },
-  {
-    name: 'keycloak-operator',
-    description: 'Keycloak identity and access management',
-    category: 'Identity',
-    crds: ['keycloaks.k8s.keycloak.org'],
-  },
-  {
-    name: 'redis-operator',
-    description: 'Redis Operator by OT-Container-Kit',
-    category: 'Data',
-    crds: ['redisclusters.redis.redis.opstreelabs.in'],
-  },
-  {
-    name: 'prometheus',
-    description: 'kube-prometheus-stack monitoring',
-    category: 'Observability',
-    crds: ['prometheuses.monitoring.coreos.com'],
-  },
-  {
-    name: 'loki',
-    description: 'Grafana Loki log aggregation',
-    category: 'Observability',
-    crds: ['lokistacks.loki.grafana.com'],
-  },
-  {
-    name: 'vault-secrets-operator',
-    description: 'HashiCorp Vault Secrets Operator',
-    category: 'Security',
-    crds: ['vaultstaticsecrets.secrets.hashicorp.com'],
-  },
-  {
-    name: 'velero',
-    description: 'Backup and disaster recovery',
-    category: 'Data',
-    crds: ['schedules.velero.io'],
-  },
-  {
-    name: 'clickhouse-operator',
-    description: 'ClickHouse Operator by Altinity',
-    category: 'Data',
-    crds: ['clickhouseinstallations.clickhouse.altinity.com'],
-  },
-  {
-    name: 'logging-operator',
-    description: 'Logging Operator by Banzai Cloud',
-    category: 'Observability',
-    crds: ['flows.logging.banzaicloud.io'],
-  },
-]
+// Single source of truth: the generated registry (operators.yaml →
+// @r8s/crds operatorMetadata). This list stops drifting from reality.
+export const operators: OperatorInfo[] = operatorMetadata.map((meta) => ({
+  name: meta.name,
+  description: meta.description,
+  category: meta.category,
+  crds: meta.crds,
+}))
 
 export function allComponents(): ComponentInfo[] {
   return [...components, ...authComponents]

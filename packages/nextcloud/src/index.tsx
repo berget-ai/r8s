@@ -1,9 +1,9 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import type { Deployment, EnvVar, PersistentVolumeClaim, Service } from '@r8s/k8s-types'
 import { OperatorContext, SecretContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
 import { Database, Endpoint } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
+import { declareIfMissing } from '@r8s/operator-redis'
 import type { SecretRef } from '@r8s/recipes'
 
 export interface NextcloudProps {
@@ -74,8 +74,6 @@ export interface NextcloudProps {
     clusterIssuer: string
   }
 }
-
-const OPERATOR_REDIS = 'redis-operator'
 const HTML_MOUNT = '/var/www/html'
 const STATUS_PATH = '/status.php'
 
@@ -217,8 +215,8 @@ export function Nextcloud(props: NextcloudProps) {
   }
 
   // --- Operators -------------------------------------------------------------
-  if (cache && !sharedOperators.some((op) => op.name === OPERATOR_REDIS)) {
-    resources_.push(declareOperator(operators[OPERATOR_REDIS]()))
+  if (cache) {
+    resources_.push(...declareIfMissing(sharedOperators))
   }
 
   // Redis — file locking + caching (OT-Container-Kit operator). A

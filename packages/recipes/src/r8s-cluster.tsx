@@ -1,6 +1,30 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
 import { OperatorContext, Labels } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
+import {
+  operatorFactory as certManagerFactory,
+  OPERATOR_KEY as CERT_MANAGER_KEY,
+} from '@r8s/operator-cert-manager'
+import {
+  operatorFactory as externalDnsFactory,
+  OPERATOR_KEY as EXTERNAL_DNS_KEY,
+} from '@r8s/operator-external-dns'
+import {
+  operatorFactory as envoyGatewayFactory,
+  OPERATOR_KEY as ENVOY_GATEWAY_KEY,
+} from '@r8s/operator-envoy-gateway'
+import {
+  operatorFactory as vaultSecretsFactory,
+  OPERATOR_KEY as VAULT_SECRETS_KEY,
+} from '@r8s/operator-vault-secrets'
+import {
+  operatorFactory as prometheusFactory,
+  OPERATOR_KEY as PROMETHEUS_KEY,
+} from '@r8s/operator-prometheus'
+import { operatorFactory as lokiFactory, OPERATOR_KEY as LOKI_KEY } from '@r8s/operator-loki'
+import {
+  operatorFactory as loggingFactory,
+  OPERATOR_KEY as LOGGING_KEY,
+} from '@r8s/operator-logging'
 import { LokiStackComponent } from '@r8s/crds/loki'
 import { LoggingComponent, FlowComponent, OutputComponent } from '@r8s/crds/logging'
 import { SecretProvider, OpenBao } from './secret-provider'
@@ -128,23 +152,25 @@ export function R8sCluster(props: R8sClusterProps) {
   // cnpg, keycloak) via their own logic.
   const sharedOperators = useContext(OperatorContext)
   const declared: Operator[] = []
-  const clusterOperators = [
-    'cert-manager',
-    'external-dns',
-    'envoy-gateway',
-    'vault-secrets-operator',
-    'prometheus',
-    'loki',
-    'logging-operator',
-  ]
-
-  for (const opName of clusterOperators) {
+  // R8sCluster's standard stack — each operator package's factory + its
+  // OPERATOR_KEY (the name lives in the package, not here). Seeds the
+  // children's OperatorContext so they never re-declare.
+  const clusterStack = [
+    [certManagerFactory, CERT_MANAGER_KEY],
+    [externalDnsFactory, EXTERNAL_DNS_KEY],
+    [envoyGatewayFactory, ENVOY_GATEWAY_KEY],
+    [vaultSecretsFactory, VAULT_SECRETS_KEY],
+    [prometheusFactory, PROMETHEUS_KEY],
+    [lokiFactory, LOKI_KEY],
+    [loggingFactory, LOGGING_KEY],
+  ] as const
+  for (const [factory, key] of clusterStack) {
     const alreadyDeclared =
-      sharedOperators.some((op) => op.name === opName) ||
-      preinstalled.some((op) => op.name === opName) ||
-      declared.some((op) => op.name === opName)
-    if (!alreadyDeclared && operators[opName]) {
-      declared.push(operators[opName]())
+      sharedOperators.some((op) => op.name === key) ||
+      preinstalled.some((op) => op.name === key) ||
+      declared.some((op) => op.name === key)
+    if (!alreadyDeclared) {
+      declared.push(factory())
     }
   }
 

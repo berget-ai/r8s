@@ -94,7 +94,7 @@ Examples:
   r8s init my-project
   r8s init my-project --template fullstack
   r8s init my-project --strategy flux-controller
-  r8s init my-project --operators cert-manager,openbao
+  r8s init my-project --operators cert-manager,external-dns
   r8s list
   r8s info App
   r8s info Database
@@ -132,18 +132,31 @@ async function findEntryFile(entryPath?: string): Promise<string> {
   )
 }
 
-const VALID_OPERATORS = [
-  'cert-manager',
-  'openbao',
-  'keycloak',
-  'external-dns',
-  'redis',
-  'envoy',
-  'prometheus',
-  'clickhouse',
-  'logging-operator',
-  'loki',
-]
+// Operator identities come from the generated registry (operators.yaml) —
+// never re-typed here. Users may pass the registry key ('envoy-gateway')
+// or the package slug ('operator-redis'); both resolve to the operator
+// package @r8s/operator-<slug> with the version the registry pins.
+interface OperatorPackageInfo {
+  key: string
+  slug: string
+  packageName: string
+  version: string
+}
+
+async function operatorPackages(): Promise<OperatorPackageInfo[]> {
+  const { operators, operatorMetadata } = await import('@r8s/crds')
+  return operatorMetadata
+    .map((meta) => {
+      const key = meta.name
+      const slug =
+        key.endsWith('-operator') && key !== 'paperclip-operator'
+          ? key.slice(0, -'-operator'.length)
+          : key
+      const version = operators[key]().version
+      return { key, slug, packageName: `@r8s/operator-${slug}`, version }
+    })
+    .filter((info) => info.slug !== 'cnpg') // cnpg flows through @r8s/recipes
+}
 
 async function initProject(
   projectName: string,
@@ -157,13 +170,15 @@ async function initProject(
     throw new Error(`Directory ${projectName} already exists`)
   }
 
-  // Validate operators if provided
+  // Validate operators against the generated registry; accept aliases
   if (operators && operators.length > 0) {
-    const invalid = operators.filter((op) => !VALID_OPERATORS.includes(op))
+    const catalog = await operatorPackages()
+    const resolvable = new Set(catalog.flatMap((i) => [i.key, i.slug, i.packageName]))
+    const invalid = operators.filter((op) => !resolvable.has(op))
     if (invalid.length > 0) {
       throw new Error(
         `Invalid operators: ${invalid.join(', ')}. ` +
-          `Valid operators are: ${VALID_OPERATORS.join(', ')}`
+          `Valid operators are: ${[...resolvable].sort().join(', ')}`
       )
     }
   }
@@ -180,10 +195,16 @@ async function initProject(
     '@r8s/recipes': '^0.1.0',
   }
 
-  // Add operator packages if requested
-  if (operators) {
+  // Add operator packages — real package names + mirrored versions
+  if (operators && operators.length > 0) {
+    const catalog = await operatorPackages()
     for (const op of operators) {
-      dependencies[`@r8s/${op}`] = '^0.1.0'
+      const info =
+        catalog.find((i) => i.key === op || i.slug === op || i.packageName === op) ??
+        (() => {
+          throw new Error(`Unknown operator: ${op}`)
+        })()
+      dependencies[info.packageName] = `^${info.version}`
     }
   }
 

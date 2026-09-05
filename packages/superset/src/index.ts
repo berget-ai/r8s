@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
+import { declareIfMissing } from '@r8s/operator-redis'
 import { RedisClusterComponent } from '@r8s/crds/redis'
 
 export interface SupersetProps {
@@ -136,10 +136,7 @@ export function Superset(props: SupersetProps) {
   let redisPort: number
   if ('create' in redis && redis.create) {
     const sharedOperators = useContext(OperatorContext)
-    const hasRedis = sharedOperators.some((op) => op.name === 'redis-operator')
-    if (!hasRedis) {
-      resources_list.push(declareOperator(operators['redis-operator']()))
-    }
+    resources_list.push(...declareIfMissing(sharedOperators))
     const redisName = `${name}-redis`
     resources_list.push(
       RedisClusterComponent({

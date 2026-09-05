@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
+import { declareIfMissing } from '@r8s/operator-velero'
 import { useS3, isBucketElement, resolveBucket, type BucketProps } from './s3-provider'
 import type { r8sElement } from '@r8s/core'
 
@@ -100,13 +100,9 @@ export function Backup(props: BackupProps) {
   }
   const storeS3 = bucketDesc ? bucketDesc.s3 : s3
   const storePrefix = bucketDesc ? bucketDesc.prefix : undefined
-  const hasVelero = sharedOperators.some((op) => op.name === 'velero')
-
   const resources: ReturnType<typeof jsx>[] = []
 
-  if (!hasVelero) {
-    resources.push(declareOperator(operators['velero']()))
-  }
+  resources.push(...declareIfMissing(sharedOperators))
 
   // S3 provider: emit the BackupStorageLocation against the 'velero/'
   // prefix of the platform bucket and point the schedule at it. Without a

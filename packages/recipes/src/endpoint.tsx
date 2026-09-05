@@ -4,8 +4,10 @@ import { Ingress } from '@r8s/k8s-types'
 import type { BaseRouteProps } from '@r8s/k8s-types'
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
 import { EndpointContext } from './endpoint-provider'
-import { nginxIngressOperator } from './operators'
-import { operators } from '@r8s/crds'
+import { declareIfMissing as declareNginxIngress } from '@r8s/operator-nginx-ingress'
+import { declareIfMissing as declareCertManager } from '@r8s/operator-cert-manager'
+import { declareIfMissing as declareEnvoyGateway } from '@r8s/operator-envoy-gateway'
+import { declareIfMissing as declareExternalDns } from '@r8s/operator-external-dns'
 import { DNSEndpointComponent } from '@r8s/crds/externaldns'
 import { DnsContext } from './dns-provider'
 
@@ -119,15 +121,10 @@ export function Endpoint(props: EndpointProps) {
     const issuerName =
       tls?.clusterIssuer ?? endpointConfig.settings?.tls?.clusterIssuer ?? 'letsencrypt-prod'
 
-    const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager')
-    const hasEnvoyGateway = sharedOperators.some((op) => op.name === 'envoy-gateway')
-
-    if (tls && !hasCertManager) {
-      resources.push(declareOperator(operators['cert-manager']()))
+    if (tls) {
+      resources.push(...declareCertManager(sharedOperators))
     }
-    if (!hasEnvoyGateway) {
-      resources.push(declareOperator(operators['envoy-gateway']()))
-    }
+    resources.push(...declareEnvoyGateway(sharedOperators))
 
     if (tls) {
       resources.push(
@@ -236,14 +233,9 @@ export function Endpoint(props: EndpointProps) {
       })
     )
   } else {
-    const hasNginxIngress = sharedOperators.some((op) => op.name === 'nginx-ingress')
-    const hasCertManager = sharedOperators.some((op) => op.name === 'cert-manager')
-
-    if (!hasNginxIngress) {
-      resources.push(declareOperator(nginxIngressOperator()))
-    }
-    if (tls && !hasCertManager) {
-      resources.push(declareOperator(operators['cert-manager']()))
+    resources.push(...declareNginxIngress(sharedOperators))
+    if (tls) {
+      resources.push(...declareCertManager(sharedOperators))
     }
 
     const ingress: Ingress = {
@@ -313,10 +305,7 @@ export function Endpoint(props: EndpointProps) {
   //    nowhere, so we deliberately skip the CR in that case.
   const dnsTargets = dnsConfig?.settings?.targets as string[] | undefined
   if (createDnsRecord) {
-    const hasExternalDNS = sharedOperators.some((op) => op.name === 'external-dns')
-    if (!hasExternalDNS) {
-      resources.push(declareOperator(operators['external-dns']()))
-    }
+    resources.push(...declareExternalDns(sharedOperators))
 
     if (dnsTargets && dnsTargets.length > 0) {
       resources.push(

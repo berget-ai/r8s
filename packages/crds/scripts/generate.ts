@@ -362,7 +362,7 @@ for (const op of operatorsYaml) {
     op.source.type === 'manifest'
       ? `{ type: 'manifest', url: expandVersion(${JSON.stringify(urlTemplate)}, version), version, namespace: ${JSON.stringify(op.namespace)} }`
       : op.source.type === 'helm'
-        ? `{ type: 'helm', chart: ${JSON.stringify(op.source.chart)}, repository: ${JSON.stringify(op.source.repository)}, version, namespace: ${JSON.stringify(op.namespace)} }`
+        ? `{ type: 'helm', chart: ${JSON.stringify(op.source.chart)}, repository: ${JSON.stringify(op.source.repository)}, version, namespace: ${JSON.stringify(op.namespace)}${op.source.values ? `, values: ${JSON.stringify(op.source.values)}` : ''} }`
         : `{ type: 'olm', package: ${JSON.stringify(op.source.package)}, channel: ${JSON.stringify(op.source.channel)}, version }`
 
   opsLines.push(

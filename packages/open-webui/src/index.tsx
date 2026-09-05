@@ -1,9 +1,9 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext, SecretContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
 import { Database, Endpoint } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
+import { declareIfMissing } from '@r8s/operator-redis'
 import { Deployment, Service, EnvVar, PersistentVolumeClaim } from '@r8s/k8s-types'
 
 export interface OpenWebuiProps {
@@ -81,8 +81,6 @@ export interface OpenWebuiProps {
     clusterIssuer: string
   }
 }
-
-const OPERATOR_REDIS = 'redis-operator'
 
 /**
  * Open WebUI — self-hosted chat frontend for OpenAI-compatible backends.
@@ -250,8 +248,8 @@ export function OpenWebui(props: OpenWebuiProps) {
   }
 
   // --- Operators ------------------------------------------------------------
-  if (cache && !sharedOperators.some((op) => op.name === OPERATOR_REDIS)) {
-    resources_.push(declareOperator(operators[OPERATOR_REDIS]()))
+  if (cache) {
+    resources_.push(...declareIfMissing(sharedOperators))
   }
 
   // Redis — caching (OT-Container-Kit operator). A replication group so

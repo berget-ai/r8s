@@ -303,7 +303,7 @@ export function Database(props: DatabaseProps) {
     }
   } else {
     // Dedicated cluster — create full CNPG cluster
-    const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg')
+    const needsCnpg = declareCnpg(sharedOperators).length > 0
 
     // Backup credentials: explicit existing Secret, or provisioned by the
     // secrets backend. Plaintext is never rendered.
@@ -391,7 +391,7 @@ export function Database(props: DatabaseProps) {
       vendor: 'postgres' as const,
     }
 
-    if (!hasCNPG) {
+    if (needsCnpg) {
       resources.push(...declareCnpg(sharedOperators, operatorVersion))
     }
 

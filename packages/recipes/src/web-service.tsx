@@ -1,7 +1,7 @@
 import { jsx, declareOperator, useContext } from '@r8s/core'
 import { Deployment, Service, EnvVar } from '@r8s/k8s-types'
 import { OperatorContext, DatabaseContext, SecretContext, useNamespace } from '@r8s/core/defaults'
-import { vaultSecretsOperator } from './operators'
+import { declareIfMissing } from '@r8s/operator-vault-secrets'
 
 export interface SecretRef {
   /** Name of the Kubernetes Secret containing this value */
@@ -372,10 +372,7 @@ export function WebService(props: WebServiceProps) {
   // Declare Vault Secrets Operator if vault secrets are used
   if (Object.keys(vault).length > 0) {
     const sharedOperators = useContext(OperatorContext)
-    const hasVSO = sharedOperators.some((op) => op.name === 'vault-secrets-operator')
-    if (!hasVSO) {
-      vaultResources.push(declareOperator(vaultSecretsOperator()))
-    }
+    vaultResources.push(...declareIfMissing(sharedOperators))
   }
 
   const deployment: Deployment = {

@@ -1,7 +1,7 @@
 {
   "name": "@r8s/open-webui",
   "version": "0.2.1",
-  "description": "Open WebUI — chat frontend for OpenAI-compatible backends, Postgres persistence, uploads/RAG storage, OIDC SSO, optional Redis cache",
+  "description": "Open WebUI \u2014 chat frontend for OpenAI-compatible backends, Postgres persistence, uploads/RAG storage, OIDC SSO, optional Redis cache",
   "license": "MIT",
   "author": "Berget AI AB",
   "homepage": "https://r8s.berget.ai",
@@ -36,9 +36,13 @@
   },
   "devDependencies": {
     "typescript": "^5.3.0",
-    "vitest": "^1.0.0"
+    "vitest": "^1.0.0",
+    "@r8s/operator-redis": "^0.22.0"
   },
   "files": [
     "dist"
-  ]
+  ],
+  "peerDependencies": {
+    "@r8s/operator-redis": "^0.22.0"
+  }
 }
