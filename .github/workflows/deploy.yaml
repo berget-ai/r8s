@@ -1,6 +1,11 @@
 name: Build & Deploy r8s.berget.ai
 
 on:
+  # Manual trigger: needed when a squash-merge accidentally carries a
+  # "[skip ci]" trailing line (e.g. a branch picked up a rendered-manifest
+  # commit) — the push path then skips ALL workflows and we still need
+  # the docs image built for that sha.
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
