@@ -968,6 +968,26 @@ export const recipes: Recipe[] = [
     },
   },
   {
+    slug: 'bucket',
+    title: 'Bucket',
+    description:
+      'Bucket — scope S3 destinations for its children inside the surrounding S3Provider. Backups land under `s3://<bucket>/<name>/…` instead of the bucket root, so layouts stay readable and movable: <S3Provider …> <Bucket name="matrix_backup"> → s3://bucket/matrix_backup/matrix-db-cnpg <Matrix …/> <Bucket name="velero"> → s3://bucket/velero/… <Backup name="daily" /> Consumers append their own conventional suffix (-cnpg, …); explicit backup props still win over anything derived. Optionally re-scopes bucket/endpoint/credentials for children that need another store.',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'Bucket',
+      description:
+        'Bucket — scope S3 destinations for its children inside the surrounding S3Provider. Backups land under `s3://<bucket>/<name>/…` instead of the bucket root, so layouts stay readable and movable: <S3Provider …> <Bucket name="matrix_backup"> → s3://bucket/matrix_backup/matrix-db-cnpg <Matrix …/> <Bucket name="velero"> → s3://bucket/velero/… <Backup name="daily" /> Consumers append their own conventional suffix (-cnpg, …); explicit backup props still win over anything derived. Optionally re-scopes bucket/endpoint/credentials for children that need another store.',
+      props: [],
+      examples: [
+        {
+          tsx: 'import { S3Provider, MinIO, Bucket, Database, Backup } from \'@r8s/recipes\'\n\nexport default (\n  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n    <Bucket name="matrix_backup">\n      <Database name="matrix-db" backup />\n    </Bucket>\n    <Backup name="daily" />\n  </S3Provider>\n)',
+          yaml: "apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: matrix-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: matrix-db\n      owner: matrix-db\n      secret:\n        name: matrix-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/matrix_backup/matrix-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: matrix-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: matrix-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: velero.io/v1\nkind: BackupStorageLocation\nmetadata:\n  name: daily\n  namespace: velero\nspec:\n  provider: aws\n  default: true\n  objectStorage:\n    bucket: infra\n    prefix: velero\n  config:\n    region: us-east-1\n    s3ForcePathStyle: 'true'\n    s3Url: https://rustfs:9000\n---\napiVersion: velero.io/v1\nkind: Schedule\nmetadata:\n  name: daily\n  namespace: velero\nspec:\n  schedule: 0 2 * * *\n  template:\n    includedNamespaces:\n      - default\n    storageLocation: daily\n    ttl: 720h\n",
+        },
+      ],
+    },
+  },
+  {
     slug: 's3-backend-credentials',
     title: 'S3BackendCredentials',
     description:

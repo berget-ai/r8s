@@ -87,7 +87,10 @@ export function Backup(props: BackupProps) {
         spec: {
           provider: 'aws',
           default: true,
-          objectStorage: { bucket: s3.bucket, prefix: 'velero' },
+          objectStorage: {
+            bucket: s3.bucket,
+            prefix: s3.prefix ? `${s3.prefix}/velero` : 'velero',
+          },
           config: {
             region: s3.region ?? 'us-east-1',
             ...(s3.forcePathStyle !== false && { s3ForcePathStyle: 'true' }),

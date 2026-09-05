@@ -15,6 +15,11 @@ export interface S3Config {
   endpoint: string
   /** Bucket holding all consumer prefixes */
   bucket: string
+  /**
+   * Optional path prefix scoping every consumer destination inside the
+   * bucket (set via <Bucket name="…"> — one path segment, no slashes).
+   */
+  prefix?: string
   /** Region (default: 'us-east-1' — the convention for MinIO/RustFS) */
   region?: string
   /**
@@ -150,6 +155,66 @@ export function S3Provider(props: S3ProviderProps) {
 }
 
 /**
+ * Bucket — scope S3 destinations for its children inside the surrounding
+ * S3Provider. Backups land under `s3://<bucket>/<name>/…` instead of the
+ * bucket root, so layouts stay readable and movable:
+ *
+ * <S3Provider …>
+ *   <Bucket name="matrix_backup">   →  s3://bucket/matrix_backup/matrix-db-cnpg
+ *     <Matrix …/>
+ *   <Bucket name="velero">          →  s3://bucket/velero/…
+ *     <Backup name="daily" />
+ *
+ * Consumers append their own conventional suffix (-cnpg, …); explicit
+ * backup props still win over anything derived. Optionally re-scopes
+ * bucket/endpoint/credentials for children that need another store.
+ *
+ * @example
+ * import { S3Provider, MinIO, Bucket, Database, Backup } from '@r8s/recipes'
+ *
+ * export default (
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Bucket name="matrix_backup">
+ *       <Database name="matrix-db" backup />
+ *     </Bucket>
+ *     <Backup name="daily" />
+ *   </S3Provider>
+ * )
+ */
+export function Bucket(props: {
+  /** Prefix segment for children (single path segment, no slashes) */
+  name: string
+  /** Re-scope children to another bucket */
+  bucket?: string
+  /** Re-scope children to another endpoint */
+  endpoint?: string
+  /** Re-scope children to another credentials Secret */
+  credentialsSecret?: string
+  children?: unknown
+}) {
+  const { name, bucket, endpoint, credentialsSecret, children } = props
+  if (!name || name.includes('/') || name.includes('..')) {
+    throw new Error(
+      `Bucket name "${name}" must be a single path segment without slashes or '..' — it becomes the prefix under s3://<bucket>/`
+    )
+  }
+  const parent = useS3()
+  if (!parent && !endpoint) {
+    throw new Error(
+      `Bucket "${name}" needs a surrounding <S3Provider> (or an explicit endpoint prop) — there is no object store to scope against`
+    )
+  }
+  const scoped: S3Config = {
+    ...parent!,
+    ...(endpoint !== undefined && { endpoint }),
+    ...(bucket !== undefined && { bucket }),
+    ...(credentialsSecret !== undefined && { credentialsSecret }),
+    prefix: name,
+  }
+  return jsx(S3Context.Provider, { value: scoped, children })
+}
+
+/**
  * Emit a backend-provisioned S3 credentials Secret via the static-secret
  * capability hook (openbao/vault/sealed-secrets/custom provision()). The
  * destination Secret carries the CNPG-style keys 'access-key-id' and
@@ -177,9 +242,10 @@ export function S3BackendCredentials(props: {
 
 /** CNPG barman backup config derived from an S3 context (`<bucket>/<name>-cnpg`). */
 export function cnpgBackupFromS3(s3: S3Config, name: string) {
+  const base = s3.prefix ? `${s3.prefix}/` : ''
   return {
     endpointURL: s3.endpoint,
-    destinationPath: `s3://${s3.bucket}/${name}-cnpg`,
+    destinationPath: `s3://${s3.bucket}/${base}${name}-cnpg`,
     credentialsSecret: s3.credentialsSecret,
   }
 }

@@ -75,6 +75,7 @@ export {
   useS3,
   MinIO,
   AwsS3,
+  Bucket,
   S3BackendCredentials,
   cnpgBackupFromS3,
 } from './s3-provider'

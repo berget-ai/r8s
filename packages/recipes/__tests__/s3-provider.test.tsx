@@ -13,7 +13,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
-import { S3Provider, MinIO, AwsS3, useS3, Database, Backup } from '../src'
+import { S3Provider, MinIO, AwsS3, Bucket, useS3, Database, Backup } from '../src'
 
 const s3 = {
   endpoint: 'https://rustfs:9000',
@@ -114,6 +114,79 @@ describe('Database backup via S3 context', () => {
 
   it('fails with S3 guidance when pointing at one without credentials', () => {
     expect(() => render(<Database name="api-db" backup />)).toThrow(/s3/i)
+  })
+})
+
+describe('Bucket scoping', () => {
+  it('prefixes child destinations with the bucket name', () => {
+    const result = render(
+      <WithS3>
+        <Bucket name="matrix_backup">
+          <Database name="matrix-db" backup />
+        </Bucket>
+      </WithS3>
+    )
+    const cluster = result.resources.find((r) => r.kind === 'Cluster') as any
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://infra/matrix_backup/matrix-db-cnpg'
+    )
+  })
+
+  it('composes with the velero consumer: <bucket-prefix>/velero', () => {
+    const result = render(
+      <WithS3>
+        <Bucket name="cluster-dumps">
+          <Backup name="daily" />
+        </Bucket>
+      </WithS3>
+    )
+    const bsl = result.resources.find((r) => r.kind === 'BackupStorageLocation') as any
+    expect(bsl.spec.objectStorage).toMatchObject({
+      bucket: 'infra',
+      prefix: 'cluster-dumps/velero',
+    })
+  })
+
+  it('can re-scope bucket/credentials for its children only', () => {
+    let inside: unknown = null
+    let outside: unknown = null
+    function Probe({ out }: { out?: boolean }) {
+      const v = useS3()
+      if (out) outside = v
+      else inside = v
+      return jsx(Fragment, {})
+    }
+    render(
+      <WithS3>
+        <Probe out />
+        <Bucket name="cold" bucket="cold-storage" credentialsSecret="cold-creds">
+          <Probe />
+        </Bucket>
+      </WithS3>
+    )
+    expect(outside).toMatchObject({ bucket: 'infra', credentialsSecret: 'infra-s3-creds' })
+    expect(inside).toMatchObject({
+      bucket: 'cold-storage',
+      credentialsSecret: 'cold-creds',
+      prefix: 'cold',
+    })
+  })
+
+  it('rejects names that would escape the prefix', () => {
+    expect(() =>
+      render(
+        <WithS3>
+          <Bucket name="a/b">nothing</Bucket>
+        </WithS3>
+      )
+    ).toThrow(/single path segment/)
+    expect(() =>
+      render(
+        <WithS3>
+          <Bucket name="../escape">nothing</Bucket>
+        </WithS3>
+      )
+    ).toThrow(/single path segment/)
   })
 })
 

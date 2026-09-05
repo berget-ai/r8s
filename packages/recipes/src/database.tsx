@@ -241,7 +241,8 @@ export function Database(props: DatabaseProps) {
     if (backupSpec.credentialsSecret === undefined)
       backupSpec.credentialsSecret = s3?.credentialsSecret
     if (backupSpec.destinationPath === undefined && s3) {
-      backupSpec.destinationPath = `s3://${s3.bucket}/${name}-cnpg`
+      const base = s3.prefix ? `${s3.prefix}/` : ''
+      backupSpec.destinationPath = `s3://${s3.bucket}/${base}${name}-cnpg`
     }
   }
 
