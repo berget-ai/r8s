@@ -45,6 +45,14 @@ export interface DatabaseProps {
   namespace?: string
   /** Number of CNPG instances in the dedicated cluster (defaults to 3) */
   instances?: number
+  /**
+   * Bootstrap database name (defaults to `name`) — for apps whose schema
+   * lives in a database named differently from the cluster resource
+   * (e.g. cluster 'harbor-db', database 'registry').
+   */
+  database?: string
+  /** Bootstrap owner role (defaults to `name`; pairs with `database`) */
+  owner?: string
   /** Storage size (e.g., '10Gi') for the dedicated cluster data volume */
   storage?: string
   /** Storage class name for the data volume (defaults to cluster default) */
@@ -143,6 +151,8 @@ export function Database(props: DatabaseProps) {
     name,
     namespace: namespaceProp,
     instances = 3,
+    database: databaseName = name,
+    owner: ownerName = name,
     storage = '10Gi',
     storageClass,
     parameters,
@@ -188,8 +198,8 @@ export function Database(props: DatabaseProps) {
     const connection = {
       host: clusterConfig.host,
       port: 5432,
-      database: name,
-      username: name,
+      database: databaseName,
+      username: ownerName,
       passwordSecret: { name: secretName, key: 'password' },
       passwordKey: 'password',
       vendor: 'postgres' as const,
@@ -242,8 +252,8 @@ export function Database(props: DatabaseProps) {
         },
         bootstrap: {
           initdb: {
-            database: name,
-            owner: name,
+            database: databaseName,
+            owner: ownerName,
             // 'cnpg' credentialsMode: let CNPG default to '<cluster>-app'
             // (the native credentials secret incl. fqdn-uri references)
             ...(credentialsMode === 'cnpg' ? {} : { secret: { name: secretName } }),
@@ -282,8 +292,8 @@ export function Database(props: DatabaseProps) {
     const connection = {
       host: `${name}-rw`,
       port: 5432,
-      database: name,
-      username: name,
+      database: databaseName,
+      username: ownerName,
       passwordSecret: { name: secretName, key: 'password' },
       passwordKey: 'password',
       vendor: 'postgres' as const,

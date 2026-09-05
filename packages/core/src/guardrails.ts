@@ -154,6 +154,21 @@ const SECRET_REFERENCE_SUFFIXES = [
   'credentialsref',
 ]
 
+/**
+ * Key prefixes that name a reference to an existing secret (chart
+ * convention), not credential values — e.g. the Harbor/Bitnami
+ * `existingSecretAdminPassword`, `existingSecretSecretKey` parameters.
+ */
+const SECRET_REFERENCE_PREFIXES = ['existingsecret']
+
+/** Does this normalized key hold a reference rather than a credential? */
+function isReferenceKey(normalized: string): boolean {
+  return (
+    SECRET_REFERENCE_SUFFIXES.some((s) => normalized.endsWith(s)) ||
+    SECRET_REFERENCE_PREFIXES.some((s) => normalized.startsWith(s))
+  )
+}
+
 /** Env var names that suggest the value is a credential. */
 const SECRET_ENV_NAME_PATTERN =
   /(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|client[_-]?secret)/i
@@ -342,7 +357,7 @@ export const noPlaintextSecrets: GuardrailRule = {
               const normalized = normalizeKey(key)
               const isCredentialKey =
                 SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
-                !SECRET_REFERENCE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+                !isReferenceKey(normalized)
               if (isCredentialKey && typeof value === 'string' && value.length > 0) {
                 push(
                   'Secret',
@@ -385,7 +400,7 @@ export const noPlaintextSecrets: GuardrailRule = {
             const normalized = normalizeKey(key)
             const isCredentialKey =
               SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
-              !SECRET_REFERENCE_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
+              !isReferenceKey(normalized) &&
               !EMBEDDED_KEY_EXCLUDE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
             if (
               isCredentialKey &&
@@ -466,7 +481,7 @@ export const noPlaintextSecrets: GuardrailRule = {
           const normalized = normalizeKey(key)
           const isCredentialKey =
             SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
-            !SECRET_REFERENCE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+            !isReferenceKey(normalized)
           if (
             isCredentialKey &&
             typeof value === 'string' &&

@@ -20,6 +20,8 @@ import { Nextcloud } from '../../nextcloud/src/index'
 import { Odoo } from '../../odoo/src/index'
 import { ChromaDb } from '../../chromadb/src/index'
 import { LibreChat } from '../../librechat/src/index'
+import { Umami } from '../../umami/src/index'
+import { Harbor } from '../../harbor/src/index'
 
 const openbao = { backend: 'openbao', mount: 'kv', path: 'test' }
 const vault = { backend: 'vault', mount: 'kv', path: 'test' }
@@ -101,6 +103,23 @@ const fixtures: Fixture[] = [
     component: Odoo,
     props: { host: 'erp.example.com' },
     expectedHosts: ['erp.example.com'],
+  },
+  {
+    name: 'Umami',
+    component: Umami,
+    props: { host: 'umami.example.com' },
+    expectedHosts: ['umami.example.com'],
+  },
+  {
+    name: 'Harbor',
+    component: Harbor,
+    props: {
+      host: 'registry.example.com',
+      s3: { bucket: 'harbor-registry', region: 'berget-cloud', endpoint: 'https://s3.example.com' },
+    },
+    expectedHosts: ['registry.example.com'],
+    // The chart renders its own nginx ingress — no r8s Endpoint resources
+    skipEndpoints: true,
   },
   {
     name: 'ChromaDb',

@@ -426,6 +426,19 @@ export const recipes: Recipe[] = [
           description: 'Number of CNPG instances in the dedicated cluster (defaults to 3)',
         },
         {
+          name: 'database',
+          type: 'string',
+          required: false,
+          description:
+            "Bootstrap database name (defaults to `name`) — for apps whose schema lives in a database named differently from the cluster resource (e.g. cluster 'harbor-db', database 'registry').",
+        },
+        {
+          name: 'owner',
+          type: 'string',
+          required: false,
+          description: 'Bootstrap owner role (defaults to `name`; pairs with `database`)',
+        },
+        {
           name: 'storage',
           type: 'string',
           required: false,
@@ -977,6 +990,13 @@ export const recipes: Recipe[] = [
           required: true,
           description:
             "Destination→source key mapping. The destination carries env-case names consumed by the app; the vault/store keys stay snake_case: keys={{ SECRET_KEY: 'secret_key', UTILS_SECRET: 'utils_secret' }} A string array is shorthand for identity mappings ({ KEY: 'KEY' }). Rendered as destination.transformation.templates + excludeRaw — the destination holds ONLY these keys.",
+        },
+        {
+          name: 'templates',
+          type: 'Record',
+          required: false,
+          description:
+            "Raw Go-template passthrough merged AFTER the keys mapping — for advanced bundles needing literals or composed templates (e.g. `AWS_ENDPOINTS: 'https://s3.berget.cloud'`). Passthrough wins over key-mapped entries on collision.",
         },
         {
           name: 'secretName',

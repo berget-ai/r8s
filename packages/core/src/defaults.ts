@@ -91,6 +91,12 @@ export interface StaticSecretRequest {
   path: string
   /** Destination→source key mapping (env-case destination, snake_case source) */
   keys: Record<string, string>
+  /**
+   * Raw Go-template passthrough merged AFTER the keys mapping — for
+   * advanced bundles needing literals or composed templates
+   * (e.g. `AWS_ENDPOINTS: 'https://s3.berget.cloud'`).
+   */
+  templates?: Record<string, string>
   /** Provisioned Kubernetes Secret name (defaults to name) */
   secretName?: string
   /** Store mount path */

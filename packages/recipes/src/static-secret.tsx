@@ -26,6 +26,13 @@ export interface StaticSecretProps {
    * the destination holds ONLY these keys.
    */
   keys: Record<string, string> | string[]
+  /**
+   * Raw Go-template passthrough merged AFTER the keys mapping — for
+   * advanced bundles needing literals or composed templates
+   * (e.g. `AWS_ENDPOINTS: 'https://s3.berget.cloud'`). Passthrough wins
+   * over key-mapped entries on collision.
+   */
+  templates?: Record<string, string>
   /** Provisioned Kubernetes Secret name (defaults to name) */
   secretName?: string
   /**
@@ -103,6 +110,7 @@ export function StaticSecret(props: StaticSecretProps) {
     namespace: namespaceProp,
     path,
     keys,
+    templates,
     secretName,
     refreshAfter,
     restart,
@@ -141,6 +149,7 @@ export function StaticSecret(props: StaticSecretProps) {
     namespace,
     path,
     keys: mapping,
+    templates,
     secretName,
     authRef,
     refreshAfter,
