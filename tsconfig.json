@@ -45,7 +45,18 @@
       "@r8s/umami": ["./packages/umami/src/index.tsx"],
       "@r8s/harbor": ["./packages/harbor/src/index.tsx"],
       "@r8s/flux-controller": ["./packages/flux-controller/src/index.ts"],
-      "@r8s/operator-cnpg": ["./packages/operator-cnpg/src/index.tsx"]
+      "@r8s/operator-cnpg": ["./packages/operator-cnpg/src/index.tsx"],
+      "@r8s/operator-cert-manager": ["./packages/operator-cert-manager/src/index.tsx"],
+      "@r8s/operator-clickhouse": ["./packages/operator-clickhouse/src/index.tsx"],
+      "@r8s/operator-envoy-gateway": ["./packages/operator-envoy-gateway/src/index.tsx"],
+      "@r8s/operator-external-dns": ["./packages/operator-external-dns/src/index.tsx"],
+      "@r8s/operator-keycloak": ["./packages/operator-keycloak/src/index.tsx"],
+      "@r8s/operator-logging": ["./packages/operator-logging/src/index.tsx"],
+      "@r8s/operator-loki": ["./packages/operator-loki/src/index.tsx"],
+      "@r8s/operator-prometheus": ["./packages/operator-prometheus/src/index.tsx"],
+      "@r8s/operator-redis": ["./packages/operator-redis/src/index.tsx"],
+      "@r8s/operator-vault-secrets": ["./packages/operator-vault-secrets/src/index.tsx"],
+      "@r8s/operator-velero": ["./packages/operator-velero/src/index.tsx"]
     }
   },
   "files": [],
@@ -133,6 +144,39 @@
     },
     {
       "path": "./packages/operator-cnpg"
+    },
+    {
+      "path": "./packages/operator-cert-manager"
+    },
+    {
+      "path": "./packages/operator-clickhouse"
+    },
+    {
+      "path": "./packages/operator-envoy-gateway"
+    },
+    {
+      "path": "./packages/operator-external-dns"
+    },
+    {
+      "path": "./packages/operator-keycloak"
+    },
+    {
+      "path": "./packages/operator-logging"
+    },
+    {
+      "path": "./packages/operator-loki"
+    },
+    {
+      "path": "./packages/operator-prometheus"
+    },
+    {
+      "path": "./packages/operator-redis"
+    },
+    {
+      "path": "./packages/operator-vault-secrets"
+    },
+    {
+      "path": "./packages/operator-velero"
     }
   ]
 }

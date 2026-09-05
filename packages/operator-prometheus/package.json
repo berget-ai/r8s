@@ -1,16 +1,14 @@
 {
-  "name": "@r8s/operator-cnpg",
-  "version": "1.27.0",
-  "description": "CloudNativePG operator for r8s: CRD components + install manifest (npm-resolved operator package)",
+  "name": "@r8s/operator-prometheus",
+  "version": "58.4.0",
+  "description": "Prometheus monitoring stack (kube-prometheus-stack) \u2014 npm-resolved operator package for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
-  "homepage": "https://r8s.berget.ai",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/berget-ai/r8s.git",
-    "directory": "packages/operator-cnpg"
+    "directory": "packages/operator-prometheus"
   },
-  "bugs": "https://github.com/berget-ai/r8s/issues",
   "publishConfig": {
     "access": "public"
   },
@@ -20,16 +18,22 @@
   "keywords": [
     "r8s",
     "operator",
-    "cnpg",
-    "cloudnative-pg",
-    "postgresql"
+    "prometheus",
+    "prometheus"
   ],
   "r8s": {
     "category": "Operators",
-    "operator": "cnpg"
+    "operator": "prometheus"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc --build",
     "test": "vitest run",
@@ -43,12 +47,5 @@
   "devDependencies": {
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
-    }
   }
 }
