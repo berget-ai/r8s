@@ -278,7 +278,8 @@ export function Harbor(props: HarborProps) {
   // --- CNPG cluster (CNPG-managed credentials: the chart's existingSecret) -----
   resources_.push(
     jsx(Database, {
-      backup: false,name: dbName,
+      backup: false,
+      name: dbName,
       namespace,
       database: 'registry',
       owner: 'harbor',

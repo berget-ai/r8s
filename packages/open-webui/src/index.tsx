@@ -390,7 +390,13 @@ export function OpenWebui(props: OpenWebuiProps) {
   // consistent with the r8s Database recipe. The raw Deployment sets
   // DATABASE_URL statically (the WebService auto-PG block does not apply).
   resources_.push(
-    jsx(Database, { backup: false, name, namespace, storage: '10Gi', children: jsx('Deployment', deployment) })
+    jsx(Database, {
+      backup: false,
+      name,
+      namespace,
+      storage: '10Gi',
+      children: jsx('Deployment', deployment),
+    })
   )
 
   // --- Service -----------------------------------------------------------------
