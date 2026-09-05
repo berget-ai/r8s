@@ -1,7 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
-import { useS3, isBucketElement, resolveBucket } from './s3-provider'
+import { useS3, isBucketElement, resolveBucket, type BucketProps } from './s3-provider'
 
 export interface BackupProps {
   /** Resource name */
@@ -19,6 +19,11 @@ export interface BackupProps {
    */
 
   storageLocation?: string
+  /**
+   * <Bucket name="…"/> descriptor — scopes the BackupStorageLocation to
+   * that prefix (`<name>/velero`) of the surrounding provider's bucket.
+   */
+  bucket?: BucketProps
   /** Backup retention (e.g., '720h' for 30 days) */
   ttl?: string
 }
@@ -52,7 +57,7 @@ export interface BackupProps {
  *   />
  * )
  */
-export function Backup(props: BackupProps & { bucket?: unknown }) {
+export function Backup(props: BackupProps) {
   const {
     name,
     namespace = 'default',
@@ -65,8 +70,16 @@ export function Backup(props: BackupProps & { bucket?: unknown }) {
 
   const sharedOperators = useContext(OperatorContext)
   const s3 = useS3()
-  const bucketDesc =
-    bucketProp && isBucketElement(bucketProp) ? resolveBucket(bucketProp, s3) : undefined
+  let bucketDesc: ReturnType<typeof resolveBucket> | undefined
+  if (bucketProp) {
+    if (!isBucketElement(bucketProp)) {
+      throw new Error(
+        'Backup "bucket" prop takes a <Bucket name="…" /> descriptor — got ' +
+          (typeof bucketProp === 'object' ? 'another element/object' : `a ${typeof bucketProp}`)
+      )
+    }
+    bucketDesc = resolveBucket(bucketProp, s3)
+  }
   const effectiveS3 = bucketDesc ? bucketDesc.s3 : s3
   const hasVelero = sharedOperators.some((op) => op.name === 'velero')
 
