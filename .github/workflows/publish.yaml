@@ -21,6 +21,8 @@ jobs:
   verify:
     name: Build, test and validate release
     runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.enumerate.outputs.list }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -82,6 +84,26 @@ jobs:
             echo "OK $NAME@$VERSION"
           done
 
+      - name: Enumerate packages to publish
+        # Matrix source of truth = the filesystem: any non-private directory
+        # under packages/ with a main entry. A forgotten new package can
+        # never silently miss the release again.
+        id: enumerate
+        run: |
+          LIST=$(node -e '
+            const fs = require("fs");
+            const pkgs = fs.readdirSync("packages").filter((name) => {
+              try {
+                const p = JSON.parse(fs.readFileSync(`packages/${name}/package.json`, "utf8"));
+                return !p.private && p.main;
+              } catch {
+                return false;
+              }
+            }).sort();
+            process.stdout.write(JSON.stringify(pkgs));
+          ')
+          echo "list=$LIST" >> "$GITHUB_OUTPUT"
+
   publish:
     name: Publish @r8s/${{ matrix.package }}
     needs: verify
@@ -90,35 +112,10 @@ jobs:
       # A flaky registry call fails one package — never the whole release.
       # npm does not require dependencies to exist at publish time, so the
       # matrix is order-free; retried runs skip already-published versions.
+      # Package list comes from the verify job's filesystem enumeration.
       fail-fast: false
       matrix:
-        package:
-          - k8s-types
-          - core
-          - crds
-          - element
-          - grafana
-          - rustfs
-          - superset
-          - wireguard
-          - recipes
-          - n8n
-          - outline
-          - nextcloud
-          - chromadb
-          - supabase
-          - odoo
-          - open-webui
-          - librechat
-          - eurooffice
-          - paperclip
-          - umami
-          - harbor
-          - eneo
-          - matrix
-          - cli
-          - flux-controller
-          - r8s-controller
+        package: ${{ fromJSON(needs.verify.outputs.packages) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
