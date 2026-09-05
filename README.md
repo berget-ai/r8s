@@ -83,7 +83,7 @@ export default (
 )
 ```
 
-One `render` → all Deployments, Services, Gateway listeners + HTTPRoutes, cert-manager wiring, DNSEndpoint records, and OpenBao-provisioned Secrets — plus the pinned install manifests for every operator involved, emitted by `r8s operators`. Swap `EnvoyGateway` for `Nginx` on line 5 and every endpoint reroutes; nothing below changes.
+One `render` → all Deployments, Services, Gateway listeners + HTTPRoutes, cert-manager wiring, DNSEndpoint records, and OpenBao-provisioned Secrets — plus the pinned install manifests for every operator involved, emitted by `r8s operators`. Swap `EnvoyGateway` for `Nginx` on the EndpointProvider line and every endpoint reroutes; nothing below changes.
 
 ## Ship-the-stack recipes
 
@@ -98,7 +98,7 @@ Complete real-world applications as packages — **pinned versions, derived from
 | `@r8s/matrix` | Full Matrix stack + SFU | `@r8s/odoo` | Odoo ERP |
 | `@r8s/harbor` | OCI registry | `@r8s/chromadb` | Vector DB |
 | `@r8s/umami` | Analytics | `@r8s/grafana` · `@r8s/superset` | Dashboards |
-| `@r8s/open-webui` | Model frontend | `@r8s/rustfs` · `@r8s/wireguard` | S3 store · VPN |
+| `@r8s/open-webui` | Model frontend | `@r8s/rustfs` · `@r8s/wireguard` · `@r8s/element` | S3 store · VPN · Matrix web client |
 
 Core primitives (`@r8s/recipes`): `<Platform>`, `<App>`, `<Database>` (CNPG PostgreSQL), `<Endpoint>`, `<WebService>`, `<Auth>` (Keycloak), `<Monitoring>`, `<Backup>` (Velero), `<StaticSecret>`, and the providers shown in the example above.
 
@@ -107,9 +107,18 @@ Core primitives (`@r8s/recipes`): `<Platform>`, `<App>`, `<Database>` (CNPG Post
 **Secrets via capability hooks — not identity switches.** One lookup at the top of recipes; everything below speaks `provision(req)`:
 
 ```tsx
+import { jsx } from '@r8s/core'
+
 const myProvider = {
   provision(req: StaticSecretRequest) {
-    return <ExternalSecret spec={{ /* your ESO target here */ }} />
+    // Any element with apiVersion + kind renders as a raw resource — here, an
+    // External Secrets Operator target (ESO itself is declared as an operator below).
+    return jsx('ExternalSecret', {
+      apiVersion: 'external-secrets.io/v1beta1',
+      kind: 'ExternalSecret',
+      metadata: { name: req.destination.name, namespace: req.namespace },
+      spec: { refreshInterval: '1h', secretStoreRef: { name: 'cluster-store', kind: 'ClusterSecretStore' }, data: req.keys },
+    })
   },
 }
 // Every recipe in every package consumes your provider without knowing what it is.
