@@ -71,6 +71,15 @@ export interface DatabaseProps {
    * creating roles or extensions. Parameterized by the CNPG operator.
    */
   postInitSQL?: string[]
+  /**
+   * Where database credentials come from. Default `'backend'`: when a
+   * secrets backend is configured on the Platform, the credentials secret
+   * is provisioned through it (rotation → pod restarts). `'cnpg'` forces
+   * CNPG-managed bootstrap credentials **even with a backend** — the
+   * operator generates the secret in-cluster (incl. `fqdn-uri`), matching
+   * apps that reference the CNPG-generated secret directly.
+   */
+  credentialsMode?: 'backend' | 'cnpg'
   /** Child components rendered with this database's connection info in context */
   children?: unknown
 }
@@ -137,6 +146,7 @@ export function Database(props: DatabaseProps) {
     storage = '10Gi',
     storageClass,
     parameters,
+    credentialsMode = 'backend',
     backup,
     rolloutRestartTargets,
     operatorVersion,
@@ -234,7 +244,9 @@ export function Database(props: DatabaseProps) {
           initdb: {
             database: name,
             owner: name,
-            secret: { name: secretName },
+            // 'cnpg' credentialsMode: let CNPG default to '<cluster>-app'
+            // (the native credentials secret incl. fqdn-uri references)
+            ...(credentialsMode === 'cnpg' ? {} : { secret: { name: secretName } }),
             // Roles/extensions the application needs on a fresh cluster —
             // applied once by CNPG after the initial bootstrap.
             ...(postInitSQL && postInitSQL.length > 0
@@ -315,7 +327,11 @@ export function Database(props: DatabaseProps) {
     // For dedicated clusters with a secrets backend, the backend manages
     // credentials. For kubernetes/manual-secrets backend, CNPG manages the
     // bootstrap secret automatically — no plaintext Secret is rendered.
-    if (secretProvider) {
+    // 'cnpg' credentialsMode: the operator generates the bootstrap secret
+    // in-cluster (incl. fqdn-uri) even when a secrets backend is present —
+    // apps referencing the CNPG-generated secret directly (e.g. paperclip's
+    // externalURLSecretRef) work without vault-stored DB credentials.
+    if (secretProvider && credentialsMode === 'backend') {
       resources.push(
         ...createSecretResources(
           name,

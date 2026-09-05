@@ -69,6 +69,10 @@ const fixtures: Fixture[] = [
     component: Paperclip,
     props: { host: 'paperclip.example.com' },
     expectedHosts: ['paperclip.example.com'],
+    // The paperclip-operator owns routing: the Instance CR carries hosts in
+    // its own spec and the operator renders the Ingress itself — no r8s
+    // Endpoint/Ingress/HTTPRoute resources exist to assert.
+    skipEndpoints: true,
   },
   {
     name: 'EuroOffice',
@@ -155,7 +159,7 @@ function routedHosts(resources: any[]): string[] {
 
 for (const fx of fixtures) {
   describe(`${fx.name} — provider matrix`, () => {
-    describe('endpoint provider', () => {
+    ;(fx.skipEndpoints ? describe.skip : describe)('endpoint provider', () => {
       it('renders a valid Ingress with the expected host under ingress routing', () => {
         const result = assertRendersCleanly(() =>
           render(wrapWithRouting('ingress', wrapWithSecrets(openbao, jsx(fx.component, fx.props))))
