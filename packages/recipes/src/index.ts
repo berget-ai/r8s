@@ -31,6 +31,8 @@ export {
   type SealedSecretsProps,
   ManualSecrets,
   type ManualSecretsProps,
+  provisionerForSecretProvider,
+  canProvisionSecrets,
 } from './secret-provider'
 export {
   DnsProvider,
@@ -66,3 +68,7 @@ export {
 export { cnpgOperator, nginxIngressOperator, vaultSecretsOperator } from './operators'
 
 export { StaticSecret, type StaticSecretProps } from './static-secret'
+
+// Composition helpers — loose building blocks for packages
+export { useOperators, maybeOperator } from './operators'
+export { secretsRequiredError, type SecretsRequiredOptions } from './errors'
