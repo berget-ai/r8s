@@ -48,13 +48,6 @@ export interface DatabaseProps {
   /** Number of CNPG instances in the dedicated cluster (defaults to 3) */
   instances?: number
   /**
-   * REQUIRED decision point: omit → renderer throws with guidance.
-   * `false` → cluster without barman (forks, ephemeral CI).
-   * `true`/object → barman WAL + scheduled backups; target and credentials
-   * derive from the Platform's S3 provider, explicit object values win.
-   */
-
-  /**
    * Bootstrap database name (defaults to `name`) — for apps whose schema
    * lives in a database named differently from the cluster resource
    * (e.g. cluster 'harbor-db', database 'registry').
@@ -71,6 +64,12 @@ export interface DatabaseProps {
   /**
    * Continuous barman backup to S3 object storage + ScheduledBackup.
    * Explicit opt-in.
+   */
+  /**
+   * REQUIRED decision point: omit → renderer throws with guidance.
+   * `false` → cluster without barman (forks, ephemeral CI).
+   * `true`/object → barman WAL + scheduled backups; target and credentials
+   * derive from the Platform's S3 provider, explicit object values win.
    */
   backup: DatabaseBackupProps | true | false
   /**
@@ -234,8 +233,8 @@ export function Database(props: DatabaseProps) {
         `  <Database name="${name}" backup={false} />`
     )
   }
-  const backupSpec: DatabaseBackupProps | undefined =
-    backup === true ? {} : (backup as DatabaseBackupProps | undefined)
+  const backupSpec: DatabaseBackupProps | false | undefined =
+    backup === false ? false : backup === true ? {} : { ...(backup as DatabaseBackupProps) }
   if (backupSpec) {
     if (backupSpec.endpointURL === undefined) backupSpec.endpointURL = s3?.endpoint
     if (backupSpec.credentialsSecret === undefined)
@@ -395,14 +394,14 @@ export function Database(props: DatabaseProps) {
           metadata: { name: `${name}-backup`, namespace },
           spec: {
             cluster: { name },
-            schedule: backupSpec!.schedule ?? '0 3 * * *',
+            schedule: backupSpec && backupSpec.schedule ? backupSpec.schedule : '0 3 * * *',
             backupOwnerReference: 'self',
           },
         } as Parameters<typeof jsx>[1])
       )
 
       // Backend-provisioned S3 credentials for barman
-      if (!backupSpec!.credentialsSecret && secretProvider) {
+      if (backupSpec && !backupSpec.credentialsSecret && secretProvider) {
         resources.push(
           ...createStaticSecretResource(
             `${name}-backup-credentials`,

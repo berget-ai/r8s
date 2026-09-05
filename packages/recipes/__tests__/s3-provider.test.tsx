@@ -112,6 +112,12 @@ describe('Database backup via S3 context', () => {
     expect(backup.barmanObjectStore.s3Credentials.accessKeyId.name).toBe('explicit-creds')
   })
 
+  it('throws the required-decision guidance when backup is omitted entirely', () => {
+    expect(() => render(<Database name="api-db" />)).toThrow(
+      /backup is a required decision[\s\S]*backup=\{false\}/
+    )
+  })
+
   it('fails with S3 guidance when pointing at one without credentials', () => {
     expect(() => render(<Database name="api-db" backup />)).toThrow(/s3/i)
   })

@@ -30,11 +30,11 @@ export interface S3Config {
   /**
    * Existing Secret holding the access keys. Expected keys:
    * 'access-key-id' and 'secret-access-key' (the CNPG barman convention);
-   * velero additionally reads `veleroCredentialKey` when set.
+   * velero additionally reads `veleroCredentialKey` when set. Must live in
+   * each consumer's namespace — CNPG barman and the Velero BSL credential
+   * reference Secrets namespace-locally.
    */
   credentialsSecret: string
-  /** Namespace of that Secret (defaults to the consumers' namespace) */
-  credentialsNamespace?: string
   /**
    * Key inside credentialsSecret holding a velero-format cloud credentials
    * file (e.g. 'cloud'). Omit for workload-identity / IRSA clusters.

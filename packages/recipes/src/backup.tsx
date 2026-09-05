@@ -85,8 +85,9 @@ export function Backup(props: BackupProps) {
         kind: 'BackupStorageLocation',
         metadata: { name, namespace: 'velero' },
         spec: {
+          // no `default: true` — two <Backup> components must not fight over
+          // it; each Schedule pins its storageLocation explicitly
           provider: 'aws',
-          default: true,
           objectStorage: {
             bucket: s3.bucket,
             prefix: s3.prefix ? `${s3.prefix}/velero` : 'velero',
