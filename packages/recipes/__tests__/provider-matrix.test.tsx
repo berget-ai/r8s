@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx, runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
-import { SecretContext, RoutingContext } from '@r8s/core/defaults'
+import { SecretContext, RoutingContext, type SecretProvider } from '@r8s/core/defaults'
 
 // Provider-matrix: every app package that exposes an Endpoint must render
 // equally well under either endpoint provider (ingress controller, Gateway
@@ -123,7 +123,7 @@ const fixtures: Fixture[] = [
   },
 ]
 
-function wrapWithSecrets(backend: object, children: unknown) {
+function wrapWithSecrets(backend: SecretProvider, children: unknown) {
   return jsx(SecretContext.Provider, { value: backend as never, children })
 }
 
@@ -200,7 +200,9 @@ for (const fx of fixtures) {
       })
 
       it('provisions the same secrets through Vault', () => {
-        const baseline = render(wrapWithSecrets(openbao, jsx(fx.component, fx.props)))
+        const baseline = assertRendersCleanly(() =>
+          render(wrapWithSecrets(openbao, jsx(fx.component, fx.props)))
+        )
         if (!baseline.resources.some((r: any) => r.kind === 'OpenBaoStaticSecret')) {
           return // package provisions nothing — nothing to switch
         }
