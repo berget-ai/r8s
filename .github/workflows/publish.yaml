@@ -18,7 +18,8 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  verify:
+    name: Build, test and validate release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -40,6 +41,28 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Verify every published package has a built dist
+        # v0.2.0's tarballs for the 11 app recipes shipped TypeScript
+        # source only — they were published from a machine that had never
+        # run the build for them. Fail loudly instead of half-publishing.
+        run: |
+          for pkg in packages/*/; do
+            PRIVATE=$(node -p "require('./$pkg/package.json').private || false")
+            if [ "$PRIVATE" = "true" ]; then
+              continue
+            fi
+            MAIN=$(node -p "require('./$pkg/package.json').main || ''")
+            if [ -z "$MAIN" ]; then
+              continue
+            fi
+            MAIN="${MAIN#./}"
+            if [ ! -f "$pkg$MAIN" ]; then
+              echo "ERROR: $pkg has main '$MAIN' but the file does not exist — run the build first"
+              exit 1
+            fi
+          done
+          echo "All non-private packages have their main built."
+
       - name: Verify versions match the tag
         if: github.event_name == 'push'
         run: |
@@ -59,36 +82,83 @@ jobs:
             echo "OK $NAME@$VERSION"
           done
 
-      - name: Publish packages in dependency order
+  publish:
+    name: Publish @r8s/${{ matrix.package }}
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      # A flaky registry call fails one package — never the whole release.
+      # npm does not require dependencies to exist at publish time, so the
+      # matrix is order-free; retried runs skip already-published versions.
+      fail-fast: false
+      matrix:
+        package:
+          - k8s-types
+          - core
+          - crds
+          - element
+          - grafana
+          - rustfs
+          - superset
+          - wireguard
+          - recipes
+          - n8n
+          - outline
+          - nextcloud
+          - chromadb
+          - supabase
+          - odoo
+          - open-webui
+          - librechat
+          - eurooffice
+          - paperclip
+          - umami
+          - harbor
+          - eneo
+          - matrix
+          - cli
+          - flux-controller
+          - r8s-controller
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all packages
+        run: npx tsc -b
+
+      - name: Publish package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -e
-          # Dependency order: k8s-types first, cli last.
-          # App recipe packages (n8n … eneo) come after recipes — they
-          # depend on core/k8s-types/crds/recipes, never on each other.
-          # Private packages (example) are skipped.
-          ORDER="k8s-types core crds element grafana rustfs superset wireguard recipes n8n outline nextcloud chromadb supabase odoo open-webui librechat eurooffice paperclip eneo matrix cli flux-controller r8s-controller"
-          for pkg in $ORDER; do
-            DIR="packages/$pkg"
-            [ -d "$DIR" ] || continue
-            PRIVATE=$(node -p "require('./$DIR/package.json').private || false")
-            if [ "$PRIVATE" = "true" ]; then
-              echo "SKIP $pkg (private)"
-              continue
-            fi
-            NAME=$(node -p "require('./$DIR/package.json').name")
-            VERSION=$(node -p "require('./$DIR/package.json').version")
-            # Skip if this exact version is already published
-            if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
-              echo "SKIP $NAME@$VERSION (already published)"
-              continue
-            fi
-            echo "Publishing $NAME@$VERSION..."
-            if [ "$DRY_RUN" = "true" ]; then
-              npm publish --dry-run --access public --workspace "$NAME"
-            else
-              npm publish --access public --workspace "$NAME"
-            fi
-          done
+          DIR="packages/${{ matrix.package }}"
+          PRIVATE=$(node -p "require('./$DIR/package.json').private || false")
+          if [ "$PRIVATE" = "true" ]; then
+            echo "SKIP ${{ matrix.package }} (private)"
+            exit 0
+          fi
+          NAME=$(node -p "require('./$DIR/package.json').name")
+          VERSION=$(node -p "require('./$DIR/package.json').version")
+          # Skip if this exact version is already published — makes
+          # re-runs of only-failed jobs safe after a partial release.
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "SKIP $NAME@$VERSION (already published)"
+            exit 0
+          fi
+          echo "Publishing $NAME@$VERSION..."
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run --access public --workspace "$NAME"
+          else
+            npm publish --access public --workspace "$NAME"
+          fi

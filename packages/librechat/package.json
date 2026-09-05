@@ -1,6 +1,6 @@
 {
   "name": "@r8s/librechat",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "LibreChat multi-model AI chat — MongoDB (provisioned externally), Redis sessions, optional Meilisearch, OIDC SSO",
   "license": "MIT",
   "author": "Berget AI AB",
@@ -37,5 +37,8 @@
   "devDependencies": {
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }

@@ -1,6 +1,6 @@
 {
   "name": "@r8s/matrix",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Matrix (Element Server Suite) — Synapse homeserver, MAS auth with Keycloak OIDC, Element Web/Admin, MatrixRTC/LiveKit SFU with HA defaults",
   "license": "MIT",
   "author": "Berget AI AB",

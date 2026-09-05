@@ -1,6 +1,6 @@
 {
   "name": "@r8s/crds",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Generated TypeScript types and components from upstream Kubernetes CRDs — 1:1 fidelity, no hand-written mappings",
   "license": "MIT",
   "author": "Berget AI AB",
