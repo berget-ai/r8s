@@ -183,60 +183,53 @@ export function resourcesToYAML(resources: any[]): string {
   }
 
   return (
-    resources
-      .map((resource) => {
-        const lines: string[] = ['---']
-
-        function serialize(obj: any, indent = 0): string[] {
-          const prefix = '  '.repeat(indent)
-          const result: string[] = []
-
-          for (const [key, value] of Object.entries(obj)) {
-            if (value === null || value === undefined) {
-              continue
-            } else if (Array.isArray(value)) {
-              if (value.length === 0) {
-                result.push(prefix + key + ': []')
-              } else if (typeof value[0] === 'object') {
-                result.push(prefix + key + ':')
-                for (const item of value) {
-                  result.push(prefix + '-')
-                  result.push(...serialize(item, indent + 1))
-                }
-              } else {
-                result.push(prefix + key + ':')
-                for (const item of value) {
-                  result.push(prefix + '- ' + JSON.stringify(item))
-                }
-              }
-            } else if (typeof value === 'object') {
-              result.push(prefix + key + ':')
-              result.push(...serialize(value, indent + 1))
-            } else if (typeof value === 'string') {
-              if (
-                value.includes(':') ||
-                value.includes('#') ||
-                value.startsWith('*') ||
-                value === '' ||
-                value.includes('\n')
-              ) {
-                result.push(prefix + key + ': "' + value.replace(/"/g, '\\"') + '"')
-              } else {
-                result.push(prefix + key + ': ' + value)
-              }
-            } else {
-              result.push(prefix + key + ': ' + value)
-            }
-          }
-
-          return result
-        }
-
-        lines.push(...serialize(resource))
-        return lines.join('\n')
-      })
-      .join('\n') + '\n'
+    resources.map((resource) => ['---', ...serializeEntries(resource, 0)].join('\n')).join('\n') +
+    '\n'
   )
+}
+
+/** Quote scalars that would otherwise be misparsed by YAML (colons, comments, globs, multiline, empty). */
+function needsQuoting(value: string): boolean {
+  return (
+    value.includes(':') ||
+    value.includes('#') ||
+    value.startsWith('*') ||
+    value === '' ||
+    value.includes('\n')
+  )
+}
+
+function formatScalar(value: unknown): string {
+  if (typeof value === 'string' && needsQuoting(value)) {
+    return `"${value.replace(/"/g, '\\"')}"`
+  }
+  return String(value)
+}
+
+function serializeArray(key: string, items: any[], indent: number): string[] {
+  const prefix = '  '.repeat(indent)
+  if (items.length === 0) return [`${prefix}${key}: []`]
+  const lines = [`${prefix}${key}:`]
+  if (typeof items[0] === 'object') {
+    for (const item of items) lines.push(`${prefix}-`, ...serializeEntries(item, indent + 1))
+  } else {
+    for (const item of items) lines.push(`${prefix}- ${JSON.stringify(item)}`)
+  }
+  return lines
+}
+
+function serializeEntry(key: string, value: any, indent: number): string[] {
+  const prefix = '  '.repeat(indent)
+  if (value === null || value === undefined) return []
+  if (Array.isArray(value)) return serializeArray(key, value, indent)
+  if (typeof value === 'object') {
+    return [`${prefix}${key}:`, ...serializeEntries(value, indent + 1)]
+  }
+  return [`${prefix}${key}: ${formatScalar(value)}`]
+}
+
+function serializeEntries(obj: any, indent: number): string[] {
+  return Object.entries(obj).flatMap(([key, value]) => serializeEntry(key, value, indent))
 }
 
 /** Main controller function */

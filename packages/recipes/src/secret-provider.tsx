@@ -34,6 +34,11 @@ export function canProvisionSecrets(
 
 /** Built-in Vault/OpenBao emission (VaultStaticSecret / OpenBaoStaticSecret) */
 function builtinProvisionStaticSecret(provider: SecretProviderConfig, req: StaticSecretRequest) {
+  // Two modes: an EXHAUSTIVE bundle (keys/templates given — destination
+  // carries exactly those keys, excludeRaw) or a RAW SYNC (empty keys and
+  // no templates — destination passes the whole store entry through,
+  // legacy Database/operator-contract shape).
+  const exhaustive = Object.keys(req.keys).length > 0 || req.templates !== undefined
   const spec = {
     ...(provider.backend === 'vault'
       ? { vaultAuthRef: req.authRef ?? provider.authRef }
@@ -41,28 +46,33 @@ function builtinProvisionStaticSecret(provider: SecretProviderConfig, req: Stati
     mount: req.mount ?? provider.mount,
     type: 'kv-v2' as const,
     path: req.path,
-    refreshAfter: req.refreshAfter ?? provider.refreshAfter ?? '1h',
+    refreshAfter: req.refreshAfter ?? provider.refreshAfter ?? (exhaustive ? '1h' : undefined),
     ...(req.restartTargets && req.restartTargets.length > 0
       ? { rolloutRestartTargets: req.restartTargets }
       : {}),
-    destination: {
-      create: true,
-      name: req.secretName ?? req.name,
-      overwrite: true,
-      transformation: {
-        excludeRaw: true,
-        templates: {
-          ...Object.fromEntries(
-            Object.entries(req.keys).map(([dest, src]) => [dest, { text: `{{ .Secrets.${src} }}` }])
-          ),
-          // Raw passthrough templates (literals, composed templates) win
-          // over key-mapped entries on collision
-          ...Object.fromEntries(
-            Object.entries(req.templates ?? {}).map(([dest, tpl]) => [dest, { text: tpl }])
-          ),
-        },
-      },
-    },
+    destination: exhaustive
+      ? {
+          create: true,
+          name: req.secretName ?? req.name,
+          overwrite: true,
+          transformation: {
+            excludeRaw: true,
+            templates: {
+              ...Object.fromEntries(
+                Object.entries(req.keys).map(([dest, src]) => [
+                  dest,
+                  { text: `{{ .Secrets.${src} }}` },
+                ])
+              ),
+              // Raw passthrough templates (literals, composed templates) win
+              // over key-mapped entries on collision
+              ...Object.fromEntries(
+                Object.entries(req.templates ?? {}).map(([dest, tpl]) => [dest, { text: tpl }])
+              ),
+            },
+          },
+        }
+      : { create: true, name: req.secretName ?? req.name },
   }
   return provider.backend === 'vault'
     ? jsx('VaultStaticSecret', {

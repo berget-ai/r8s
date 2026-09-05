@@ -3,7 +3,7 @@ import type { EnvVar } from '@r8s/k8s-types'
 import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
 import { ClusterComponent, ScheduledBackupComponent } from '@r8s/crds/postgresql'
-import { Endpoint } from '@r8s/recipes'
+import { Endpoint, StaticSecret } from '@r8s/recipes'
 
 /** HA scheduling defaults learned from a production node-blip incident:
  *  evict within 60s (instead of the 300s default) and spread replicas
@@ -208,112 +208,190 @@ export interface MatrixProps {
  *   </Platform>
  * )
  */
-export function Matrix(props: MatrixProps) {
-  const {
-    name = 'matrix',
-    namespace: namespaceProp,
-    domain,
-    hosts,
-    replicas = 2,
-    serverName,
-    sso,
-    database = {},
-    rtc = {},
-    appservices = [],
-    version = {},
-    urlPreview = true,
-  } = props
 
-  const contextNamespace = useContext(Namespace)
-  const namespace =
-    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
-  const secretProvider = useContext(SecretContext)
-  const sharedOperators = useContext(OperatorContext)
+// ---------------------------------------------------------------------------
+// Pure config builders — one per workload. The Matrix component composes
+// them; keeping them pure (props in, plain object out) makes defaults easy
+// to unit-test without rendering the whole tree.
+// ---------------------------------------------------------------------------
 
-  const baseDomain = domain
-  const server = serverName ?? baseDomain
-  const host = {
-    web: hosts?.web ?? `element.${baseDomain}`,
-    synapse: hosts?.synapse ?? `matrix.${baseDomain}`,
-    admin: hosts?.admin ?? `element-admin.${baseDomain}`,
-    account: hosts?.account ?? `matrix-account.${baseDomain}`,
-    rtc: hosts?.rtc ?? `matrix-rtc.${baseDomain}`,
+function buildSynapseConfig(opts: {
+  name: string
+  server: string
+  synapseHost: string
+  urlPreview: boolean
+  rtcEnabled: boolean
+  appservices: NonNullable<MatrixProps['appservices']>
+}): Record<string, unknown> {
+  const { name, server, synapseHost, urlPreview, rtcEnabled, appservices } = opts
+  return {
+    server_name: server,
+    public_baseurl: `https://${synapseHost}/`,
+    pid_file: '/data/homeserver.pid',
+    listeners: [
+      {
+        port: 8008,
+        tls: false,
+        bind_addresses: ['::'],
+        type: 'http',
+        x_forwarded: true,
+        resources: [
+          { names: ['client', 'federation'], compress: false },
+          { names: ['health'], compress: false },
+        ],
+      },
+    ],
+    database: {
+      name: 'psycopg2',
+      args: {
+        host: `${name}-synapse-db-rw`,
+        port: 5432,
+        database: 'synapse',
+        user: 'synapse',
+        password_file: '/secrets/db/password',
+        sslmode: 'prefer',
+      },
+    },
+    report_stats: false,
+    enable_registration: false,
+    ...(urlPreview ? { ...URL_PREVIEW_BLACKLIST } : { url_preview_enabled: false }),
+    ...(rtcEnabled && {
+      experimental_features: { msc4143_rtc_transports: true },
+      matrix_rtc: {
+        transports: [
+          {
+            type: 'livekit',
+            livekit_service_url: `http://${name}-sfu:7880`,
+          },
+        ],
+      },
+    }),
+    appservice_config_files: appservices.map((a) => `/appservices/${a.name}.yaml`),
   }
+}
 
-  // --- secrets: backend or explicit refs ------------------------------------
-  const backend = secretProvider?.backend
-  const hasBackend = backend === 'openbao' || backend === 'vault'
-
-  if (sso && !sso.clientSecretRef && !hasBackend) {
-    throw new Error(
-      `Matrix "${name}": sso.clientSecretRef is required unless a secrets backend (openbao/vault) is configured on the surrounding Platform.\n\n` +
-        `Fix: wrap in <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'matrix' }}>\n` +
-        `     or pass sso={{ ..., clientSecretRef: '${name}-keycloak-oidc' }} (a pre-created Secret with key 'clientSecret')`
-    )
-  }
-  if (database.backup && !database.backup.credentialsSecret && !hasBackend) {
-    throw new Error(
-      `Matrix "${name}": database.backup.credentialsSecret is required unless a secrets backend (openbao/vault) is configured.\n\n` +
-        `Fix: wrap in <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'matrix' }}>\n` +
-        `     or pass database={{ backup: { ..., credentialsSecret: '${name}-backup-credentials' } }}`
-    )
-  }
-
-  const resources: ReturnType<typeof jsx>[] = []
-
-  // CNPG operator for the two databases
-  if (!sharedOperators.some((op) => op.name === 'cnpg')) {
-    resources.push(declareOperator(operators['cnpg']()))
-  }
-
-  // --- Secrets via backend (OpenBao/Vault static secret bundles) -------------
-  const secretSecretDefs: { name: string; path: string; keys: Record<string, string> }[] = []
-  if (hasBackend) {
-    if (sso && !sso.clientSecretRef) {
-      secretSecretDefs.push({
-        name: `${name}-keycloak-oidc`,
-        path: `${secretProvider!.path ?? name}/${name}/keycloak-oidc`,
-        keys: { clientSecret: 'clientSecret' },
-      })
-    }
-    if (database.backup && !database.backup.credentialsSecret) {
-      secretSecretDefs.push({
-        name: `${name}-backup-credentials`,
-        path: `${secretProvider!.path ?? name}/${name}/backup`,
-        keys: { 'access-key-id': 'access-key-id', 'secret-access-key': 'secret-access-key' },
-      })
-    }
-  }
-
-  const StaticSecretComponent = backend === 'openbao' ? 'OpenBaoStaticSecret' : 'VaultStaticSecret'
-  const staticSecretApiVersion =
-    backend === 'openbao' ? 'secrets.openbao.org/v1beta1' : 'secrets.hashicorp.com/v1beta1'
-  for (const def of secretSecretDefs) {
-    resources.push(
-      jsx(StaticSecretComponent, {
-        apiVersion: staticSecretApiVersion,
-        kind: StaticSecretComponent,
-        metadata: { name: def.name, namespace },
-        spec: {
-          ...(backend === 'openbao'
-            ? { openbaoAuthRef: secretProvider!.authRef ?? 'openbao-auth' }
-            : { vaultAuthRef: secretProvider!.authRef ?? 'vault-auth' }),
-          mount: secretProvider!.mount ?? 'secret',
-          type: 'kv-v2',
-          path: def.path,
-          refreshAfter: '3600s',
-          destination: { create: true, name: def.name },
+function buildMasConfig(name: string, sso?: MatrixSSOProps): Record<string, unknown> {
+  return {
+    database: {
+      uri: `postgresql://mas:$(MASPASSWORD)@${name}-mas-db-rw:5432/mas?sslmode=prefer`,
+    },
+    http: {
+      listeners: [
+        {
+          name: 'web',
+          resources: [
+            { name: 'discovery' },
+            { name: 'oauthapi' },
+            { name: 'compatapi' },
+            { name: 'graphql' },
+          ],
+          port: 8080,
+          host: '0.0.0.0',
         },
-      })
-    )
+      ],
+    },
+    ...(sso && {
+      upstream_oauth2: {
+        providers: [
+          {
+            id: 'sso',
+            issuer: sso.issuer,
+            human_name: sso.humanName ?? 'SSO',
+            client_id: sso.clientId,
+            client_secret: '$MAS_OIDC_CLIENT_SECRET',
+            token_endpoint_auth_method: 'client_secret_basic',
+            scope: sso.scope ?? 'openid email profile',
+            claims_imports: {
+              localpart: { action: 'suggest', template: '{{ user.preferred_username }}' },
+              displayname: { action: 'suggest', template: '{{ user.name }}' },
+              email: { action: 'suggest', template: '{{ user.email }}' },
+            },
+          },
+        ],
+      },
+      passwords: { enabled: false },
+    }),
   }
+}
 
-  const keycloakSecretName = sso?.clientSecretRef ?? (sso ? `${name}-keycloak-oidc` : undefined)
-  const backupCredsSecret =
-    database.backup?.credentialsSecret ??
-    (database.backup ? `${name}-backup-credentials` : undefined)
+function buildElementWebConfig(server: string, hosts: { synapse: string; rtc: string }) {
+  return {
+    default_server_config: {
+      'm.homeserver': {
+        base_url: `https://${hosts.synapse}`,
+        server_name: server,
+      },
+      'org.matrix.msc4143.rtc_session': {
+        focused_element: { focus_url: `https://${hosts.rtc}` },
+      },
+    },
+    brand: 'Element',
+    default_country_code: 'SE',
+    show_labs_settings: true,
+  }
+}
 
-  // --- CNPG databases --------------------------------------------------------
+function buildRtcConfig(rtc: MatrixRTCProps, rtcHost: string) {
+  return {
+    port: 7880,
+    log_level: 'info',
+    rtc: {
+      tcp_port: 30001,
+      muxed_udp_port: 30002,
+      ...(rtc.manualIP
+        ? { node_ip: rtc.manualIP, use_external_ip: false }
+        : { use_external_ip: true }),
+      ...(rtc.stunServers?.length && { stun_servers: rtc.stunServers }),
+      packet_buffer_size_video: 1000,
+      packet_buffer_size_audio: 400,
+      batch_io: { batch_size: 256, max_flush_interval: '1ms' },
+    },
+    audio: { active_red_encoding: true },
+    ...(rtc.turnPort !== 0 && {
+      turn: {
+        enabled: true,
+        domain: rtcHost,
+        tls_port: 0,
+        udp_port: rtc.turnPort ?? 30004,
+      },
+    }),
+    keys: 'livekit-key: $(LIVEKIT_API_SECRET)',
+  }
+}
+
+function buildMasEnv(name: string, keycloakSecretName?: string): EnvVar[] {
+  return [
+    {
+      name: 'MASPASSWORD',
+      valueFrom: { secretKeyRef: { name: `${name}-mas-db-app`, key: 'password' } },
+    },
+    ...(keycloakSecretName
+      ? [
+          {
+            name: 'MAS_OIDC_CLIENT_SECRET',
+            valueFrom: { secretKeyRef: { name: keycloakSecretName, key: 'clientSecret' } },
+          } as EnvVar,
+        ]
+      : []),
+    {
+      name: 'MAS_CONFIG_FILE',
+      value: '/config/config.yaml',
+    },
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// Workload/infra resource builders — pure JSX element factories used by Matrix.
+// ---------------------------------------------------------------------------
+
+function matrixDatabaseResources(opts: {
+  name: string
+  namespace: string
+  database: NonNullable<MatrixProps['database']>
+  backupCredsSecret: string | undefined
+}): ReturnType<typeof jsx>[] {
+  const { name, namespace, database, backupCredsSecret } = opts
+  const resources: ReturnType<typeof jsx>[] = []
   const dbSpecs: {
     id: string
     roleComment: string
@@ -427,51 +505,506 @@ export function Matrix(props: MatrixProps) {
     }
   }
 
-  // --- Config Maps -----------------------------------------------------------
-  const synapseConfig: Record<string, unknown> = {
-    server_name: server,
-    public_baseurl: `https://${host.synapse}/`,
-    pid_file: '/data/homeserver.pid',
-    listeners: [
-      {
-        port: 8008,
-        tls: false,
-        bind_addresses: ['::'],
-        type: 'http',
-        x_forwarded: true,
-        resources: [
-          { names: ['client', 'federation'], compress: false },
-          { names: ['health'], compress: false },
-        ],
-      },
-    ],
-    database: {
-      name: 'psycopg2',
-      args: {
-        host: `${name}-synapse-db-rw`,
-        port: 5432,
-        database: 'synapse',
-        user: 'synapse',
-        password_file: '/secrets/db/password',
-        sslmode: 'prefer',
+  return resources
+}
+
+function synapseDeployment(opts: {
+  name: string
+  namespace: string
+  appservices: NonNullable<MatrixProps['appservices']>
+  synapseVersion: string
+}): ReturnType<typeof jsx> {
+  const { name, namespace, appservices, synapseVersion } = opts
+  const synapseEnv: EnvVar[] = [{ name: 'SYNAPSE_CONFIG_PATH', value: '/data/homeserver.yaml' }]
+
+  return jsx('Deployment', {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: { name: `${name}-synapse`, namespace },
+    spec: {
+      replicas: 1, // federation workers land separately — single writer for now
+      strategy: { type: 'Recreate' },
+      selector: { matchLabels: { app: `${name}-synapse` } },
+      template: {
+        metadata: { labels: { app: `-synapse` } },
+        spec: {
+          tolerations: HA_TOLERATIONS,
+          topologySpreadConstraints: haTopologySpread(`${name}-synapse`),
+          securityContext: { fsGroup: 991, fsGroupChangePolicy: 'OnRootMismatch' },
+          containers: [
+            {
+              name: 'synapse',
+              image: `matrixdotorg/synapse:${synapseVersion}`,
+              imagePullPolicy: 'IfNotPresent',
+              ports: [{ containerPort: 8008, name: 'client' }],
+              env: synapseEnv,
+              // /tmp must be writable — readOnlyRootFilesystem + Twisted
+              // tempfile buffering breaks media uploads otherwise (upstream
+              // matrix-stack 26.9.0 regression)
+              volumeMounts: [
+                {
+                  name: 'config',
+                  mountPath: '/data/homeserver.yaml',
+                  subPath: 'homeserver.yaml',
+                  readOnly: true,
+                },
+                { name: 'db-credentials', mountPath: '/secrets/db', readOnly: true },
+                { name: 'tmp', mountPath: '/tmp' },
+                ...appservices.map((a) => ({
+                  name: `appservice-${a.name}`,
+                  mountPath: `/appservices/${a.name}.yaml`,
+                  subPath: a.key ?? 'registration.yaml',
+                  readOnly: true,
+                })),
+              ],
+              livenessProbe: {
+                httpGet: { path: '/health', port: 8008 },
+                periodSeconds: 30,
+                timeoutSeconds: 5,
+              },
+              readinessProbe: {
+                httpGet: { path: '/health', port: 8008 },
+                periodSeconds: 10,
+                timeoutSeconds: 3,
+              },
+              resources: {
+                requests: { memory: '1Gi', cpu: '500m' },
+                limits: { memory: '2Gi', cpu: '2000m' },
+              },
+            },
+          ],
+          volumes: [
+            { name: 'config', configMap: { name: `${name}-synapse-config` } },
+            // CNPG generates the database credentials Secret (<cluster>-app)
+            { name: 'db-credentials', secret: { secretName: `${name}-synapse-db-app` } },
+            { name: 'tmp', emptyDir: { sizeLimit: '1Gi' } },
+            ...appservices.map((a) => ({
+              name: `appservice-${a.name}`,
+              secret: {
+                secretName: a.secretRef ?? `${name}-appservice-${a.name}`,
+              },
+            })),
+          ],
+        },
       },
     },
-    report_stats: false,
-    enable_registration: false,
-    ...(urlPreview ? { ...URL_PREVIEW_BLACKLIST } : { url_preview_enabled: false }),
-    ...(rtc.enabled !== false && {
-      experimental_features: { msc4143_rtc_transports: true },
-      matrix_rtc: {
-        transports: [
+  })
+}
+
+function masDeployment(opts: {
+  name: string
+  namespace: string
+  replicas: number
+  masVersion: string
+  keycloakSecretName: string | undefined
+}): ReturnType<typeof jsx> {
+  const { name, namespace, replicas, masVersion, keycloakSecretName } = opts
+  const masEnv = buildMasEnv(name, keycloakSecretName)
+
+  return jsx('Deployment', {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: { name: `${name}-mas`, namespace },
+    spec: {
+      replicas,
+      strategy: { type: 'RollingUpdate', rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } },
+      selector: { matchLabels: { app: `${name}-mas` } },
+      template: {
+        metadata: { labels: { app: `-mas` } },
+        spec: {
+          tolerations: HA_TOLERATIONS,
+          topologySpreadConstraints: haTopologySpread(`${name}-mas`),
+          containers: [
+            {
+              name: 'mas',
+              image: `ghcr.io/element-hq/matrix-authentication-service:${masVersion}`,
+              imagePullPolicy: 'IfNotPresent',
+              args: ['server', '--config', '/config/config.yaml'],
+              ports: [{ containerPort: 8080, name: 'http' }],
+              env: masEnv,
+              volumeMounts: [{ name: 'config', mountPath: '/config', readOnly: true }],
+              livenessProbe: {
+                httpGet: { path: '/health', port: 8080 },
+                periodSeconds: 30,
+                timeoutSeconds: 5,
+              },
+              readinessProbe: {
+                httpGet: { path: '/health', port: 8080 },
+                periodSeconds: 10,
+                timeoutSeconds: 3,
+              },
+              resources: {
+                requests: { memory: '256Mi', cpu: '100m' },
+                limits: { memory: '512Mi', cpu: '500m' },
+              },
+            },
+          ],
+          volumes: [{ name: 'config', configMap: { name: `${name}-mas-config` } }],
+        },
+      },
+    },
+  })
+}
+
+function webDeployment(opts: {
+  name: string
+  namespace: string
+  replicas: number
+  webVersion: string
+}): ReturnType<typeof jsx> {
+  const { name, namespace, replicas, webVersion } = opts
+  return jsx('Deployment', {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: { name: `${name}-web`, namespace },
+    spec: {
+      replicas,
+      selector: { matchLabels: { app: `${name}-web` } },
+      template: {
+        metadata: { labels: { app: `-web` } },
+        spec: {
+          tolerations: HA_TOLERATIONS,
+          topologySpreadConstraints: haTopologySpread(`${name}-web`),
+          containers: [
+            {
+              name: 'web',
+              image: `vectorim/element-web:${webVersion}`,
+              imagePullPolicy: 'IfNotPresent',
+              ports: [{ containerPort: 80, name: 'http' }],
+              volumeMounts: [
+                {
+                  name: 'config',
+                  mountPath: '/app/config.json',
+                  subPath: 'config.json',
+                  readOnly: true,
+                },
+              ],
+              livenessProbe: { httpGet: { path: '/', port: 80 }, periodSeconds: 30 },
+              readinessProbe: { httpGet: { path: '/', port: 80 }, periodSeconds: 10 },
+              resources: {
+                requests: { memory: '64Mi', cpu: '50m' },
+                limits: { memory: '256Mi', cpu: '200m' },
+              },
+            },
+          ],
+          volumes: [{ name: 'config', configMap: { name: `${name}-web-config` } }],
+        },
+      },
+    },
+  })
+}
+
+function adminDeployment(opts: {
+  name: string
+  namespace: string
+  replicas: number
+  adminVersion: string
+}): ReturnType<typeof jsx> {
+  const { name, namespace, replicas, adminVersion } = opts
+  return jsx('Deployment', {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: { name: `${name}-admin`, namespace },
+    spec: {
+      replicas,
+      selector: { matchLabels: { app: `${name}-admin` } },
+      template: {
+        metadata: { labels: { app: `-admin` } },
+        spec: {
+          tolerations: HA_TOLERATIONS,
+          topologySpreadConstraints: haTopologySpread(`${name}-admin`),
+          containers: [
+            {
+              name: 'admin',
+              image: `ghcr.io/element-hq/element-admin:${adminVersion}`,
+              imagePullPolicy: 'IfNotPresent',
+              ports: [{ containerPort: 8080, name: 'http' }],
+              livenessProbe: { httpGet: { path: '/', port: 8080 }, periodSeconds: 30 },
+              readinessProbe: { httpGet: { path: '/', port: 8080 }, periodSeconds: 10 },
+              resources: {
+                requests: { memory: '64Mi', cpu: '50m' },
+                limits: { memory: '256Mi', cpu: '200m' },
+              },
+            },
+          ],
+        },
+      },
+    },
+  })
+}
+
+function sfuResources(opts: {
+  name: string
+  namespace: string
+  rtc: MatrixRTCProps
+  sfuVersion: string
+}): ReturnType<typeof jsx>[] {
+  const { name, namespace, rtc, sfuVersion } = opts
+  const resources: ReturnType<typeof jsx>[] = []
+
+  resources.push(
+    jsx('Deployment', {
+      apiVersion: 'apps/v1',
+      kind: 'Deployment',
+      metadata: { name: `${name}-sfu`, namespace },
+      spec: {
+        replicas: 1,
+        strategy: { type: 'Recreate' },
+        selector: { matchLabels: { app: `${name}-sfu` } },
+        template: {
+          metadata: { labels: { app: `${name}-sfu` } },
+          spec: {
+            tolerations: HA_TOLERATIONS,
+            containers: [
+              {
+                name: 'sfu',
+                image: `livekit/livekit-server:${sfuVersion}`,
+                imagePullPolicy: 'IfNotPresent',
+                args: ['--config', '/etc/livekit.yaml'],
+                ports: [
+                  { containerPort: 7880, name: 'api' },
+                  { containerPort: 30001, name: 'rtc-tcp' },
+                  // LiveKit listens on UDP here even though some Helm charts
+                  // declare TCP — the Service below routes numerically anyway
+                  { containerPort: 30002, name: 'rtc-muxed-udp', protocol: 'UDP' },
+                  { containerPort: rtc.turnPort ?? 30004, name: 'turn-udp', protocol: 'UDP' },
+                ],
+                env: [
+                  {
+                    name: 'LIVEKIT_API_SECRET',
+                    valueFrom: { secretKeyRef: { name: `${name}-rtc-auth`, key: 'secret' } },
+                  },
+                ],
+                volumeMounts: [{ name: 'config', mountPath: '/etc', readOnly: true }],
+                livenessProbe: { httpGet: { path: '/', port: 7880 }, periodSeconds: 30 },
+                readinessProbe: { httpGet: { path: '/', port: 7880 }, periodSeconds: 10 },
+                resources: {
+                  requests: { memory: '512Mi', cpu: '500m' },
+                  limits: { memory: '2Gi', cpu: '2000m' },
+                },
+              },
+            ],
+            volumes: [{ name: 'config', configMap: { name: `${name}-sfu-config` } }],
+          },
+        },
+      },
+    })
+  )
+
+  // Combined LoadBalancer for all SFU traffic — one external IP for
+  // TCP+UDP (Harvester CCM shares the pool IP via ipam annotation).
+  // Always LoadBalancer: as ClusterIP the UDP/TURN ports are unreachable,
+  // which silently breaks MatrixRTC.
+  // Numeric targetPorts: the pod's muxed-UDP port is sometimes declared
+  // TCP by charts — numeric bypasses that entirely.
+  resources.push(
+    jsx('Service', {
+      apiVersion: 'v1',
+      kind: 'Service',
+      metadata: {
+        name: `${name}-sfu`,
+        namespace,
+        annotations: {
+          'cloudprovider.harvesterhci.io/ipam': 'pool',
+        },
+      },
+      spec: {
+        type: 'LoadBalancer',
+        externalTrafficPolicy: 'Local',
+        ...(rtc.manualIP && { loadBalancerIP: rtc.manualIP }),
+        selector: { app: `${name}-sfu` },
+        ports: [
+          { name: 'api', port: 7880, targetPort: 7880, protocol: 'TCP' },
+          { name: 'rtc-tcp', port: 30001, targetPort: 30001, protocol: 'TCP' },
+          { name: 'rtc-muxed-udp', port: 30002, targetPort: 30002, protocol: 'UDP' },
           {
-            type: 'livekit',
-            livekit_service_url: `http://${name}-sfu:7880`,
+            name: 'turn-udp',
+            port: rtc.turnPort ?? 30004,
+            targetPort: rtc.turnPort ?? 30004,
+            protocol: 'UDP',
           },
         ],
       },
-    }),
-    appservice_config_files: appservices.map((a) => `/appservices/${a.name}.yaml`),
+    })
+  )
+
+  return resources
+}
+
+function clusterIPServices(name: string, namespace: string): ReturnType<typeof jsx>[] {
+  const resources: ReturnType<typeof jsx>[] = []
+  for (const svc of [
+    { svcName: `${name}-synapse`, port: 8008, app: `${name}-synapse` },
+    { svcName: `${name}-mas`, port: 8080, app: `${name}-mas` },
+    { svcName: `${name}-web`, port: 80, app: `${name}-web` },
+    { svcName: `${name}-admin`, port: 8080, app: `${name}-admin` },
+  ]) {
+    resources.push(
+      jsx('Service', {
+        apiVersion: 'v1',
+        kind: 'Service',
+        metadata: { name: svc.svcName, namespace },
+        spec: {
+          type: 'ClusterIP',
+          selector: { app: svc.app },
+          ports: [{ port: svc.port, targetPort: svc.port }],
+        },
+      })
+    )
   }
+
+  return resources
+}
+
+function matrixEndpoints(
+  name: string,
+  namespace: string,
+  host: { web: string; synapse: string; admin: string; account: string; rtc: string },
+  rtcEnabled: boolean
+): ReturnType<typeof jsx>[] {
+  const resources: ReturnType<typeof jsx>[] = []
+  const endpointDefs: { host: string; serviceName: string; servicePort: number; suffix: string }[] =
+    [
+      { host: host.web, serviceName: `${name}-web`, servicePort: 80, suffix: 'web' },
+      { host: host.synapse, serviceName: `${name}-synapse`, servicePort: 8008, suffix: 'synapse' },
+      { host: host.admin, serviceName: `${name}-admin`, servicePort: 8080, suffix: 'admin' },
+      { host: host.account, serviceName: `${name}-mas`, servicePort: 8080, suffix: 'account' },
+    ]
+  if (rtcEnabled) {
+    endpointDefs.push({
+      host: host.rtc,
+      serviceName: `${name}-sfu`,
+      servicePort: 7880,
+      suffix: 'rtc',
+    })
+  }
+
+  for (const ep of endpointDefs) {
+    resources.push(
+      jsx(Endpoint, {
+        name: `${name}-${ep.suffix}`,
+        namespace,
+        host: ep.host,
+        serviceName: ep.serviceName,
+        servicePort: ep.servicePort,
+        tls: { secretName: `${name}-${ep.suffix}-tls`, clusterIssuer: 'letsencrypt-prod' },
+      })
+    )
+  }
+
+  return resources
+}
+
+export function Matrix(props: MatrixProps) {
+  const {
+    name = 'matrix',
+    namespace: namespaceProp,
+    domain,
+    hosts,
+    replicas = 2,
+    serverName,
+    sso,
+    database = {},
+    rtc = {},
+    appservices = [],
+    version = {},
+    urlPreview = true,
+  } = props
+
+  const contextNamespace = useContext(Namespace)
+  const namespace =
+    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+  const secretProvider = useContext(SecretContext)
+  const sharedOperators = useContext(OperatorContext)
+
+  const baseDomain = domain
+  const server = serverName ?? baseDomain
+  const host = {
+    web: hosts?.web ?? `element.${baseDomain}`,
+    synapse: hosts?.synapse ?? `matrix.${baseDomain}`,
+    admin: hosts?.admin ?? `element-admin.${baseDomain}`,
+    account: hosts?.account ?? `matrix-account.${baseDomain}`,
+    rtc: hosts?.rtc ?? `matrix-rtc.${baseDomain}`,
+  }
+
+  // --- secrets: backend or explicit refs ------------------------------------
+  const backend = secretProvider?.backend
+  const hasBackend = backend === 'openbao' || backend === 'vault'
+
+  if (sso && !sso.clientSecretRef && !hasBackend) {
+    throw new Error(
+      `Matrix "${name}": sso.clientSecretRef is required unless a secrets backend (openbao/vault) is configured on the surrounding Platform.\n\n` +
+        `Fix: wrap in <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'matrix' }}>\n` +
+        `     or pass sso={{ ..., clientSecretRef: '${name}-keycloak-oidc' }} (a pre-created Secret with key 'clientSecret')`
+    )
+  }
+  if (database.backup && !database.backup.credentialsSecret && !hasBackend) {
+    throw new Error(
+      `Matrix "${name}": database.backup.credentialsSecret is required unless a secrets backend (openbao/vault) is configured.\n\n` +
+        `Fix: wrap in <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'matrix' }}>\n` +
+        `     or pass database={{ backup: { ..., credentialsSecret: '${name}-backup-credentials' } }}`
+    )
+  }
+
+  const resources: ReturnType<typeof jsx>[] = []
+
+  // CNPG operator for the two databases
+  if (!sharedOperators.some((op) => op.name === 'cnpg')) {
+    resources.push(declareOperator(operators['cnpg']()))
+  }
+
+  // --- Secrets via backend (OpenBao/Vault static secret bundles) -------------
+  const secretSecretDefs: { name: string; path: string; keys: Record<string, string> }[] = []
+  if (hasBackend) {
+    if (sso && !sso.clientSecretRef) {
+      secretSecretDefs.push({
+        name: `${name}-keycloak-oidc`,
+        path: `${secretProvider!.path ?? name}/${name}/keycloak-oidc`,
+        keys: { clientSecret: 'clientSecret' },
+      })
+    }
+    if (database.backup && !database.backup.credentialsSecret) {
+      secretSecretDefs.push({
+        name: `${name}-backup-credentials`,
+        path: `${secretProvider!.path ?? name}/${name}/backup`,
+        keys: { 'access-key-id': 'access-key-id', 'secret-access-key': 'secret-access-key' },
+      })
+    }
+  }
+
+  // Shared StaticSecret recipe (#89) — the destination Secret carries
+  // exactly the mapped keys (excludeRaw); content is identical to the
+  // previous inline emission. `keys` is used for the mapping (it was
+  // declared but unused in the raw-sync predecessor).
+  for (const def of secretSecretDefs) {
+    resources.push(
+      jsx(StaticSecret, {
+        name: def.name,
+        namespace,
+        path: def.path,
+        keys: def.keys,
+        refreshAfter: '3600s',
+        authRef: secretProvider!.authRef ?? `${backend}-auth`,
+      })
+    )
+  }
+
+  const keycloakSecretName = sso?.clientSecretRef ?? (sso ? `${name}-keycloak-oidc` : undefined)
+  const backupCredsSecret =
+    database.backup?.credentialsSecret ??
+    (database.backup ? `${name}-backup-credentials` : undefined)
+
+  resources.push(...matrixDatabaseResources({ name, namespace, database, backupCredsSecret }))
+
+  // --- Config Maps -----------------------------------------------------------
+  const synapseConfig = buildSynapseConfig({
+    name,
+    server,
+    synapseHost: host.synapse,
+    urlPreview,
+    rtcEnabled: rtc.enabled !== false,
+    appservices,
+  })
 
   resources.push(
     jsx('ConfigMap', {
@@ -484,47 +1017,7 @@ export function Matrix(props: MatrixProps) {
     })
   )
 
-  const masConfig: Record<string, unknown> = {
-    database: {
-      uri: `postgresql://mas:$(MASPASSWORD)@${name}-mas-db-rw:5432/mas?sslmode=prefer`,
-    },
-    http: {
-      listeners: [
-        {
-          name: 'web',
-          resources: [
-            { name: 'discovery' },
-            { name: 'oauthapi' },
-            { name: 'compatapi' },
-            { name: 'graphql' },
-          ],
-          port: 8080,
-          host: '0.0.0.0',
-        },
-      ],
-    },
-    ...(sso && {
-      upstream_oauth2: {
-        providers: [
-          {
-            id: 'sso',
-            issuer: sso.issuer,
-            human_name: sso.humanName ?? 'SSO',
-            client_id: sso.clientId,
-            client_secret: '$MAS_OIDC_CLIENT_SECRET',
-            token_endpoint_auth_method: 'client_secret_basic',
-            scope: sso.scope ?? 'openid email profile',
-            claims_imports: {
-              localpart: { action: 'suggest', template: '{{ user.preferred_username }}' },
-              displayname: { action: 'suggest', template: '{{ user.name }}' },
-              email: { action: 'suggest', template: '{{ user.email }}' },
-            },
-          },
-        ],
-      },
-      passwords: { enabled: false },
-    }),
-  }
+  const masConfig = buildMasConfig(name, sso)
 
   resources.push(
     jsx('ConfigMap', {
@@ -537,20 +1030,7 @@ export function Matrix(props: MatrixProps) {
     })
   )
 
-  const elementWebConfig = {
-    default_server_config: {
-      'm.homeserver': {
-        base_url: `https://${host.synapse}`,
-        server_name: server,
-      },
-      'org.matrix.msc4143.rtc_session': {
-        focused_element: { focus_url: `https://${host.rtc}` },
-      },
-    },
-    brand: 'Element',
-    default_country_code: 'SE',
-    show_labs_settings: true,
-  }
+  const elementWebConfig = buildElementWebConfig(server, host)
 
   resources.push(
     jsx('ConfigMap', {
@@ -562,31 +1042,7 @@ export function Matrix(props: MatrixProps) {
   )
 
   if (rtc.enabled !== false) {
-    const rtcConfig = {
-      port: 7880,
-      log_level: 'info',
-      rtc: {
-        tcp_port: 30001,
-        muxed_udp_port: 30002,
-        ...(rtc.manualIP
-          ? { node_ip: rtc.manualIP, use_external_ip: false }
-          : { use_external_ip: true }),
-        ...(rtc.stunServers?.length && { stun_servers: rtc.stunServers }),
-        packet_buffer_size_video: 1000,
-        packet_buffer_size_audio: 400,
-        batch_io: { batch_size: 256, max_flush_interval: '1ms' },
-      },
-      audio: { active_red_encoding: true },
-      ...(rtc.turnPort !== 0 && {
-        turn: {
-          enabled: true,
-          domain: host.rtc,
-          tls_port: 0,
-          udp_port: rtc.turnPort ?? 30004,
-        },
-      }),
-      keys: 'livekit-key: $(LIVEKIT_API_SECRET)',
-    }
+    const rtcConfig = buildRtcConfig(rtc, host.rtc)
 
     resources.push(
       jsx('ConfigMap', {
@@ -615,373 +1071,58 @@ export function Matrix(props: MatrixProps) {
     }
   }
 
-  // --- Deployments ------------------------------------------------------------
-  const synapseVersion = version.synapse ?? 'v1.99.0'
-  const masVersion = version.mas ?? 'latest'
-  const webVersion = version.web ?? 'v1.12.15'
-  const adminVersion = version.admin ?? 'latest'
-  const sfuVersion = version.sfu ?? rtc.sfuVersion ?? 'v1.10.1'
-
-  const synapseEnv: EnvVar[] = [
-    {
-      name: 'SYNAPSE_CONFIG_PATH',
-      value: '/data/homeserver.yaml',
-    },
-  ]
-
+  // --- Deployments + services ------------------------------------------------
   resources.push(
-    jsx('Deployment', {
-      apiVersion: 'apps/v1',
-      kind: 'Deployment',
-      metadata: { name: `${name}-synapse`, namespace },
-      spec: {
-        replicas: 1, // federation workers land separately — single writer for now
-        strategy: { type: 'Recreate' },
-        selector: { matchLabels: { app: `${name}-synapse` } },
-        template: {
-          metadata: { labels: { app: `-synapse` } },
-          spec: {
-            tolerations: HA_TOLERATIONS,
-            topologySpreadConstraints: haTopologySpread(`${name}-synapse`),
-            securityContext: { fsGroup: 991, fsGroupChangePolicy: 'OnRootMismatch' },
-            containers: [
-              {
-                name: 'synapse',
-                image: `matrixdotorg/synapse:${synapseVersion}`,
-                imagePullPolicy: 'IfNotPresent',
-                ports: [{ containerPort: 8008, name: 'client' }],
-                env: synapseEnv,
-                // /tmp must be writable — readOnlyRootFilesystem + Twisted
-                // tempfile buffering breaks media uploads otherwise (upstream
-                // matrix-stack 26.9.0 regression)
-                volumeMounts: [
-                  {
-                    name: 'config',
-                    mountPath: '/data/homeserver.yaml',
-                    subPath: 'homeserver.yaml',
-                    readOnly: true,
-                  },
-                  { name: 'db-credentials', mountPath: '/secrets/db', readOnly: true },
-                  { name: 'tmp', mountPath: '/tmp' },
-                  ...appservices.map((a) => ({
-                    name: `appservice-${a.name}`,
-                    mountPath: `/appservices/${a.name}.yaml`,
-                    subPath: a.key ?? 'registration.yaml',
-                    readOnly: true,
-                  })),
-                ],
-                livenessProbe: {
-                  httpGet: { path: '/health', port: 8008 },
-                  periodSeconds: 30,
-                  timeoutSeconds: 5,
-                },
-                readinessProbe: {
-                  httpGet: { path: '/health', port: 8008 },
-                  periodSeconds: 10,
-                  timeoutSeconds: 3,
-                },
-                resources: {
-                  requests: { memory: '1Gi', cpu: '500m' },
-                  limits: { memory: '2Gi', cpu: '2000m' },
-                },
-              },
-            ],
-            volumes: [
-              { name: 'config', configMap: { name: `${name}-synapse-config` } },
-              // CNPG generates the database credentials Secret (<cluster>-app)
-              { name: 'db-credentials', secret: { secretName: `${name}-synapse-db-app` } },
-              { name: 'tmp', emptyDir: { sizeLimit: '1Gi' } },
-              ...appservices.map((a) => ({
-                name: `appservice-${a.name}`,
-                secret: {
-                  secretName: a.secretRef ?? `${name}-appservice-${a.name}`,
-                },
-              })),
-            ],
-          },
-        },
-      },
-    })
-  )
-
-  const masEnv: EnvVar[] = [
-    {
-      name: 'MASPASSWORD',
-      valueFrom: { secretKeyRef: { name: `${name}-mas-db-app`, key: 'password' } },
-    },
-    ...(keycloakSecretName
-      ? [
-          {
-            name: 'MAS_OIDC_CLIENT_SECRET',
-            valueFrom: { secretKeyRef: { name: keycloakSecretName, key: 'clientSecret' } },
-          } as EnvVar,
-        ]
-      : []),
-    {
-      name: 'MAS_CONFIG_FILE',
-      value: '/config/config.yaml',
-    },
-  ]
-
-  resources.push(
-    jsx('Deployment', {
-      apiVersion: 'apps/v1',
-      kind: 'Deployment',
-      metadata: { name: `${name}-mas`, namespace },
-      spec: {
-        replicas,
-        strategy: { type: 'RollingUpdate', rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } },
-        selector: { matchLabels: { app: `${name}-mas` } },
-        template: {
-          metadata: { labels: { app: `-mas` } },
-          spec: {
-            tolerations: HA_TOLERATIONS,
-            topologySpreadConstraints: haTopologySpread(`${name}-mas`),
-            containers: [
-              {
-                name: 'mas',
-                image: `ghcr.io/element-hq/matrix-authentication-service:${masVersion}`,
-                imagePullPolicy: 'IfNotPresent',
-                args: ['server', '--config', '/config/config.yaml'],
-                ports: [{ containerPort: 8080, name: 'http' }],
-                env: masEnv,
-                volumeMounts: [{ name: 'config', mountPath: '/config', readOnly: true }],
-                livenessProbe: {
-                  httpGet: { path: '/health', port: 8080 },
-                  periodSeconds: 30,
-                  timeoutSeconds: 5,
-                },
-                readinessProbe: {
-                  httpGet: { path: '/health', port: 8080 },
-                  periodSeconds: 10,
-                  timeoutSeconds: 3,
-                },
-                resources: {
-                  requests: { memory: '256Mi', cpu: '100m' },
-                  limits: { memory: '512Mi', cpu: '500m' },
-                },
-              },
-            ],
-            volumes: [{ name: 'config', configMap: { name: `${name}-mas-config` } }],
-          },
-        },
-      },
+    synapseDeployment({
+      name,
+      namespace,
+      appservices,
+      synapseVersion: version.synapse ?? 'v1.99.0',
     })
   )
 
   resources.push(
-    jsx('Deployment', {
-      apiVersion: 'apps/v1',
-      kind: 'Deployment',
-      metadata: { name: `${name}-web`, namespace },
-      spec: {
-        replicas,
-        selector: { matchLabels: { app: `${name}-web` } },
-        template: {
-          metadata: { labels: { app: `-web` } },
-          spec: {
-            tolerations: HA_TOLERATIONS,
-            topologySpreadConstraints: haTopologySpread(`${name}-web`),
-            containers: [
-              {
-                name: 'web',
-                image: `vectorim/element-web:${webVersion}`,
-                imagePullPolicy: 'IfNotPresent',
-                ports: [{ containerPort: 80, name: 'http' }],
-                volumeMounts: [
-                  {
-                    name: 'config',
-                    mountPath: '/app/config.json',
-                    subPath: 'config.json',
-                    readOnly: true,
-                  },
-                ],
-                livenessProbe: { httpGet: { path: '/', port: 80 }, periodSeconds: 30 },
-                readinessProbe: { httpGet: { path: '/', port: 80 }, periodSeconds: 10 },
-                resources: {
-                  requests: { memory: '64Mi', cpu: '50m' },
-                  limits: { memory: '256Mi', cpu: '200m' },
-                },
-              },
-            ],
-            volumes: [{ name: 'config', configMap: { name: `${name}-web-config` } }],
-          },
-        },
-      },
+    masDeployment({
+      name,
+      namespace,
+      replicas,
+      masVersion: version.mas ?? 'latest',
+      keycloakSecretName,
     })
   )
 
   resources.push(
-    jsx('Deployment', {
-      apiVersion: 'apps/v1',
-      kind: 'Deployment',
-      metadata: { name: `${name}-admin`, namespace },
-      spec: {
-        replicas,
-        selector: { matchLabels: { app: `${name}-admin` } },
-        template: {
-          metadata: { labels: { app: `-admin` } },
-          spec: {
-            tolerations: HA_TOLERATIONS,
-            topologySpreadConstraints: haTopologySpread(`${name}-admin`),
-            containers: [
-              {
-                name: 'admin',
-                image: `ghcr.io/element-hq/element-admin:${adminVersion}`,
-                imagePullPolicy: 'IfNotPresent',
-                ports: [{ containerPort: 8080, name: 'http' }],
-                livenessProbe: { httpGet: { path: '/', port: 8080 }, periodSeconds: 30 },
-                readinessProbe: { httpGet: { path: '/', port: 8080 }, periodSeconds: 10 },
-                resources: {
-                  requests: { memory: '64Mi', cpu: '50m' },
-                  limits: { memory: '256Mi', cpu: '200m' },
-                },
-              },
-            ],
-          },
-        },
-      },
+    webDeployment({
+      name,
+      namespace,
+      replicas,
+      webVersion: version.web ?? 'v1.12.15',
+    })
+  )
+
+  resources.push(
+    adminDeployment({
+      name,
+      namespace,
+      replicas,
+      adminVersion: version.admin ?? 'latest',
     })
   )
 
   if (rtc.enabled !== false) {
     resources.push(
-      jsx('Deployment', {
-        apiVersion: 'apps/v1',
-        kind: 'Deployment',
-        metadata: { name: `${name}-sfu`, namespace },
-        spec: {
-          replicas: 1,
-          strategy: { type: 'Recreate' },
-          selector: { matchLabels: { app: `${name}-sfu` } },
-          template: {
-            metadata: { labels: { app: `${name}-sfu` } },
-            spec: {
-              tolerations: HA_TOLERATIONS,
-              containers: [
-                {
-                  name: 'sfu',
-                  image: `livekit/livekit-server:${sfuVersion}`,
-                  imagePullPolicy: 'IfNotPresent',
-                  args: ['--config', '/etc/livekit.yaml'],
-                  ports: [
-                    { containerPort: 7880, name: 'api' },
-                    { containerPort: 30001, name: 'rtc-tcp' },
-                    // LiveKit listens on UDP here even though some Helm charts
-                    // declare TCP — the Service below routes numerically anyway
-                    { containerPort: 30002, name: 'rtc-muxed-udp', protocol: 'UDP' },
-                    { containerPort: rtc.turnPort ?? 30004, name: 'turn-udp', protocol: 'UDP' },
-                  ],
-                  env: [
-                    {
-                      name: 'LIVEKIT_API_SECRET',
-                      valueFrom: { secretKeyRef: { name: `${name}-rtc-auth`, key: 'secret' } },
-                    },
-                  ],
-                  volumeMounts: [{ name: 'config', mountPath: '/etc', readOnly: true }],
-                  livenessProbe: { httpGet: { path: '/', port: 7880 }, periodSeconds: 30 },
-                  readinessProbe: { httpGet: { path: '/', port: 7880 }, periodSeconds: 10 },
-                  resources: {
-                    requests: { memory: '512Mi', cpu: '500m' },
-                    limits: { memory: '2Gi', cpu: '2000m' },
-                  },
-                },
-              ],
-              volumes: [{ name: 'config', configMap: { name: `${name}-sfu-config` } }],
-            },
-          },
-        },
-      })
-    )
-
-    // Combined LoadBalancer for all SFU traffic — one external IP for
-    // TCP+UDP (Harvester CCM shares the pool IP via ipam annotation).
-    // Always LoadBalancer: as ClusterIP the UDP/TURN ports are unreachable,
-    // which silently breaks MatrixRTC.
-    // Numeric targetPorts: the pod's muxed-UDP port is sometimes declared
-    // TCP by charts — numeric bypasses that entirely.
-    resources.push(
-      jsx('Service', {
-        apiVersion: 'v1',
-        kind: 'Service',
-        metadata: {
-          name: `${name}-sfu`,
-          namespace,
-          annotations: {
-            'cloudprovider.harvesterhci.io/ipam': 'pool',
-          },
-        },
-        spec: {
-          type: 'LoadBalancer',
-          externalTrafficPolicy: 'Local',
-          ...(rtc.manualIP && { loadBalancerIP: rtc.manualIP }),
-          selector: { app: `${name}-sfu` },
-          ports: [
-            { name: 'api', port: 7880, targetPort: 7880, protocol: 'TCP' },
-            { name: 'rtc-tcp', port: 30001, targetPort: 30001, protocol: 'TCP' },
-            { name: 'rtc-muxed-udp', port: 30002, targetPort: 30002, protocol: 'UDP' },
-            {
-              name: 'turn-udp',
-              port: rtc.turnPort ?? 30004,
-              targetPort: rtc.turnPort ?? 30004,
-              protocol: 'UDP',
-            },
-          ],
-        },
-      })
-    )
-  }
-
-  // --- ClusterIP services -----------------------------------------------------
-  for (const svc of [
-    { svcName: `${name}-synapse`, port: 8008, app: `${name}-synapse` },
-    { svcName: `${name}-mas`, port: 8080, app: `${name}-mas` },
-    { svcName: `${name}-web`, port: 80, app: `${name}-web` },
-    { svcName: `${name}-admin`, port: 8080, app: `${name}-admin` },
-  ]) {
-    resources.push(
-      jsx('Service', {
-        apiVersion: 'v1',
-        kind: 'Service',
-        metadata: { name: svc.svcName, namespace },
-        spec: {
-          type: 'ClusterIP',
-          selector: { app: svc.app },
-          ports: [{ port: svc.port, targetPort: svc.port }],
-        },
-      })
-    )
-  }
-
-  // --- Endpoints (5 hosts) ----------------------------------------------------
-  const endpointDefs: { host: string; serviceName: string; servicePort: number; suffix: string }[] =
-    [
-      { host: host.web, serviceName: `${name}-web`, servicePort: 80, suffix: 'web' },
-      { host: host.synapse, serviceName: `${name}-synapse`, servicePort: 8008, suffix: 'synapse' },
-      { host: host.admin, serviceName: `${name}-admin`, servicePort: 8080, suffix: 'admin' },
-      { host: host.account, serviceName: `${name}-mas`, servicePort: 8080, suffix: 'account' },
-    ]
-  if (rtc.enabled !== false) {
-    endpointDefs.push({
-      host: host.rtc,
-      serviceName: `${name}-sfu`,
-      servicePort: 7880,
-      suffix: 'rtc',
-    })
-  }
-
-  for (const ep of endpointDefs) {
-    resources.push(
-      jsx(Endpoint, {
-        name: `${name}-${ep.suffix}`,
+      ...sfuResources({
+        name,
         namespace,
-        host: ep.host,
-        serviceName: ep.serviceName,
-        servicePort: ep.servicePort,
-        tls: { secretName: `${name}-${ep.suffix}-tls`, clusterIssuer: 'letsencrypt-prod' },
+        rtc,
+        sfuVersion: version.sfu ?? rtc.sfuVersion ?? 'v1.10.1',
       })
     )
   }
+
+  resources.push(...clusterIPServices(name, namespace))
+
+  resources.push(...matrixEndpoints(name, namespace, host, rtc.enabled !== false))
 
   return jsx(Fragment, { children: resources })
 }

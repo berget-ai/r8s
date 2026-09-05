@@ -17,33 +17,38 @@ interface CliOptions {
   skipSecretGuardrails?: boolean
 }
 
+const FLAG_TABLE: Record<string, (o: CliOptions, value?: string) => boolean> = {
+  '--help': (o) => ((o.help = true), false),
+  '-h': (o) => ((o.help = true), false),
+  '--out': (o, v) => ((o.out = v), true),
+  '-o': (o, v) => ((o.out = v), true),
+  '--entry': (o, v) => ((o.entry = v), true),
+  '-e': (o, v) => ((o.entry = v), true),
+  '--template': (o, v) => ((o.template = v), true),
+  '-t': (o, v) => ((o.template = v), true),
+  '--strategy': (o, v) => ((o.strategy = v as CliOptions['strategy']), true),
+  '--operators': (o, v) => ((o.operators = v), true),
+  '--include-operators': (o) => ((o.includeOperators = true), false),
+  '--operators-only': (o) => ((o.operatorsOnly = true), false),
+  '--skip-secret-guardrails': (o) => ((o.skipSecretGuardrails = true), false),
+}
+
 function parseArgs(args: string[]): CliOptions {
   const options: CliOptions = {}
-
+  const positionals: string[] = []
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-
-    if (arg === '--entry' || arg === '-e') {
-      options.entry = args[++i]
-    } else if (arg === '--out' || arg === '-o') {
-      options.out = args[++i]
-    } else if (arg === '--template' || arg === '-t') {
-      options.template = args[++i]
-    } else if (arg === '--operators') {
-      options.operators = args[++i]
-    } else if (arg === '--strategy' || arg === '-s') {
-      options.strategy = args[++i] as 'github-actions' | 'flux-controller'
-    } else if (arg === '--include-operators') {
-      options.includeOperators = true
-    } else if (arg === '--operators-only') {
-      options.operatorsOnly = true
-    } else if (arg === '--skip-secret-guardrails') {
-      options.skipSecretGuardrails = true
-    } else if (arg === '--help' || arg === '-h') {
-      options.help = true
+    const handler = FLAG_TABLE[arg]
+    if (handler) {
+      const needsValue = handler(options, args[i + 1])
+      if (needsValue) i++
+    } else if (!arg.startsWith('-')) {
+      positionals.push(arg)
     }
   }
-
+  // Preserve command + its args in place for the command dispatch
+  args.length = 0
+  args.push(...positionals)
   return options
 }
 
@@ -630,460 +635,405 @@ See \`flux/README.md\` for detailed setup instructions.
   }
 }
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2)
-  const options = parseArgs(args)
+interface CommandContext {
+  args: string[]
+  options: CliOptions
+}
 
-  if (options.help) {
-    showHelp()
-    process.exit(0)
+/** Render a component from the catalog with dummy values for its required props. */
+function writeDummyTsx(
+  comp: { name: string; package: string; props: { name: string; required: boolean }[] },
+  tag: string
+): string {
+  const dummyValues: Record<string, string> = {
+    name: '"example"',
+    image: '"example/app:v1"',
+    host: '"example.com"',
+    serviceName: '"example"',
+    children: 'null',
+    selector: '{ app: "example" }',
   }
+  const requiredProps = comp.props.filter((p) => p.required)
+  const propsStr = requiredProps
+    .map((p) => `${p.name}={${dummyValues[p.name] ?? '"dummy"'}}`)
+    .join(' ')
+  const tsx = `import { ${comp.name} } from '${comp.package}'\nexport default <${comp.name} ${propsStr} />\n`
+  const tmpFile = resolve(`.r8s-${tag}-${Date.now()}.tsx`)
+  writeFileSync(tmpFile, tsx, 'utf-8')
+  return tmpFile
+}
 
-  const command = args[0] || 'render'
-
-  if (command === 'init') {
-    const projectName = args[1] || 'r8s-app'
-    const template = options.template || 'basic'
-    const strategy = options.strategy || 'github-actions'
-    const operators = options.operators
-      ?.split(',')
-      .map((op) => op.trim())
-      .filter(Boolean)
-
-    if (strategy !== 'github-actions' && strategy !== 'flux-controller') {
-      console.error(`Invalid strategy: ${strategy}. Valid: github-actions, flux-controller`)
-      process.exit(1)
-    }
-
-    try {
-      await initProject(projectName, template, strategy, operators)
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : error)
-      process.exit(1)
-    }
-    return
+function removeQuietly(file: string): void {
+  try {
+    require('fs').unlinkSync(file)
+  } catch {
+    // best-effort cleanup of a temp preview file
   }
+}
 
-  if (command === 'operators') {
-    try {
-      const entryFile = await findEntryFile(options.entry)
-      console.error(`Rendering operators from: ${entryFile}`)
-
-      const { renderToOperatorsYaml } = await import('./renderer.js')
-      const yamlOutput = await renderToOperatorsYaml(entryFile)
-
-      if (options.out) {
-        const { writeFileSync, mkdirSync } = await import('fs')
-        const { dirname } = await import('path')
-        mkdirSync(dirname(resolve(options.out)), { recursive: true })
-        writeFileSync(resolve(options.out), yamlOutput, 'utf-8')
-        console.error(`Output written to: ${resolve(options.out)}`)
-      } else {
-        console.log(yamlOutput)
-      }
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : error)
-      process.exit(1)
-    }
-    return
+/** Components must exist in the catalog — resolve names must too. */
+function requireComponent(name: string | undefined, usage: string) {
+  if (!name) {
+    console.error(usage)
+    process.exit(1)
   }
-
-  if (command === 'list') {
-    const { allComponents, operators } = await import('./catalog.js')
-    const comps = allComponents()
-    console.log('\nComponents:\n')
-    const byCat = new Map<string, typeof comps>()
-    for (const c of comps) {
-      const arr = byCat.get(c.category) ?? []
-      arr.push(c)
-      byCat.set(c.category, arr)
-    }
-    for (const [cat, items] of byCat) {
-      console.log(`  ${cat}:`)
-      for (const c of items) {
-        console.log(`    ${c.name.padEnd(12)} ${c.package.padEnd(20)} ${c.description}`)
-      }
-      console.log()
-    }
-    console.log('Operators:\n')
-    for (const op of operators) {
-      console.log(`    ${op.name.padEnd(24)} ${op.description}`)
-    }
-    console.log('\nUse "r8s info <name>" for props and examples.')
-    return
-  }
-
-  if (command === 'info') {
-    const name = args[1]
-    if (!name) {
-      console.error('Usage: r8s info <component-name>')
-      console.error('Example: r8s info App')
-      process.exit(1)
-    }
-    const { findComponent } = await import('./catalog.js')
+  // dynamic import kept local so `r8s list` stays cold-start fast
+  return import('./catalog.js').then(({ findComponent }) => {
     const comp = findComponent(name)
     if (!comp) {
       console.error(`Component not found: ${name}`)
       console.error('Use "r8s list" to see available components.')
       process.exit(1)
     }
-    console.log(`\n${comp.name} (${comp.package})`)
-    console.log(`${comp.category}`)
-    console.log(`\n${comp.description}\n`)
-    console.log('Props:')
-    for (const p of comp.props) {
-      const req = p.required ? 'required' : 'optional'
-      const def = p.default ? ` [default: ${p.default}]` : ''
-      console.log(`  ${p.name.padEnd(16)} ${p.type.padEnd(36)} ${req}${def}`)
-      console.log(`  ${' '.repeat(18)}${p.description}`)
-    }
-    console.log('\nExample:')
-    console.log(`  ${comp.example}`)
-    return
-  }
+    return comp
+  })
+}
 
-  if (command === 'context') {
-    const { allComponents, operators } = await import('./catalog.js')
-    const comps = allComponents()
-    console.log('# r8s context for LLMs\n')
-    console.log('## Workflow')
-    console.log('1. Write TSX that default-exports a JSX element')
-    console.log('2. Run: r8s render --entry <file.tsx> --out <file.yaml>')
-    console.log('3. Commit the YAML. GitOps (FluxCD/ArgoCD) applies it.')
-    console.log('4. Never hand-edit YAML — change TSX and re-render.\n')
-    console.log('## Rules')
-    console.log('- Lowercase elements (<deployment>, <service>) are raw K8s resources.')
-    console.log('- PascalCase elements (<App>, <Database>) are recipe components.')
-    console.log('- Components are TypeScript functions — testable with render() + vitest.')
-    console.log('- Entry file must default-export a JSX element or function.\n')
-    console.log('## Components\n')
-    for (const c of comps) {
-      const required = c.props.filter((p) => p.required).map((p) => `${p.name}: ${p.type}`)
-      console.log(`${c.name} (${c.package}) — ${c.description}`)
-      console.log(`  Required: ${required.join(', ') || 'none'}`)
-      console.log(`  Example: ${c.example.replace(/\n/g, ' ')}`)
-      console.log()
-    }
-    console.log('## Operators (auto-declared by recipes)')
-    for (const op of operators) {
-      console.log(`  ${op.name} — ${op.description}`)
-    }
-    console.log('\n## Commands')
-    console.log('  r8s init [name]              Scaffold a project')
-    console.log('  r8s render --entry f.tsx      Render to stdout')
-    console.log('  r8s render --out k8s.yaml     Render to file')
-    console.log('  r8s list                      List all components')
-    console.log('  r8s info <name>               Show props for a component')
-    console.log('  r8s preview <name>            Render a component with dummy props')
-    console.log('  r8s explain <name>            Show resources + operators a component creates')
-    console.log('  r8s validate <file.tsx>       Type-check + reference-check')
-    console.log('  r8s search <term>             Search npm for community recipes')
-    console.log('  r8s add <package>             Install a community recipe from npm')
-    console.log('  r8s context                   This output')
-    return
-  }
+async function cmdInit({ args, options }: CommandContext): Promise<void> {
+  const projectName = args[1] || 'r8s-app'
+  const template = options.template || 'basic'
+  const strategy = options.strategy || 'github-actions'
+  const operators = options.operators
+    ?.split(',')
+    .map((op) => op.trim())
+    .filter(Boolean)
 
-  if (command === 'search') {
-    const term = args.slice(1).join(' ')
-    if (!term) {
-      console.error('Usage: r8s search <term>')
-      console.error('Example: r8s search database')
-      process.exit(1)
-    }
-    console.log(`Searching npm for r8s recipes matching "${term}"...\n`)
-    try {
-      const url = `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(`keywords:r8s ${term}`)}&size=25`
-      const res = await fetch(url)
-      const data: any = await res.json()
-      if (!data.objects || data.objects.length === 0) {
-        console.log('No packages found.')
-        console.log('\nTo publish a recipe, add "r8s" to the keywords in package.json.')
-        return
-      }
-      console.log('Package                         Version    Description')
-      console.log('─'.repeat(80))
-      for (const obj of data.objects) {
-        const pkg = obj.package
-        const name = pkg.name.padEnd(30)
-        const version = pkg.version.padEnd(10)
-        const desc = (pkg.description ?? '').substring(0, 38)
-        console.log(`${name} ${version} ${desc}`)
-      }
-      console.log(`\n${data.total} package(s) found.`)
-      console.log('Install with: r8s add <package-name>')
-    } catch (error) {
-      console.error('Search failed:', error instanceof Error ? error.message : error)
-      process.exit(1)
-    }
-    return
-  }
-
-  if (command === 'add') {
-    const packageName = args[1]
-    if (!packageName) {
-      console.error('Usage: r8s add <package-name>')
-      console.error('Example: r8s add @acme/r8s-redis')
-      process.exit(1)
-    }
-    console.log(`Installing ${packageName}...`)
-    const { execSync } = await import('child_process')
-    try {
-      execSync(`npm install ${packageName}`, { stdio: 'inherit' })
-      console.log(`\n✅ ${packageName} installed.`)
-      console.log(`Import components in your TSX:`)
-      console.log(`  import { MyComponent } from '${packageName}'`)
-    } catch (error) {
-      console.error('Install failed:', error instanceof Error ? error.message : error)
-      process.exit(1)
-    }
-    return
-  }
-
-  if (command === 'preview') {
-    const name = args[1]
-    if (!name) {
-      console.error('Usage: r8s preview <component-name>')
-      console.error('Example: r8s preview App')
-      process.exit(1)
-    }
-    const { findComponent } = await import('./catalog.js')
-    const comp = findComponent(name)
-    if (!comp) {
-      console.error(`Component not found: ${name}`)
-      console.error('Use "r8s list" to see available components.')
-      process.exit(1)
-    }
-    // Build a TSX file that renders the component with dummy required props
-    const requiredProps = comp.props.filter((p) => p.required)
-    const dummyValues: Record<string, string> = {
-      name: '"example"',
-      image: '"example/app:v1"',
-      host: '"example.com"',
-      serviceName: '"example"',
-      children: 'null',
-      selector: '{ app: "example" }',
-    }
-    const propsStr = requiredProps
-      .map((p) => `${p.name}={${dummyValues[p.name] ?? '"dummy"'}}`)
-      .join(' ')
-    const tsx = `import { ${comp.name} } from '${comp.package}'\nexport default <${comp.name} ${propsStr} />\n`
-    const tmpFile = resolve(`.r8s-preview-${Date.now()}.tsx`)
-    writeFileSync(tmpFile, tsx, 'utf-8')
-    try {
-      const { renderToYaml } = await import('./renderer.js')
-      const yaml = await renderToYaml(tmpFile)
-      console.log(`# Preview of ${comp.name} with dummy required props\n`)
-      console.log(yaml)
-    } catch (error) {
-      console.error('Preview failed:', error instanceof Error ? error.message : error)
-      console.error('\nThis component may require a Platform context or specific props.')
-      process.exit(1)
-    } finally {
-      try {
-        require('fs').unlinkSync(tmpFile)
-      } catch {}
-    }
-    return
-  }
-
-  if (command === 'explain') {
-    const name = args[1]
-    if (!name) {
-      console.error('Usage: r8s explain <component-name>')
-      console.error('Example: r8s explain App')
-      process.exit(1)
-    }
-    const { findComponent, operators } = await import('./catalog.js')
-    const comp = findComponent(name)
-    if (!comp) {
-      console.error(`Component not found: ${name}`)
-      process.exit(1)
-    }
-    console.log(`\n${comp.name} (${comp.package})`)
-    console.log(`${comp.description}\n`)
-    // Render with dummy props to discover what resources it creates
-    const requiredProps = comp.props.filter((p) => p.required)
-    const dummyValues: Record<string, string> = {
-      name: '"example"',
-      image: '"example/app:v1"',
-      host: '"example.com"',
-      serviceName: '"example"',
-      children: 'null',
-      selector: '{ app: "example" }',
-    }
-    const propsStr = requiredProps
-      .map((p) => `${p.name}={${dummyValues[p.name] ?? '"dummy"'}}`)
-      .join(' ')
-    const tsx = `import { ${comp.name} } from '${comp.package}'\nexport default <${comp.name} ${propsStr} />\n`
-    const tmpFile = resolve(`.r8s-explain-${Date.now()}.tsx`)
-    writeFileSync(tmpFile, tsx, 'utf-8')
-    try {
-      const { bundleAndRender } = await import('./renderer.js')
-      const result = await bundleAndRender(tmpFile)
-      console.log('Resources created:')
-      for (const r of result.resources) {
-        console.log(
-          `  ${r.kind.padEnd(24)} ${r.metadata?.namespace ?? ''}/${r.metadata?.name ?? ''}`
-        )
-      }
-      if (result.operators.length > 0) {
-        console.log('\nOperators required:')
-        for (const op of result.operators) {
-          const meta = operators.find((o) => o.name === op.name)
-          console.log(`  ${op.name.padEnd(24)} ${meta?.description ?? ''}`)
-        }
-      }
-      console.log(
-        `\n${result.resources.length} resource(s), ${result.operators.length} operator(s).`
-      )
-    } catch (error) {
-      console.error('Explain failed:', error instanceof Error ? error.message : error)
-      console.error('\nThis component may require a Platform context.')
-      process.exit(1)
-    } finally {
-      try {
-        require('fs').unlinkSync(tmpFile)
-      } catch {}
-    }
-    return
-  }
-
-  if (command === 'validate') {
-    const entryFile = args[1]
-    if (!entryFile) {
-      console.error('Usage: r8s validate <file.tsx>')
-      console.error('Example: r8s validate infra/app.tsx')
-      process.exit(1)
-    }
-    const resolved = resolve(entryFile)
-    if (!existsSync(resolved)) {
-      console.error(`File not found: ${resolved}`)
-      process.exit(1)
-    }
-    console.log(`Validating: ${resolved}\n`)
-    // 1. Type-check with tsc using the project tsconfig
-    try {
-      const { execSync } = await import('child_process')
-      // Use --noEmit with the project's tsconfig if available, else minimal flags
-      const tsconfigPath = resolve('tsconfig.json')
-      const tscCmd = existsSync(tsconfigPath)
-        ? `npx tsc --noEmit -p ${tsconfigPath}`
-        : `npx tsc --noEmit --jsx react-jsx --jsxImportSource @r8s/core --moduleResolution bundler --target es2022 --module esnext ${resolved}`
-      execSync(tscCmd, {
-        stdio: 'pipe',
-        cwd: process.cwd(),
-      })
-      console.log('✅ TypeScript: no errors')
-    } catch (error: any) {
-      const stdout = error.stdout?.toString() ?? ''
-      const stderr = error.stderr?.toString() ?? ''
-      console.error('❌ TypeScript errors:')
-      console.error(stdout || stderr || error.message)
-      process.exit(1)
-    }
-    // 2. Render and check references
-    try {
-      const { bundleAndRender } = await import('./renderer.js')
-      const result = await bundleAndRender(resolved)
-      const resources = result.resources as any[]
-      const names = new Set(
-        resources.map(
-          (r: any) => `${r.kind}/${r.metadata?.namespace ?? ''}/${r.metadata?.name ?? ''}`
-        )
-      )
-      const issues: string[] = []
-      // Check HTTPRoute backendRefs
-      for (const route of resources.filter(
-        (r: any) => r.kind === 'HTTPRoute' || r.kind === 'Ingress'
-      )) {
-        const refs =
-          route.kind === 'HTTPRoute'
-            ? (route.spec?.rules?.flatMap((r: any) => r.backendRefs ?? []) ?? [])
-            : (route.spec?.rules?.flatMap(
-                (r: any) => r.http?.paths?.map((p: any) => p.backend?.service) ?? []
-              ) ?? [])
-        for (const ref of refs) {
-          const svcName = ref.name
-          const svc = resources.find((r) => r.kind === 'Service' && r.metadata.name === svcName)
-          if (!svc) {
-            issues.push(
-              `⚠️  ${route.kind} ${route.metadata.name} → Service "${svcName}" not found (operator-managed?)`
-            )
-          }
-        }
-      }
-      // Check Deployment volume refs
-      for (const d of resources.filter(
-        (r: any) => r.kind === 'Deployment' || r.kind === 'StatefulSet'
-      )) {
-        const vols = d.spec?.template?.spec?.volumes ?? []
-        for (const vol of vols) {
-          if (vol.secret) {
-            const sec = resources.find(
-              (r) => r.kind === 'Secret' && r.metadata.name === vol.secret.secretName
-            )
-            if (!sec)
-              issues.push(
-                `⚠️  ${d.kind} ${d.metadata.name} → Secret "${vol.secret.secretName}" not found`
-              )
-          }
-          if (vol.configMap) {
-            const cm = resources.find(
-              (r) => r.kind === 'ConfigMap' && r.metadata.name === vol.configMap.name
-            )
-            if (!cm)
-              issues.push(
-                `⚠️  ${d.kind} ${d.metadata.name} → ConfigMap "${vol.configMap.name}" not found`
-              )
-          }
-          if (vol.persistentVolumeClaim) {
-            const pvc = resources.find(
-              (r) =>
-                r.kind === 'PersistentVolumeClaim' &&
-                r.metadata.name === vol.persistentVolumeClaim.claimName
-            )
-            if (!pvc)
-              issues.push(
-                `⚠️  ${d.kind} ${d.metadata.name} → PVC "${vol.persistentVolumeClaim.claimName}" not found`
-              )
-          }
-        }
-      }
-      // Check empty DNSEndpoint targets
-      for (const dns of resources.filter((r) => r.kind === 'DNSEndpoint')) {
-        for (const ep of dns.spec?.endpoints ?? []) {
-          if (!ep.targets || ep.targets.length === 0) {
-            issues.push(`⚠️  DNSEndpoint ${dns.metadata.name} has empty targets`)
-          }
-        }
-      }
-      console.log(`✅ Render: ${resources.length} resources, ${result.operators.length} operators`)
-      if (issues.length > 0) {
-        console.log(`\n${issues.length} reference issue(s) found:`)
-        for (const issue of issues) {
-          console.log(`  ${issue}`)
-        }
-        console.log('\nSome references may be operator-managed (e.g. Keycloak Service).')
-        process.exit(1)
-      } else {
-        console.log('✅ References: all resolved')
-      }
-    } catch (error) {
-      console.error(
-        '❌ Render failed:',
-        sanitizeErrorMessage(error instanceof Error ? error.message : String(error))
-      )
-      process.exit(1)
-    }
-    return
-  }
-
-  if (command !== 'render') {
-    console.error(`Unknown command: ${command}`)
-    showHelp()
+  if (strategy !== 'github-actions' && strategy !== 'flux-controller') {
+    console.error(`Invalid strategy: ${strategy}. Valid: github-actions, flux-controller`)
     process.exit(1)
   }
 
+  try {
+    await initProject(projectName, template, strategy, operators)
+  } catch (error) {
+    console.error('Error:', error instanceof Error ? error.message : error)
+    process.exit(1)
+  }
+}
+
+/** Render-to-file or stdout: the shared output path for render/operators. */
+async function writeOutput(yaml: string, out: string | undefined): Promise<void> {
+  if (out) {
+    const { writeFileSync, mkdirSync } = await import('fs')
+    const { dirname } = await import('path')
+    mkdirSync(dirname(resolve(out)), { recursive: true })
+    writeFileSync(resolve(out), yaml, 'utf-8')
+    console.error(`Output written to: ${resolve(out)}`)
+  } else {
+    console.log(yaml)
+  }
+}
+
+function failWith(prefix: string, error: unknown, sanitize = false): never {
+  const msg = error instanceof Error ? error.message : String(error)
+  console.error(prefix, sanitize ? sanitizeErrorMessage(msg) : msg)
+  process.exit(1)
+}
+
+async function cmdOperators({ options }: CommandContext): Promise<void> {
+  try {
+    const entryFile = await findEntryFile(options.entry)
+    console.error(`Rendering operators from: ${entryFile}`)
+
+    const { renderToOperatorsYaml } = await import('./renderer.js')
+    await writeOutput(await renderToOperatorsYaml(entryFile), options.out)
+  } catch (error) {
+    failWith('Error:', error)
+  }
+}
+
+async function cmdList(): Promise<void> {
+  const { allComponents, operators } = await import('./catalog.js')
+  const comps = allComponents()
+  console.log('\nComponents:\n')
+  const byCat = new Map<string, typeof comps>()
+  for (const c of comps) {
+    const arr = byCat.get(c.category) ?? []
+    arr.push(c)
+    byCat.set(c.category, arr)
+  }
+  for (const [cat, items] of byCat) {
+    console.log(`  ${cat}:`)
+    for (const c of items) {
+      console.log(`    ${c.name.padEnd(12)} ${c.package.padEnd(20)} ${c.description}`)
+    }
+    console.log()
+  }
+  console.log('Operators:\n')
+  for (const op of operators) {
+    console.log(`    ${op.name.padEnd(24)} ${op.description}`)
+  }
+  console.log('\nUse "r8s info <name>" for props and examples.')
+}
+
+async function cmdInfo({ args }: CommandContext): Promise<void> {
+  const comp = await requireComponent(args[1], 'Usage: r8s info <component-name>')
+  console.log(`\n${comp.name} (${comp.package})`)
+  console.log(`${comp.category}`)
+  console.log(`\n${comp.description}\n`)
+  console.log('Props:')
+  for (const p of comp.props) {
+    const req = p.required ? 'required' : 'optional'
+    const def = p.default ? ` [default: ${p.default}]` : ''
+    console.log(`  ${p.name.padEnd(16)} ${p.type.padEnd(36)} ${req}${def}`)
+    console.log(`  ${' '.repeat(18)}${p.description}`)
+  }
+  console.log('\nExample:')
+  console.log(`  ${comp.example}`)
+}
+
+async function cmdContext(): Promise<void> {
+  const { allComponents, operators } = await import('./catalog.js')
+  const comps = allComponents()
+  console.log('# r8s context for LLMs\n')
+  console.log('## Workflow')
+  console.log('1. Write TSX that default-exports a JSX element')
+  console.log('2. Run: r8s render --entry <file.tsx> --out <file.yaml>')
+  console.log('3. Commit the YAML. GitOps (FluxCD/ArgoCD) applies it.')
+  console.log('4. Never hand-edit YAML — change TSX and re-render.\n')
+  console.log('## Rules')
+  console.log('- Lowercase elements (<deployment>, <service>) are raw K8s resources.')
+  console.log('- PascalCase elements (<App>, <Database>) are recipe components.')
+  console.log('- Components are TypeScript functions — testable with render() + vitest.')
+  console.log('- Entry file must default-export a JSX element or function.\n')
+  console.log('## Components\n')
+  for (const c of comps) {
+    const required = c.props.filter((p) => p.required).map((p) => `${p.name}: ${p.type}`)
+    console.log(`${c.name} (${c.package}) — ${c.description}`)
+    console.log(`  Required: ${required.join(', ') || 'none'}`)
+    console.log(`  Example: ${c.example.replace(/\n/g, ' ')}`)
+    console.log()
+  }
+  console.log('## Operators (auto-declared by recipes)')
+  for (const op of operators) {
+    console.log(`  ${op.name} — ${op.description}`)
+  }
+  console.log('\n## Commands')
+  console.log('  r8s init [name]              Scaffold a project')
+  console.log('  r8s render --entry f.tsx      Render to stdout')
+  console.log('  r8s render --out k8s.yaml     Render to file')
+  console.log('  r8s list                      List all components')
+  console.log('  r8s info <name>               Show props for a component')
+  console.log('  r8s preview <name>            Render a component with dummy props')
+  console.log('  r8s explain <name>            Show resources + operators a component creates')
+  console.log('  r8s validate <file.tsx>       Type-check + reference-check')
+  console.log('  r8s search <term>             Search npm for community recipes')
+  console.log('  r8s add <package>             Install a community recipe from npm')
+  console.log('  r8s context                   This output')
+}
+
+async function cmdSearch({ args }: CommandContext): Promise<void> {
+  const term = args.slice(1).join(' ')
+  if (!term) {
+    console.error('Usage: r8s search <term>')
+    console.error('Example: r8s search database')
+    process.exit(1)
+  }
+  console.log(`Searching npm for r8s recipes matching "${term}"...\n`)
+  try {
+    const url = `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(`keywords:r8s ${term}`)}&size=25`
+    const res = await fetch(url)
+    const data: any = await res.json()
+    if (!data.objects || data.objects.length === 0) {
+      console.log('No packages found.')
+      console.log('\nTo publish a recipe, add "r8s" to the keywords in package.json.')
+      return
+    }
+    console.log('Package                         Version    Description')
+    console.log('─'.repeat(80))
+    for (const obj of data.objects) {
+      const pkg = obj.package
+      console.log(
+        `${pkg.name.padEnd(30)} ${String(pkg.version).padEnd(10)} ${(pkg.description ?? '').substring(0, 38)}`
+      )
+    }
+    console.log(`\n${data.total} package(s) found.`)
+    console.log('Install with: r8s add <package-name>')
+  } catch (error) {
+    failWith('Search failed:', error)
+  }
+}
+
+async function cmdAdd({ args }: CommandContext): Promise<void> {
+  const packageName = args[1]
+  if (!packageName) {
+    console.error('Usage: r8s add <package-name>')
+    console.error('Example: r8s add @acme/r8s-redis')
+    process.exit(1)
+  }
+  console.log(`Installing ${packageName}...`)
+  const { execSync } = await import('child_process')
+  try {
+    execSync(`npm install ${packageName}`, { stdio: 'inherit' })
+    console.log(`\n✅ ${packageName} installed.`)
+    console.log(`Import components in your TSX:`)
+    console.log(`  import { MyComponent } from '${packageName}'`)
+  } catch (error) {
+    failWith('Install failed:', error)
+  }
+}
+
+async function cmdPreview({ args }: CommandContext): Promise<void> {
+  const comp = await requireComponent(args[1], 'Usage: r8s preview <component-name>')
+  const tmpFile = writeDummyTsx(comp, 'preview')
+  try {
+    const { renderToYaml } = await import('./renderer.js')
+    console.log(`# Preview of ${comp.name} with dummy required props\n`)
+    console.log(await renderToYaml(tmpFile))
+  } catch (error) {
+    console.error('Preview failed:', error instanceof Error ? error.message : error)
+    console.error('\nThis component may require a Platform context or specific props.')
+    process.exit(1)
+  } finally {
+    removeQuietly(tmpFile)
+  }
+}
+
+async function cmdExplain({ args }: CommandContext): Promise<void> {
+  const comp = await requireComponent(args[1], 'Usage: r8s explain <component-name>')
+  const { operators } = await import('./catalog.js')
+  console.log(`\n${comp.name} (${comp.package})`)
+  console.log(`${comp.description}\n`)
+  const tmpFile = writeDummyTsx(comp, 'explain')
+  try {
+    const { bundleAndRender } = await import('./renderer.js')
+    const result = await bundleAndRender(tmpFile)
+    console.log('Resources created:')
+    for (const r of result.resources) {
+      console.log(`  ${r.kind.padEnd(24)} ${r.metadata?.namespace ?? ''}/${r.metadata?.name ?? ''}`)
+    }
+    if (result.operators.length > 0) {
+      console.log('\nOperators required:')
+      for (const op of result.operators) {
+        const meta = operators.find((o) => o.name === op.name)
+        console.log(`  ${op.name.padEnd(24)} ${meta?.description ?? ''}`)
+      }
+    }
+    console.log(`\n${result.resources.length} resource(s), ${result.operators.length} operator(s).`)
+  } catch (error) {
+    console.error('Explain failed:', error instanceof Error ? error.message : error)
+    console.error('\nThis component may require a Platform context.')
+    process.exit(1)
+  } finally {
+    removeQuietly(tmpFile)
+  }
+}
+
+/** Reference checks after render: routes→Services, volumes→Secrets/ConfigMaps/PVCs, DNS targets. */
+function missingKinds(resources: any[]) {
+  return (kind: string, name: string) =>
+    !resources.some((r) => r.kind === kind && r.metadata?.name === name)
+}
+
+function routeIssues(resources: any[], missing: (kind: string, name: string) => boolean): string[] {
+  const issues: string[] = []
+  for (const route of resources.filter((r) => r.kind === 'HTTPRoute' || r.kind === 'Ingress')) {
+    const refs =
+      route.kind === 'HTTPRoute'
+        ? (route.spec?.rules?.flatMap((r: any) => r.backendRefs ?? []) ?? [])
+        : (route.spec?.rules?.flatMap(
+            (r: any) => r.http?.paths?.map((p: any) => p.backend?.service) ?? []
+          ) ?? [])
+    for (const ref of refs) {
+      if (missing('Service', ref.name)) {
+        issues.push(
+          `⚠️  ${route.kind} ${route.metadata.name} → Service "${ref.name}" not found (operator-managed?)`
+        )
+      }
+    }
+  }
+  return issues
+}
+
+function volumeIssues(
+  resources: any[],
+  missing: (kind: string, name: string) => boolean
+): string[] {
+  const targetsOf = (vol: any): [string | undefined, string][] => [
+    [vol.secret?.secretName, 'Secret'],
+    [vol.configMap?.name, 'ConfigMap'],
+    [vol.persistentVolumeClaim?.claimName, 'PersistentVolumeClaim'],
+  ]
+  const issuesFor = (d: any, vol: any): string[] =>
+    targetsOf(vol)
+      .filter(([target, kind]) => target !== undefined && missing(kind, target as string))
+      .map(([target, kind]) => `⚠️  ${d.kind} ${d.metadata.name} → ${kind} "${target}" not found`)
+  return resources
+    .filter((r) => r.kind === 'Deployment' || r.kind === 'StatefulSet')
+    .flatMap((d) =>
+      (d.spec?.template?.spec?.volumes ?? []).flatMap((vol: any) => issuesFor(d, vol))
+    )
+}
+
+function dnsIssues(resources: any[]): string[] {
+  return resources
+    .filter((r) => r.kind === 'DNSEndpoint')
+    .flatMap((dns) => dns.spec?.endpoints ?? [])
+    .filter((ep: any) => !ep.targets || ep.targets.length === 0)
+    .map((ep: any) => `⚠️  DNSEndpoint ${ep.dnsName ?? ''} has empty targets`)
+}
+
+function referenceIssues(resources: any[]): string[] {
+  const missing = missingKinds(resources)
+  return [
+    ...routeIssues(resources, missing),
+    ...volumeIssues(resources, missing),
+    ...dnsIssues(resources),
+  ]
+}
+
+function typecheckEntry(resolved: string): void {
+  try {
+    const { execSync } = require('child_process')
+    const tsconfigPath = resolve('tsconfig.json')
+    const tscCmd = existsSync(tsconfigPath)
+      ? `npx tsc --noEmit -p ${tsconfigPath}`
+      : `npx tsc --noEmit --jsx react-jsx --jsxImportSource @r8s/core --moduleResolution bundler --target es2022 --module esnext ${resolved}`
+    execSync(tscCmd, { stdio: 'pipe', cwd: process.cwd() })
+    console.log('✅ TypeScript: no errors')
+  } catch (error: any) {
+    const stdout = error.stdout?.toString() ?? ''
+    const stderr = error.stderr?.toString() ?? ''
+    console.error('❌ TypeScript errors:')
+    console.error(stdout || stderr || error.message)
+    process.exit(1)
+  }
+}
+
+async function cmdValidate({ args }: CommandContext): Promise<void> {
+  const entryFile = args[1]
+  if (!entryFile) {
+    console.error('Usage: r8s validate <file.tsx>')
+    console.error('Example: r8s validate infra/app.tsx')
+    process.exit(1)
+  }
+  const resolved = resolve(entryFile)
+  if (!existsSync(resolved)) {
+    console.error(`File not found: ${resolved}`)
+    process.exit(1)
+  }
+  console.log(`Validating: ${resolved}\n`)
+  typecheckEntry(resolved)
+  try {
+    const { bundleAndRender } = await import('./renderer.js')
+    const result = await bundleAndRender(resolved)
+    const issues = referenceIssues(result.resources as any[])
+    console.log(
+      `✅ Render: ${result.resources.length} resources, ${result.operators.length} operators`
+    )
+    if (issues.length > 0) {
+      console.log(`\n${issues.length} reference issue(s) found:`)
+      for (const issue of issues) console.log(`  ${issue}`)
+      console.log('\nSome references may be operator-managed (e.g. Keycloak Service).')
+      process.exit(1)
+    }
+    console.log('✅ References: all resolved')
+  } catch (error) {
+    failWith('❌ Render failed:', error, true)
+  }
+}
+
+async function cmdRender({ options }: CommandContext): Promise<void> {
   try {
     const entryFile = await findEntryFile(options.entry)
     console.error(`Rendering: ${entryFile}`)
@@ -1098,22 +1048,50 @@ async function main(): Promise<void> {
       // stay faithful so local dev workflows still apply real values.
       redactSecrets: options.skipSecretGuardrails && !options.out,
     })
-
-    if (options.out) {
-      const { writeFileSync, mkdirSync } = await import('fs')
-      const { dirname } = await import('path')
-      mkdirSync(dirname(resolve(options.out)), { recursive: true })
-      writeFileSync(resolve(options.out), yamlOutput, 'utf-8')
-      console.error(`Output written to: ${resolve(options.out)}`)
-    } else {
-      console.log(yamlOutput)
-    }
+    await writeOutput(yamlOutput, options.out)
   } catch (error) {
-    console.error(
-      'Error:',
-      sanitizeErrorMessage(error instanceof Error ? error.message : String(error))
-    )
-    process.exit(1)
+    failWith('Error:', error, true)
+  }
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2)
+  const options = parseArgs(args)
+
+  if (options.help) {
+    showHelp()
+    process.exit(0)
+  }
+
+  const ctx: CommandContext = { args, options }
+  switch (args[0] || 'render') {
+    case 'init':
+      return cmdInit(ctx)
+    case 'operators':
+      return cmdOperators(ctx)
+    case 'list':
+      return cmdList()
+    case 'info':
+      return cmdInfo(ctx)
+    case 'context':
+      return cmdContext()
+    case 'search':
+      return cmdSearch(ctx)
+    case 'add':
+      return cmdAdd(ctx)
+    case 'preview':
+      return cmdPreview(ctx)
+    case 'explain':
+      return cmdExplain(ctx)
+    case 'validate':
+      return cmdValidate(ctx)
+    case 'render':
+      return cmdRender(ctx)
+    default: {
+      console.error(`Unknown command: ${args[0]}`)
+      showHelp()
+      process.exit(1)
+    }
   }
 }
 
