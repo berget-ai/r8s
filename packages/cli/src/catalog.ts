@@ -188,7 +188,7 @@ export const components: ComponentInfo[] = [
           'App/Database/Auth components (optional — can set up cluster infra standalone)',
       },
     ],
-    example: `import { Database } from '@r8s/recipes'\n\nexport default <Database name="api-db" storage="20Gi" />`,
+    example: `import { Database } from '@r8s/recipes'\n\nexport default <Database backup={false} name="api-db" storage="20Gi" />`,
   },
   {
     name: 'Endpoint',
@@ -282,7 +282,7 @@ export const components: ComponentInfo[] = [
         description: 'App/Database/Auth components',
       },
     ],
-    example: `import { R8sCluster, Platform, App, Database } from '@r8s/recipes'\n\nexport default (\n  <R8sCluster\n    secrets={{ mount: 'secret', path: 'production' }}\n    dns={{ server: 'ns1.example.com', zone: 'example.com', tsigPath: 'dns/tsig' }}\n  >\n    <Platform namespace="production">\n      <Database name="api-db" storage="20Gi" />\n      <App name="api" image="api:v1" host="api.example.com" />\n    </Platform>\n  </R8sCluster>\n)`,
+    example: `import { R8sCluster, Platform, App, Database } from '@r8s/recipes'\n\nexport default (\n  <R8sCluster\n    secrets={{ mount: 'secret', path: 'production' }}\n    dns={{ server: 'ns1.example.com', zone: 'example.com', tsigPath: 'dns/tsig' }}\n  >\n    <Platform namespace="production">\n      <Database backup={false} name="api-db" storage="20Gi" />\n      <App name="api" image="api:v1" host="api.example.com" />\n    </Platform>\n  </R8sCluster>\n)`,
   },
   {
     name: 'Platform',

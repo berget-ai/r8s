@@ -138,7 +138,7 @@ export const recipes: Recipe[] = [
           yaml: 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\n  namespace: default\n  labels:\n    app: myapp\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: myapp\n  template:\n    metadata:\n      labels:\n        app: myapp\n    spec:\n      containers:\n        - name: app\n          image: myapp/web:v1.2.3\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env:\n            - name: DATABASE_URL\n              valueFrom:\n                secretKeyRef:\n                  name: app-secrets\n                  key: DATABASE_URL\n            - name: LOG_LEVEL\n              value: info\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: myapp\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: myapp\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: myapp-endpoint\n  namespace: default\n  annotations: {}\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: myapp.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: myapp\n                port:\n                  number: 80\n',
         },
         {
-          tsx: 'import { Database, App } from \'@r8s/recipes\'\n\nexport default (\n  <>\n    <Database name="myapp-db" storage="20Gi" />\n    <App\n      name="myapp"\n      image="myapp/web:v1.2.3"\n      host="myapp.example.com"\n      tls={{ secretName: \'myapp-tls\', clusterIssuer: \'letsencrypt\' }}\n    />\n  </>\n)',
+          tsx: 'import { Database, App } from \'@r8s/recipes\'\n\nexport default (\n  <>\n    <Database backup={false} name="myapp-db" storage="20Gi" />\n    <App\n      name="myapp"\n      image="myapp/web:v1.2.3"\n      host="myapp.example.com"\n      tls={{ secretName: \'myapp-tls\', clusterIssuer: \'letsencrypt\' }}\n    />\n  </>\n)',
           yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: myapp-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 20Gi\n  bootstrap:\n    initdb:\n      database: myapp-db\n      owner: myapp-db\n      secret:\n        name: myapp-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\n  namespace: default\n  labels:\n    app: myapp\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: myapp\n  template:\n    metadata:\n      labels:\n        app: myapp\n    spec:\n      containers:\n        - name: app\n          image: myapp/web:v1.2.3\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: myapp\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: myapp\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: myapp-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: myapp.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: myapp\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - myapp.example.com\n      secretName: myapp-tls\n',
         },
       ],
@@ -249,7 +249,8 @@ export const recipes: Recipe[] = [
           name: 'storageLocation',
           type: 'string',
           required: false,
-          description: "Velero storage location name (defaults to 'default')",
+          description:
+            "Velero storage location name. With an S3 provider on the Platform this defaults to this component's name (the emitted BackupStorageLocation); without one, 'default' (an externally-managed location must exist).",
         },
         {
           name: 'ttl',
@@ -353,21 +354,23 @@ export const recipes: Recipe[] = [
         {
           name: 'destinationPath',
           type: 'string',
-          required: true,
-          description: "S3 destination path, e.g. 's3://backups/myapp-cnpg'",
+          required: false,
+          description:
+            "S3 destination path, e.g. 's3://backups/myapp-cnpg'. Derived from the S3 provider as `s3://<bucket>/<name>-cnpg` when omitted.",
         },
         {
           name: 'endpointURL',
           type: 'string',
-          required: true,
-          description: "S3 endpoint URL, e.g. 'https://s3.example.com' (RustFS/Scaleway/…)",
+          required: false,
+          description:
+            "S3 endpoint URL, e.g. 'https://s3.example.com' (RustFS/Scaleway/…). Derived from the S3 provider when omitted.",
         },
         {
           name: 'credentialsSecret',
           type: 'string',
           required: false,
           description:
-            'Name of an existing Secret holding the S3 credentials with CNPG keys `access-key-id` and `secret-access-key`. When omitted, the Platform secrets backend (openbao/vault) provisions `<name>-backup-credentials` from `<path>/<name>-s3-credentials` — the backend entry must contain the same kebab-case keys. Without backend or secret this throws.',
+            "Name of an existing Secret holding the S3 credentials with CNPG keys `access-key-id` and `secret-access-key`. Resolution order: this prop → the S3 provider's credentialsSecret → the Platform secrets backend provisioner (`<name>-backup-credentials` from `<path>/<name>-s3-credentials`). Without any of the three this throws.",
         },
         {
           name: 'retention',
@@ -430,7 +433,7 @@ export const recipes: Recipe[] = [
           type: 'string',
           required: false,
           description:
-            "Bootstrap database name (defaults to `name`) — for apps whose schema lives in a database named differently from the cluster resource (e.g. cluster 'harbor-db', database 'registry').",
+            "REQUIRED decision point: omit → renderer throws with guidance. `false` → cluster without barman (forks, ephemeral CI). `true`/object → barman WAL + scheduled backups; target and credentials derive from the Platform's S3 provider, explicit object values win.",
         },
         {
           name: 'owner',
@@ -458,8 +461,8 @@ export const recipes: Recipe[] = [
         },
         {
           name: 'backup',
-          type: 'DatabaseBackupProps',
-          required: false,
+          type: 'DatabaseBackupProps | true | false',
+          required: true,
           description:
             'Continuous barman backup to S3 object storage + ScheduledBackup. Explicit opt-in.',
         },
@@ -500,12 +503,12 @@ export const recipes: Recipe[] = [
       ],
       examples: [
         {
-          tsx: 'import { Database } from \'@r8s/recipes\'\n\nexport default <Database name="app-db" storage="10Gi" />',
-          yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n',
+          tsx: "import { Database } from '@r8s/recipes'\n\n// Required target: explicit S3 settings (credentials from an existing Secret)\nexport default (\n  <Database\n    name=\"app-db\"\n    storage=\"10Gi\"\n    backup={{\n      destinationPath: 's3://backups/app-db-cnpg',\n      endpointURL: 'https://s3.example.com',\n      credentialsSecret: 'app-db-backup-creds',\n    }}\n  />\n)",
+          yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://backups/app-db-cnpg\n      endpointURL: https://s3.example.com\n      s3Credentials:\n        accessKeyId:\n          name: app-db-backup-creds\n          key: access-key-id\n        secretAccessKey:\n          name: app-db-backup-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: app-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: app-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n',
         },
         {
-          tsx: 'import { Platform, Database, WebService } from \'@r8s/recipes\'\n\nexport default (\n  <Platform secrets={{ backend: \'openbao\' }}>\n    <Database name="app-db" storage="10Gi">\n      <WebService name="api" image="myapp/api:v1" />\n    </Database>\n  </Platform>\n)',
-          yaml: "apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: app-db-db-secret\n  namespace: default\nspec:\n  type: kv-v2\n  path: undefined/app-db\n  destination:\n    create: true\n    name: app-db-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: default\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env:\n            - name: PGHOST\n              value: app-db-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: app-db\n            - name: PGUSER\n              value: app-db\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: app-db-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n",
+          tsx: 'import { Platform, Database, WebService } from \'@r8s/recipes\'\n\nexport default (\n  <Platform secrets={{ backend: \'openbao\' }}>\n    <Database\n      name="app-db"\n      storage="10Gi"\n      backup={{\n        destinationPath: \'s3://backups/app-db-cnpg\',\n        endpointURL: \'https://s3.example.com\',\n      }}\n    >\n      <WebService name="api" image="myapp/api:v1" />\n    </Database>\n  </Platform>\n)',
+          yaml: "apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://backups/app-db-cnpg\n      endpointURL: https://s3.example.com\n      s3Credentials:\n        accessKeyId:\n          name: app-db-backup-credentials\n          key: access-key-id\n        secretAccessKey:\n          name: app-db-backup-credentials\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: app-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: app-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: app-db-backup-credentials\n  namespace: default\nspec:\n  type: kv-v2\n  path: undefined/app-db-s3-credentials\n  destination:\n    create: true\n    name: app-db-backup-credentials\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: app-db-db-secret\n  namespace: default\nspec:\n  type: kv-v2\n  path: undefined/app-db\n  destination:\n    create: true\n    name: app-db-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: default\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env:\n            - name: PGHOST\n              value: app-db-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: app-db\n            - name: PGUSER\n              value: app-db\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: app-db-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n",
         },
         {
           tsx: "import { Platform, Database, WebService } from '@r8s/recipes'\n\n// HA database with continuous S3 backup — the backend provisions the\n// backup credentials, pods restart when they rotate.\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps', refreshAfter: '3600s' }}>\n    <Database\n      name=\"app-db\"\n      storage=\"20Gi\"\n      instances={2}\n      rolloutRestartTargets={[{ name: 'api' }]}\n      backup={{\n        destinationPath: 's3://backups/app-cnpg',\n        endpointURL: 'https://s3.example.com',\n      }}\n    >\n      <WebService name=\"api\" image=\"myapp/api:v1\" />\n    </Database>\n  </Platform>\n)",
@@ -815,7 +818,7 @@ export const recipes: Recipe[] = [
           yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: production\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: api-endpoint\n  namespace: production\n  annotations: {}\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: api.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: api\n                port:\n                  number: 80\n',
         },
         {
-          tsx: 'import { Platform, App, Database, cnpgOperator } from \'@r8s/recipes\'\nimport { operators } from \'@r8s/crds\'\n\nexport default (\n  <Platform\n    routing="gateway"\n    namespace="production"\n    operators={[cnpgOperator(), operators[\'cert-manager\']()]}\n  >\n    <Database name="app-db" storage="10Gi" />\n    <App name="api" image="myapp/api:v1" host="api.example.com" />\n  </Platform>\n)',
+          tsx: 'import { Platform, App, Database, cnpgOperator } from \'@r8s/recipes\'\nimport { operators } from \'@r8s/crds\'\n\nexport default (\n  <Platform\n    routing="gateway"\n    namespace="production"\n    operators={[cnpgOperator(), operators[\'cert-manager\']()]}\n  >\n    <Database backup={false} name="app-db" storage="10Gi" />\n    <App name="api" image="myapp/api:v1" host="api.example.com" />\n  </Platform>\n)',
           yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: production\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: production\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: api-endpoint-gateway\n  namespace: production\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: http\n      protocol: HTTP\n      port: 80\n      hostname: api.example.com\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: api-endpoint-route\n  namespace: production\nspec:\n  parentRefs:\n    - name: api-endpoint-gateway\n  hostnames:\n    - api.example.com\n  rules:\n    - backendRefs:\n        - name: api\n          port: 80\n',
         },
         {
@@ -892,10 +895,91 @@ export const recipes: Recipe[] = [
       ],
       examples: [
         {
-          tsx: 'import { R8sCluster, Platform, App, Database } from \'@r8s/recipes\'\n\nexport default (\n  <>\n    <R8sCluster\n      secrets={{ mount: \'secret\', path: \'production\' }}\n      dns={{ server: \'ns1.example.com\', zone: \'example.com\', tsigPath: \'dns/tsig\' }}\n    >\n      <Platform namespace="production">\n        <Database name="api-db" storage="20Gi" />\n        <App name="api" image="api:v1" host="api.example.com" />\n      </Platform>\n    </R8sCluster>\n  </>\n)',
+          tsx: 'import { R8sCluster, Platform, App, Database } from \'@r8s/recipes\'\n\nexport default (\n  <>\n    <R8sCluster\n      secrets={{ mount: \'secret\', path: \'production\' }}\n      dns={{ server: \'ns1.example.com\', zone: \'example.com\', tsigPath: \'dns/tsig\' }}\n    >\n      <Platform namespace="production">\n        <Database backup={false} name="api-db" storage="20Gi" />\n        <App name="api" image="api:v1" host="api.example.com" />\n      </Platform>\n    </R8sCluster>\n  </>\n)',
           yaml: "apiVersion: secrets.hashicorp.com/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: external-dns-tsig\n  namespace: external-dns\nspec:\n  mount: secret\n  path: production/dns/tsig\n  type: kv-v2\n  destination:\n    name: external-dns-tsig\n    create: true\n  refreshAfter: 1h\n---\napiVersion: loki.grafana.com/v1\nkind: LokiStack\nmetadata:\n  name: cluster-loki\n  namespace: logging\nspec:\n  size: 1x.small\n  storageClassName: standard\n  storage:\n    schemas:\n      - version: v13\n        effectiveDate: '2024-01-01'\n    secret:\n      name: cluster-loki-storage\n      type: s3\n  tenants:\n    mode: static\n    authentication:\n      - tenantName: application\n        tenantId: app\n    authorization:\n      roles:\n        - name: app-reader\n          permissions:\n            - read\n          resources:\n            - logs\n          tenants:\n            - application\n      roleBindings:\n        - name: app-reader-binding\n          roles:\n            - app-reader\n          subjects:\n            - kind: group\n              name: system:authenticated\n---\napiVersion: logging.banzaicloud.io/v1beta1\nkind: Logging\nmetadata:\n  name: cluster-logging\n  namespace: logging\nspec:\n  fluentd: {}\n  fluentbit: {}\n  controlNamespace: logging\n---\napiVersion: logging.banzaicloud.io/v1beta1\nkind: Output\nmetadata:\n  name: cluster-loki-output\n  namespace: logging\nspec:\n  loki:\n    url: http://loki-gateway.logging.svc.cluster.local\n    tenant: application\n---\napiVersion: logging.banzaicloud.io/v1beta1\nkind: Flow\nmetadata:\n  name: cluster-flow\n  namespace: logging\nspec:\n  match:\n    - select:\n        labels: {}\n  localOutputRefs:\n    - cluster-loki-output\n---\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: production\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: api-db\n  namespace: production\nspec:\n  instances: 3\n  storage:\n    size: 20Gi\n  bootstrap:\n    initdb:\n      database: api-db\n      owner: api-db\n      secret:\n        name: api-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: api-db-db-secret\n  namespace: production\nspec:\n  mount: secret\n  type: kv-v2\n  path: production/api-db\n  destination:\n    create: true\n    name: api-db-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: api-endpoint\n  namespace: production\n  annotations:\n    external-dns.alpha.kubernetes.io/hostname: api.example.com\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: api.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: api\n                port:\n                  number: 80\n",
         },
       ],
+    },
+  },
+  {
+    slug: 'min-i-o',
+    title: 'MinIO',
+    description: 'MinIO / RustFS convenience config — path style on, region default.',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'MinIO',
+      description: 'MinIO / RustFS convenience config — path style on, region default.',
+      props: [],
+      examples: [
+        {
+          tsx: 'import { S3Provider, MinIO, Database } from \'@r8s/recipes\'\n\nexport default (\n  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n    <Database name="api-db" backup />\n  </S3Provider>\n)',
+          yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: api-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: api-db\n      owner: api-db\n      secret:\n        name: api-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/api-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: api-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: api-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n',
+        },
+      ],
+    },
+  },
+  {
+    slug: 'aws-s3',
+    title: 'AwsS3',
+    description: 'AWS S3 convenience config — virtual-hosted style, endpoint derived from region.',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'AwsS3',
+      description:
+        'AWS S3 convenience config — virtual-hosted style, endpoint derived from region.',
+      props: [],
+      examples: [
+        {
+          tsx: 'import { S3Provider, AwsS3, Database } from \'@r8s/recipes\'\n\nexport default (\n  <S3Provider provider={<AwsS3 region="eu-north-1" bucket="infra-backups" credentialsSecret="aws-creds" />}>\n    <Database name="api-db" backup />\n  </S3Provider>\n)',
+          yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: api-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: api-db\n      owner: api-db\n      secret:\n        name: api-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra-backups/api-db-cnpg\n      endpointURL: https://s3.eu-north-1.amazonaws.com\n      s3Credentials:\n        accessKeyId:\n          name: aws-creds\n          key: access-key-id\n        secretAccessKey:\n          name: aws-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: api-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: api-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n',
+        },
+      ],
+    },
+  },
+  {
+    slug: 's3-provider',
+    title: 'S3Provider',
+    description:
+      'S3Provider — platform-wide S3-compatible object storage. Sets the S3Config context consumed by: - <Database backup={…} /> — CNPG barman WAL + scheduled backups derive endpointURL/destinationPath (`<bucket>/<name>-cnpg`) and credentials - <Backup /> — Velero emits a BackupStorageLocation + Schedule targeting the `velero/` prefix of the provider bucket - application packages (matrix, harbor, …) reading the same context Explicit per-consumer values always win over the provider.',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'S3Provider',
+      description:
+        'S3Provider — platform-wide S3-compatible object storage. Sets the S3Config context consumed by: - <Database backup={…} /> — CNPG barman WAL + scheduled backups derive endpointURL/destinationPath (`<bucket>/<name>-cnpg`) and credentials - <Backup /> — Velero emits a BackupStorageLocation + Schedule targeting the `velero/` prefix of the provider bucket - application packages (matrix, harbor, …) reading the same context Explicit per-consumer values always win over the provider.',
+      props: [
+        {
+          name: 'provider',
+          type: 'S3Config',
+          required: true,
+          description:
+            'S3 configuration — the plain config object, or choose the convenience components <MinIO /> / <AwsS3 /> which are themselves S3Config values.',
+        },
+        { name: 'children', type: 'unknown', required: false, description: 'Child components' },
+      ],
+      examples: [
+        {
+          tsx: 'import { S3Provider, MinIO, Database, Backup } from \'@r8s/recipes\'\n\nexport default (\n  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n    <>\n      <Database name="api-db" backup={{} as never} />\n      <Backup name="nightly" />\n    </>\n  </S3Provider>\n)',
+          yaml: "apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: api-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: api-db\n      owner: api-db\n      secret:\n        name: api-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/api-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: api-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: api-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: velero.io/v1\nkind: BackupStorageLocation\nmetadata:\n  name: nightly\n  namespace: velero\nspec:\n  provider: aws\n  default: true\n  objectStorage:\n    bucket: infra\n    prefix: velero\n  config:\n    region: us-east-1\n    s3ForcePathStyle: 'true'\n    s3Url: https://rustfs:9000\n---\napiVersion: velero.io/v1\nkind: Schedule\nmetadata:\n  name: nightly\n  namespace: velero\nspec:\n  schedule: 0 2 * * *\n  template:\n    includedNamespaces:\n      - default\n    storageLocation: nightly\n    ttl: 720h\n",
+        },
+      ],
+    },
+  },
+  {
+    slug: 's3-backend-credentials',
+    title: 'S3BackendCredentials',
+    description:
+      "Emit a backend-provisioned S3 credentials Secret via the static-secret capability hook (openbao/vault/sealed-secrets/custom provision()). The destination Secret carries the CNPG-style keys 'access-key-id' and 'secret-access-key' (+ an optional velero-format `cloud` entry given as templates by the caller).",
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'S3BackendCredentials',
+      description:
+        "Emit a backend-provisioned S3 credentials Secret via the static-secret capability hook (openbao/vault/sealed-secrets/custom provision()). The destination Secret carries the CNPG-style keys 'access-key-id' and 'secret-access-key' (+ an optional velero-format `cloud` entry given as templates by the caller).",
+      props: [],
+      examples: [],
     },
   },
   {
@@ -934,19 +1018,19 @@ export const recipes: Recipe[] = [
       ],
       examples: [
         {
-          tsx: 'import { SecretProvider, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider="openbao">\n    <Database name="app-db" />\n  </SecretProvider>\n)',
+          tsx: 'import { SecretProvider, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider="openbao">\n    <Database backup={false} name="app-db" />\n  </SecretProvider>\n)',
           yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: app-db-db-secret\n  namespace: default\nspec:\n  type: kv-v2\n  path: undefined/app-db\n  destination:\n    create: true\n    name: app-db-db-credentials\n',
         },
         {
-          tsx: 'import { SecretProvider, OpenBao, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom-auth" />}>\n    <Database name="app-db" />\n  </SecretProvider>\n)',
+          tsx: 'import { SecretProvider, OpenBao, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom-auth" />}>\n    <Database backup={false} name="app-db" />\n  </SecretProvider>\n)',
           yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: app-db-db-secret\n  namespace: default\nspec:\n  openbaoAuthRef: custom-auth\n  mount: secret\n  type: kv-v2\n  path: infra/app-db\n  destination:\n    create: true\n    name: app-db-db-credentials\n',
         },
         {
-          tsx: 'import { SecretProvider, Vault, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider={<Vault mount="kv" path="apps" />}>\n    <Database name="app-db" />\n  </SecretProvider>\n)',
+          tsx: 'import { SecretProvider, Vault, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider={<Vault mount="kv" path="apps" />}>\n    <Database backup={false} name="app-db" />\n  </SecretProvider>\n)',
           yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.hashicorp.com/v1beta1\nkind: VaultStaticSecret\nmetadata:\n  name: app-db-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/app-db\n  destination:\n    create: true\n    name: app-db-db-credentials\n',
         },
         {
-          tsx: 'import { SecretProvider, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider="sealed-secrets">\n    <Database name="app-db" />\n  </SecretProvider>\n)',
+          tsx: 'import { SecretProvider, Database } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider="sealed-secrets">\n    <Database backup={false} name="app-db" />\n  </SecretProvider>\n)',
           yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: bitnami.com/v1alpha1\nkind: SealedSecret\nmetadata:\n  name: app-db-db-credentials\n  namespace: default\nspec:\n  encryptedData:\n    password: REPLACE_WITH_SEALED_VALUE\n',
         },
       ],

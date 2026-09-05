@@ -10,7 +10,7 @@ import { App, Database } from '@r8s/recipes'
 export default function MyApp() {
   return (
     <>
-      <Database name="myapp-db" storage="10Gi" />
+      <Database backup={false} name="myapp-db" storage="10Gi" />
 
       <App
         name="myapp"

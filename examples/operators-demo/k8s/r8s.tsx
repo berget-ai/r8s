@@ -19,7 +19,7 @@ export default function PlatformInfrastructure() {
     <Platform namespace="auth" secrets={{ backend: 'openbao', mount: 'kv', path: 'platform' }}>
       {/* Database — credentials provisioned by OpenBao
           (OpenBaoStaticSecret → keycloak-db-credentials) */}
-      <Database name="keycloak-db" storage="10Gi" />
+      <Database backup={false} name="keycloak-db" storage="10Gi" />
 
       {/* Keycloak realm demo — client config only. User passwords are
           provisioned by the backend / Keycloak admin console, never
@@ -49,7 +49,7 @@ export default function PlatformInfrastructure() {
       />
 
       {/* App wired to the database credentials managed by the backend */}
-      <Database name="app-db" storage="10Gi">
+      <Database backup={false} name="app-db" storage="10Gi">
         <WebService name="api" image="myapp/api:v2.0.0" port={3000} />
       </Database>
 

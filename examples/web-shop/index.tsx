@@ -59,7 +59,7 @@ export default (
     </Auth>
 
     {/* Database */}
-    <Database name="shop-db" storage="20Gi" />
+    <Database backup={false} name="shop-db" storage="20Gi" />
 
     {/* API Backend */}
     <App

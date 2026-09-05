@@ -109,7 +109,7 @@ export interface PlatformProps {
  *     namespace="production"
  *     operators={[cnpgOperator(), operators['cert-manager']()]}
  *   >
- *     <Database name="app-db" storage="10Gi" />
+ *     <Database backup={false} name="app-db" storage="10Gi" />
  *     <App name="api" image="myapp/api:v1" host="api.example.com" />
  *   </Platform>
  * )

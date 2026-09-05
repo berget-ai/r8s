@@ -17,6 +17,7 @@ describe('Database — HA sizing props', () => {
   it('renders instances/storageClass/parameters on the cluster', () => {
     const result = render(
       jsx(Database, {
+        backup: false,
         name: 'tuned-db',
         instances: 2,
         storage: '20Gi',
@@ -82,7 +83,7 @@ describe('Database — backup', () => {
   })
 
   it('is opt-in: no backup resources without the prop', () => {
-    const result = render(jsx(Database, { name: 'app-db' }))
+    const result = render(jsx(Database, { backup: false, name: 'app-db' }))
     const cluster = find(result, 'Cluster', 'app-db') as any
     expect(cluster.spec.backup).toBeUndefined()
     expect(find(result, 'ScheduledBackup', 'app-db-backup')).toBeUndefined()
@@ -127,7 +128,7 @@ describe('Database — rotation semantics', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: openbao({ refreshAfter: '3600s' }),
-        children: jsx(Database, { name: 'app-db' }),
+        children: jsx(Database, { backup: false, name: 'app-db' }),
       })
     )
     const obss = find(result, 'OpenBaoStaticSecret', 'app-db-db-secret') as any
@@ -139,6 +140,7 @@ describe('Database — rotation semantics', () => {
       jsx(SecretContext.Provider, {
         value: openbao(),
         children: jsx(Database, {
+          backup: false,
           name: 'app-db',
           rolloutRestartTargets: [{ name: 'my-app' }],
         }),

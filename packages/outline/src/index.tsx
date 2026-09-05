@@ -374,7 +374,7 @@ export function Outline(props: OutlineProps) {
       namespace,
       storage,
       instances,
-      ...(backup ? { backup } : {}),
+      backup: backup ?? false,
       children: (
         <WebService
           name={name}

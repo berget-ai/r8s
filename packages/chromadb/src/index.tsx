@@ -317,7 +317,7 @@ export function ChromaDb(props: ChromaDbProps) {
   if (pg) {
     resources_.push(
       jsx(Database, {
-        name: `${name}-meta`,
+        backup: false,name: `${name}-meta`,
         namespace,
         storage: '10Gi',
         children: jsx(Fragment, { children: dataPlane }),

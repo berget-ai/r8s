@@ -53,10 +53,10 @@ export default (
     </Auth>
 
     {/* Platform database */}
-    <Database name="platform-db" storage="50Gi" />
+    <Database backup={false} name="platform-db" storage="50Gi" />
 
     {/* Analytics database */}
-    <Database name="analytics-db" storage="100Gi" />
+    <Database backup={false} name="analytics-db" storage="100Gi" />
 
     {/* File storage */}
     <RustFS

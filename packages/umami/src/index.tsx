@@ -208,7 +208,7 @@ export function Umami(props: UmamiProps) {
         effective_cache_size: '768MB',
       },
       credentialsMode: 'cnpg',
-      ...(backup ? { backup } : {}),
+      backup: backup ?? false,
     })
   )
 

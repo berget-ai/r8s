@@ -366,7 +366,7 @@ export function Nextcloud(props: NextcloudProps) {
 
   resources_.push(
     jsx(Database, {
-      name,
+      backup: false,name,
       namespace,
       storage: '10Gi',
       children: jsx(Fragment, {

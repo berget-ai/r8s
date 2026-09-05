@@ -160,7 +160,7 @@ describe('R8sCluster — secrets (OpenBao VSO)', () => {
     const result = render(
       jsx(R8sCluster, {
         ...baseProps,
-        children: jsx(Database, { name: 'api-db', storage: '10Gi' }),
+        children: jsx(Database, { backup: false, name: 'api-db', storage: '10Gi' }),
       })
     )
 
@@ -270,7 +270,7 @@ describe('R8sCluster — complete cluster', () => {
           namespace: 'production',
           routing: 'gateway',
           children: [
-            jsx(Database, { name: 'api-db', storage: '20Gi' }),
+            jsx(Database, { backup: false, name: 'api-db', storage: '20Gi' }),
             jsx(App, {
               name: 'api',
               image: 'api:v1',

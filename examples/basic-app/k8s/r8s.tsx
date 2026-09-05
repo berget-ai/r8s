@@ -4,7 +4,7 @@ import { Database, WebService, Endpoint } from '@r8s/recipes'
  * Basic app — a PostgreSQL database and a web service.
  *
  * Credentials are NOT included in this file. The `<WebService>` inside
- * `<Database>` receives connection info via DatabaseContext and injects
+ * `<Database backup={false}>` receives connection info via DatabaseContext and injects
  * PGPASSWORD via secretKeyRef. With no secrets backend configured, CNPG
  * generates the bootstrap secret in-cluster — plaintext passwords never
  * appear in this source or in the rendered YAML.
@@ -14,7 +14,7 @@ import { Database, WebService, Endpoint } from '@r8s/recipes'
  */
 export default function App() {
   return (
-    <Database name="myapp-db" namespace="production" storage="20Gi">
+    <Database backup={false} name="myapp-db" namespace="production" storage="20Gi">
       <WebService name="myapp-web" image="myapp/web:v1.2.3" port={3000} replicas={3} />
 
       <Endpoint

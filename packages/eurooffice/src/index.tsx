@@ -320,7 +320,7 @@ export function EuroOffice(props: EuroOfficeProps) {
         maintenance_work_mem: '128MB',
         effective_cache_size: '768MB',
       },
-      ...(backup ? { backup } : {}),
+      backup: backup ?? false,
       ...(postInitSQL && postInitSQL.length > 0 ? { postInitSQL } : {}),
     }),
     jsx(WebService, {

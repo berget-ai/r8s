@@ -68,6 +68,16 @@ export {
 export { cnpgOperator, nginxIngressOperator, vaultSecretsOperator } from './operators'
 
 export { StaticSecret, type StaticSecretProps } from './static-secret'
+export {
+  S3Provider,
+  type S3ProviderProps,
+  type S3Config,
+  useS3,
+  MinIO,
+  AwsS3,
+  S3BackendCredentials,
+  cnpgBackupFromS3,
+} from './s3-provider'
 
 // Composition helpers — loose building blocks for packages
 export { useOperators, maybeOperator } from './operators'

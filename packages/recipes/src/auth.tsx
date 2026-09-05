@@ -138,6 +138,7 @@ export function Auth(props: AuthProps) {
   // Credentials are managed by the secrets backend configured on the Platform.
   resources.push(
     jsx(Database, {
+      backup: false,
       name: `${name}-db`,
       namespace,
       storage,

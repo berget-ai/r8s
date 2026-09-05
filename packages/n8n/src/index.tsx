@@ -297,7 +297,7 @@ export function N8n(props: N8nProps) {
       name,
       namespace,
       storage,
-      ...(backup ? { backup } : {}),
+      backup: backup ?? false,
       children: (
         <WebService
           name={name}

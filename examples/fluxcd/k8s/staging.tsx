@@ -4,13 +4,13 @@ import { Database, WebService, Endpoint } from '@r8s/recipes'
  * Staging environment.
  *
  * Credentials are managed outside the manifest: CNPG generates the
- * bootstrap secret in-cluster, and `<WebService>` inside `<Database>`
+ * bootstrap secret in-cluster, and `<WebService>` inside `<Database backup={false}>`
  * injects PGPASSWORD via secretKeyRef. Nothing sensitive lives in this
  * file or in the rendered YAML.
  */
 export default function StagingApp() {
   return (
-    <Database name="app-db" namespace="staging" storage="5Gi">
+    <Database backup={false} name="app-db" namespace="staging" storage="5Gi">
       <WebService name="app" image="myapp/app:staging" port={3000} replicas={1} />
 
       <Endpoint

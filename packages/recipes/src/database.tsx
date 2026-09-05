@@ -9,6 +9,7 @@ import {
   useNamespace,
 } from '@r8s/core/defaults'
 import { provisionerForSecretProvider } from './secret-provider'
+import { useS3 } from './s3-provider'
 
 /**
  * Continuous + scheduled backup configuration for a dedicated CNPG cluster.
@@ -17,16 +18,16 @@ import { provisionerForSecretProvider } from './secret-provider'
  * unless this prop is set.
  */
 export interface DatabaseBackupProps {
-  /** S3 destination path, e.g. 's3://backups/myapp-cnpg' */
-  destinationPath: string
-  /** S3 endpoint URL, e.g. 'https://s3.example.com' (RustFS/Scaleway/…) */
-  endpointURL: string
+  /** S3 destination path, e.g. 's3://backups/myapp-cnpg'. Derived from the S3 provider as `s3://<bucket>/<name>-cnpg` when omitted. */
+  destinationPath?: string
+  /** S3 endpoint URL, e.g. 'https://s3.example.com' (RustFS/Scaleway/…). Derived from the S3 provider when omitted. */
+  endpointURL?: string
   /**
    * Name of an existing Secret holding the S3 credentials with CNPG keys
-   * `access-key-id` and `secret-access-key`. When omitted, the Platform
-   * secrets backend (openbao/vault) provisions `<name>-backup-credentials`
-   * from `<path>/<name>-s3-credentials` — the backend entry must contain
-   * the same kebab-case keys. Without backend or secret this throws.
+   * `access-key-id` and `secret-access-key`. Resolution order: this prop →
+   * the S3 provider's credentialsSecret → the Platform secrets backend
+   * provisioner (`<name>-backup-credentials` from
+   * `<path>/<name>-s3-credentials`). Without any of the three this throws.
    */
   credentialsSecret?: string
   /** Retention policy for barman backups (default: '30d') */
@@ -47,6 +48,13 @@ export interface DatabaseProps {
   /** Number of CNPG instances in the dedicated cluster (defaults to 3) */
   instances?: number
   /**
+   * REQUIRED decision point: omit → renderer throws with guidance.
+   * `false` → cluster without barman (forks, ephemeral CI).
+   * `true`/object → barman WAL + scheduled backups; target and credentials
+   * derive from the Platform's S3 provider, explicit object values win.
+   */
+
+  /**
    * Bootstrap database name (defaults to `name`) — for apps whose schema
    * lives in a database named differently from the cluster resource
    * (e.g. cluster 'harbor-db', database 'registry').
@@ -64,7 +72,7 @@ export interface DatabaseProps {
    * Continuous barman backup to S3 object storage + ScheduledBackup.
    * Explicit opt-in.
    */
-  backup?: DatabaseBackupProps
+  backup: DatabaseBackupProps | true | false
   /**
    * Workloads that consume the database credentials. Rendered as
    * `rolloutRestartTargets` on the generated VaultStaticSecret/
@@ -100,7 +108,7 @@ export interface DatabaseProps {
  * @category Data & Analytics
  *
  * Creates a dedicated 3-instance HA CloudNativePG cluster for this database.
- * When wrapped in a `<Database>` component, child components receive the
+ * When wrapped in a `<Database backup={false}>` component, child components receive the
  * connection info via DatabaseContext automatically.
  *
  * Credentials are managed by the secrets backend configured on the Platform.
@@ -112,14 +120,32 @@ export interface DatabaseProps {
  * @example
  * import { Database } from '@r8s/recipes'
  *
- * export default <Database name="app-db" storage="10Gi" />
+ * // Required target: explicit S3 settings (credentials from an existing Secret)
+ * export default (
+ *   <Database
+ *     name="app-db"
+ *     storage="10Gi"
+ *     backup={{
+ *       destinationPath: 's3://backups/app-db-cnpg',
+ *       endpointURL: 'https://s3.example.com',
+ *       credentialsSecret: 'app-db-backup-creds',
+ *     }}
+ *   />
+ * )
  *
  * @example
  * import { Platform, Database, WebService } from '@r8s/recipes'
  *
  * export default (
  *   <Platform secrets={{ backend: 'openbao' }}>
- *     <Database name="app-db" storage="10Gi">
+ *     <Database
+ *       name="app-db"
+ *       storage="10Gi"
+ *       backup={{
+ *         destinationPath: 's3://backups/app-db-cnpg',
+ *         endpointURL: 'https://s3.example.com',
+ *       }}
+ *     >
  *       <WebService name="api" image="myapp/api:v1" />
  *     </Database>
  *   </Platform>
@@ -177,7 +203,7 @@ export function Database(props: DatabaseProps) {
         `\n` +
         `Fix: configure a secrets backend on the Platform and let it manage credentials:\n` +
         `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n` +
-        `    <Database name="${name}" />\n` +
+        `    <Database name="${name}" backup={false} />\n` +
         `  </Platform>\n` +
         `\n` +
         `Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes', 'manual-secrets'`
@@ -186,6 +212,57 @@ export function Database(props: DatabaseProps) {
 
   // Inherit namespace from <Platform> context if not explicitly set
   const namespace = useNamespace(namespaceProp)
+
+  // Backups are a REQUIRED decision: no barman archive means stalled WAL
+  // recycling fills the data PVC over time. Passing nothing is a bug the
+  // renderer must catch, not a silent default.
+  const s3 = useS3()
+  if (backup === undefined) {
+    throw new Error(
+      `Database "${name}": backup is a required decision.\n` +
+        `\n` +
+        `WAL segments accumulate until they are archived — a cluster without\n` +
+        `working backups slowly fills its PVC.\n` +
+        `\n` +
+        `Enable backups (derives target/credentials from the platform's S3Provider):\n` +
+        `  <Database name="${name}" backup />\n` +
+        `\n` +
+        `or pass the full target explicitly:\n` +
+        `  backup={{ destinationPath: 's3://backups/${name}-cnpg', endpointURL: 'https://s3.example.com' }}\n` +
+        `\n` +
+        `To explicitly run without backups (forks, ephemeral CI databases):\n` +
+        `  <Database name="${name}" backup={false} />`
+    )
+  }
+  const backupSpec: DatabaseBackupProps | undefined =
+    backup === true ? {} : (backup as DatabaseBackupProps | undefined)
+  if (backupSpec) {
+    if (backupSpec.endpointURL === undefined) backupSpec.endpointURL = s3?.endpoint
+    if (backupSpec.credentialsSecret === undefined)
+      backupSpec.credentialsSecret = s3?.credentialsSecret
+    if (backupSpec.destinationPath === undefined && s3) {
+      backupSpec.destinationPath = `s3://${s3.bucket}/${name}-cnpg`
+    }
+  }
+
+  // With no S3 provider and no explicit target there is nothing valid to
+  // render — fail with the two ways out instead of half a barman spec.
+  if (backupSpec && (!backupSpec.endpointURL || !backupSpec.destinationPath)) {
+    throw new Error(
+      `Database "${name}" has backup configured without an S3 target.\n` +
+        `\n` +
+        `Add an <S3Provider> to the Platform — endpoint, bucket and credentials are derived from it:\n` +
+        `  <Platform>\n` +
+        `    <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
+        `      <Database name="${name}" backup />\n` +
+        `  </Platform>\n` +
+        `\n` +
+        `or pass the target explicitly:\n` +
+        `  backup={{ endpointURL: 'https://s3.example.com', destinationPath: 's3://backups/${name}-cnpg' }}\n` +
+        `\n` +
+        `Missing: ${[!backupSpec.endpointURL && 'endpointURL', !backupSpec.destinationPath && 'destinationPath'].filter(Boolean).join(', ')}`
+    )
+  }
 
   const clusterConfig = useContext(ClusterContext)
   const secretProvider = useContext(SecretContext)
@@ -220,9 +297,9 @@ export function Database(props: DatabaseProps) {
     // Backup credentials: explicit existing Secret, or provisioned by the
     // secrets backend. Plaintext is never rendered.
     let backupCredentials: string | undefined
-    if (backup) {
-      if (backup.credentialsSecret) {
-        backupCredentials = backup.credentialsSecret
+    if (backupSpec) {
+      if (backupSpec.credentialsSecret) {
+        backupCredentials = backupSpec.credentialsSecret
       } else if (
         secretProvider &&
         (secretProvider.backend === 'openbao' || secretProvider.backend === 'vault')
@@ -231,6 +308,9 @@ export function Database(props: DatabaseProps) {
       } else {
         throw new Error(
           `Database "${name}" has backup configured without backup credentials.\n` +
+            `\n` +
+            `Add an <S3Provider> to the Platform — backup endpoint, bucket and credentials are derived from it.\n` +
+            `\n` +
             `\n` +
             `Set an existing Secret holding keys 'access-key-id' and 'secret-access-key':\n` +
             `  backup={{ ..., credentialsSecret: 'my-backup-creds' }}\n` +
@@ -267,21 +347,21 @@ export function Database(props: DatabaseProps) {
         },
         monitoring: { enablePodMonitor: true },
         ...(parameters && { postgresql: { parameters } }),
-        ...(backup && backupCredentials
+        ...(backupSpec && backupCredentials
           ? {
               backup: {
-                retentionPolicy: backup.retention ?? '30d',
+                retentionPolicy: backupSpec.retention ?? '30d',
                 barmanObjectStore: {
-                  destinationPath: backup.destinationPath,
-                  endpointURL: backup.endpointURL,
+                  destinationPath: backupSpec.destinationPath!,
+                  endpointURL: backupSpec.endpointURL!,
                   s3Credentials: {
                     accessKeyId: { name: backupCredentials, key: 'access-key-id' },
                     secretAccessKey: { name: backupCredentials, key: 'secret-access-key' },
                   },
-                  data: { compression: backup.compression ?? 'gzip' },
+                  data: { compression: backupSpec.compression ?? 'gzip' },
                   wal: {
-                    compression: backup.compression ?? 'gzip',
-                    encryption: backup.encryption ?? 'AES256',
+                    compression: backupSpec.compression ?? 'gzip',
+                    encryption: backupSpec.encryption ?? 'AES256',
                   },
                 },
               },
@@ -314,14 +394,14 @@ export function Database(props: DatabaseProps) {
           metadata: { name: `${name}-backup`, namespace },
           spec: {
             cluster: { name },
-            schedule: backup.schedule ?? '0 3 * * *',
+            schedule: backupSpec!.schedule ?? '0 3 * * *',
             backupOwnerReference: 'self',
           },
         } as Parameters<typeof jsx>[1])
       )
 
       // Backend-provisioned S3 credentials for barman
-      if (!backup.credentialsSecret && secretProvider) {
+      if (!backupSpec!.credentialsSecret && secretProvider) {
         resources.push(
           ...createStaticSecretResource(
             `${name}-backup-credentials`,
@@ -399,7 +479,7 @@ function createSecretResources(
         `CNPG only provisions credentials for databases on dedicated clusters, so a ` +
         `shared-cluster database needs a managed secrets backend:\n` +
         `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n` +
-        `    <Database name="${name}" />\n` +
+        `    <Database name="${name}" backup={false} />\n` +
         `  </Platform>\n` +
         `\n` +
         `Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes', 'manual-secrets'`
@@ -453,7 +533,7 @@ function createSecretResources(
             `Credentials for shared-cluster databases cannot be provisioned automatically. ` +
             `Use a managed backend instead:\n` +
             `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n` +
-            `    <Database name="${name}" />\n` +
+            `    <Database name="${name}" backup={false} />\n` +
             `  </Platform>\n` +
             `\n` +
             `Supported backends: 'openbao', 'vault', 'sealed-secrets', 'kubernetes', 'manual-secrets'`

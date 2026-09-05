@@ -259,7 +259,7 @@ export function Eneo(props: EneoProps) {
   // WebService auto-wires PG* + DATABASE_URL from DatabaseContext.
   resources_.push(
     jsx(Database, {
-      name,
+      backup: false,name,
       namespace,
       storage: dbStorage,
       children: (
