@@ -1,7 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
-import { Database, WebService, Endpoint } from '@r8s/recipes'
+import { Database, WebService, Endpoint, type DatabaseProps } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
 
 export interface N8nProps {
@@ -9,7 +9,11 @@ export interface N8nProps {
   name?: string
   /** Kubernetes namespace (inherited from Platform context when omitted) */
   namespace?: string
-  /** Container image tag (defaults to 'latest' — pin a version in production) */
+  /**
+   * Container image tag (defaults to a pinned release — see
+   * https://github.com/n8n-io/n8n/releases when upgrading). Use 'latest'
+   * only for throwaway environments.
+   */
   version?: string
   /** Public hostname for the editor and webhooks (required) */
   host: string
@@ -24,6 +28,49 @@ export interface N8nProps {
   workers?: number
   /** Storage request for the CNPG Postgres cluster (defaults to '10Gi') */
   storage?: string
+  /**
+   * Persistent volume for `/home/node/.n8n` (workflow-local state).
+   * Pass a size string ('5Gi', the facit default) or an object for more
+   * control. When set: a RWO PVC is created, an initContainer fixes
+   * ownership (1000:1000), the rollout strategy becomes Recreate, and
+   * binary data is stored on the filesystem instead of Postgres.
+   */
+  dataStorage?: string | { size?: string; storageClass?: string }
+  /**
+   * CNPG backup configuration passed through to the Database recipe
+   * (continuous WAL archiving + scheduled base backups).
+   */
+  backup?: DatabaseProps['backup']
+  /**
+   * Number of trusted proxy hops for client IP / rate limiting
+   * (N8N_PROXY_HOPS). Defaults to 1 — trust the ingress one hop.
+   */
+  proxyHops?: number
+  /**
+   * Execution-data pruning (EXECUTIONS_DATA_PRUNE /
+   * EXECUTIONS_DATA_MAX_AGE). Defaults to pruning data older than
+   * 168 h (7 days). Set to false to disable.
+   */
+  pruning?: { maxAgeHours?: number } | false
+  /**
+   * Opt-in value for NODE_FUNCTION_ALLOW_BUILTIN (e.g. '*'). Deliberately
+   * unset by default: granting workflows access to every builtin Node.js
+   * module is a security-sensitive choice.
+   */
+  allowBuiltinNodeFunctions?: string
+  /**
+   * Tune the backend-provisioned encryption secret: vault path, key name,
+   * and refresh/restart behaviour (default: refreshAfter '1h', restarts
+   * the editor + workers on rotation).
+   */
+  encryptionSecret?: {
+    path?: string
+    key?: string
+    refreshAfter?: string
+    rolloutRestartTargets?: string[]
+  }
+  /** Extra annotations merged onto the Endpoint's IngressRoute/Ingress */
+  endpointAnnotations?: Record<string, string>
   /**
    * Name of an existing Secret containing key `encryptionKey`. n8n
    * encrypts all workflow credentials with this key — lose it and every
@@ -79,16 +126,23 @@ export function N8n(props: N8nProps) {
   const {
     name = 'n8n',
     namespace: namespaceProp,
-    version = 'latest',
+    version = '2.35.5',
     host,
     replicas = 1,
     queueMode = false,
     workers = 2,
     storage = '10Gi',
+    dataStorage,
+    backup,
+    proxyHops = 1,
+    pruning = { maxAgeHours: 168 },
+    allowBuiltinNodeFunctions,
+    encryptionSecret,
+    endpointAnnotations = {},
     encryptionKeySecretName,
     resources = {
-      requests: { memory: '512Mi', cpu: '250m' },
-      limits: { memory: '2Gi', cpu: '1000m' },
+      requests: { memory: '512Mi', cpu: '100m' },
+      limits: { memory: '1Gi', cpu: '1000m' },
     },
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
   } = props
@@ -135,8 +189,29 @@ export function N8n(props: N8nProps) {
         : { openbaoAuthRef: secretProvider.authRef }),
       mount: secretProvider.mount,
       type: 'kv-v2' as const,
-      path: `${secretProvider.path ?? name}/${name}/encryption`,
-      destination: { create: true, name: encryptionSecretName },
+      path: encryptionSecret?.path ?? `${secretProvider.path ?? name}/${name}/encryption`,
+      refreshAfter: encryptionSecret?.refreshAfter ?? '1h',
+      // Rotate-in-place: restart pods when the encryption key changes so
+      // running editors re-read the key (stale keys break credential
+      // decryption silently otherwise)
+      rolloutRestartTargets: encryptionSecret?.rolloutRestartTargets ?? [
+        { kind: 'Deployment', name },
+        ...(queueMode ? [{ kind: 'Deployment' as const, name: `${name}-worker` }] : []),
+      ],
+      destination: {
+        create: true,
+        name: encryptionSecretName,
+        // Vault KV v2 stores the value under this key; default 'encryptionKey'
+        ...(encryptionSecret?.key
+          ? {
+              transformation: {
+                templates: {
+                  [encryptionSecret.key]: `{{ get .Secrets "${encryptionSecret.key}" }}`,
+                },
+              },
+            }
+          : {}),
+      },
     }
     resources_.push(
       secretProvider.backend === 'vault'
@@ -163,7 +238,36 @@ export function N8n(props: N8nProps) {
   // --- Database (CNPG) — workflows, executions, stored credentials ----------
   const dbHost = `${name}-rw`
 
-  const sharedEnv = {
+  const dataVolumeName = `${name}-data`
+  const dataVolumeDef = dataStorage
+    ? [{ name: dataVolumeName, persistentVolumeClaim: { claimName: dataVolumeName } }]
+    : []
+  const dataInitContainer = {
+    name: 'fix-data-permissions',
+    image: 'busybox:1.36',
+    command: ['sh', '-c', 'chown -R 1000:1000 /data'],
+    volumeMounts: [{ name: dataVolumeName, mountPath: '/data' }],
+  }
+  const encryptionKeyDestKey = encryptionSecret?.key ?? 'encryptionKey'
+
+  if (dataStorage) {
+    const size = typeof dataStorage === 'string' ? dataStorage : (dataStorage.size ?? '5Gi')
+    const storageClass = typeof dataStorage === 'object' ? dataStorage.storageClass : undefined
+    resources_.push(
+      jsx('PersistentVolumeClaim', {
+        apiVersion: 'v1',
+        kind: 'PersistentVolumeClaim',
+        metadata: { name: dataVolumeName, namespace },
+        spec: {
+          accessModes: ['ReadWriteOnce'],
+          ...(storageClass ? { storageClassName: storageClass } : {}),
+          resources: { requests: { storage: size } },
+        },
+      })
+    )
+  }
+
+  const sharedEnv: Record<string, string> = {
     DB_TYPE: 'postgresdb',
     DB_POSTGRESDB_HOST: dbHost,
     DB_POSTGRESDB_PORT: '5432',
@@ -173,15 +277,26 @@ export function N8n(props: N8nProps) {
     N8N_PORT: '5678',
     N8N_PROTOCOL: 'https',
     WEBHOOK_URL: `https://${host}/`,
-    NODE_FUNCTION_ALLOW_BUILTIN: '*',
-    // Binary data must live in Postgres in queue mode — the filesystem
-    // backend is not shared across editors/workers and is unsupported.
-    N8N_DEFAULT_BINARY_DATA_MODE: 'default',
+    // Trust the ingress (Endpoint/TLS) for client IPs/rate limiting
+    N8N_PROXY_HOPS: String(proxyHops),
+    // Binary data in Postgres for queue mode (shared across editor+workers);
+    // filesystem when a data volume exists; Postgres otherwise (no volume
+    // means /home/node/.n8n is ephemeral)
+    N8N_DEFAULT_BINARY_DATA_MODE: queueMode ? 'default' : dataStorage ? 'filesystem' : 'default',
+    ...(pruning
+      ? {
+          EXECUTIONS_DATA_PRUNE: 'true',
+          EXECUTIONS_DATA_MAX_AGE: String(pruning.maxAgeHours ?? 168),
+        }
+      : {}),
+    ...(allowBuiltinNodeFunctions
+      ? { NODE_FUNCTION_ALLOW_BUILTIN: allowBuiltinNodeFunctions }
+      : {}),
   }
 
   const sharedSecrets = {
     DB_POSTGRESDB_PASSWORD: { secret: dbCredentialsName, key: 'password' },
-    N8N_ENCRYPTION_KEY: { secret: encryptionSecretName, key: 'encryptionKey' },
+    N8N_ENCRYPTION_KEY: { secret: encryptionSecretName, key: encryptionKeyDestKey },
   }
 
   if (queueMode) {
@@ -213,17 +328,31 @@ export function N8n(props: N8nProps) {
       name,
       namespace,
       storage,
+      ...(backup ? { backup } : {}),
       children: (
         <WebService
           name={name}
           namespace={namespace}
           image={`docker.n8n.io/n8nio/n8n:${version}`}
+          // Pinned tags are immutable — no need to re-pull on every start
+          imagePullPolicy={version === 'latest' ? 'Always' : 'IfNotPresent'}
           port={5678}
           replicas={queueMode ? 1 : replicas}
           resources={resources}
+          // RWO volume + in-place DB migrations on boot roll → Recreate
+          strategy={dataStorage ? 'Recreate' : undefined}
+          volumes={dataVolumeDef.length > 0 ? dataVolumeDef : undefined}
+          volumeMounts={
+            dataVolumeDef.length > 0
+              ? [{ name: dataVolumeName, mountPath: '/home/node/.n8n' }]
+              : undefined
+          }
+          initContainers={dataVolumeDef.length > 0 ? [dataInitContainer] : undefined}
           probes={{
-            liveness: { path: '/healthz' },
-            readiness: { path: '/healthz', initialDelaySeconds: 15 },
+            // n8n boots slowly after code upgrades (DB migrations); facit
+            // probe timing keeps the pod alive through them
+            liveness: { path: '/healthz', initialDelaySeconds: 60, periodSeconds: 30 },
+            readiness: { path: '/healthz', initialDelaySeconds: 15, failureThreshold: 6 },
           }}
           env={{ ...sharedEnv, ...(queueMode ? {} : { N8N_CONCURRENCY_PRODUCTION_LIMIT: '10' }) }}
           secrets={sharedSecrets}
@@ -251,6 +380,7 @@ export function N8n(props: N8nProps) {
         name={`${name}-worker`}
         namespace={namespace}
         image={`docker.n8n.io/n8nio/n8n:${version}`}
+        imagePullPolicy={version === 'latest' ? 'Always' : 'IfNotPresent'}
         port={5678}
         replicas={workers}
         command={['n8n', 'worker', '--concurrency=10']}
@@ -277,6 +407,13 @@ export function N8n(props: N8nProps) {
       serviceName={name}
       servicePort={5678}
       tls={tls}
+      annotations={{
+        // Long-lived webhook/queue connections (editor SSE, waiting webhooks)
+        // die at the default 60 s proxy timeout — facit sets one hour
+        'nginx.ingress.kubernetes.io/proxy-read-timeout': '3600',
+        'nginx.ingress.kubernetes.io/proxy-send-timeout': '3600',
+        ...endpointAnnotations,
+      }}
     />
   )
 

@@ -248,6 +248,136 @@ describe('validation errors', () => {
   })
 })
 
+describe('facit deltas', () => {
+  const editorSpec = (result: ReturnType<typeof renderN8n>) =>
+    (result.resources.find((r: any) => r.kind === 'Deployment' && r.metadata.name === 'n8n') as any)
+      .spec.template.spec
+
+  it('pins the release by default and skips re-pulling immutable tags', () => {
+    const spec = editorSpec(renderN8n({ host: 'n8n.example.com' }))
+    expect(spec.containers[0].image).toBe('docker.n8n.io/n8nio/n8n:2.35.5')
+    expect(spec.containers[0].imagePullPolicy).toBe('IfNotPresent')
+  })
+
+  it('imagePullPolicy reverts to Always for floating tags', () => {
+    const spec = editorSpec(renderN8n({ host: 'n8n.example.com', version: 'latest' }))
+    expect(spec.containers[0].imagePullPolicy).toBe('Always')
+  })
+
+  it('dataStorage renders a PVC, mounts it at /home/node/.n8n, fixes ownership and rolls Recreate', () => {
+    const result = renderN8n({ host: 'n8n.example.com', dataStorage: '5Gi' })
+    const pvc = result.resources.find((r: any) => r.kind === 'PersistentVolumeClaim') as any
+    expect(pvc).toBeDefined()
+    expect(pvc.spec.resources.requests.storage).toBe('5Gi')
+    const spec = editorSpec(result)
+    const pod = (
+      result.resources.find((r: any) => r.kind === 'Deployment' && r.metadata.name === 'n8n') as any
+    ).spec.template
+    expect(
+      spec.containers[0].volumeMounts.some((m: any) => m.mountPath === '/home/node/.n8n')
+    ).toBe(true)
+    expect(pod.spec.initContainers.some((c: any) => c.name === 'fix-data-permissions')).toBe(true)
+    expect(
+      (
+        result.resources.find(
+          (r: any) => r.kind === 'Deployment' && r.metadata.name === 'n8n'
+        ) as any
+      ).spec.strategy.type
+    ).toBe('Recreate')
+    const env = spec.containers[0].env
+    expect(env.find((e: any) => e.name === 'N8N_DEFAULT_BINARY_DATA_MODE').value).toBe('filesystem')
+  })
+
+  it('keeps binary data in Postgres without a data volume or in queue mode', () => {
+    for (const props of [
+      { host: 'n8n.example.com' },
+      { host: 'n8n.example.com', queueMode: true, dataStorage: '5Gi' },
+    ]) {
+      const env = editorSpec(renderN8n(props)).containers[0].env
+      expect(env.find((e: any) => e.name === 'N8N_DEFAULT_BINARY_DATA_MODE').value).toBe('default')
+    }
+  })
+
+  it('passes the backup prop through to the CNPG cluster', () => {
+    const result = renderN8n({
+      host: 'n8n.example.com',
+      backup: {
+        destinationPath: 's3://bucket/n8n-cnpg',
+        endpointURL: 'https://s3.example.com',
+      },
+    })
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe('s3://bucket/n8n-cnpg')
+  })
+
+  it('prunes executions after 168h by default; pruning: false removes both env entries', () => {
+    const env = editorSpec(renderN8n({ host: 'n8n.example.com' })).containers[0].env
+    expect(env.find((e: any) => e.name === 'EXECUTIONS_DATA_PRUNE').value).toBe('true')
+    expect(env.find((e: any) => e.name === 'EXECUTIONS_DATA_MAX_AGE').value).toBe('168')
+    const envOff = editorSpec(renderN8n({ host: 'n8n.example.com', pruning: false })).containers[0]
+      .env
+    expect(envOff.find((e: any) => e.name === 'EXECUTIONS_DATA_PRUNE')).toBeUndefined()
+    expect(envOff.find((e: any) => e.name === 'EXECUTIONS_DATA_MAX_AGE')).toBeUndefined()
+  })
+
+  it('trusting the ingress proxy by default (N8N_PROXY_HOPS=1), overridable', () => {
+    const env = editorSpec(renderN8n({ host: 'n8n.example.com' })).containers[0].env
+    expect(env.find((e: any) => e.name === 'N8N_PROXY_HOPS').value).toBe('1')
+    const envCustom = editorSpec(renderN8n({ host: 'n8n.example.com', proxyHops: 3 })).containers[0]
+      .env
+    expect(envCustom.find((e: any) => e.name === 'N8N_PROXY_HOPS').value).toBe('3')
+  })
+
+  it('does not grant builtin node functions unless explicitly opted in', () => {
+    const env = editorSpec(renderN8n({ host: 'n8n.example.com' })).containers[0].env
+    expect(env.find((e: any) => e.name === 'NODE_FUNCTION_ALLOW_BUILTIN')).toBeUndefined()
+    const envOptIn = editorSpec(
+      renderN8n({ host: 'n8n.example.com', allowBuiltinNodeFunctions: '*' })
+    ).containers[0].env
+    expect(envOptIn.find((e: any) => e.name === 'NODE_FUNCTION_ALLOW_BUILTIN').value).toBe('*')
+  })
+
+  it('adds long-lived-connection ingress annotations and allows overrides', () => {
+    const result = renderN8n({ host: 'n8n.example.com' })
+    const ingress = result.resources.find((r: any) => r.kind === 'Ingress') as any
+    expect(ingress.metadata.annotations['nginx.ingress.kubernetes.io/proxy-read-timeout']).toBe(
+      '3600'
+    )
+    const resultCustom = renderN8n({
+      host: 'n8n.example.com',
+      endpointAnnotations: { 'nginx.ingress.kubernetes.io/proxy-read-timeout': '900' },
+    })
+    const ingressCustom = resultCustom.resources.find((r: any) => r.kind === 'Ingress') as any
+    expect(
+      ingressCustom.metadata.annotations['nginx.ingress.kubernetes.io/proxy-read-timeout']
+    ).toBe('900')
+  })
+
+  it('rotations restart the editor (and workers) when the backend provisions the key', () => {
+    const result = renderN8n({ host: 'n8n.example.com' })
+    const vso = result.resources.find((r: any) => r.kind === 'OpenBaoStaticSecret') as any
+    expect(vso.spec.refreshAfter).toBe('1h')
+    expect(
+      vso.spec.rolloutRestartTargets.some((t: any) => t.kind === 'Deployment' && t.name === 'n8n')
+    ).toBe(true)
+  })
+
+  it('supports a custom encryption-secret key name end-to-end', () => {
+    const result = renderN8n({
+      host: 'n8n.example.com',
+      encryptionSecret: { key: 'N8N_ENCRYPTION_KEY' },
+    })
+    const vso = result.resources.find((r: any) => r.kind === 'OpenBaoStaticSecret') as any
+    expect(vso.spec.destination.transformation.templates.N8N_ENCRYPTION_KEY).toContain(
+      'N8N_ENCRYPTION_KEY'
+    )
+    const env = editorSpec(result).containers[0].env
+    expect(env.find((e: any) => e.name === 'N8N_ENCRYPTION_KEY').valueFrom.secretKeyRef.key).toBe(
+      'N8N_ENCRYPTION_KEY'
+    )
+  })
+})
+
 describe('secretKeyRef wiring in queue mode', () => {
   it('worker deployment uses the same credentials secret', () => {
     const result = renderN8n({
