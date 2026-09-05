@@ -64,3 +64,5 @@ export {
 
 // Operator declarations for components in this package
 export { cnpgOperator, nginxIngressOperator, vaultSecretsOperator } from './operators'
+
+export { StaticSecret, type StaticSecretProps } from './static-secret'

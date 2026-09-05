@@ -1,7 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
-import { Database, WebService, Endpoint, type DatabaseProps } from '@r8s/recipes'
+import { Database, WebService, Endpoint, StaticSecret, type DatabaseProps } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
 
 export interface N8nProps {
@@ -158,6 +158,8 @@ export function N8n(props: N8nProps) {
   const dbCredentialsName = `${name}-db-credentials`
   const encryptionSecretName = encryptionKeySecretName ?? `${name}-encryption-key`
 
+  const encryptionKeyDestKey = encryptionSecret?.key ?? 'encryptionKey'
+
   // --- Secret provisioning -------------------------------------------------
   // The encryption key is the crown jewel of an n8n install — never render
   // it as plaintext. With a secrets backend it is provisioned through the
@@ -183,50 +185,21 @@ export function N8n(props: N8nProps) {
       )
     }
 
-    const spec = {
-      ...(secretProvider.backend === 'vault'
-        ? { vaultAuthRef: secretProvider.authRef }
-        : { openbaoAuthRef: secretProvider.authRef }),
-      mount: secretProvider.mount,
-      type: 'kv-v2' as const,
-      path: encryptionSecret?.path ?? `${secretProvider.path ?? name}/${name}/encryption`,
-      refreshAfter: encryptionSecret?.refreshAfter ?? '1h',
-      // Rotate-in-place: restart pods when the encryption key changes so
-      // running editors re-read the key (stale keys break credential
-      // decryption silently otherwise)
-      rolloutRestartTargets: encryptionSecret?.rolloutRestartTargets ?? [
-        { kind: 'Deployment', name },
-        ...(queueMode ? [{ kind: 'Deployment' as const, name: `${name}-worker` }] : []),
-      ],
-      destination: {
-        create: true,
-        name: encryptionSecretName,
-        // Vault KV v2 stores the value under this key; default 'encryptionKey'
-        ...(encryptionSecret?.key
-          ? {
-              transformation: {
-                templates: {
-                  [encryptionSecret.key]: `{{ get .Secrets "${encryptionSecret.key}" }}`,
-                },
-              },
-            }
-          : {}),
-      },
-    }
     resources_.push(
-      secretProvider.backend === 'vault'
-        ? jsx('VaultStaticSecret', {
-            apiVersion: 'secrets.hashicorp.com/v1beta1',
-            kind: 'VaultStaticSecret',
-            metadata: { name: `${name}-encryption`, namespace },
-            spec,
-          })
-        : jsx('OpenBaoStaticSecret', {
-            apiVersion: 'secrets.openbao.org/v1beta1',
-            kind: 'OpenBaoStaticSecret',
-            metadata: { name: `${name}-encryption`, namespace },
-            spec,
-          })
+      jsx(StaticSecret, {
+        name: `${name}-encryption`,
+        namespace,
+        path: encryptionSecret?.path ?? `${secretProvider.path ?? name}/${name}/encryption`,
+        secretName: encryptionSecretName,
+        refreshAfter: encryptionSecret?.refreshAfter,
+        keys: { [encryptionKeyDestKey]: encryptionKeyDestKey },
+        // Rotate-in-place: restart pods on key changes so editors re-read
+        // the key (stale keys break credential decryption silently)
+        restart: encryptionSecret?.rolloutRestartTargets ?? [
+          { kind: 'Deployment', name },
+          ...(queueMode ? [{ kind: 'Deployment', name: `${name}-worker` }] : []),
+        ],
+      })
     )
   }
 
@@ -248,7 +221,6 @@ export function N8n(props: N8nProps) {
     command: ['sh', '-c', 'chown -R 1000:1000 /data'],
     volumeMounts: [{ name: dataVolumeName, mountPath: '/data' }],
   }
-  const encryptionKeyDestKey = encryptionSecret?.key ?? 'encryptionKey'
 
   if (dataStorage) {
     const size = typeof dataStorage === 'string' ? dataStorage : (dataStorage.size ?? '5Gi')

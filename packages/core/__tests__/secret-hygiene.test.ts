@@ -85,9 +85,21 @@ function findSecrets(): string[] {
         const quotedValues = [...line.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])
         const location = `${relPath}:${i + 1}`
         if (SUSPICIOUS_ASSIGNMENT.test(line) && !SEALED_PLACEHOLDER_ASSIGNMENT.test(line)) {
-          findings.push(
-            `${location}: hardcoded credential assignment: ${line.trim().slice(0, 120)}`
-          )
+          // Key-name mappings (StaticSecret / transformation templates) are
+          // NOT credential assignments: SECRET_KEY: 'secret_key' maps a
+          // destination ENV_CASE name to the source field name — identical
+          // modulo case. The exemption requires the SCREAMING_CASE lhs form,
+          // so lowercase literals (password: 'password') stay flagged.
+          const assignment = line.match(/([A-Za-z_]+)\s*[:=]\s*['"]([^'"]+)['"]/)
+          const isKeyMapping =
+            assignment &&
+            /^[A-Z0-9_]+$/.test(assignment[1]) &&
+            assignment[2] === assignment[1].toLowerCase()
+          if (!isKeyMapping) {
+            findings.push(
+              `${location}: hardcoded credential assignment: ${line.trim().slice(0, 120)}`
+            )
+          }
         }
         if (SUSPICIOUS_CONNECTION_STRING.test(line)) {
           findings.push(`${location}: connection string with embedded password in literals`)
