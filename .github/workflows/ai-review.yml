@@ -1,0 +1,47 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: ai-review-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: AI Review
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@pi review'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: >-
+            ${{
+              github.event.pull_request.head.sha ||
+              (github.event.issue.pull_request && format('refs/pull/{0}/merge', github.event.issue.number)) ||
+              github.sha
+            }}
+      - uses: berget-ai/ai-review-action@2bc3d75f3eb13a015863df3e85a017ee56a4d38d # v1.1 (incremental follow-up reviews)
+        with:
+          api_key: ${{ secrets.BERGET_API_KEY }}
+          approve: 'true'
+          github_app_id: ${{ secrets.AI_REVIEW_APP_ID }}
+          github_app_private_key: ${{ secrets.AI_REVIEW_APP_PRIVATE_KEY }}
+          use_dora: 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
