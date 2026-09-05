@@ -10,6 +10,7 @@ import {
 } from '@r8s/core/defaults'
 import { provisionerForSecretProvider } from './secret-provider'
 import { useS3, isBucketElement, resolveBucket } from './s3-provider'
+import { StaticSecret } from './static-secret'
 
 /**
  * Continuous + scheduled backup configuration for a dedicated CNPG cluster.
@@ -644,8 +645,6 @@ export function DatabaseS3Credentials(props: {
   /** Extra static-secret templates (e.g. a velero 'cloud' file) */
   templates?: Record<string, string>
 }) {
-  const { jsx } = require('@r8s/core') as typeof import('@r8s/core')
-  const { StaticSecret } = require('./static-secret') as typeof import('./static-secret')
   return jsx(StaticSecret, {
     name: props.name,
     namespace: props.namespace,
