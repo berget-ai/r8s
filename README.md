@@ -34,191 +34,132 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: api-endpoint
-# ... 3 resources rendered from 1 component
+# 3 resources from 1 component
 ```
 
-> **Batteries included, escape hatches included.** `<App>` above creates a Deployment, Service, and Endpoint — all wired together with sane defaults. Prefer raw Kubernetes? Every API resource is available as a lowercase component: `<deployment>`, `<service>`, `<ingress>`, `<configmap>`, `<secret>`, `<statefulset>`, `<daemonset>`, `<job>`, `<cronjob>`, `<hpa>`, `<pdb>`, `<rbac>` — compose them exactly as you need.
-
-## What is this?
-
-r8s is a **compiler**: TSX source in, Kubernetes YAML out. There is no runtime, no cluster state, no reconciliation loop inside r8s itself — the output is plain YAML you commit and sync with Flux/ArgoCD (or `kubectl apply`), exactly the same artifacts you'd get from Helm or Kustomize, minus the templating language.
-
-Three properties that come with that:
-
-- **Type-safe composition.** Misspelled `containerPort`? TypeScript catches it before `kubectl`. Wrong prop on `<Database>`? Red squiggly in your editor. Components are ordinary typed functions, so ten microservices share one `<Database storage="20Gi" />` import instead of ten copies of hand-tuned YAML.
-- **Real code instead of templates.** Conditions, loops, derived values, feature flags: `replicas={env === 'production' ? 3 : 1}`. No Go templates, no `values.yaml` archeology.
-- **LLM-friendly by construction.** Typed props and compile-time errors make r8s an unusually safe target for AI code generation: the editor and `r8s validate` reject hallucinated configuration before it ever reaches a cluster. `r8s context` prints a compact, paste-ready context blob for your agent of choice.
+r8s is a **compiler**: TSX source in, Kubernetes YAML out. No runtime, no cluster state, no reconciliation loop — the output is plain YAML you commit and sync with Flux/ArgoCD (or `kubectl apply`). Same artifacts Helm or Kustomize would give you, minus the templating language. Typed props mean misspelled `containerPort` is caught by TypeScript before `kubectl` — which also makes r8s an unusually safe target for **AI-generated infrastructure**: hallucinated config fails to compile. Components are ordinary functions, so ten microservices share one `<Database />` import instead of ten copies of hand-tuned YAML.
 
 ## The 30-second tour
 
 ```bash
 npx r8s init my-infra        # scaffold a project (TS + GitHub Actions workflow)
-cd my-infra
-
-# edit k8s/r8s.tsx, then:
 npx r8s render --out k8s/manifest.yaml
 
-npx r8s explain App          # what does a component create? resources + operators
-npx r8s validate k8s/r8s.tsx # type-check + reference-check (routes→services, volumes→secrets)
-npx r8s list                 # every component and operator in the catalog
+npx r8s explain App          # what resources + operators does a component create?
+npx r8s validate k8s/r8s.tsx # type-check + reference-check rendered output
+npx r8s list                 # the full component catalog
+npx r8s context              # compact context blob, made for LLM prompts
 ```
+
+## A complete platform in one file
+
+Providers nest around your apps and decide how everything below them is wired — certificates, secrets, DNS, routing — and each child automatically consumes the whole stack:
+
+```tsx
+import { CertProvider, SecretProvider, OpenBao, DnsProvider, EndpointProvider, EnvoyGateway, App } from '@r8s/recipes'
+import { Supabase } from '@r8s/supabase'
+
+export default (
+  <CertProvider provider="cert-manager">
+    <SecretProvider provider={<OpenBao mount="secret" path="infra" />}>
+      <DnsProvider provider="external-dns">
+        <EndpointProvider provider={<EnvoyGateway tls={{ clusterIssuer: 'letsencrypt' }} />}>
+          <>
+            <App name="web" image="myorg/web:v2" host="app.example.com" />
+            <Supabase
+              name="supabase"
+              host="db.example.com"
+              objectStorage={{
+                endpoint: 'https://s3.example.com',
+                bucket: 'supabase-files',
+                credentialsSecret: 'supabase-s3-creds',
+              }}
+            />
+          </>
+        </EndpointProvider>
+      </DnsProvider>
+    </SecretProvider>
+  </CertProvider>
+)
+```
+
+One `render` → all Deployments, Services, Gateway listeners + HTTPRoutes, cert-manager wiring, DNSEndpoint records, and OpenBao-provisioned Secrets — plus the pinned install manifests for every operator involved, emitted by `r8s operators`. Swap `EnvoyGateway` for `Nginx` on line 5 and every endpoint reroutes; nothing below changes.
 
 ## Ship-the-stack recipes
 
-Beyond the core primitives, r8s ships packages for complete real-world applications — workflows, chat, analytics, registries:
+Complete real-world applications as packages — **pinned versions, derived from our own production manifests and regression-tested against that reference output**:
 
-| Package | Component | What you get |
-|---|---|---|
-| `@r8s/n8n` | `<N8n>` | n8n workflow automation + shared Postgres + Redis queue |
-| `@r8s/outline` | `<Outline>` | Outline knowledge base + OIDC auth + object storage |
-| `@r8s/paperclip` | `<Paperclip>` | Paperclip agent orchestration (operator-managed Instance CR) |
-| `@r8s/eurooffice` | `<EuroOffice>` | Euro-Office DocumentServer with JWT, data volume, graceful shutdown |
-| `@r8s/matrix` | `<Matrix>` | Synapse + MAS + Element Web + LiveKit SFU, 5 hosts wired |
-| `@r8s/harbor` | `<Harbor>` | Harbor OCI registry via pinned Flux HelmRelease |
-| `@r8s/umami` | `<Umami>` | Umami analytics (image pinning enforced per variant) |
-| `@r8s/open-webui` | `<OpenWebui>` | Open WebUI for local model frontends |
-| `@r8s/librechat` | `<LibreChat>` | LibreChat |
-| `@r8s/eneo` | `<Eneo>` | Eneo AI platform |
-| `@r8s/supabase` | `<Supabase>` | Supabase |
-| `@r8s/nextcloud` | `<Nextcloud>` | Nextcloud |
-| `@r8s/odoo` | `<Odoo>` | Odoo ERP |
-| `@r8s/chromadb` | `<ChromaDb>` | Chroma vector DB |
-| `@r8s/grafana` | `<Grafana>` | Grafana dashboards |
-| `@r8s/superset` | `<Superset>` | Apache Superset |
-| `@r8s/rustfs` | `<RustFS>` | S3-compatible object storage |
-| `@r8s/element` | `<Element>` | Element web client |
-| `@r8s/wireguard` | `<WireGuard>` | WireGuard VPN (wg-easy) |
+| Package | Stack | Package | Stack |
+|---|---|---|---|
+| `@r8s/n8n` | Workflow automation | `@r8s/librechat` | LibreChat |
+| `@r8s/outline` | Knowledge base | `@r8s/eneo` | AI platform |
+| `@r8s/paperclip` | Agent orchestration | `@r8s/supabase` | Supabase |
+| `@r8s/eurooffice` | Document server | `@r8s/nextcloud` | Nextcloud |
+| `@r8s/matrix` | Full Matrix stack + SFU | `@r8s/odoo` | Odoo ERP |
+| `@r8s/harbor` | OCI registry | `@r8s/chromadb` | Vector DB |
+| `@r8s/umami` | Analytics | `@r8s/grafana` · `@r8s/superset` | Dashboards |
+| `@r8s/open-webui` | Model frontend | `@r8s/rustfs` · `@r8s/wireguard` | S3 store · VPN |
 
-Package versions are **pinned**. These recipes are reverse-engineered from our own production cluster manifests ("facit") and regression-tested against the reference output — the YAML they produce is the YAML we run. Where an up-to-date upstream chart is the better mechanism (e.g. Harbor), the package emits a pinned Flux `HelmRelease` instead of a hand-rolled reimplementation.
+Core primitives (`@r8s/recipes`): `<Platform>`, `<App>`, `<Database>` (CNPG PostgreSQL), `<Endpoint>`, `<WebService>`, `<Auth>` (Keycloak), `<Monitoring>`, `<Backup>` (Velero), `<StaticSecret>`, and the providers shown in the example above.
 
-Core primitives live in `@r8s/recipes`:
+## Design decisions that hold up under pressure
 
-- `<Platform>` — cluster-level config: namespace, routing mode (Ingress/Gateway), secrets backend, shared operators
-- `<App>` — web app: Deployment + Service + Endpoint
-- `<Database>` — CNPG PostgreSQL (HA, backups, optional shared cluster)
-- `<Endpoint>` — cluster-adaptive routing (nginx Ingress or Gateway API)
-- `<WebService>` — Deployment + Service with env/secret wiring
-- `<Auth>` — Keycloak realms, clients, and identity providers as JSX children
-- `<Monitoring>`, `<Backup>` — PodMonitor/ServiceMonitor + Velero-style schedules
-- `<StaticSecret>` — project a path in your secrets backend into a Kubernetes Secret
-
-Providers fine-tune the platform: `<OpenBao>` / `<Vault>` / `<SealedSecrets>` / `<ManualSecrets>` for secrets, `<Nginx>` / `<EnvoyGateway>` for routing, `<CertManager>` for certificates, `<ExternalDns>` for DNS.
-
-## Secrets: capability hooks, not identity switches
-
-The pattern that quietly kills most k8s abstractions is "if backend === X … else if backend === Y …" scattered through every component. r8s has exactly **one** identity-aware seam, and it's a lookup table at the top of `@r8s/recipes`. Everything else speaks capability hooks:
+**Secrets via capability hooks — not identity switches.** One lookup at the top of recipes; everything below speaks `provision(req)`:
 
 ```tsx
 const myProvider = {
-  name: 'external-secrets-operator',
   provision(req: StaticSecretRequest) {
-    return <ExternalSecret spec={{ /* …whatever your ESO target looks like… */ }} />
+    return <ExternalSecret spec={{ /* your ESO target here */ }} />
   },
 }
-
-<StaticSecret name="api-keys" path="kv/api" keys={{ ANTHROPIC_API_KEY: 'anthropic' }} />
-//           renders YOUR resource — nothing in r8s needed a new identity byte
+// Every recipe in every package consumes your provider without knowing what it is.
 ```
 
-Any `<Platform>` can carry a custom provider via context; any of the 19 app recipes consumes it without knowing what it is. The same mechanism routes traffic: `RoutingConfig.route` lets you emit an `IngressRoute`, a `HTTPRoute`, or something cluster-specific while `<Endpoint>` handles the contract.
+Same seam for routing: `RoutingConfig.route` lets you emit IngressRoute/HTTPRoute/whatever while `<Endpoint>` keeps the contract.
 
-## It refuses to commit plaintext credentials
+**Plaintext credentials don't compile.** Every render scans Secrets, ConfigMaps, env vars, and nested CRD fields for credential values — and understands *values vs references* (`secretKeyRef`, `$(VAR)`, `existingSecret*`, `_FROM_FILE` are fine). Hard fail in CI with a suggested fix. Also bundled: network policies, resource limits, required labels, TLS on Ingress, no-root-containers.
 
-Every render runs a guardrail pipeline. The no-plaintext-secrets rule scans Secrets, ConfigMaps, workload `env`, and arbitrary nested CRD fields for credential-looking keys, connection-string passwords, and PEM private keys — and understands the difference between a *value* and a *reference* (`valueFrom.secretKeyRef`, `$(VAR)` expansions, `existingSecret*` names, `X_FROM_FILE` styles are all fine). Fails hard in CI, with suggestions:
-
-```
-Plaintext credential in Secret "matrix-appservice-signal" (stringData.registration.yaml) — embedded key "as_token"
-suggestion: Use a secrets backend (openbao/vault/sealed-secrets) or let the operator provision the credential
-```
-
-Also bundled: network-policy presence, resource requests/limits, required labels, TLS on Ingress, no root containers. `--skip-secret-guardrails` exists for local debugging and masks output on stdout — it never writes real credentials to a log channel.
-
-## Operators are explicit dependencies
-
-Components declare the cluster operators they need (CNPG, cert-manager, external-dns, …). The renderer deduplicates and reports them; `r8s operators` renders their install manifests (helm/manifest/OLM) pinned to versions from the central [operators.yaml](packages/crds/operators.yaml) registry. No more "forgot cert-manager on the new cluster" pages.
-
-```tsx
-import { useOperators, maybeOperator } from '@r8s/recipes'
-
-const shared = useOperators() // operators the surrounding Platform already runs
-resources.push(...maybeOperator('cnpg', shared)) // declares it only if missing
-```
+**Operators are explicit dependencies.** Declaring components, deduplicated at render, versions pinned in [operators.yaml](packages/crds/operators.yaml), install manifests via `r8s operators`. Also: `useOperators()` + `maybeOperator('cnpg', shared)` for "declare only if the Platform doesn't already run it."
 
 ## Testable infrastructure
 
-Components are plain functions — test them with Vitest before anything reaches a cluster:
-
 ```tsx
-import { describe, it, expect } from 'vitest'
 import { render } from '@r8s/core'
-import { App, Database } from '@r8s/recipes'
+import { App } from '@r8s/recipes'
 
 it('creates a 3-replica deployment', () => {
-  const result = render(
-    <App name="api" image="myapp/api:v1" host="api.example.com" replicas={3} />
-  )
-  const deployment = result.resources.find((r) => r.kind === 'Deployment')
-  expect(deployment.spec.replicas).toBe(3)
-})
-
-it('declares cnpg when a database is used', () => {
-  const result = render(<Database name="app-db" storage="10Gi" />)
-  expect(result.operators[0].name).toBe('cnpg')
+  const result = render(<App name="api" image="myapp/api:v1" host="api.example.com" replicas={3} />)
+  expect(result.resources.find((r) => r.kind === 'Deployment').spec.replicas).toBe(3)
 })
 ```
 
-The r8s repo itself runs ~900 such tests across 46 suites (~1900 assertions), including a provider-matrix suite that renders every package under every secrets-backend × routing-mode combination, and a validation suite that compiles every documented example against the real package sources.
+The repo runs ~900 such tests across 46 suites — including a provider-matrix suite rendering every package under every secrets-backend × routing-mode combination.
 
-## GitOps integration
+## GitOps
 
 Two strategies, scaffolded by `r8s init`:
 
-- **`--strategy github-actions`** (default): CI renders `k8s/r8s.tsx` → committed `manifest.yaml` → Flux/ArgoCD syncs. Simple, reviewable diffs.
-- **`--strategy flux-controller`**: push the TSX itself; the accompanying source controller renders it in-cluster as a Flux source artifact. No build step in CI at all.
-
-Both paths feed the same YAML consumers — Flux, ArgoCD, `kubectl apply`.
+- `github-actions` (default): CI renders TSX → committed YAML → Flux/ArgoCD syncs. Reviewable diffs.
+- `flux-controller`: push TSX; render in-cluster via the source controller. No CI build step.
 
 ## Comparison
 
 | | Raw YAML | Helm | Kustomize | Pulumi | **r8s** |
 |:---|:---|:---|:---|:---|:---|
-| **Composition** | ❌ copy-paste | ⚠️ templates | ❌ patches only | ✅ code | ✅ **typed components** |
+| **Composition** | ❌ copy-paste | ⚠️ templates | ❌ patches | ✅ code | ✅ **typed components** |
 | **Type safety** | ❌ | ❌ | ❌ | ✅ | ✅ **full TS** |
-| **DRY** | ❌ | ⚠️ values files | ⚠️ bases | ✅ | ✅ **import & reuse** |
 | **Operator tracking** | ❌ | ⚠️ subcharts | ❌ | ✅ | ✅ **explicit + renderable** |
 | **Credential linting** | ❌ | ❌ | ❌ | ⚠️ | ✅ **built-in guardrails** |
 | **Learning curve** | low | medium | low | high | **low** |
-| **Output** | YAML | YAML | YAML | direct API | **YAML (GitOps-native)** |
-
-## Repo layout
-
-```
-packages/
-  core/           JSX factory, renderer, contexts, guardrails
-  k8s-types/      Generated TypeScript interfaces from the K8s OpenAPI spec
-  crds/           Generated CRD components + operators.yaml registry
-  recipes/        Core recipes + providers (Platform, App, Database, …)
-  cli/            r8s CLI (init/render/validate/explain/…)
-  r8s-controller/ In-cluster TSX rendering controller (GitOps strategy 2)
-  flux-controller/FluxCD source controller
-  <19 app packages: n8n, outline, matrix, harbor, …>
-docs/             Documentation site (Vike + React) — r8s.berget.ai
-examples/         basic-app, blueprint, fluxcd, microservices, saas-platform, …
-```
+| **Output** | YAML | YAML | YAML | API | **YAML (GitOps-native)** |
 
 ## Status
 
-v0.2.x — pre-1.0 but steadily stabilizing. The CLI and core recipes are stable; app recipes are actively derived from production reference deployments, so expect back-to-back improvements as more stacks are modeled. Breaking changes are called out per release.
+v0.2.x — core and CLI are stable; app recipes are actively derived from production reference deployments, so they keep improving release over release. Breaking changes are called out per release.
 
 ## Contributing
 
-Missing a component? It's a TypeScript function + an operator declaration:
-
-1. Create a package under `packages/` (copy `@r8s/wireguard` as a skeleton)
-2. Export your components as TSX functions; add tests in `__tests__/`
-3. Open a PR — AI review + CI within minutes, human review within 24h
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Security issues: [SECURITY.md](SECURITY.md).
+Missing a component? It's a typed function + (optionally) a line in `operators.yaml`. Copy `@r8s/wireguard` as a skeleton, add tests, open a PR — AI review + CI within minutes, human review within 24h. Details: [CONTRIBUTING.md](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [SECURITY.md](SECURITY.md)
 
 ## License
 
