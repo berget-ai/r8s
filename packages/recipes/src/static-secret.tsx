@@ -69,21 +69,33 @@ export interface StaticSecretProps {
  * a pre-created Secret instead.
  *
  * @example
- * <StaticSecret
- *   name="myapp-secrets"
- *   path="myapp/app"
- *   keys={{
- *     SECRET_KEY: 'secret_key',
- *     OIDC_CLIENT_ID: 'oidc_client_id',
- *     OIDC_CLIENT_SECRET: 'oidc_client_secret',
- *   }}
- *   restart={[{ kind: 'Deployment', name: 'myapp' }]}
- * />
+ * import { Platform, StaticSecret } from '@r8s/recipes'
+ *
+ * export default (
+ *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *     <StaticSecret
+ *       name="myapp-secrets"
+ *       path="myapp/app"
+ *       keys={{
+ *         SECRET_KEY: 'secret_key',
+ *         OIDC_CLIENT_ID: 'oidc_client_id',
+ *         OIDC_CLIENT_SECRET: 'oidc_client_secret',
+ *       }}
+ *       restart={[{ kind: 'Deployment', name: 'myapp' }]}
+ *     />
+ *   </Platform>
+ * )
  *
  * @example
+ * import { Platform, StaticSecret } from '@r8s/recipes'
+ *
  * // backup creds: read at use time — never restart workloads
- * <StaticSecret name="myapp-backup-creds" path="rustfs/myapp"
- *   keys={['accesskey', 'secretkey']} />
+ * export default (
+ *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *     <StaticSecret name="myapp-backup-creds" path="rustfs/myapp"
+ *       keys={['accesskey', 'secretkey']} />
+ *   </Platform>
+ * )
  */
 export function StaticSecret(props: StaticSecretProps) {
   const {
