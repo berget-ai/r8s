@@ -632,10 +632,10 @@ export function cnpgBackupFromS3(s3: import('./s3-provider').S3Config, name: str
  * backend directly — moved out of the provider layer.
  *
  * @example
- * import { SecretProvider, DatabaseS3Credentials } from '@r8s/recipes'
+ * import { SecretProvider, OpenBao, DatabaseS3Credentials } from '@r8s/recipes'
  *
  * export default (
- *   <SecretProvider provider="openbao" mount="kv" path="infra">
+ *   <SecretProvider provider={<OpenBao mount="kv" path="infra" />}>
  *     <DatabaseS3Credentials name="my-creds" path="infra/s3" />
  *   </SecretProvider>
  * )

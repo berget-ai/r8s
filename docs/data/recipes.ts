@@ -543,8 +543,8 @@ export const recipes: Recipe[] = [
       props: [],
       examples: [
         {
-          tsx: 'import { SecretProvider, DatabaseS3Credentials } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider="openbao" mount="kv" path="infra">\n    <DatabaseS3Credentials name="my-creds" path="infra/s3" />\n  </SecretProvider>\n)',
-          yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: my-creds\n  namespace: default\nspec:\n  type: kv-v2\n  path: infra/s3\n  refreshAfter: 3600s\n  destination:\n    create: true\n    name: my-creds\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        access-key-id:\n          text: '{{ .Secrets.access_key_id }}'\n        secret-access-key:\n          text: '{{ .Secrets.secret_access_key }}'\n",
+          tsx: 'import { SecretProvider, OpenBao, DatabaseS3Credentials } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider={<OpenBao mount="kv" path="infra" />}>\n    <DatabaseS3Credentials name="my-creds" path="infra/s3" />\n  </SecretProvider>\n)',
+          yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: my-creds\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: infra/s3\n  refreshAfter: 3600s\n  destination:\n    create: true\n    name: my-creds\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        access-key-id:\n          text: '{{ .Secrets.access_key_id }}'\n        secret-access-key:\n          text: '{{ .Secrets.secret_access_key }}'\n",
         },
       ],
     },
