@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
 import { Platform, App, Endpoint } from '../src/index'
-import { cnpgOperator, nginxIngressOperator } from '../src/operators'
+import { cnpgOperator } from '@r8s/operator-cnpg'
+import { NginxIngressOperator } from '@r8s/operator-nginx-ingress'
 import { operators } from '@r8s/crds'
 
 describe('Platform', () => {
@@ -158,7 +159,7 @@ describe('Platform', () => {
 
     it('should not duplicate nginx-ingress when provided via Platform', () => {
       const element = jsx(Platform, {
-        operators: [nginxIngressOperator('1.15.1')],
+        operators: [NginxIngressOperator('1.15.1')],
         children: jsx(App, {
           name: 'myapp',
           image: 'myapp:v1',

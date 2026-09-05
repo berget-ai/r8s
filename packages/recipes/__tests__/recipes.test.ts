@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
 import { Database, WebService, App, Endpoint, Auth, Monitoring, Backup } from '../src/index'
-import { cnpgOperator, nginxIngressOperator } from '../src/operators'
+import { cnpgOperator } from '@r8s/operator-cnpg'
+import { NginxIngressOperator } from '@r8s/operator-nginx-ingress'
 import { operators } from '@r8s/crds'
 import { OperatorContext } from '@r8s/core/defaults'
 
@@ -130,7 +131,7 @@ describe('Endpoint Recipe', () => {
 
   it('should not duplicate operators when provided via context', () => {
     const element = jsx(OperatorContext.Provider, {
-      value: [nginxIngressOperator('1.15.1'), operators['cert-manager']('1.14.0')],
+      value: [NginxIngressOperator('1.15.1'), operators['cert-manager']('1.14.0')],
       children: jsx(Endpoint, {
         name: 'test-endpoint',
         host: 'test.example.com',
@@ -223,7 +224,7 @@ describe('App Recipe', () => {
 
   it('should use shared operators from context without duplication', () => {
     const element = jsx(OperatorContext.Provider, {
-      value: [operators['cert-manager']('1.14.0'), nginxIngressOperator('1.15.1')],
+      value: [operators['cert-manager']('1.14.0'), NginxIngressOperator('1.15.1')],
       children: jsx(App, {
         name: 'myapp',
         host: 'myapp.example.com',
@@ -268,7 +269,7 @@ describe('Auth Recipe', () => {
 
   it('should not duplicate operators when provided via context', () => {
     const element = jsx(OperatorContext.Provider, {
-      value: [operators['keycloak-operator'](), operators['cnpg'](), nginxIngressOperator()],
+      value: [operators['keycloak-operator'](), operators['cnpg'](), NginxIngressOperator()],
       children: jsx(Auth, {
         name: 'auth',
         host: 'auth.example.com',

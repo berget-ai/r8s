@@ -6,7 +6,6 @@ import {
   Endpoint,
   canProvisionSecrets,
   provisionerForSecretProvider,
-  maybeOperator,
 } from '../src/index'
 
 /**
@@ -142,18 +141,5 @@ describe('capability hooks — namespace', () => {
     expect(
       overridden.resources.find((r) => r.kind === 'OpenBaoStaticSecret')?.metadata?.namespace
     ).toBe('override-ns')
-  })
-})
-
-describe('capability hooks — operators', () => {
-  it('maybeOperator is a no-op when the platform already declares it', () => {
-    const shared = [{ name: 'redis-operator' }] as never[]
-    expect(maybeOperator('redis-operator', shared)).toEqual([])
-    const declared = maybeOperator('redis-operator', [] as never[])
-    expect(declared).toHaveLength(1)
-  })
-
-  it('maybeOperator rejects unknown operator names with guidance', () => {
-    expect(() => maybeOperator('does-not-exist', [] as never[])).toThrow('Unknown operator')
   })
 })

@@ -94,7 +94,7 @@ export interface MatrixDatabaseProps {
    * - `false` — cluster without barman (explicit opt-out)
    * Omitted → renderer throws with guidance.
    */
-  backup?: MatrixBackupProps | true | false | null | { type: unknown; props: BucketProps }
+  backup?: MatrixBackupProps | true | false | { type: unknown; props: BucketProps }
 }
 
 export interface MatrixBackupProps {
@@ -946,9 +946,7 @@ export function Matrix(props: MatrixProps) {
         `     or pass sso={{ ..., clientSecretRef: '${name}-keycloak-oidc' }} (a pre-created Secret with key 'clientSecret')`
     )
   }
-  // legacy `backup: null` (pre-required-decision API) maps to explicit opt-out
-  const backupDecision = database.backup === null ? false : database.backup
-  if (backupDecision === undefined) {
+  if (database.backup === undefined) {
     throw new Error(
       `Matrix "${name}": database.backup is a required decision.\n` +
         `\n` +
@@ -973,7 +971,7 @@ export function Matrix(props: MatrixProps) {
   // descriptor points at a scoped destination (matrix name composed under
   // its prefix so several stacks can share a bucket cleanly).
   let backupSpec: MatrixBackupProps | false = false
-  const rawBackup = backupDecision
+  const rawBackup = database.backup
   if (rawBackup !== false) {
     let destinationBase: string | undefined
     let endpointURL: string | undefined
