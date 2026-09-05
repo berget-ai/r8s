@@ -1,4 +1,5 @@
 import { createContext } from './context'
+import { useContext } from './renderer'
 import type { Operator } from '@r8s/k8s-types'
 
 /** Database connection info passed via context */
@@ -15,7 +16,15 @@ export interface DatabaseConnection {
 
 /** Secret provider configuration */
 export interface SecretProvider {
-  backend: 'vault' | 'openbao' | 'sealed-secrets' | 'manual-secrets' | 'kubernetes'
+  backend: 'vault' | 'openbao' | 'sealed-secrets' | 'manual-secrets' | 'kubernetes' | (string & {})
+  /**
+   * Custom provisioner hook. Built-in backends (vault/openbao) get one
+   * attached by the recipes' SecretProvider; anything carrying
+   * `provision()` is treated as provisioning-capable regardless of
+   * backend identity — orgs can plug ESO/Infisical/CSI without touching
+   * packages.
+   */
+  provision?: SecretProvisioner
   mount?: string
   path?: string
   authRef?: string
@@ -54,6 +63,76 @@ export interface SecretProvider {
 
 /** Inherits namespace to all child resources */
 export const Namespace = createContext<string>('default')
+
+/**
+ * Resolve the effective namespace: explicit prop wins, otherwise inherit
+ * from the Platform tree, otherwise 'default'. Replaces the inline
+ * `namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace :
+ * undefined) ?? 'default'` formula that was copied through every recipe
+ * and package — namespace policy lives here now.
+ */
+export function useNamespace(override?: string): string {
+  const contextNamespace = useContext(Namespace)
+  return override ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+}
+
+// --- Capability hooks -------------------------------------------------------
+// Context values may carry a provisioner/route hook. Callers code against
+// the capability, never the provider's identity — new backends (external
+// secrets operators, cloud secret stores, custom ingress classes) plug in
+// without touching any recipe or package.
+
+/** One bundle to provision through a secrets backend */
+export interface StaticSecretRequest {
+  /** Resource name (usually equals the destination Secret name) */
+  name: string
+  namespace: string
+  /** KV path in the secret store */
+  path: string
+  /** Destination→source key mapping (env-case destination, snake_case source) */
+  keys: Record<string, string>
+  /** Provisioned Kubernetes Secret name (defaults to name) */
+  secretName?: string
+  /** Store mount path */
+  mount?: string
+  /** Auth reference override (defaults to the provider's authRef) */
+  authRef?: string
+  /** Re-sync interval */
+  refreshAfter?: string
+  /** Workloads restarted after rotation (already field-normalized) */
+  restartTargets?: { kind?: string; name: string; apiVersion?: string }[]
+}
+
+/**
+ * Provisioner hook: given a request, produce the backend-specific resources
+ * (e.g. VaultStaticSecret, OpenBaoStaticSecret, ExternalSecret, …).
+ * Elements are flattened into the render result.
+ */
+export type SecretProvisioner = (req: StaticSecretRequest) => unknown
+
+/** Route request handed to a custom routing provisioner */
+export interface RouteRequest {
+  name: string
+  namespace: string
+  host: string
+  serviceName: string
+  servicePort: number
+  pathPrefix?: string
+  annotations?: Record<string, string>
+  additionalAnnotations?: Record<string, string>
+  tls?: {
+    secretName?: string
+    clusterIssuer?: string
+    wildcardSecretName?: string
+    ingressClassName?: string
+  }
+}
+
+/**
+ * Route provisioner hook: given a request, produce the backend-specific
+ * route resources (Ingress/HTTPRoute/… + any supporting objects).
+ */
+export type RouteProvisioner = (req: RouteRequest) => unknown
 
 /** Inherits labels to all child resources */
 export const Labels = createContext<Record<string, string>>({})
@@ -214,9 +293,15 @@ export const OperatorContext = createContext<Operator[]>([])
  */
 export interface RoutingConfig {
   /** Routing implementation: 'ingress' (nginx) or 'gateway' (Envoy Gateway API) */
-  mode: 'ingress' | 'gateway'
+  mode: 'ingress' | 'gateway' | (string & {})
   /** Gateway class name (only used when mode='gateway', default: 'eg') */
   gatewayClassName?: string
+  /**
+   * Custom route provisioner hook. When set, <Endpoint/> delegates the
+   * whole route render to it and ignores mode — orgs can plug a custom
+   * ingress controller / L7 stack without touching recipes or packages.
+   */
+  route?: RouteProvisioner
 }
 
 export const RoutingContext = createContext<RoutingConfig>({ mode: 'ingress' })

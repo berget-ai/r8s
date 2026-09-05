@@ -1,6 +1,6 @@
 import { jsx, declareOperator, useContext } from '@r8s/core'
 import { Deployment, Service, EnvVar } from '@r8s/k8s-types'
-import { OperatorContext, DatabaseContext, SecretContext } from '@r8s/core/defaults'
+import { OperatorContext, DatabaseContext, SecretContext, useNamespace } from '@r8s/core/defaults'
 import { vaultSecretsOperator } from './operators'
 
 export interface SecretRef {
@@ -171,7 +171,7 @@ export interface WebServiceProps {
 export function WebService(props: WebServiceProps) {
   const {
     name,
-    namespace = 'default',
+    namespace: namespaceProp,
     image,
     port = 3000,
     replicas = 2,
@@ -288,6 +288,7 @@ export function WebService(props: WebServiceProps) {
   }
 
   // Vault secrets — create VaultStaticSecret objects
+  const namespace = useNamespace(namespaceProp)
   const platformSecrets = useContext(SecretContext)
   for (const [envName, ref] of Object.entries(vault)) {
     const secretName = `${name}-${envName.toLowerCase().replace(/_/g, '-')}-vault`

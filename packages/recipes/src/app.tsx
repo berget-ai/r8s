@@ -1,7 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { WebService, type SecretRef, type VaultSecretRef } from './web-service'
 import { Endpoint } from './endpoint'
-import { Namespace, OperatorContext } from '@r8s/core/defaults'
+import { useNamespace, OperatorContext } from '@r8s/core/defaults'
 import type { TLSConfig } from '@r8s/k8s-types'
 import { operators } from '@r8s/crds'
 import { RedisClusterComponent } from '@r8s/crds/redis'
@@ -117,9 +117,7 @@ export function App(props: AppProps) {
   } = props
 
   // Inherit namespace from <Platform> context if not explicitly set
-  const contextNamespace = useContext(Namespace)
-  const namespace =
-    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+  const namespace = useNamespace(namespaceProp)
 
   const elements: ReturnType<typeof jsx>[] = []
 

@@ -1,7 +1,76 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
-import { SecretContext, type SecretProvider as SecretProviderConfig } from '@r8s/core/defaults'
+import {
+  SecretContext,
+  type SecretProvider as SecretProviderConfig,
+  type SecretProvisioner,
+  type StaticSecretRequest,
+} from '@r8s/core/defaults'
 import { OperatorContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
+
+/**
+ * Provisioner resolution — THE single identity-aware point in the platform.
+ * Everything downstream codes against the `provision()` capability; new
+ * backends plug in by carrying their own provisioner on the context value
+ * (or by being registered here — the orchestration point).
+ */
+export function provisionerForSecretProvider(
+  provider: SecretProviderConfig | null | undefined
+): SecretProvisioner | undefined {
+  if (!provider) return undefined
+  if (typeof provider.provision === 'function') return provider.provision
+  if (provider.backend === 'vault' || provider.backend === 'openbao') {
+    return (req) => builtinProvisionStaticSecret(provider, req)
+  }
+  return undefined
+}
+
+/** Can this provider provision secrets? (capability check, not identity) */
+export function canProvisionSecrets(
+  provider: SecretProviderConfig | null | undefined
+): provider is SecretProviderConfig {
+  return provisionerForSecretProvider(provider) !== undefined
+}
+
+/** Built-in Vault/OpenBao emission (VaultStaticSecret / OpenBaoStaticSecret) */
+function builtinProvisionStaticSecret(provider: SecretProviderConfig, req: StaticSecretRequest) {
+  const spec = {
+    ...(provider.backend === 'vault'
+      ? { vaultAuthRef: req.authRef ?? provider.authRef }
+      : { openbaoAuthRef: req.authRef ?? provider.authRef }),
+    mount: req.mount ?? provider.mount,
+    type: 'kv-v2' as const,
+    path: req.path,
+    refreshAfter: req.refreshAfter ?? provider.refreshAfter ?? '1h',
+    ...(req.restartTargets && req.restartTargets.length > 0
+      ? { rolloutRestartTargets: req.restartTargets }
+      : {}),
+    destination: {
+      create: true,
+      name: req.secretName ?? req.name,
+      overwrite: true,
+      transformation: {
+        excludeRaw: true,
+        templates: Object.fromEntries(
+          Object.entries(req.keys).map(([dest, src]) => [dest, { text: `{{ .Secrets.${src} }}` }])
+        ),
+      },
+    },
+  }
+  return provider.backend === 'vault'
+    ? jsx('VaultStaticSecret', {
+        apiVersion: 'secrets.hashicorp.com/v1beta1',
+        kind: 'VaultStaticSecret',
+        metadata: { name: req.name, namespace: req.namespace },
+        spec,
+      })
+    : jsx('OpenBaoStaticSecret', {
+        apiVersion: 'secrets.openbao.org/v1beta1',
+        kind: 'OpenBaoStaticSecret',
+        metadata: { name: req.name, namespace: req.namespace },
+        spec,
+      })
+}
 
 /**
  * OpenBao configuration component.

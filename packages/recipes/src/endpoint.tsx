@@ -1,4 +1,5 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
+import { useNamespace } from '@r8s/core/defaults'
 import { Ingress } from '@r8s/k8s-types'
 import type { BaseRouteProps } from '@r8s/k8s-types'
 import { OperatorContext, RoutingContext } from '@r8s/core/defaults'
@@ -66,7 +67,7 @@ export interface EndpointProps extends Omit<BaseRouteProps, 'host'> {
 export function Endpoint(props: EndpointProps) {
   const {
     name,
-    namespace = 'default',
+    namespace: namespaceProp,
     host,
     serviceName,
     servicePort = 80,
@@ -79,6 +80,7 @@ export function Endpoint(props: EndpointProps) {
     sharedGateway,
   } = props
 
+  const namespace = useNamespace(namespaceProp)
   const routing = useContext(RoutingContext)
   const endpointConfig = useContext(EndpointContext)
   const sharedOperators = useContext(OperatorContext)
@@ -86,6 +88,22 @@ export function Endpoint(props: EndpointProps) {
 
   // DNS defaults to true when DnsProvider is set, unless explicitly disabled
   const createDnsRecord = dns ?? dnsConfig !== null
+
+  // Custom route provisioner hook: a RoutingConfig carrying route() owns the
+  // whole render for this endpoint (custom ingress controllers / L7 stacks)
+  if (routing.route) {
+    const el = routing.route({
+      name,
+      namespace,
+      host,
+      serviceName,
+      servicePort,
+      pathPrefix: path,
+      annotations,
+      tls,
+    })
+    return Array.isArray(el) ? jsx(Fragment, { children: el }) : el
+  }
 
   // Mode resolution: the Platform RoutingContext describes the cluster, but
   // an explicit EndpointProvider with <EnvoyGateway /> opts this endpoint

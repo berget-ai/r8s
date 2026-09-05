@@ -1,7 +1,16 @@
-import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
-import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
-import { Database, WebService, Endpoint, StaticSecret, type DatabaseProps } from '@r8s/recipes'
+import { jsx, Fragment, useContext } from '@r8s/core'
+import { SecretContext, useNamespace } from '@r8s/core/defaults'
+import {
+  Database,
+  WebService,
+  Endpoint,
+  StaticSecret,
+  useOperators,
+  maybeOperator,
+  canProvisionSecrets,
+  secretsRequiredError,
+  type DatabaseProps,
+} from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
 
 export interface N8nProps {
@@ -93,8 +102,6 @@ export interface N8nProps {
   }
 }
 
-const OPERATOR_REDIS = 'redis-operator'
-
 /**
  * n8n — fair-code workflow automation.
  *
@@ -147,12 +154,9 @@ export function N8n(props: N8nProps) {
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
   } = props
 
-  const sharedOperators = useContext(OperatorContext)
+  const sharedOperators = useOperators()
   const secretProvider = useContext(SecretContext)
-  // Inherit namespace from <Platform> context — mirrors recipes/database.tsx
-  const contextNamespace = useContext(Namespace)
-  const namespace =
-    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+  const namespace = useNamespace(namespaceProp)
   const resources_: ReturnType<typeof jsx>[] = []
 
   const dbCredentialsName = `${name}-db-credentials`
@@ -165,23 +169,16 @@ export function N8n(props: N8nProps) {
   // it as plaintext. With a secrets backend it is provisioned through the
   // backend (key `encryptionKey`); otherwise reference a pre-created Secret.
   if (!encryptionKeySecretName) {
-    if (
-      !secretProvider ||
-      (secretProvider.backend !== 'vault' && secretProvider.backend !== 'openbao')
-    ) {
-      throw new Error(
-        `N8n "${name}" requires an encryption key.\n` +
-          `\n` +
-          `n8n encrypts all workflow credentials with N8N_ENCRYPTION_KEY — ` +
-          `it must not be rendered as plaintext.\n` +
-          `\n` +
-          `Fix: configure a secrets backend on the Platform:\n` +
-          `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'n8n' }}>\n` +
-          `    <N8n name="${name}" host="${host}" />\n` +
-          `  </Platform>\n` +
-          `\n` +
-          `Or reference a pre-created Secret (key: encryptionKey):\n` +
-          `  <N8n name="${name}" host="${host}" encryptionKeySecretName="${name}-encryption-key" />`
+    if (!canProvisionSecrets(secretProvider)) {
+      throw secretsRequiredError(
+        'N8n',
+        name,
+        'an encryption key — n8n encrypts all workflow credentials with N8N_ENCRYPTION_KEY',
+        {
+          propName: 'encryptionKeySecretName',
+          exampleValue: `${name}-encryption-key`,
+          keys: ['encryptionKey'],
+        }
       )
     }
 
@@ -204,8 +201,8 @@ export function N8n(props: N8nProps) {
   }
 
   // --- Operators ------------------------------------------------------------
-  if (queueMode && !sharedOperators.some((op) => op.name === OPERATOR_REDIS)) {
-    resources_.push(declareOperator(operators[OPERATOR_REDIS]()))
+  if (queueMode) {
+    resources_.push(...maybeOperator('redis-operator', sharedOperators))
   }
 
   // --- Database (CNPG) — workflows, executions, stored credentials ----------

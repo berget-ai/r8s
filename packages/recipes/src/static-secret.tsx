@@ -1,5 +1,6 @@
-import { jsx, useContext } from '@r8s/core'
-import { Namespace, SecretContext } from '@r8s/core/defaults'
+import { jsx, Fragment, useContext } from '@r8s/core'
+import { SecretContext, useNamespace } from '@r8s/core/defaults'
+import { provisionerForSecretProvider } from './secret-provider'
 
 export interface StaticSecretProps {
   /**
@@ -97,16 +98,13 @@ export function StaticSecret(props: StaticSecretProps) {
   } = props
 
   const secretProvider = useContext(SecretContext)
-  const contextNamespace = useContext(Namespace)
-  const namespace =
-    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+  const namespace = useNamespace(namespaceProp)
+  const provisioner = provisionerForSecretProvider(secretProvider)
 
-  if (
-    !secretProvider ||
-    (secretProvider.backend !== 'vault' && secretProvider.backend !== 'openbao')
-  ) {
+  if (!provisioner) {
     throw new Error(
-      `StaticSecret "${name}" requires a provisioning secrets backend (openbao or vault).\n` +
+      `StaticSecret "${name}" requires a provisioning secrets backend (openbao, vault,\n` +
+        `or any provider carrying a provision() hook).\n` +
         `\n` +
         `Fix: configure a backend on the Platform:\n` +
         `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n` +
@@ -118,49 +116,23 @@ export function StaticSecret(props: StaticSecretProps) {
     )
   }
 
-  const mapping: Record<string, string> = Array.isArray(keys)
-    ? Object.fromEntries(keys.map((k) => [k, k]))
-    : keys
+  const mapping: Record<string, string> = Object.fromEntries(
+    (Array.isArray(keys) ? keys.map((k) => [k, k]) : Object.entries(keys)) as [string, string][]
+  )
 
   // Default missing fields (consistent with Database/WebService restart
   // target conventions)
   const restartTargets = restart?.map((t) => ({ kind: 'Deployment', ...t }))
 
-  const spec = {
-    ...(secretProvider.backend === 'vault'
-      ? { vaultAuthRef: authRef ?? secretProvider.authRef }
-      : { openbaoAuthRef: secretProvider.authRef }),
-    mount: secretProvider.mount,
-    type: 'kv-v2' as const,
+  const el = provisioner({
+    name,
+    namespace,
     path,
-    refreshAfter: refreshAfter ?? secretProvider.refreshAfter ?? '1h',
-    ...(restartTargets && restartTargets.length > 0
-      ? { rolloutRestartTargets: restartTargets }
-      : {}),
-    destination: {
-      create: true,
-      name: secretName ?? name,
-      overwrite: true,
-      transformation: {
-        excludeRaw: true,
-        templates: Object.fromEntries(
-          Object.entries(mapping).map(([dest, src]) => [dest, { text: `{{ .Secrets.${src} }}` }])
-        ),
-      },
-    },
-  }
-
-  return secretProvider.backend === 'vault'
-    ? jsx('VaultStaticSecret', {
-        apiVersion: 'secrets.hashicorp.com/v1beta1',
-        kind: 'VaultStaticSecret',
-        metadata: { name, namespace },
-        spec,
-      })
-    : jsx('OpenBaoStaticSecret', {
-        apiVersion: 'secrets.openbao.org/v1beta1',
-        kind: 'OpenBaoStaticSecret',
-        metadata: { name, namespace },
-        spec,
-      })
+    keys: mapping,
+    secretName,
+    authRef,
+    refreshAfter,
+    restartTargets,
+  })
+  return Array.isArray(el) ? jsx(Fragment, { children: el }) : (el as ReturnType<typeof jsx>)
 }

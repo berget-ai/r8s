@@ -1,7 +1,16 @@
-import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
-import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
-import { Database, WebService, Endpoint, StaticSecret, type DatabaseProps } from '@r8s/recipes'
+import { jsx, Fragment, useContext } from '@r8s/core'
+import { SecretContext, useNamespace } from '@r8s/core/defaults'
+import {
+  Database,
+  WebService,
+  Endpoint,
+  StaticSecret,
+  useOperators,
+  maybeOperator,
+  canProvisionSecrets,
+  secretsRequiredError,
+  type DatabaseProps,
+} from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
 
 export interface OutlineProps {
@@ -104,8 +113,6 @@ export interface OutlineProps {
   }
 }
 
-const OPERATOR_REDIS = 'redis-operator'
-
 /**
  * Outline — team wiki with Postgres, Redis, S3 attachments and OIDC SSO.
  *
@@ -168,12 +175,9 @@ export function Outline(props: OutlineProps) {
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
   } = props
 
-  const sharedOperators = useContext(OperatorContext)
+  const sharedOperators = useOperators()
   const secretProvider = useContext(SecretContext)
-  // Inherit namespace from <Platform> context — mirrors recipes/database.tsx
-  const contextNamespace = useContext(Namespace)
-  const namespace =
-    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+  const namespace = useNamespace(namespaceProp)
   const resources_: ReturnType<typeof jsx>[] = []
 
   const dbHost = `${name}-rw`
@@ -182,23 +186,16 @@ export function Outline(props: OutlineProps) {
 
   // --- App secrets (SECRET_KEY / UTILS_SECRET) ------------------------------
   if (!secretsName) {
-    if (
-      !secretProvider ||
-      (secretProvider.backend !== 'vault' && secretProvider.backend !== 'openbao')
-    ) {
-      throw new Error(
-        `Outline "${name}" requires application secrets (SECRET_KEY, UTILS_SECRET).\n` +
-          `\n` +
-          `These must not be rendered as plaintext.\n` +
-          `\n` +
-          `Fix: configure a secrets backend on the Platform:\n` +
-          `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n` +
-          `    <Outline name="${name}" host="${host}" />\n` +
-          `  </Platform>\n` +
-          `\n` +
-          `Or reference a pre-created Secret (keys: SECRET_KEY, UTILS_SECRET — plus\n` +
-          `OIDC_CLIENT_ID/OIDC_CLIENT_SECRET when using bundled SSO):\n` +
-          `  <Outline name="${name}" host="${host}" secretsName="${name}-app-secrets" />`
+    if (!canProvisionSecrets(secretProvider)) {
+      throw secretsRequiredError(
+        'Outline',
+        name,
+        'application secrets (SECRET_KEY, UTILS_SECRET)',
+        {
+          propName: 'secretsName',
+          exampleValue: `${name}-app-secrets`,
+          keys: ['SECRET_KEY', 'UTILS_SECRET'],
+        }
       )
     }
 
@@ -226,8 +223,8 @@ export function Outline(props: OutlineProps) {
   }
 
   // --- Operators -------------------------------------------------------------
-  if (cache && !sharedOperators.some((op) => op.name === OPERATOR_REDIS)) {
-    resources_.push(declareOperator(operators[OPERATOR_REDIS]()))
+  if (cache) {
+    resources_.push(...maybeOperator('redis-operator', sharedOperators))
   }
 
   // Redis — caching + websockets. Standalone is the facit shape: durable via

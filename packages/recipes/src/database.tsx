@@ -5,7 +5,7 @@ import {
   SecretContext,
   OperatorContext,
   ClusterContext,
-  Namespace,
+  useNamespace,
 } from '@r8s/core/defaults'
 import { cnpgOperator } from './operators'
 
@@ -164,9 +164,7 @@ export function Database(props: DatabaseProps) {
   }
 
   // Inherit namespace from <Platform> context if not explicitly set
-  const contextNamespace = useContext(Namespace)
-  const namespace =
-    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+  const namespace = useNamespace(namespaceProp)
 
   const clusterConfig = useContext(ClusterContext)
   const secretProvider = useContext(SecretContext)

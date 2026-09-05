@@ -1,5 +1,5 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
-import { Namespace, OperatorContext } from '@r8s/core/defaults'
+import { useNamespace, OperatorContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
 import { Database } from './database'
 import { Endpoint } from './endpoint'
@@ -118,9 +118,7 @@ export function Auth(props: AuthProps) {
   } = props
 
   // Inherit namespace from <Platform> context if not explicitly set
-  const contextNamespace = useContext(Namespace)
-  const namespace =
-    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+  const namespace = useNamespace(namespaceProp)
 
   const sharedOperators = useContext(OperatorContext)
   const hasKeycloak = sharedOperators.some((op) => op.name === 'keycloak-operator')
