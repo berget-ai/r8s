@@ -111,13 +111,20 @@ import { jsx } from '@r8s/core'
 
 const myProvider = {
   provision(req: StaticSecretRequest) {
-    // Any element with apiVersion + kind renders as a raw resource — here, an
-    // External Secrets Operator target (ESO itself is declared as an operator below).
+    // Any element with apiVersion + kind renders as a raw resource —
+    // here an External Secrets Operator target.
     return jsx('ExternalSecret', {
       apiVersion: 'external-secrets.io/v1beta1',
       kind: 'ExternalSecret',
-      metadata: { name: req.destination.name, namespace: req.namespace },
-      spec: { refreshInterval: '1h', secretStoreRef: { name: 'cluster-store', kind: 'ClusterSecretStore' }, data: req.keys },
+      metadata: { name: req.name, namespace: req.namespace },
+      spec: {
+        refreshInterval: '1h',
+        secretStoreRef: { name: 'cluster-store', kind: 'ClusterSecretStore' },
+        data: Object.entries(req.keys).map(([dest, source]) => ({
+          secretKey: dest,
+          remoteRef: { key: `${req.path}/${source}`, property: source },
+        })),
+      },
     })
   },
 }
