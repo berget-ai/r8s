@@ -9,7 +9,7 @@ import {
   useNamespace,
 } from '@r8s/core/defaults'
 import { provisionerForSecretProvider } from './secret-provider'
-import { useS3, isBucketElement, resolveBucket } from './s3-provider'
+import { useS3, isBucketElement, resolveBucket, type BucketProps } from './s3-provider'
 import { StaticSecret } from './static-secret'
 
 /**
@@ -69,7 +69,7 @@ export interface DatabaseProps {
    * `true`/object → barman WAL + scheduled backups; target and credentials
    * derive from the Platform's S3 provider, explicit object values win.
    */
-  backup: DatabaseBackupProps | true | false
+  backup: DatabaseBackupProps | true | false | { type: unknown; props: BucketProps }
   /**
    * Workloads that consume the database credentials. Rendered as
    * `rolloutRestartTargets` on the generated VaultStaticSecret/

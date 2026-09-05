@@ -2,11 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
 import { runGuardrails, noPlaintextSecrets } from '@r8s/core'
 import { SecretContext, Namespace } from '@r8s/core/defaults'
+import { S3Provider, Bucket } from '@r8s/recipes'
 import { Matrix } from '../src/index'
 
 function renderMatrix(overrides: any = {}) {
   const element = jsx(Matrix, {
     domain: 'example.com',
+    // explicit opt-out — backup is a required decision, covered by its own test
+    database: { backup: false },
     ...overrides,
   })
   return render(element)
@@ -59,7 +62,7 @@ describe('Matrix — resource rendering', () => {
     )
   })
 
-  it('skips backups by default (explicit opt-in)', () => {
+  it('backup: false skips backups entirely', () => {
     const result = renderMatrix()
     expect(kinds(result)).not.toContain('ScheduledBackup')
     const cluster = find(result, 'Cluster', 'matrix-synapse-db') as any
@@ -215,7 +218,7 @@ describe('Matrix — resource rendering', () => {
   it('inherits namespace from the Platform context', () => {
     const element = jsx(Namespace.Provider, {
       value: 'collab',
-      children: jsx(Matrix, { domain: 'example.com' }),
+      children: jsx(Matrix, { domain: 'example.com', database: { backup: false } }),
     })
     const result = render(element)
     const namespaces = new Set(result.resources.map((r: any) => r.metadata?.namespace))
@@ -229,6 +232,55 @@ describe('Matrix — secrets backends', () => {
     expect(() =>
       renderMatrix({ sso: { issuer: 'https://keycloak.example.com/realms/x', clientId: 'matrix' } })
     ).toThrow(/clientSecretRef|secrets backend/)
+  })
+
+  it('backup: true derives destination + credentials from the S3 provider', () => {
+    const element = jsx(S3Provider as never, {
+      provider: {
+        endpoint: 'https://rustfs:9000',
+        bucket: 'infra',
+        credentialsSecret: 'infra-s3-creds',
+      },
+      children: jsx(Matrix, { domain: 'example.com', database: { backup: true } }),
+    })
+    const result = render(element)
+    const synapseDb = find(result, 'Cluster', 'matrix-synapse-db') as any
+    expect(synapseDb.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://infra/matrix-backup/synapse-cnpg'
+    )
+    expect(synapseDb.spec.backup.barmanObjectStore.endpointURL).toBe('https://rustfs:9000')
+    expect(synapseDb.spec.backup.barmanObjectStore.s3Credentials.accessKeyId.name).toBe(
+      'infra-s3-creds'
+    )
+    // provider-driven creds → no secrets-backend copy needed
+    expect(find(result, 'StaticSecret', 'matrix-backup-credentials')).toBeUndefined()
+  })
+
+  it('a <Bucket> descriptor scopes the backup destination', () => {
+    const element = jsx(S3Provider as never, {
+      provider: {
+        endpoint: 'https://rustfs:9000',
+        bucket: 'infra',
+        credentialsSecret: 'infra-s3-creds',
+      },
+      children: jsx(Matrix, {
+        domain: 'example.com',
+        database: { backup: jsx(Bucket as never, { name: 'matrix_backup' }) },
+      }),
+    })
+    const result = render(element)
+    const masDb = find(result, 'Cluster', 'matrix-mas-db') as any
+    expect(masDb.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://infra/matrix_backup/matrix-backup/mas-cnpg'
+    )
+  })
+
+  it('omitting the backup decision fails with guidance', () => {
+    expect(() =>
+      renderMatrixWithPlatform({
+        sso: { issuer: 'https://keycloak.example.com/realms/x', clientId: 'matrix' },
+      })
+    ).toThrow(/backup is a required decision/)
   })
 
   it('throws on backup without credentialsSecret and without secrets backend', () => {

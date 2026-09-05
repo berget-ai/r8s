@@ -475,7 +475,7 @@ export const recipes: Recipe[] = [
         },
         {
           name: 'backup',
-          type: 'DatabaseBackupProps | true | false',
+          type: 'DatabaseBackupProps | true | false | { type: unknown, props: BucketProps }',
           required: true,
           description:
             "Continuous barman backup to S3 object storage + ScheduledBackup. REQUIRED decision point: omit → renderer throws with guidance. `false` → cluster without barman (forks, ephemeral CI). `true`/object → barman WAL + scheduled backups; target and credentials derive from the Platform's S3 provider, explicit object values win.",
