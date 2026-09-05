@@ -16,7 +16,7 @@ const sharedClusterConfig = {
 describe('Recipes Error Cases', () => {
   describe('Database', () => {
     it('should handle missing storage gracefully', () => {
-      const element = jsx(Database, { name: 'test-db' })
+      const element = jsx(Database, { backup: false, name: 'test-db' })
       const result = render(element)
 
       expect(result.resources).toHaveLength(1)
@@ -24,7 +24,7 @@ describe('Recipes Error Cases', () => {
     })
 
     it('should handle empty name', () => {
-      const element = jsx(Database, { name: '' })
+      const element = jsx(Database, { backup: false, name: '' })
       const result = render(element)
 
       const validationErrors = validateResource(result.resources[0])
@@ -34,7 +34,7 @@ describe('Recipes Error Cases', () => {
     it('should not duplicate CNPG operator when provided via context', () => {
       const element = jsx(OperatorContext.Provider, {
         value: [cnpgOperator('1.22.5')],
-        children: jsx(Database, { name: 'test-db' }),
+        children: jsx(Database, { backup: false, name: 'test-db' }),
       })
 
       const result = render(element)
@@ -43,7 +43,7 @@ describe('Recipes Error Cases', () => {
     })
 
     it('should handle special characters in database name', () => {
-      const element = jsx(Database, { name: 'test-db_123' })
+      const element = jsx(Database, { backup: false, name: 'test-db_123' })
       const result = render(element)
 
       const validationErrors = validateResource(result.resources[0])
@@ -148,7 +148,7 @@ describe('Recipes Error Cases', () => {
         value: [cnpgOperator('1.22.5'), nginxIngressOperator('1.15.1')],
         children: jsx(Fragment, {
           children: [
-            jsx(Database, { name: 'app-db', storage: '10Gi' }),
+            jsx(Database, { backup: false, name: 'app-db', storage: '10Gi' }),
             jsx(App, {
               name: 'api',
               image: 'myapp/api:v1',
@@ -168,6 +168,7 @@ describe('Recipes Error Cases', () => {
       const element = jsx(OperatorContext.Provider, {
         value: [cnpgOperator('1.22.5')],
         children: jsx(Database, {
+          backup: false,
           name: 'app-db',
           storage: '10Gi',
         }),
@@ -180,7 +181,7 @@ describe('Recipes Error Cases', () => {
 
   describe('Secrets backend errors', () => {
     it('should throw when a plaintext password prop is provided', () => {
-      const element = jsx(Database, { name: 'my-db', password: 'test-pass' } as any)
+      const element = jsx(Database, { backup: false, name: 'my-db', password: 'test-pass' } as any)
       expect(() => render(element)).toThrow(/received a plaintext password/)
       expect(() => render(element)).toThrow(/secrets backend/)
     })
@@ -188,7 +189,7 @@ describe('Recipes Error Cases', () => {
     it('should not render plaintext Secrets with the kubernetes backend', () => {
       const element = jsx(SecretContext.Provider, {
         value: { backend: 'kubernetes' },
-        children: jsx(Database, { name: 'my-db' }),
+        children: jsx(Database, { backup: false, name: 'my-db' }),
       })
       const result = render(element)
 
@@ -201,7 +202,7 @@ describe('Recipes Error Cases', () => {
     it('should not render plaintext Secrets with the manual-secrets backend', () => {
       const element = jsx(SecretContext.Provider, {
         value: { backend: 'manual-secrets' },
-        children: jsx(Database, { name: 'my-db' }),
+        children: jsx(Database, { backup: false, name: 'my-db' }),
       })
       const result = render(element)
 
@@ -213,7 +214,7 @@ describe('Recipes Error Cases', () => {
     it('should throw for a shared cluster without a secrets backend', () => {
       const element = jsx(ClusterContext.Provider, {
         value: sharedClusterConfig,
-        children: jsx(Database, { name: 'my-db' }),
+        children: jsx(Database, { backup: false, name: 'my-db' }),
       })
 
       expect(() => render(element)).toThrow(/shared Cluster without a secrets backend/)
@@ -224,7 +225,7 @@ describe('Recipes Error Cases', () => {
         value: { backend: 'kubernetes' } as any,
         children: jsx(ClusterContext.Provider, {
           value: sharedClusterConfig,
-          children: jsx(Database, { name: 'my-db' }),
+          children: jsx(Database, { backup: false, name: 'my-db' }),
         }),
       })
 
@@ -237,7 +238,7 @@ describe('Recipes Error Cases', () => {
         render(
           jsx(SecretContext.Provider, {
             value: { backend: 'unknown-backend' as any },
-            children: jsx(Database, { name: 'my-db' }),
+            children: jsx(Database, { backup: false, name: 'my-db' }),
           })
         )
       }).toThrow(/unknown secrets backend "unknown-backend"/)
@@ -248,7 +249,7 @@ describe('Recipes Error Cases', () => {
         render(
           jsx(SecretContext.Provider, {
             value: { backend: 'unknown-backend' as any },
-            children: jsx(Database, { name: 'my-db' }),
+            children: jsx(Database, { backup: false, name: 'my-db' }),
           })
         )
       }).toThrow(
@@ -259,7 +260,7 @@ describe('Recipes Error Cases', () => {
     it('should succeed with openbao backend and no password', () => {
       const element = jsx(SecretContext.Provider, {
         value: { backend: 'openbao', mount: 'kv', path: 'db' },
-        children: jsx(Database, { name: 'my-db' }),
+        children: jsx(Database, { backup: false, name: 'my-db' }),
       })
       const result = render(element)
 
@@ -271,7 +272,7 @@ describe('Recipes Error Cases', () => {
     it('should succeed with vault backend and no password', () => {
       const element = jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'db' },
-        children: jsx(Database, { name: 'my-db' }),
+        children: jsx(Database, { backup: false, name: 'my-db' }),
       })
       const result = render(element)
 
@@ -283,7 +284,7 @@ describe('Recipes Error Cases', () => {
     it('should succeed with sealed-secrets backend and no password', () => {
       const element = jsx(SecretContext.Provider, {
         value: { backend: 'sealed-secrets' },
-        children: jsx(Database, { name: 'my-db' }),
+        children: jsx(Database, { backup: false, name: 'my-db' }),
       })
       const result = render(element)
 
@@ -293,7 +294,7 @@ describe('Recipes Error Cases', () => {
     })
 
     it('should succeed with no backend and no password (CNPG manages bootstrap secret)', () => {
-      const element = jsx(Database, { name: 'my-db' })
+      const element = jsx(Database, { backup: false, name: 'my-db' })
       const result = render(element)
 
       const kinds = result.resources.map((r) => r.kind)

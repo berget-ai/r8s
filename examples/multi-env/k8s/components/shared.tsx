@@ -8,7 +8,14 @@ import { Database, WebService, Endpoint } from '@r8s/recipes'
  * secrets, wrap its tree in a Platform with a secrets backend.
  */
 export function AppDatabase(props: { name: string; namespace: string; storage: string }) {
-  return <Database name={props.name} namespace={props.namespace} storage={props.storage} />
+  return (
+    <Database
+      backup={false}
+      name={props.name}
+      namespace={props.namespace}
+      storage={props.storage}
+    />
+  )
 }
 
 export function WebApp(props: {

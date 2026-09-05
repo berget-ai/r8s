@@ -15,7 +15,7 @@ import { Database, WebService, Endpoint } from '@r8s/recipes'
  */
 export default function ProductionApp() {
   return (
-    <Database name="app-db" namespace="production" storage="50Gi">
+    <Database backup={false} name="app-db" namespace="production" storage="50Gi">
       <WebService name="app" image="myapp/app:v1.2.3" port={3000} replicas={5} />
 
       <Endpoint

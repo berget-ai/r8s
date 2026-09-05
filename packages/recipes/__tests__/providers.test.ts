@@ -22,7 +22,7 @@ describe('Provider Hierarchy', () => {
     it('should accept string provider "openbao"', () => {
       const element = jsx(SecretProvider, {
         provider: 'openbao',
-        children: jsx(Database, { name: 'test-db' }),
+        children: jsx(Database, { backup: false, name: 'test-db' }),
       })
 
       const result = render(element)
@@ -37,7 +37,7 @@ describe('Provider Hierarchy', () => {
     it('should accept component provider <OpenBao>', () => {
       const element = jsx(SecretProvider, {
         provider: OpenBao({ mount: 'secret', path: 'infra', authRef: 'custom-auth' }),
-        children: jsx(Database, { name: 'test-db' }),
+        children: jsx(Database, { backup: false, name: 'test-db' }),
       })
 
       const result = render(element)
@@ -48,7 +48,7 @@ describe('Provider Hierarchy', () => {
     it('should accept component provider <Vault>', () => {
       const element = jsx(SecretProvider, {
         provider: Vault({ mount: 'kv', path: 'apps' }),
-        children: jsx(Database, { name: 'test-db' }),
+        children: jsx(Database, { backup: false, name: 'test-db' }),
       })
 
       const result = render(element)
@@ -59,7 +59,7 @@ describe('Provider Hierarchy', () => {
     it('should accept string provider "sealed-secrets"', () => {
       const element = jsx(SecretProvider, {
         provider: 'sealed-secrets',
-        children: jsx(Database, { name: 'test-db' }),
+        children: jsx(Database, { backup: false, name: 'test-db' }),
       })
 
       const result = render(element)
@@ -74,7 +74,7 @@ describe('Provider Hierarchy', () => {
     it('should accept string provider "kubernetes" without rendering plaintext Secrets', () => {
       const element = jsx(SecretProvider, {
         provider: 'kubernetes',
-        children: jsx(Database, { name: 'test-db' }),
+        children: jsx(Database, { backup: false, name: 'test-db' }),
       })
 
       const result = render(element)
@@ -90,7 +90,7 @@ describe('Provider Hierarchy', () => {
     it('should reject plaintext password props on Database via SecretProvider', () => {
       const element = jsx(SecretProvider, {
         provider: 'sealed-secrets',
-        children: jsx(Database, { name: 'test-db', password: 'secret123' } as any),
+        children: jsx(Database, { backup: false, name: 'test-db', password: 'secret123' } as any),
       })
 
       expect(() => render(element)).toThrow(/received a plaintext password/)

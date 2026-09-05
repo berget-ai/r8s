@@ -104,7 +104,7 @@ export interface R8sClusterProps {
  *       dns={{ server: 'ns1.example.com', zone: 'example.com', tsigPath: 'dns/tsig' }}
  *     >
  *       <Platform namespace="production">
- *         <Database name="api-db" storage="20Gi" />
+ *         <Database backup={false} name="api-db" storage="20Gi" />
  *         <App name="api" image="api:v1" host="api.example.com" />
  *       </Platform>
  *     </R8sCluster>

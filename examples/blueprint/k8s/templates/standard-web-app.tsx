@@ -22,7 +22,7 @@ interface StandardWebAppProps {
  * Golden Path template for web apps with a database.
  *
  * Credentials are never passed through the template: `<WebService>`
- * inside `<Database>` gets PG* env vars wired automatically with
+ * inside `<Database backup={false}>` gets PG* env vars wired automatically with
  * PGPASSWORD via secretKeyRef, and CNPG provisions the bootstrap secret
  * in-cluster (or the platform Platform-level secrets backend does).
  */
@@ -40,7 +40,7 @@ export function StandardWebApp(props: StandardWebAppProps) {
   } = props
 
   return (
-    <Database name={`${name}-db`} namespace={namespace} storage="10Gi">
+    <Database backup={false} name={`${name}-db`} namespace={namespace} storage="10Gi">
       {/* Standard: Web service with platform defaults */}
       <WebService
         name={name}

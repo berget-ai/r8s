@@ -238,6 +238,7 @@ export function Supabase(props: SupabaseProps) {
   // the r8s Database recipe (CNPG dedicated cluster provisions the secret).
   resources_.push(
     jsx(Database, {
+      backup: false,
       name,
       namespace,
       storage,

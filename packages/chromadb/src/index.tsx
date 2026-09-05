@@ -317,6 +317,7 @@ export function ChromaDb(props: ChromaDbProps) {
   if (pg) {
     resources_.push(
       jsx(Database, {
+        backup: false,
         name: `${name}-meta`,
         namespace,
         storage: '10Gi',

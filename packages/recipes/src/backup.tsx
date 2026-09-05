@@ -1,6 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
+import { useS3 } from './s3-provider'
 
 export interface BackupProps {
   /** Resource name */
@@ -11,7 +12,12 @@ export interface BackupProps {
   schedule?: string
   /** Namespaces to include in backups (defaults to the current namespace) */
   namespaces?: string[]
-  /** Velero storage location name (defaults to 'default') */
+  /**
+   * Velero storage location name. With an S3 provider on the Platform this
+   * defaults to this component's name (the emitted BackupStorageLocation);
+   * without one, 'default' (an externally-managed location must exist).
+   */
+
   storageLocation?: string
   /** Backup retention (e.g., '720h' for 30 days) */
   ttl?: string
@@ -52,17 +58,51 @@ export function Backup(props: BackupProps) {
     namespace = 'default',
     schedule = '0 2 * * *',
     namespaces,
-    storageLocation = 'default',
+    storageLocation,
     ttl = '720h',
   } = props
 
   const sharedOperators = useContext(OperatorContext)
+  const s3 = useS3()
   const hasVelero = sharedOperators.some((op) => op.name === 'velero')
 
   const resources: ReturnType<typeof jsx>[] = []
 
   if (!hasVelero) {
     resources.push(declareOperator(operators['velero']()))
+  }
+
+  // S3 provider: emit the BackupStorageLocation against the 'velero/'
+  // prefix of the platform bucket and point the schedule at it. Without a
+  // provider the schedule references 'default' — a storage location the
+  // cluster is expected to manage itself.
+  const locationName = s3 && !storageLocation ? name : (storageLocation ?? 'default')
+
+  if (s3 && !storageLocation) {
+    resources.push(
+      jsx('BackupStorageLocation', {
+        apiVersion: 'velero.io/v1',
+        kind: 'BackupStorageLocation',
+        metadata: { name, namespace: 'velero' },
+        spec: {
+          // no `default: true` — two <Backup> components must not fight over
+          // it; each Schedule pins its storageLocation explicitly
+          provider: 'aws',
+          objectStorage: {
+            bucket: s3.bucket,
+            prefix: s3.prefix ? `${s3.prefix}/velero` : 'velero',
+          },
+          config: {
+            region: s3.region ?? 'us-east-1',
+            ...(s3.forcePathStyle !== false && { s3ForcePathStyle: 'true' }),
+            s3Url: s3.endpoint,
+          },
+          ...(s3.veleroCredentialKey && {
+            credential: { name: s3.credentialsSecret, key: s3.veleroCredentialKey },
+          }),
+        },
+      })
+    )
   }
 
   resources.push(
@@ -74,7 +114,7 @@ export function Backup(props: BackupProps) {
         schedule,
         template: {
           includedNamespaces: namespaces ?? [namespace],
-          storageLocation,
+          storageLocation: locationName,
           ttl,
         },
       },

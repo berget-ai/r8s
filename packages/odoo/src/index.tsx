@@ -366,6 +366,7 @@ export function Odoo(props: OdooProps) {
 
   resources_.push(
     jsx(Database, {
+      backup: false,
       name,
       namespace,
       storage: '10Gi',

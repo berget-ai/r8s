@@ -183,7 +183,7 @@ export interface SecretProviderProps {
    *
    * export default (
    *   <SecretProvider provider="openbao">
-   *     <Database name="app-db" />
+   *     <Database backup={false} name="app-db" />
    *   </SecretProvider>
    * )
    *
@@ -192,7 +192,7 @@ export interface SecretProviderProps {
    *
    * export default (
    *   <SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom" />}>
-   *     <Database name="app-db" />
+   *     <Database backup={false} name="app-db" />
    *   </SecretProvider>
    * )
    */
@@ -212,7 +212,7 @@ export interface SecretProviderProps {
  *
  * export default (
  *   <SecretProvider provider="openbao">
- *     <Database name="app-db" />
+ *     <Database backup={false} name="app-db" />
  *   </SecretProvider>
  * )
  *
@@ -221,7 +221,7 @@ export interface SecretProviderProps {
  *
  * export default (
  *   <SecretProvider provider={<OpenBao mount="secret" path="infra" authRef="custom-auth" />}>
- *     <Database name="app-db" />
+ *     <Database backup={false} name="app-db" />
  *   </SecretProvider>
  * )
  *
@@ -230,7 +230,7 @@ export interface SecretProviderProps {
  *
  * export default (
  *   <SecretProvider provider={<Vault mount="kv" path="apps" />}>
- *     <Database name="app-db" />
+ *     <Database backup={false} name="app-db" />
  *   </SecretProvider>
  * )
  *
@@ -239,7 +239,7 @@ export interface SecretProviderProps {
  *
  * export default (
  *   <SecretProvider provider="sealed-secrets">
- *     <Database name="app-db" />
+ *     <Database backup={false} name="app-db" />
  *   </SecretProvider>
  * )
  */

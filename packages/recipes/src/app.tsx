@@ -87,7 +87,7 @@ export interface AppProps {
  *
  * export default (
  *   <>
- *     <Database name="myapp-db" storage="20Gi" />
+ *     <Database backup={false} name="myapp-db" storage="20Gi" />
  *     <App
  *       name="myapp"
  *       image="myapp/web:v1.2.3"

@@ -274,7 +274,7 @@ export function Paperclip(props: PaperclipProps) {
       ...(dbStorageClass ? { storageClass: dbStorageClass } : {}),
       parameters: { max_connections: '200', effective_cache_size: '768MB' },
       credentialsMode: 'cnpg',
-      ...(backup ? { backup } : {}),
+      backup: backup ?? false,
     })
   )
 

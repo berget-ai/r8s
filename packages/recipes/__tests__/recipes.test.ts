@@ -8,6 +8,7 @@ import { OperatorContext } from '@r8s/core/defaults'
 describe('Database Recipe (CNPG)', () => {
   it('should render CNPG Cluster', () => {
     const element = jsx(Database, {
+      backup: false,
       name: 'test-db',
       namespace: 'test-ns',
       storage: '5Gi',
@@ -29,7 +30,7 @@ describe('Database Recipe (CNPG)', () => {
   })
 
   it('should use default values', () => {
-    const element = jsx(Database, { name: 'default-db' })
+    const element = jsx(Database, { backup: false, name: 'default-db' })
     const result = render(element)
 
     const cluster = result.resources[0]
@@ -40,6 +41,7 @@ describe('Database Recipe (CNPG)', () => {
 
   it('should set DatabaseContext for child components', () => {
     const element = jsx(Database, {
+      backup: false,
       name: 'context-db',
       storage: '10Gi',
     })
@@ -50,7 +52,7 @@ describe('Database Recipe (CNPG)', () => {
   })
 
   it('should declare CNPG operator dependency', () => {
-    const element = jsx(Database, { name: 'test-db' })
+    const element = jsx(Database, { backup: false, name: 'test-db' })
     const result = render(element)
 
     expect(result.operators).toHaveLength(1)
@@ -62,7 +64,7 @@ describe('Database Recipe (CNPG)', () => {
   it('should not duplicate CNPG operator when provided via context', () => {
     const element = jsx(OperatorContext.Provider, {
       value: [cnpgOperator('1.22.5')],
-      children: jsx(Database, { name: 'test-db' }),
+      children: jsx(Database, { backup: false, name: 'test-db' }),
     })
 
     const result = render(element)
@@ -73,6 +75,7 @@ describe('Database Recipe (CNPG)', () => {
 
   it('should allow operator version override', () => {
     const element = jsx(Database, {
+      backup: false,
       name: 'test-db',
       operatorVersion: '1.23.0',
     })
