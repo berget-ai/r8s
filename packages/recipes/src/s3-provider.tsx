@@ -1,25 +1,28 @@
-import { jsx, Fragment, useContext } from '@r8s/core'
+/**
+ * S3 capability — the platform's single source of object-storage truth.
+ *
+ * The provider publishes ONLY a store interface (which S3 is in play:
+ * MinIO, RustFS, AWS, …) plus the generic scoping descriptor. Consumers
+ * (Velero, CNPG, app packages) read it via useS3()/useContext and own
+ * their own conventions — prefix layout, credential keys, WAL archives.
+ * Nothing here knows which subsystems exist downstream.
+ */
+
+import { jsx, useContext } from '@r8s/core'
 import { createContext } from '@r8s/core/defaults'
-import { StaticSecret } from './static-secret'
+import { Fragment } from '@r8s/core'
 
 /**
  * Shared S3 (or S3-compatible) object storage configuration.
  *
- * Consumers (CNPG Database backups, Velero, app packages) read this context
- * and derive their own prefixes — the provider owns endpoint/bucket/region
- * and credentials; the consumer owns its layout (e.g. WAL under
- * `<bucket>/<name>-cnpg`, cluster snapshots under `velero/`).
+ * `credentialsSecret` lives in each consumer's namespace and carries the
+ * keys that consumer's convention requires.
  */
 export interface S3Config {
   /** Endpoint URL incl. scheme (e.g. 'https://s3.example.com') */
   endpoint: string
   /** Bucket holding all consumer prefixes */
   bucket: string
-  /**
-   * Optional path prefix scoping every consumer destination inside the
-   * bucket (set via <Bucket name="…"> — one path segment, no slashes).
-   */
-  prefix?: string
   /** Region (default: 'us-east-1' — the convention for MinIO/RustFS) */
   region?: string
   /**
@@ -28,29 +31,26 @@ export interface S3Config {
    */
   forcePathStyle?: boolean
   /**
-   * Existing Secret holding the access keys. Expected keys:
-   * 'access-key-id' and 'secret-access-key' (the CNPG barman convention);
-   * velero additionally reads `veleroCredentialKey` when set. Must live in
-   * each consumer's namespace — CNPG barman and the Velero BSL credential
-   * reference Secrets namespace-locally.
+   * Existing Secret holding the access keys. Must live in each
+   * consumer's namespace; the consumer decides which keys to read.
    */
   credentialsSecret: string
   /**
-   * Key inside credentialsSecret holding a velero-format cloud credentials
-   * file (e.g. 'cloud'). Omit for workload-identity / IRSA clusters.
+   * Optional path prefix scoping every consumer destination inside the
+   * bucket (set via <Bucket name="…"> — one path segment, no slashes).
    */
-  veleroCredentialKey?: string
+  prefix?: string
 }
 
 /**
  * MinIO / RustFS convenience config — path style on, region default.
  *
  * @example
- * import { S3Provider, MinIO, Database } from '@r8s/recipes'
+ * import { S3Provider, MinIO } from '@r8s/recipes'
  *
  * export default (
  *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
- *     <Database name="api-db" backup />
+ *     …consumers read the context…
  *   </S3Provider>
  * )
  */
@@ -69,11 +69,11 @@ export function MinIO(props: MinIOProps): S3Config {
  * AWS S3 convenience config — virtual-hosted style, endpoint derived from region.
  *
  * @example
- * import { S3Provider, AwsS3, Database } from '@r8s/recipes'
+ * import { S3Provider, AwsS3 } from '@r8s/recipes'
  *
  * export default (
  *   <S3Provider provider={<AwsS3 region="eu-north-1" bucket="infra-backups" credentialsSecret="aws-creds" />}>
- *     <Database name="api-db" backup />
+ *     …consumers read the context…
  *   </S3Provider>
  * )
  */
@@ -82,7 +82,6 @@ export interface AwsS3Props {
   bucket: string
   credentialsSecret: string
   endpoint?: string
-  veleroCredentialKey?: string
 }
 
 export function AwsS3(props: AwsS3Props): S3Config {
@@ -118,28 +117,10 @@ export interface S3ProviderProps {
 }
 
 /**
- * S3Provider — platform-wide S3-compatible object storage.
+ * S3Provider — publishes the platform's object store on context.
  *
- * Sets the S3Config context consumed by:
- * - <Database backup={…} /> — CNPG barman WAL + scheduled backups derive
- *   endpointURL/destinationPath (`<bucket>/<name>-cnpg`) and credentials
- * - <Backup /> — Velero emits a BackupStorageLocation + Schedule targeting
- *   the `velero/` prefix of the provider bucket
- * - application packages (matrix, harbor, …) reading the same context
- *
- * Explicit per-consumer values always win over the provider.
- *
- * @example
- * import { S3Provider, MinIO, Database, Backup } from '@r8s/recipes'
- *
- * export default (
- *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
- *     <>
- *       <Database name="api-db" backup={{} as never} />
- *       <Backup name="nightly" />
- *     </>
- *   </S3Provider>
- * )
+ * Consumers resolve their own destinations from useS3(); <Bucket>
+ * scopes them; explicit per-consumer values always win.
  */
 export function S3Provider(props: S3ProviderProps) {
   const { provider, children } = props
@@ -172,8 +153,6 @@ export interface BucketProps {
   endpoint?: string
   /** Point at another credentials Secret than the surrounding provider's */
   credentialsSecret?: string
-  /** Velero-format credential key INSIDE this descriptor's Secret (overrides the provider's) */
-  veleroCredentialKey?: string
 }
 
 /**
@@ -193,7 +172,6 @@ export interface BucketProps {
  * export default (
  *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
  *     <Database name="matrix-db" backup={<Bucket name="matrix_backup" />} />
- *     <Backup name="daily" bucket={<Bucket name="cluster-dumps" />} />
  *   </S3Provider>
  * )
  */
@@ -233,7 +211,7 @@ export function resolveBucket(
   element: { props: BucketProps },
   s3: S3Config | null
 ): ResolvedBucket {
-  const { name, bucket, endpoint, credentialsSecret, veleroCredentialKey } = element.props
+  const { name, bucket, endpoint, credentialsSecret } = element.props
   if (!name || name.includes('/') || name.includes('..')) {
     throw new Error(
       `Bucket name "${name}" must be a single path segment without slashes or '..' — it becomes the prefix under s3://<bucket>/`
@@ -244,12 +222,6 @@ export function resolveBucket(
     ...(endpoint !== undefined && { endpoint }),
     ...(bucket !== undefined && { bucket }),
     ...(credentialsSecret !== undefined && { credentialsSecret }),
-    ...(veleroCredentialKey !== undefined && { veleroCredentialKey }),
-  }
-  // The provider Secret's velero-format `cloud` entry belongs to the
-  // provider credential — a different Secret needs its own declaration.
-  if (credentialsSecret !== undefined && veleroCredentialKey === undefined) {
-    delete effective.veleroCredentialKey
   }
   if (!effective.endpoint || !effective.bucket || !effective.credentialsSecret) {
     throw new Error(
@@ -268,43 +240,5 @@ export function resolveBucket(
     s3: effective as S3Config,
     prefix,
     root: `s3://${effective.bucket}/${prefix}`,
-  }
-}
-
-/**
- * Emit a backend-provisioned S3 credentials Secret via the static-secret
- * capability hook (openbao/vault/sealed-secrets/custom provision()). The
- * destination Secret carries the CNPG-style keys 'access-key-id' and
- * 'secret-access-key' (+ an optional velero-format `cloud` entry given as
- * templates by the caller).
- */
-export interface S3BackendCredentialsProps {
-  /** Kubernetes Secret name to create */
-  name: string
-  /** Path in the secrets backend holding access_key_id / secret_access_key */
-  path: string
-  namespace?: string
-  /** Extra static-secret templates (e.g. a velero 'cloud' file) */
-  templates?: Record<string, string>
-}
-
-export function S3BackendCredentials(props: S3BackendCredentialsProps) {
-  return jsx(StaticSecret, {
-    name: props.name,
-    namespace: props.namespace,
-    path: props.path,
-    keys: { 'access-key-id': 'access_key_id', 'secret-access-key': 'secret_access_key' },
-    templates: props.templates,
-    refreshAfter: '3600s',
-  })
-}
-
-/** CNPG barman backup config derived from an S3 context (`<bucket>/<name>-cnpg`). */
-export function cnpgBackupFromS3(s3: S3Config, name: string) {
-  const base = s3.prefix ? `${s3.prefix}/` : ''
-  return {
-    endpointURL: s3.endpoint,
-    destinationPath: `s3://${s3.bucket}/${base}${name}-cnpg`,
-    credentialsSecret: s3.credentialsSecret,
   }
 }

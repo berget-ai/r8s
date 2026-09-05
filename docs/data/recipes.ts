@@ -260,6 +260,13 @@ export const recipes: Recipe[] = [
             '<Bucket name="…"/> descriptor element — scopes the BackupStorageLocation to that prefix (`<name>/velero`) of the surrounding provider\'s bucket.',
         },
         {
+          name: 'credentialKey',
+          type: 'string',
+          required: false,
+          description:
+            "Key inside the store's credentials Secret holding a velero-format cloud credentials file (`[default] aws_access_key_id = …`). Omit on workload-identity / IRSA clusters.",
+        },
+        {
           name: 'ttl',
           type: 'string',
           required: false,
@@ -941,7 +948,6 @@ export const recipes: Recipe[] = [
         { name: 'bucket', type: 'string', required: true, description: '' },
         { name: 'credentialsSecret', type: 'string', required: true, description: '' },
         { name: 'endpoint', type: 'string', required: false, description: '' },
-        { name: 'veleroCredentialKey', type: 'string', required: false, description: '' },
       ],
       examples: [],
     },
@@ -950,13 +956,13 @@ export const recipes: Recipe[] = [
     slug: 's3-provider',
     title: 'S3Provider',
     description:
-      'S3Provider — platform-wide S3-compatible object storage. Sets the S3Config context consumed by: - <Database backup={…} /> — CNPG barman WAL + scheduled backups derive endpointURL/destinationPath (`<bucket>/<name>-cnpg`) and credentials - <Backup /> — Velero emits a BackupStorageLocation + Schedule targeting the `velero/` prefix of the provider bucket - application packages (matrix, harbor, …) reading the same context Explicit per-consumer values always win over the provider.',
+      "S3Provider — publishes the platform's object store on context. Consumers resolve their own destinations from useS3(); <Bucket> scopes them; explicit per-consumer values always win.",
     category: 'Recipes',
     keywords: [],
     component: {
       name: 'S3Provider',
       description:
-        'S3Provider — platform-wide S3-compatible object storage. Sets the S3Config context consumed by: - <Database backup={…} /> — CNPG barman WAL + scheduled backups derive endpointURL/destinationPath (`<bucket>/<name>-cnpg`) and credentials - <Backup /> — Velero emits a BackupStorageLocation + Schedule targeting the `velero/` prefix of the provider bucket - application packages (matrix, harbor, …) reading the same context Explicit per-consumer values always win over the provider.',
+        "S3Provider — publishes the platform's object store on context. Consumers resolve their own destinations from useS3(); <Bucket> scopes them; explicit per-consumer values always win.",
       props: [
         {
           name: 'provider',
@@ -967,12 +973,7 @@ export const recipes: Recipe[] = [
         },
         { name: 'children', type: 'unknown', required: false, description: 'Child components' },
       ],
-      examples: [
-        {
-          tsx: 'import { S3Provider, MinIO, Database, Backup } from \'@r8s/recipes\'\n\nexport default (\n  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n    <>\n      <Database name="api-db" backup={{} as never} />\n      <Backup name="nightly" />\n    </>\n  </S3Provider>\n)',
-          yaml: "apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: api-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: api-db\n      owner: api-db\n      secret:\n        name: api-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/api-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: api-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: api-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: velero.io/v1\nkind: BackupStorageLocation\nmetadata:\n  name: nightly\n  namespace: velero\nspec:\n  provider: aws\n  objectStorage:\n    bucket: infra\n    prefix: velero\n  config:\n    region: us-east-1\n    s3ForcePathStyle: 'true'\n    s3Url: https://rustfs:9000\n---\napiVersion: velero.io/v1\nkind: Schedule\nmetadata:\n  name: nightly\n  namespace: velero\nspec:\n  schedule: 0 2 * * *\n  template:\n    includedNamespaces:\n      - default\n    storageLocation: nightly\n    ttl: 720h\n",
-        },
-      ],
+      examples: [],
     },
   },
   {
@@ -1012,54 +1013,13 @@ export const recipes: Recipe[] = [
           required: false,
           description: "Point at another credentials Secret than the surrounding provider's",
         },
-        {
-          name: 'veleroCredentialKey',
-          type: 'string',
-          required: false,
-          description:
-            "Velero-format credential key INSIDE this descriptor's Secret (overrides the provider's)",
-        },
       ],
       examples: [
         {
-          tsx: 'import { S3Provider, MinIO, Bucket, Database, Backup } from \'@r8s/recipes\'\n\nexport default (\n  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n    <Database name="matrix-db" backup={<Bucket name="matrix_backup" />} />\n    <Backup name="daily" bucket={<Bucket name="cluster-dumps" />} />\n  </S3Provider>\n)',
-          yaml: "apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: matrix-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: matrix-db\n      owner: matrix-db\n      secret:\n        name: matrix-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/matrix_backup/matrix-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: matrix-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: matrix-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: velero.io/v1\nkind: BackupStorageLocation\nmetadata:\n  name: daily\n  namespace: velero\nspec:\n  provider: aws\n  objectStorage:\n    bucket: infra\n    prefix: cluster-dumps/velero\n  config:\n    region: us-east-1\n    s3ForcePathStyle: 'true'\n    s3Url: https://rustfs:9000\n---\napiVersion: velero.io/v1\nkind: Schedule\nmetadata:\n  name: daily\n  namespace: velero\nspec:\n  schedule: 0 2 * * *\n  template:\n    includedNamespaces:\n      - default\n    storageLocation: daily\n    ttl: 720h\n",
+          tsx: 'import { S3Provider, MinIO, Bucket, Database, Backup } from \'@r8s/recipes\'\n\nexport default (\n  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n    <Database name="matrix-db" backup={<Bucket name="matrix_backup" />} />\n  </S3Provider>\n)',
+          yaml: 'apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: matrix-db\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: matrix-db\n      owner: matrix-db\n      secret:\n        name: matrix-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/matrix_backup/matrix-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: matrix-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: matrix-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n',
         },
       ],
-    },
-  },
-  {
-    slug: 's3-backend-credentials',
-    title: 'S3BackendCredentials',
-    description: '',
-    category: 'Recipes',
-    keywords: [],
-    component: {
-      name: 'S3BackendCredentials',
-      description:
-        "Emit a backend-provisioned S3 credentials Secret via the static-secret capability hook (openbao/vault/sealed-secrets/custom provision()). The destination Secret carries the CNPG-style keys 'access-key-id' and 'secret-access-key' (+ an optional velero-format `cloud` entry given as templates by the caller).",
-      props: [
-        {
-          name: 'name',
-          type: 'string',
-          required: true,
-          description: 'Kubernetes Secret name to create',
-        },
-        {
-          name: 'path',
-          type: 'string',
-          required: true,
-          description: 'Path in the secrets backend holding access_key_id / secret_access_key',
-        },
-        { name: 'namespace', type: 'string', required: false, description: '' },
-        {
-          name: 'templates',
-          type: 'Record',
-          required: false,
-          description: "Extra static-secret templates (e.g. a velero 'cloud' file)",
-        },
-      ],
-      examples: [],
     },
   },
   {

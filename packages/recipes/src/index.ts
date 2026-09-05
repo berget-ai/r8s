@@ -79,8 +79,6 @@ export {
   type BucketProps,
   isBucketElement,
   resolveBucket,
-  S3BackendCredentials,
-  cnpgBackupFromS3,
 } from './s3-provider'
 
 // Composition helpers — loose building blocks for packages

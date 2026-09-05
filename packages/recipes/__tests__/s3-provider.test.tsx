@@ -237,14 +237,13 @@ describe('Bucket descriptor (backup={<Bucket … />} )', () => {
     )
   })
 
-  it('a descriptor-level veleroCredentialKey survives a credential override', () => {
+  it('a credentialsSecret override gets its credential key from the Backup prop', () => {
     const result = render(
-      <S3Provider provider={{ ...s3, veleroCredentialKey: 'old-cloud' } as never}>
+      <S3Provider provider={{ ...s3, prefix: 'tenant-a' } as never}>
         <Backup
           name="daily"
-          bucket={
-            <Bucket name="dumps" credentialsSecret="other-creds" veleroCredentialKey="cloud" />
-          }
+          credentialKey="cloud"
+          bucket={<Bucket name="dumps" credentialsSecret="other-creds" />}
         />
       </S3Provider>
     )
@@ -281,16 +280,7 @@ describe('Velero Backup via S3 context', () => {
     expect(schedule.spec.template.storageLocation).toBe(bsl.metadata.name)
   })
 
-  it('credentials appear only via veleroCredentialKey (workload identity otherwise)', () => {
-    const withCreds = render(
-      jsx(S3Provider as never, {
-        provider: { ...s3, veleroCredentialKey: 'cloud' },
-        children: jsx(Backup as never, { name: 'nightly' }),
-      })
-    )
-    const bsl = withCreds.resources.find((r) => r.kind === 'BackupStorageLocation') as any
-    expect(bsl.spec.credential).toEqual({ name: 'infra-s3-creds', key: 'cloud' })
-
+  it('workload identity is the default — credential only via explicit credentialKey', () => {
     const without = render(
       <WithS3>
         <Backup name="nightly" />
@@ -298,6 +288,14 @@ describe('Velero Backup via S3 context', () => {
     )
     const plain = without.resources.find((r) => r.kind === 'BackupStorageLocation') as any
     expect(plain.spec.credential).toBeUndefined()
+
+    const withCreds = render(
+      <WithS3>
+        <Backup name="nightly" credentialKey="cloud" />
+      </WithS3>
+    )
+    const bsl = withCreds.resources.find((r) => r.kind === 'BackupStorageLocation') as any
+    expect(bsl.spec.credential).toEqual({ name: 'infra-s3-creds', key: 'cloud' })
   })
 
   it('explicit storageLocation wins — no BSL is emitted', () => {
