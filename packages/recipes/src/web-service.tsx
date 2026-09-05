@@ -203,13 +203,21 @@ export function WebService(props: WebServiceProps) {
     const initialDelaySeconds = spec.initialDelaySeconds ?? 10
     const periodSeconds = spec.periodSeconds ?? 10
     if (spec.tcp) {
-      return { tcpSocket: { port: spec.port ?? port }, initialDelaySeconds, periodSeconds }
+      return {
+        tcpSocket: { port: spec.port ?? port },
+        initialDelaySeconds,
+        periodSeconds,
+        // !== undefined (not truthy): an explicit 0 must surface as-is so
+        // Kubernetes validation fails loudly instead of silently reverting
+        // to the default
+        ...(spec.failureThreshold !== undefined && { failureThreshold: spec.failureThreshold }),
+      }
     }
     return {
       httpGet: { path: spec.path ?? fallbackPath, port: spec.port ?? port },
       initialDelaySeconds,
       periodSeconds,
-      ...(spec.failureThreshold && { failureThreshold: spec.failureThreshold }),
+      ...(spec.failureThreshold !== undefined && { failureThreshold: spec.failureThreshold }),
     }
   }
 
