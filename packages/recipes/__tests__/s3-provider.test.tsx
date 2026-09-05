@@ -222,6 +222,36 @@ describe('Bucket descriptor (backup={<Bucket … />} )', () => {
     expect(bsl.spec.credential).toBeUndefined()
   })
 
+  it('a bucket override isolates the destination from the tenant prefix', () => {
+    const result = render(
+      <S3Provider provider={{ ...s3, prefix: 'tenant-a' } as never}>
+        <Database
+          name="cold-db"
+          backup={<Bucket name="nightly" bucket="cold-storage" credentialsSecret="cold-creds" />}
+        />
+      </S3Provider>
+    )
+    const cluster = result.resources.find((r) => r.kind === 'Cluster') as any
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://cold-storage/nightly/cold-db-cnpg'
+    )
+  })
+
+  it('a descriptor-level veleroCredentialKey survives a credential override', () => {
+    const result = render(
+      <S3Provider provider={{ ...s3, veleroCredentialKey: 'old-cloud' } as never}>
+        <Backup
+          name="daily"
+          bucket={
+            <Bucket name="dumps" credentialsSecret="other-creds" veleroCredentialKey="cloud" />
+          }
+        />
+      </S3Provider>
+    )
+    const bsl = result.resources.find((r) => r.kind === 'BackupStorageLocation') as any
+    expect(bsl.spec.credential).toEqual({ name: 'other-creds', key: 'cloud' })
+  })
+
   it('direct-rendering <Bucket /> fails loudly instead of recursing', () => {
     expect(() => render(<Bucket name="oops" />)).toThrow(/descriptor/)
   })

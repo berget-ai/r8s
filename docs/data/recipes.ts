@@ -254,10 +254,10 @@ export const recipes: Recipe[] = [
         },
         {
           name: 'bucket',
-          type: 'BucketProps',
+          type: 'r8sElement',
           required: false,
           description:
-            '<Bucket name="…"/> descriptor — scopes the BackupStorageLocation to that prefix (`<name>/velero`) of the surrounding provider\'s bucket.',
+            '<Bucket name="…"/> descriptor element — scopes the BackupStorageLocation to that prefix (`<name>/velero`) of the surrounding provider\'s bucket.',
         },
         {
           name: 'ttl',
@@ -997,7 +997,8 @@ export const recipes: Recipe[] = [
           name: 'bucket',
           type: 'string',
           required: false,
-          description: "Point at another bucket than the surrounding provider's",
+          description:
+            "Point at another bucket than the surrounding provider's (isolates tenant prefixes)",
         },
         {
           name: 'endpoint',
@@ -1010,6 +1011,13 @@ export const recipes: Recipe[] = [
           type: 'string',
           required: false,
           description: "Point at another credentials Secret than the surrounding provider's",
+        },
+        {
+          name: 'veleroCredentialKey',
+          type: 'string',
+          required: false,
+          description:
+            "Velero-format credential key INSIDE this descriptor's Secret (overrides the provider's)",
         },
       ],
       examples: [

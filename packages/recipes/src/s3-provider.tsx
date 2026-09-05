@@ -166,12 +166,14 @@ export function S3Provider(props: S3ProviderProps) {
 export interface BucketProps {
   /** Prefix segment under the bucket (single path segment, no slashes) */
   name: string
-  /** Point at another bucket than the surrounding provider's */
+  /** Point at another bucket than the surrounding provider's (isolates tenant prefixes) */
   bucket?: string
   /** Point at another endpoint than the surrounding provider's */
   endpoint?: string
   /** Point at another credentials Secret than the surrounding provider's */
   credentialsSecret?: string
+  /** Velero-format credential key INSIDE this descriptor's Secret (overrides the provider's) */
+  veleroCredentialKey?: string
 }
 
 /**
@@ -231,7 +233,7 @@ export function resolveBucket(
   element: { props: BucketProps },
   s3: S3Config | null
 ): ResolvedBucket {
-  const { name, bucket, endpoint, credentialsSecret } = element.props
+  const { name, bucket, endpoint, credentialsSecret, veleroCredentialKey } = element.props
   if (!name || name.includes('/') || name.includes('..')) {
     throw new Error(
       `Bucket name "${name}" must be a single path segment without slashes or '..' — it becomes the prefix under s3://<bucket>/`
@@ -242,10 +244,13 @@ export function resolveBucket(
     ...(endpoint !== undefined && { endpoint }),
     ...(bucket !== undefined && { bucket }),
     ...(credentialsSecret !== undefined && { credentialsSecret }),
+    ...(veleroCredentialKey !== undefined && { veleroCredentialKey }),
   }
-  // The original Secret's velero-format `cloud` entry belongs to the
-  // original credential — an override almost certainly lacks it.
-  if (credentialsSecret !== undefined) delete effective.veleroCredentialKey
+  // The provider Secret's velero-format `cloud` entry belongs to the
+  // provider credential — a different Secret needs its own declaration.
+  if (credentialsSecret !== undefined && veleroCredentialKey === undefined) {
+    delete effective.veleroCredentialKey
+  }
   if (!effective.endpoint || !effective.bucket || !effective.credentialsSecret) {
     throw new Error(
       `Bucket "${name}" cannot resolve its store config:\n` +
@@ -255,7 +260,10 @@ export function resolveBucket(
         `  <Bucket name="${name}" bucket="…" endpoint="https://…" credentialsSecret="…" />`
     )
   }
-  const prefix = [s3?.prefix, name].filter(Boolean).join('/')
+  // A bucket override isolates the destination — the provider's tenant
+  // prefix must not leak into another store.
+  const ownPrefix = bucket === undefined ? s3?.prefix : undefined
+  const prefix = [ownPrefix, name].filter(Boolean).join('/')
   return {
     s3: effective as S3Config,
     prefix,

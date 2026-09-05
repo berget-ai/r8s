@@ -2,6 +2,7 @@ import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
 import { useS3, isBucketElement, resolveBucket, type BucketProps } from './s3-provider'
+import type { r8sElement } from '@r8s/core'
 
 export interface BackupProps {
   /** Resource name */
@@ -20,10 +21,10 @@ export interface BackupProps {
 
   storageLocation?: string
   /**
-   * <Bucket name="…"/> descriptor — scopes the BackupStorageLocation to
-   * that prefix (`<name>/velero`) of the surrounding provider's bucket.
+   * <Bucket name="…"/> descriptor element — scopes the BackupStorageLocation
+   * to that prefix (`<name>/velero`) of the surrounding provider's bucket.
    */
-  bucket?: BucketProps
+  bucket?: r8sElement
   /** Backup retention (e.g., '720h' for 30 days) */
   ttl?: string
 }
