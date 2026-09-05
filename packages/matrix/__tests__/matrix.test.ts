@@ -275,6 +275,41 @@ describe('Matrix — secrets backends', () => {
     )
   })
 
+  it('pod template labels match the Service selectors (name-prefixed)', () => {
+    const result = renderMatrix()
+    for (const svc of ['synapse', 'mas', 'web', 'admin']) {
+      const dep = find(result, 'Deployment', `matrix-${svc}`) as any
+      const app = dep.spec.selector.matchLabels.app
+      expect(dep.spec.template.metadata.labels.app).toBe(app)
+      expect(app).toBe(`matrix-${svc}`)
+    }
+  })
+
+  it('legacy backup: null maps to explicit opt-out', () => {
+    const result = renderMatrix({ database: { backup: null } })
+    expect(find(result, 'ScheduledBackup', 'matrix-synapse-db-backup')).toBeUndefined()
+  })
+
+  it('explicit object gaps derive from the S3 provider (destinationPath included)', () => {
+    const element = jsx(S3Provider as never, {
+      provider: {
+        endpoint: 'https://rustfs:9000',
+        bucket: 'infra',
+        credentialsSecret: 'infra-s3-creds',
+      },
+      children: jsx(Matrix, {
+        domain: 'example.com',
+        database: { backup: { retention: '14d' } as never },
+      }),
+    })
+    const result = render(element)
+    const synapseDb = find(result, 'Cluster', 'matrix-synapse-db') as any
+    expect(synapseDb.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://infra/matrix-backup/synapse-cnpg'
+    )
+    expect(synapseDb.spec.backup.retentionPolicy).toBe('14d')
+  })
+
   it('omitting the backup decision fails with guidance', () => {
     expect(() =>
       renderMatrixWithPlatform({
