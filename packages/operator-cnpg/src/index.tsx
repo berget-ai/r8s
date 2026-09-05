@@ -23,9 +23,10 @@ export const DEFAULT_CNPG_VERSION = '1.27.0'
 /**
  * Operator declaration with the release manifest URL expanded from the
  * version. Mirror of the `cnpg` entry in packages/crds/operators.yaml —
- * that registry remains the CLI's metadata source until phase 2.
+ * that registry remains the CLI's metadata source until phase 2. Deep
+ * equality with the generated entry is enforced by operator-contracts.
  */
-export function cnpgOperator(version: string = DEFAULT_CNPG_VERSION): Operator {
+export function cnpgOperator(version: string = DEFAULT_CNPG_VERSION): Operator & { namespace: string } {
   const minor = version.split('.').slice(0, 2).join('.')
   return {
     name: 'cnpg',
@@ -37,6 +38,7 @@ export function cnpgOperator(version: string = DEFAULT_CNPG_VERSION): Operator {
       namespace: 'cnpg-system',
     },
     version,
+    namespace: 'cnpg-system',
     crds: [
       'clusters.postgresql.cnpg.io',
       'poolers.postgresql.cnpg.io',

@@ -61,6 +61,22 @@ describe.each(operatorPackages.map((dir) => [dir]))('operator package %s', (dir)
   })
 })
 
+describe('operator package declarations mirror the registry entry', () => {
+  /**
+   * Guards the hand-written declarations against drift from the generated
+   * registry: source (URL/chart/olm), version, namespace and CRD list must
+   * stay equal — npm-resolved install manifests and the CLI's `r8s
+   * operators` render must agree bit for bit.
+   */
+  it('cnpg declaration is deep-equal to the generated registry entry', async () => {
+    const { operators } = await import('@r8s/crds')
+    const { cnpgOperator, DEFAULT_CNPG_VERSION } = await import('../../operator-cnpg/src/index')
+    const expected = operators['cnpg'](DEFAULT_CNPG_VERSION)
+    const actual = cnpgOperator(DEFAULT_CNPG_VERSION)
+    expect({ ...actual }).toEqual({ ...expected })
+  })
+})
+
 describe('operator dependency ranges resolve under one major', () => {
   const consumerDirs = readdirSync(packagesDir).filter((d) =>
     existsSync(join(packagesDir, d, 'package.json'))

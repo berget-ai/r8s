@@ -77,6 +77,14 @@ jobs:
               echo "SKIP $NAME (private)"
               continue
             fi
+            CATEGORY=$(node -p "require('./$pkg').r8s?.category || ''")
+            if [ "$CATEGORY" = "Operators" ]; then
+              # Operator packages mirror THEIR operator's version (1:1), not
+              # the r8s release tag — version int is guarded by the
+              # operator-contracts test suite instead.
+              echo "SKIP $NAME@$VERSION (operator package)"
+              continue
+            fi
             if [ "$VERSION" != "$TAG_VERSION" ]; then
               echo "ERROR: $NAME version $VERSION does not match tag $TAG_VERSION"
               exit 1

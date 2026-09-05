@@ -1,7 +1,6 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import type { EnvVar } from '@r8s/k8s-types'
 import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
 import { ClusterComponent, ScheduledBackupComponent, declareCnpg } from '@r8s/operator-cnpg'
 import { Endpoint, StaticSecret } from '@r8s/recipes'
 
