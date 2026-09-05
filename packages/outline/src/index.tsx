@@ -6,12 +6,12 @@ import {
   Endpoint,
   StaticSecret,
   useOperators,
-  maybeOperator,
   canProvisionSecrets,
   secretsRequiredError,
   type DatabaseProps,
 } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
+import { declareIfMissing } from '@r8s/operator-redis'
 
 export interface OutlineProps {
   /** Resource name (defaults to 'outline') */
@@ -224,7 +224,7 @@ export function Outline(props: OutlineProps) {
 
   // --- Operators -------------------------------------------------------------
   if (cache) {
-    resources_.push(...maybeOperator('redis-operator', sharedOperators))
+    resources_.push(...declareIfMissing(sharedOperators))
   }
 
   // Redis — caching + websockets. Standalone is the facit shape: durable via

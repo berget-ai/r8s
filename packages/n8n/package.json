@@ -1,7 +1,7 @@
 {
   "name": "@r8s/n8n",
   "version": "0.2.1",
-  "description": "n8n workflow automation — editor, Postgres persistence, Redis queue mode, webhook endpoints",
+  "description": "n8n workflow automation \u2014 editor, Postgres persistence, Redis queue mode, webhook endpoints",
   "license": "MIT",
   "author": "Berget AI AB",
   "homepage": "https://r8s.berget.ai",
@@ -36,9 +36,13 @@
   },
   "devDependencies": {
     "typescript": "^5.3.0",
-    "vitest": "^1.0.0"
+    "vitest": "^1.0.0",
+    "@r8s/operator-redis": "^0.22.0"
   },
   "files": [
     "dist"
-  ]
+  ],
+  "peerDependencies": {
+    "@r8s/operator-redis": "^0.22.0"
+  }
 }

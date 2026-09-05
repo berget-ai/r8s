@@ -38,9 +38,11 @@ const registryKeyOf = (dir: string) => {
 /** Registry key → version, straight from the single-source registry */
 function registryVersion(operatorKey: string): string {
   const yaml = readFileSync(join(packagesDir, 'crds', 'operators.yaml'), 'utf8')
-  const block = yaml.split('\n- name: ').find((b) => b.startsWith(`${operatorKey}\n`))
-  if (!block) throw new Error(`operator '${operatorKey}' missing from operators.yaml`)
-  return block.match(/version: '([^']+)'/)?.[1] ?? ''
+  const match = new RegExp(
+    `- name: ${operatorKey}\\n(?:[\\s\\S]*?)\\n\\s*version: '?([^'\\n]+)'?`
+  ).exec(yaml)
+  if (!match) throw new Error(`operator '${operatorKey}' missing from operators.yaml`)
+  return match[1]
 }
 
 const operatorNames = new Set(operatorPackages.map((dir) => packageJson(dir).name as string))

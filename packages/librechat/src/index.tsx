@@ -1,8 +1,8 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext, SecretContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
 import { WebService, Endpoint } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
+import { declareIfMissing } from '@r8s/operator-redis'
 import type { SecretRef } from '@r8s/recipes'
 import type { ConfigMap, EnvVar } from '@r8s/k8s-types'
 
@@ -97,8 +97,6 @@ export interface LibreChatProps {
     clusterIssuer: string
   }
 }
-
-const OPERATOR_REDIS = 'redis-operator'
 
 /**
  * LibreChat — multi-model AI chat UI with external MongoDB, Redis
@@ -227,8 +225,8 @@ export function LibreChat(props: LibreChatProps) {
   }
 
   // --- Operators --------------------------------------------------------------
-  if (cache && !sharedOperators.some((op) => op.name === OPERATOR_REDIS)) {
-    resources_.push(declareOperator(operators[OPERATOR_REDIS]()))
+  if (cache) {
+    resources_.push(...declareIfMissing(sharedOperators))
   }
 
   // Redis — session cache (OT-Container-Kit operator). A replication group

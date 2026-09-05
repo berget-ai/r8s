@@ -1,6 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { useNamespace, OperatorContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
+import { declareIfMissing as declareKeycloak } from '@r8s/operator-keycloak'
+import { declareCnpg } from '@r8s/operator-cnpg'
 import { Database } from './database'
 import { Endpoint } from './endpoint'
 import type { TLSConfig } from '@r8s/k8s-types'
@@ -121,18 +122,12 @@ export function Auth(props: AuthProps) {
   const namespace = useNamespace(namespaceProp)
 
   const sharedOperators = useContext(OperatorContext)
-  const hasKeycloak = sharedOperators.some((op) => op.name === 'keycloak-operator')
-  const hasCNPG = sharedOperators.some((op) => op.name === 'cnpg')
 
   const resources: ReturnType<typeof jsx>[] = []
 
-  // Declare operators if not already provided
-  if (!hasKeycloak) {
-    resources.push(declareOperator(operators['keycloak-operator']()))
-  }
-  if (!hasCNPG) {
-    resources.push(declareOperator(operators['cnpg']()))
-  }
+  // Declare operators if not already provided — via the operator-package contracts
+  resources.push(...declareKeycloak(sharedOperators))
+  resources.push(...declareCnpg(sharedOperators))
 
   // Database for Keycloak — auto-wired via DatabaseContext.
   // Credentials are managed by the secrets backend configured on the Platform.

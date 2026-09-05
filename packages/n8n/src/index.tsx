@@ -6,12 +6,12 @@ import {
   Endpoint,
   StaticSecret,
   useOperators,
-  maybeOperator,
   canProvisionSecrets,
   secretsRequiredError,
   type DatabaseProps,
 } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
+import { declareIfMissing } from '@r8s/operator-redis'
 
 export interface N8nProps {
   /** Resource name (defaults to 'n8n') */
@@ -202,7 +202,7 @@ export function N8n(props: N8nProps) {
 
   // --- Operators ------------------------------------------------------------
   if (queueMode) {
-    resources_.push(...maybeOperator('redis-operator', sharedOperators))
+    resources_.push(...declareIfMissing(sharedOperators))
   }
 
   // --- Database (CNPG) — workflows, executions, stored credentials ----------

@@ -1,6 +1,8 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
+import { declareIfMissing as declarePrometheus } from '@r8s/operator-prometheus'
+import { declareIfMissing as declareLoki } from '@r8s/operator-loki'
+import { declareIfMissing as declareLogging } from '@r8s/operator-logging'
 import { LokiStackComponent } from '@r8s/crds/loki'
 import { LoggingComponent, FlowComponent, OutputComponent } from '@r8s/crds/logging'
 
@@ -65,15 +67,9 @@ export function Monitoring(props: MonitoringProps) {
   } = props
 
   const sharedOperators = useContext(OperatorContext)
-  const hasPrometheus = sharedOperators.some((op) => op.name === 'prometheus')
-  const hasLoki = sharedOperators.some((op) => op.name === 'loki')
-  const hasLogging = sharedOperators.some((op) => op.name === 'logging-operator')
-
   const resources: ReturnType<typeof jsx>[] = []
 
-  if (!hasPrometheus) {
-    resources.push(declareOperator(operators['prometheus']()))
-  }
+  resources.push(...declarePrometheus(sharedOperators))
 
   resources.push(
     jsx('ServiceMonitor', {
@@ -93,12 +89,8 @@ export function Monitoring(props: MonitoringProps) {
 
   // Log aggregation with Loki
   if (logs) {
-    if (!hasLoki) {
-      resources.push(declareOperator(operators['loki']()))
-    }
-    if (!hasLogging) {
-      resources.push(declareOperator(operators['logging-operator']()))
-    }
+    resources.push(...declareLoki(sharedOperators))
+    resources.push(...declareLogging(sharedOperators))
 
     resources.push(
       LokiStackComponent({

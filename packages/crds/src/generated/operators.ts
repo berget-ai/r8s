@@ -103,6 +103,22 @@ export const operators: Record<string, (version?: string) => Operator> = {
     namespace: "velero",
     crds: ["backups.velero.io","restores.velero.io","schedules.velero.io","backupstoragelocations.velero.io","volumesnapshotlocations.velero.io","deletebackuprequests.velero.io","downloadrequests.velero.io"],
   }),
+  "nginx-ingress": (version = "1.15.1") => ({
+    name: "nginx-ingress",
+    description: "NGINX Ingress Controller",
+    source: { type: 'manifest', url: expandVersion("https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v{version}/deploy/static/provider/cloud/deploy.yaml", version), version, namespace: "ingress-nginx" },
+    version,
+    namespace: "ingress-nginx",
+    crds: ["ingressclassparams.networking.k8s.io"],
+  }),
+  "paperclip-operator": (version = "0.19.0") => ({
+    name: "paperclip-operator",
+    description: "Paperclip agent orchestration operator",
+    source: { type: 'helm', chart: "paperclip-operator", repository: "oci://ghcr.io/paperclipinc/charts", version, namespace: "paperclip-system", values: {"metrics":{"enabled":true,"serviceMonitor":{"enabled":false}},"leaderElection":{"enabled":false}} },
+    version,
+    namespace: "paperclip-system",
+    crds: ["instances.paperclip.inc"],
+  }),
 }
 
 /**
@@ -200,5 +216,19 @@ export const operatorMetadata: OperatorMeta[] = [
     category: "Security & Identity",
     version: "1.13.0",
     crds: ["backups.velero.io","restores.velero.io","schedules.velero.io","backupstoragelocations.velero.io","volumesnapshotlocations.velero.io","deletebackuprequests.velero.io","downloadrequests.velero.io"],
+  },
+  {
+    name: "nginx-ingress",
+    description: "NGINX Ingress Controller",
+    category: "Networking",
+    version: "1.15.1",
+    crds: ["ingressclassparams.networking.k8s.io"],
+  },
+  {
+    name: "paperclip-operator",
+    description: "Paperclip agent orchestration operator",
+    category: "Data & Analytics",
+    version: "0.19.0",
+    crds: ["instances.paperclip.inc"],
   },
 ]

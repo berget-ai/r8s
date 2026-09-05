@@ -1,7 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { createContext } from '@r8s/core/defaults'
 import { OperatorContext, SecretContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
+import { declareIfMissing } from '@r8s/operator-external-dns'
 
 /**
  * ExternalDNS configuration component.
@@ -149,10 +149,7 @@ export function DnsProvider(props: DnsProviderProps) {
   const resources: ReturnType<typeof jsx>[] = []
 
   // Declare external-dns operator
-  const hasExternalDNS = sharedOperators.some((op) => op.name === 'external-dns')
-  if (!hasExternalDNS) {
-    resources.push(declareOperator(operators['external-dns']()))
-  }
+  resources.push(...declareIfMissing(sharedOperators))
 
   // TSIG secret via VSO
   if (config.settings.tsig) {

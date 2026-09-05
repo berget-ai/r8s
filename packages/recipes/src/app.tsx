@@ -3,7 +3,7 @@ import { WebService, type SecretRef, type VaultSecretRef } from './web-service'
 import { Endpoint } from './endpoint'
 import { useNamespace, OperatorContext } from '@r8s/core/defaults'
 import type { TLSConfig } from '@r8s/k8s-types'
-import { operators } from '@r8s/crds'
+import { declareIfMissing } from '@r8s/operator-redis'
 import { RedisClusterComponent } from '@r8s/crds/redis'
 
 export interface AppProps {
@@ -154,10 +154,7 @@ export function App(props: AppProps) {
   // Redis cache
   if (cache) {
     const sharedOperators = useContext(OperatorContext)
-    const hasRedis = sharedOperators.some((op) => op.name === 'redis-operator')
-    if (!hasRedis) {
-      elements.push(declareOperator(operators['redis-operator']()))
-    }
+    elements.push(...declareIfMissing(sharedOperators))
     elements.push(
       RedisClusterComponent({
         metadata: { name: `${name}-cache`, namespace },
