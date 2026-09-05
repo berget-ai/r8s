@@ -2,7 +2,7 @@
  * @r8s/operator-logging — Logging Operator for Kubernetes by Banzai Cloud as an npm-resolved
  * operator package. The package version mirrors the operator's own
  * version (4.2.3); consumers declare
- * `"@r8s/operator-logging": "^4.0.0"` as a peerDependency
+ * "@r8s/operator-logging": "^4.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */
 import { declareOperator } from '@r8s/core'
@@ -10,11 +10,6 @@ import type { Operator } from '@r8s/k8s-types'
 
 /** The logging-operator operator version this package was cut for. */
 export const DEFAULT_LOGGING_VERSION = '4.2.3'
-
-function expandVersion(url: string, version: string): string {
-  const minor = version.split('.').slice(0, 2).join('.')
-  return url.replaceAll('{{version}}', version).replaceAll('{{minor}}', minor)
-}
 
 /**
  * Operator declaration — mirror of the `logging-operator` entry in
@@ -32,7 +27,7 @@ export function LoggingOperator(
       chart: 'logging-operator',
       repository: 'https://kube-logging.github.io/helm-charts',
       version,
-      namespace: '',
+      namespace: 'logging',
     },
     version,
     namespace: 'logging',

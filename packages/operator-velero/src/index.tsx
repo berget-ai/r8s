@@ -2,7 +2,7 @@
  * @r8s/operator-velero — Velero backup and disaster recovery as an npm-resolved
  * operator package. The package version mirrors the operator's own
  * version (1.13.0); consumers declare
- * `"@r8s/operator-velero": "^1.0.0"` as a peerDependency
+ * "@r8s/operator-velero": "^1.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */
 import { declareOperator } from '@r8s/core'
@@ -13,7 +13,7 @@ export const DEFAULT_VELERO_VERSION = '1.13.0'
 
 function expandVersion(url: string, version: string): string {
   const minor = version.split('.').slice(0, 2).join('.')
-  return url.replaceAll('{{version}}', version).replaceAll('{{minor}}', minor)
+  return url.replaceAll('{version}', version).replaceAll('{minor}', minor)
 }
 
 /**
@@ -24,17 +24,18 @@ function expandVersion(url: string, version: string): string {
 export function VeleroOperator(
   version: string = DEFAULT_VELERO_VERSION
 ): Operator & { namespace: string } {
+  const minor = version.split('.').slice(0, 2).join('.')
   return {
     name: 'velero',
     description: 'Velero backup and disaster recovery',
     source: {
       type: 'manifest',
       url: expandVersion(
-        'https://raw.githubusercontent.com/vmware-tanzu/velero/v${version}/config/crd/v1/bases/velero.io_backups.yaml',
+        'https://raw.githubusercontent.com/vmware-tanzu/velero/v{version}/config/crd/v1/bases/velero.io_backups.yaml',
         version
       ),
       version,
-      namespace: '',
+      namespace: 'velero',
     },
     version,
     namespace: 'velero',

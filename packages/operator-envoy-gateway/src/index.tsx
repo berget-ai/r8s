@@ -2,7 +2,7 @@
  * @r8s/operator-envoy-gateway — Envoy Gateway — Kubernetes Gateway API implementation as an npm-resolved
  * operator package. The package version mirrors the operator's own
  * version (1.7.0); consumers declare
- * `"@r8s/operator-envoy-gateway": "^1.0.0"` as a peerDependency
+ * "@r8s/operator-envoy-gateway": "^1.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */
 import { declareOperator } from '@r8s/core'
@@ -10,11 +10,6 @@ import type { Operator } from '@r8s/k8s-types'
 
 /** The envoy-gateway operator version this package was cut for. */
 export const DEFAULT_ENVOYGATEWAY_VERSION = '1.7.0'
-
-function expandVersion(url: string, version: string): string {
-  const minor = version.split('.').slice(0, 2).join('.')
-  return url.replaceAll('{{version}}', version).replaceAll('{{minor}}', minor)
-}
 
 /**
  * Operator declaration — mirror of the `envoy-gateway` entry in
@@ -32,7 +27,7 @@ export function EnvoyGatewayOperator(
       chart: 'gateway-helm',
       repository: 'oci://docker.io/envoyproxy',
       version,
-      namespace: '',
+      namespace: 'envoy-gateway-system',
     },
     version,
     namespace: 'envoy-gateway-system',

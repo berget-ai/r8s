@@ -2,7 +2,7 @@
  * @r8s/operator-vault-secrets — HashiCorp Vault Secrets Operator as an npm-resolved
  * operator package. The package version mirrors the operator's own
  * version (0.5.0); consumers declare
- * `"@r8s/operator-vault-secrets": "^0.0.0"` as a peerDependency
+ * "@r8s/operator-vault-secrets": "^0.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */
 import { declareOperator } from '@r8s/core'
@@ -10,11 +10,6 @@ import type { Operator } from '@r8s/k8s-types'
 
 /** The vault-secrets-operator operator version this package was cut for. */
 export const DEFAULT_VAULTSECRETS_VERSION = '0.5.0'
-
-function expandVersion(url: string, version: string): string {
-  const minor = version.split('.').slice(0, 2).join('.')
-  return url.replaceAll('{{version}}', version).replaceAll('{{minor}}', minor)
-}
 
 /**
  * Operator declaration — mirror of the `vault-secrets-operator` entry in
@@ -32,7 +27,7 @@ export function VaultSecretsOperator(
       chart: 'vault-secrets-operator',
       repository: 'https://helm.releases.hashicorp.com',
       version,
-      namespace: '',
+      namespace: 'vault-secrets-operator',
     },
     version,
     namespace: 'vault-secrets-operator',

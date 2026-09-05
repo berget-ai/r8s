@@ -2,7 +2,7 @@
  * @r8s/operator-cert-manager — cert-manager for TLS certificate automation as an npm-resolved
  * operator package. The package version mirrors the operator's own
  * version (1.18.0); consumers declare
- * `"@r8s/operator-cert-manager": "^1.0.0"` as a peerDependency
+ * "@r8s/operator-cert-manager": "^1.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */
 import { declareOperator } from '@r8s/core'
@@ -13,7 +13,7 @@ export const DEFAULT_CERTMANAGER_VERSION = '1.18.0'
 
 function expandVersion(url: string, version: string): string {
   const minor = version.split('.').slice(0, 2).join('.')
-  return url.replaceAll('{{version}}', version).replaceAll('{{minor}}', minor)
+  return url.replaceAll('{version}', version).replaceAll('{minor}', minor)
 }
 
 /**
@@ -24,17 +24,18 @@ function expandVersion(url: string, version: string): string {
 export function CertManagerOperator(
   version: string = DEFAULT_CERTMANAGER_VERSION
 ): Operator & { namespace: string } {
+  const minor = version.split('.').slice(0, 2).join('.')
   return {
     name: 'cert-manager',
     description: 'cert-manager for TLS certificate automation',
     source: {
       type: 'manifest',
       url: expandVersion(
-        'https://github.com/cert-manager/cert-manager/releases/download/v${version}/cert-manager.yaml',
+        'https://github.com/cert-manager/cert-manager/releases/download/v{version}/cert-manager.yaml',
         version
       ),
       version,
-      namespace: '',
+      namespace: 'cert-manager',
     },
     version,
     namespace: 'cert-manager',

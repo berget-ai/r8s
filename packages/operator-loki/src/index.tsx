@@ -2,7 +2,7 @@
  * @r8s/operator-loki — Grafana Loki — horizontally-scalable, highly-available log aggregation as an npm-resolved
  * operator package. The package version mirrors the operator's own
  * version (5.47.0); consumers declare
- * `"@r8s/operator-loki": "^5.0.0"` as a peerDependency
+ * "@r8s/operator-loki": "^5.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */
 import { declareOperator } from '@r8s/core'
@@ -10,11 +10,6 @@ import type { Operator } from '@r8s/k8s-types'
 
 /** The loki operator version this package was cut for. */
 export const DEFAULT_LOKI_VERSION = '5.47.0'
-
-function expandVersion(url: string, version: string): string {
-  const minor = version.split('.').slice(0, 2).join('.')
-  return url.replaceAll('{{version}}', version).replaceAll('{{minor}}', minor)
-}
 
 /**
  * Operator declaration — mirror of the `loki` entry in
@@ -32,7 +27,7 @@ export function LokiOperator(
       chart: 'loki',
       repository: 'https://grafana.github.io/helm-charts',
       version,
-      namespace: '',
+      namespace: 'loki',
     },
     version,
     namespace: 'loki',

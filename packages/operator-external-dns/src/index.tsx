@@ -2,7 +2,7 @@
  * @r8s/operator-external-dns — ExternalDNS for automatic DNS management as an npm-resolved
  * operator package. The package version mirrors the operator's own
  * version (1.21.1); consumers declare
- * `"@r8s/operator-external-dns": "^1.0.0"` as a peerDependency
+ * "@r8s/operator-external-dns": "^1.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */
 import { declareOperator } from '@r8s/core'
@@ -10,11 +10,6 @@ import type { Operator } from '@r8s/k8s-types'
 
 /** The external-dns operator version this package was cut for. */
 export const DEFAULT_EXTERNALDNS_VERSION = '1.21.1'
-
-function expandVersion(url: string, version: string): string {
-  const minor = version.split('.').slice(0, 2).join('.')
-  return url.replaceAll('{{version}}', version).replaceAll('{{minor}}', minor)
-}
 
 /**
  * Operator declaration — mirror of the `external-dns` entry in
@@ -32,7 +27,7 @@ export function ExternalDnsOperator(
       chart: 'external-dns',
       repository: 'https://kubernetes-sigs.github.io/external-dns/',
       version,
-      namespace: '',
+      namespace: 'external-dns',
     },
     version,
     namespace: 'external-dns',

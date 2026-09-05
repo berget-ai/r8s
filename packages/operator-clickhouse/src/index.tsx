@@ -2,7 +2,7 @@
  * @r8s/operator-clickhouse — ClickHouse Operator for Kubernetes by Altinity as an npm-resolved
  * operator package. The package version mirrors the operator's own
  * version (0.25.0); consumers declare
- * `"@r8s/operator-clickhouse": "^0.0.0"` as a peerDependency
+ * "@r8s/operator-clickhouse": "^0.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */
 import { declareOperator } from '@r8s/core'
@@ -10,11 +10,6 @@ import type { Operator } from '@r8s/k8s-types'
 
 /** The clickhouse-operator operator version this package was cut for. */
 export const DEFAULT_CLICKHOUSE_VERSION = '0.25.0'
-
-function expandVersion(url: string, version: string): string {
-  const minor = version.split('.').slice(0, 2).join('.')
-  return url.replaceAll('{{version}}', version).replaceAll('{{minor}}', minor)
-}
 
 /**
  * Operator declaration — mirror of the `clickhouse-operator` entry in
@@ -32,7 +27,7 @@ export function ClickhouseOperator(
       chart: 'clickhouse-operator-helm',
       repository: 'https://docs.altinity.com/clickhouse-operator/',
       version,
-      namespace: '',
+      namespace: 'clickhouse-operator-system',
     },
     version,
     namespace: 'clickhouse-operator-system',
