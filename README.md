@@ -91,10 +91,10 @@ Complete real-world applications as packages — **pinned versions, derived from
 
 | Package | Stack | Package | Stack |
 |---|---|---|---|
-| `@r8s/n8n` | Workflow automation | `@r8s/librechat` | LibreChat |
+| `@r8s/n8n` | Workflow automation | `@r8s/librechat` | Multi-provider chat UI |
 | `@r8s/outline` | Knowledge base | `@r8s/eneo` | AI platform |
-| `@r8s/paperclip` | Agent orchestration | `@r8s/supabase` | Supabase |
-| `@r8s/eurooffice` | Document server | `@r8s/nextcloud` | Nextcloud |
+| `@r8s/paperclip` | Agent orchestration | `@r8s/supabase` | Postgres backend-as-a-service |
+| `@r8s/eurooffice` | Browser office suite | `@r8s/nextcloud` | File sync & groupware |
 | `@r8s/matrix` | Full Matrix stack + SFU | `@r8s/odoo` | Odoo ERP |
 | `@r8s/harbor` | OCI registry | `@r8s/chromadb` | Vector DB |
 | `@r8s/umami` | Analytics | `@r8s/grafana` · `@r8s/superset` | Dashboards |
