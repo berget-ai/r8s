@@ -632,9 +632,13 @@ export function cnpgBackupFromS3(s3: import('./s3-provider').S3Config, name: str
  * backend directly — moved out of the provider layer.
  *
  * @example
- * import { DatabaseS3Credentials } from '@r8s/recipes'
+ * import { SecretProvider, DatabaseS3Credentials } from '@r8s/recipes'
  *
- * export default <DatabaseS3Credentials name="my-creds" path="kv/infra/s3" />
+ * export default (
+ *   <SecretProvider provider="openbao" mount="kv" path="infra">
+ *     <DatabaseS3Credentials name="my-creds" path="infra/s3" />
+ *   </SecretProvider>
+ * )
  */
 export function DatabaseS3Credentials(props: {
   /** Kubernetes Secret name to create */
