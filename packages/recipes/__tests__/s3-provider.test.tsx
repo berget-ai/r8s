@@ -178,6 +178,22 @@ describe('Bucket scoping', () => {
     })
   })
 
+  it('composes nested buckets instead of overwriting the prefix', () => {
+    const result = render(
+      <WithS3>
+        <Bucket name="team-a">
+          <Bucket name="nightly">
+            <Database name="db" backup />
+          </Bucket>
+        </Bucket>
+      </WithS3>
+    )
+    const cluster = result.resources.find((r) => r.kind === 'Cluster') as any
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://infra/team-a/nightly/db-cnpg'
+    )
+  })
+
   it('rejects names that would escape the prefix', () => {
     expect(() =>
       render(

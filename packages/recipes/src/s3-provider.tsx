@@ -54,7 +54,14 @@ export interface S3Config {
  *   </S3Provider>
  * )
  */
-export function MinIO(props: Omit<S3Config, 'forcePathStyle'>): S3Config {
+export interface MinIOProps {
+  endpoint: string
+  bucket: string
+  credentialsSecret: string
+  region?: string
+}
+
+export function MinIO(props: MinIOProps): S3Config {
   return { region: 'us-east-1', forcePathStyle: true, ...props }
 }
 
@@ -70,13 +77,15 @@ export function MinIO(props: Omit<S3Config, 'forcePathStyle'>): S3Config {
  *   </S3Provider>
  * )
  */
-export function AwsS3(props: {
+export interface AwsS3Props {
   region: string
   bucket: string
   credentialsSecret: string
   endpoint?: string
   veleroCredentialKey?: string
-}): S3Config {
+}
+
+export function AwsS3(props: AwsS3Props): S3Config {
   const { region, endpoint, ...rest } = props
   return {
     endpoint: endpoint ?? `https://s3.${region}.amazonaws.com`,
@@ -181,7 +190,7 @@ export function S3Provider(props: S3ProviderProps) {
  *   </S3Provider>
  * )
  */
-export function Bucket(props: {
+export interface BucketProps {
   /** Prefix segment for children (single path segment, no slashes) */
   name: string
   /** Re-scope children to another bucket */
@@ -191,7 +200,9 @@ export function Bucket(props: {
   /** Re-scope children to another credentials Secret */
   credentialsSecret?: string
   children?: unknown
-}) {
+}
+
+export function Bucket(props: BucketProps) {
   const { name, bucket, endpoint, credentialsSecret, children } = props
   if (!name || name.includes('/') || name.includes('..')) {
     throw new Error(
@@ -209,7 +220,7 @@ export function Bucket(props: {
     ...(endpoint !== undefined && { endpoint }),
     ...(bucket !== undefined && { bucket }),
     ...(credentialsSecret !== undefined && { credentialsSecret }),
-    prefix: name,
+    prefix: parent?.prefix ? `${parent.prefix}/${name}` : name,
   }
   return jsx(S3Context.Provider, { value: scoped, children })
 }
@@ -221,7 +232,7 @@ export function Bucket(props: {
  * 'secret-access-key' (+ an optional velero-format `cloud` entry given as
  * templates by the caller).
  */
-export function S3BackendCredentials(props: {
+export interface S3BackendCredentialsProps {
   /** Kubernetes Secret name to create */
   name: string
   /** Path in the secrets backend holding access_key_id / secret_access_key */
@@ -229,7 +240,9 @@ export function S3BackendCredentials(props: {
   namespace?: string
   /** Extra static-secret templates (e.g. a velero 'cloud' file) */
   templates?: Record<string, string>
-}) {
+}
+
+export function S3BackendCredentials(props: S3BackendCredentialsProps) {
   return jsx(StaticSecret, {
     name: props.name,
     namespace: props.namespace,

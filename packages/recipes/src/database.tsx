@@ -63,9 +63,6 @@ export interface DatabaseProps {
   parameters?: Record<string, string>
   /**
    * Continuous barman backup to S3 object storage + ScheduledBackup.
-   * Explicit opt-in.
-   */
-  /**
    * REQUIRED decision point: omit → renderer throws with guidance.
    * `false` → cluster without barman (forks, ephemeral CI).
    * `true`/object → barman WAL + scheduled backups; target and credentials
