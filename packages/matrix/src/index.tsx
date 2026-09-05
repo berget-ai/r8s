@@ -94,7 +94,7 @@ export interface MatrixDatabaseProps {
    * - `false` — cluster without barman (explicit opt-out)
    * Omitted → renderer throws with guidance.
    */
-  backup?: MatrixBackupProps | true | false | { type: unknown; props: BucketProps }
+  backup?: MatrixBackupProps | true | false | null | { type: unknown; props: BucketProps }
 }
 
 export interface MatrixBackupProps {
@@ -534,7 +534,7 @@ function synapseDeployment(opts: {
       strategy: { type: 'Recreate' },
       selector: { matchLabels: { app: `${name}-synapse` } },
       template: {
-        metadata: { labels: { app: `-synapse` } },
+        metadata: { labels: { app: `${name}-synapse` } },
         spec: {
           tolerations: HA_TOLERATIONS,
           topologySpreadConstraints: haTopologySpread(`${name}-synapse`),
@@ -618,7 +618,7 @@ function masDeployment(opts: {
       strategy: { type: 'RollingUpdate', rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } },
       selector: { matchLabels: { app: `${name}-mas` } },
       template: {
-        metadata: { labels: { app: `-mas` } },
+        metadata: { labels: { app: `${name}-mas` } },
         spec: {
           tolerations: HA_TOLERATIONS,
           topologySpreadConstraints: haTopologySpread(`${name}-mas`),
@@ -669,7 +669,7 @@ function webDeployment(opts: {
       replicas,
       selector: { matchLabels: { app: `${name}-web` } },
       template: {
-        metadata: { labels: { app: `-web` } },
+        metadata: { labels: { app: `${name}-web` } },
         spec: {
           tolerations: HA_TOLERATIONS,
           topologySpreadConstraints: haTopologySpread(`${name}-web`),
@@ -717,7 +717,7 @@ function adminDeployment(opts: {
       replicas,
       selector: { matchLabels: { app: `${name}-admin` } },
       template: {
-        metadata: { labels: { app: `-admin` } },
+        metadata: { labels: { app: `${name}-admin` } },
         spec: {
           tolerations: HA_TOLERATIONS,
           topologySpreadConstraints: haTopologySpread(`${name}-admin`),
@@ -946,7 +946,9 @@ export function Matrix(props: MatrixProps) {
         `     or pass sso={{ ..., clientSecretRef: '${name}-keycloak-oidc' }} (a pre-created Secret with key 'clientSecret')`
     )
   }
-  if (database.backup === undefined) {
+  // legacy `backup: null` (pre-required-decision API) maps to explicit opt-out
+  const backupDecision = database.backup === null ? false : database.backup
+  if (backupDecision === undefined) {
     throw new Error(
       `Matrix "${name}": database.backup is a required decision.\n` +
         `\n` +
@@ -971,7 +973,7 @@ export function Matrix(props: MatrixProps) {
   // descriptor points at a scoped destination (matrix name composed under
   // its prefix so several stacks can share a bucket cleanly).
   let backupSpec: MatrixBackupProps | false = false
-  const rawBackup = database.backup
+  const rawBackup = backupDecision
   if (rawBackup !== false) {
     let destinationBase: string | undefined
     let endpointURL: string | undefined
@@ -992,7 +994,9 @@ export function Matrix(props: MatrixProps) {
       credentialsSecret = target.s3.credentialsSecret
     } else if (rawBackup && typeof rawBackup === 'object') {
       const spec = rawBackup as MatrixBackupProps
-      destinationBase = spec.destinationPath
+      destinationBase =
+        spec.destinationPath ??
+        (s3 ? `s3://${s3.bucket}${s3.prefix ? `/${s3.prefix}` : ''}/${name}-backup` : undefined)
       endpointURL = spec.endpointURL ?? s3?.endpoint
       credentialsSecret = spec.credentialsSecret ?? s3?.credentialsSecret
       retention = spec.retention
