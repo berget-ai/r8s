@@ -140,7 +140,8 @@ Components declare the cluster operators they need (CNPG, cert-manager, external
 ```tsx
 import { useOperators, maybeOperator } from '@r8s/recipes'
 
-const [operatorResources, declares] = useOperators(['cnpg', 'cert-manager'])
+const shared = useOperators() // operators the surrounding Platform already runs
+resources.push(...maybeOperator('cnpg', shared)) // declares it only if missing
 ```
 
 ## Testable infrastructure
@@ -166,7 +167,7 @@ it('declares cnpg when a database is used', () => {
 })
 ```
 
-The r8s repo itself runs 1300+ such tests, including a provider-matrix suite that renders every package under every secrets-backend × routing-mode combination, and a validation suite that compiles every documented example against the real package sources.
+The r8s repo itself runs ~900 such tests across 46 suites (~1900 assertions), including a provider-matrix suite that renders every package under every secrets-backend × routing-mode combination, and a validation suite that compiles every documented example against the real package sources.
 
 ## GitOps integration
 
