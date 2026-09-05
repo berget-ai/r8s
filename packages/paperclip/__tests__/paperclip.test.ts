@@ -1,450 +1,232 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import { Namespace, OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
+import { SecretContext } from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
-import { operators } from '@r8s/crds'
-import type { r8sElement } from '@r8s/core'
-
-// Paperclip recipe tests:
-//   1. Operator declarations (cnpg via Database, deduped via OperatorContext)
-//   2. Rendering: defaults, sandbox agents (hardened sandbox, TCP probes),
-//      all props, gateway/ingress adaptation
-//   3. Namespace inheritance from the Platform context
-//   4. Security: no plaintext credentials in rendered output
 import { Paperclip } from '../src/index'
 
-/** Render Paperclip inside a Platform-like secrets backend (OpenBao). */
-function renderPaperclip(props: Record<string, unknown>): ReturnType<typeof render> {
+// Paperclip (operator Instance CR) recipe tests, facit-aligned against
+// berget-internal/apps/paperclip:
+//   1. Operator declaration (paperclip-operator 0.19.0, facit values)
+//   2. Instance CR: image/pullSecrets, Better Auth, external DB, adapters,
+//      storage, resources, networking, probes, heartbeat, backup, security, env
+//   3. Secrets via backend: paperclip-secrets + berget-api-key with
+//      StatefulSet rotation-restart; reference fallbacks; actionable errors
+//   4. CNPG cluster in 'cnpg' credentialsMode (facit: `-app` fqdn-uri)
+
+const openbao = { backend: 'openbao', mount: 'secret', path: 'paperclip' }
+
+function renderApp(props: Record<string, unknown> = {}) {
   return render(
     jsx(SecretContext.Provider, {
-      value: { backend: 'openbao', mount: 'kv', path: 'test' },
-      children: jsx(Paperclip, props as never),
+      value: openbao,
+      children: jsx(Paperclip, { host: 'paperclip.example.com', ...props } as never),
     })
   )
 }
 
-/** Render Paperclip inside a Platform-like Namespace context (no explicit namespace prop). */
-function renderPaperclipInNamespace(
-  namespaceValue: string,
-  props: Record<string, unknown>
-): ReturnType<typeof render> {
-  return render(
-    jsx(Namespace.Provider, {
-      value: namespaceValue,
-      children: jsx(SecretContext.Provider, {
-        value: { backend: 'openbao', mount: 'kv', path: 'test' },
-        children: jsx(Paperclip, props as never),
-      }),
+const resource = (result: ReturnType<typeof render>, kind: string) =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  result.resources.find((r: any) => r.kind === kind) as any
+
+describe('Paperclip operator Instance', () => {
+  it('declares the paperclip-operator once (facit chart values)', () => {
+    const ops = renderApp().operators.filter((o) => o.name === 'paperclip-operator')
+    expect(ops).toHaveLength(1)
+    expect(ops[0].version).toBe('0.19.0')
+    const src = ops[0].source as { type: string; chart: string; values: Record<string, unknown> }
+    expect(src.type).toBe('helm')
+    expect(src.chart).toBe('paperclip-operator')
+    expect(src.values.metrics).toEqual({ enabled: true, serviceMonitor: { enabled: false } })
+    expect(src.values.leaderElection).toEqual({ enabled: false })
+  })
+
+  it('renders the Instance CR with facit image/auth/database spec', () => {
+    const inst = resource(renderApp(), 'Instance')
+    expect(inst.apiVersion).toBe('paperclip.inc/v1alpha1')
+    expect(inst.metadata.name).toBe('paperclip')
+    expect(inst.spec.image).toEqual({
+      repository: 'ghcr.io/berget-ai/paperclip',
+      tag: 'sso-oidc',
+      pullPolicy: 'Always',
+      pullSecrets: [{ name: 'ghcr-pull-secret' }],
     })
-  )
-}
-
-/** Render Paperclip wrapped only in an OperatorContext (no secrets backend). */
-function renderPaperclipWithContext(operators_: any[], props: Record<string, unknown>): r8sElement {
-  return jsx(OperatorContext.Provider, {
-    value: operators_,
-    children: jsx(Paperclip, props as never),
-  })
-}
-
-const openbao = { backend: 'openbao', mount: 'kv', path: 'test' }
-
-describe('operator declarations', () => {
-  it('declares the cnpg operator via the Database recipe', () => {
-    const result = renderPaperclip({ host: 'paperclip.example.com' })
-    expect(result.operators.some((op) => op.name === 'cnpg')).toBe(true)
-  })
-
-  it('declares cnpg exactly once even with sandbox agents (no redis for paperclip)', () => {
-    const result = renderPaperclip({
-      host: 'paperclip.example.com',
-      agents: { sandboxReplicas: 3 },
+    expect(inst.spec.deployment).toEqual({
+      mode: 'authenticated',
+      exposure: 'public',
+      publicURL: 'https://paperclip.example.com',
+      allowedHostnames: ['paperclip.example.com'],
     })
-    const names = result.operators.map((op) => op.name)
-    expect(names.filter((n) => n === 'cnpg')).toHaveLength(1)
-    const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).not.toContain('RedisCluster')
-  })
-
-  it('deduplicates operators provided via context', () => {
-    const result = render(
-      renderPaperclipWithContext([operators['cnpg']()], {
-        host: 'paperclip.example.com',
-        secretsName: 'existing-secrets',
-      })
-    )
-    const names = result.operators.map((op) => op.name)
-    expect(names.filter((n) => n === 'cnpg')).toHaveLength(1)
-  })
-
-  it('allows version overrides through context operators', () => {
-    const result = render(
-      renderPaperclipWithContext([operators['cnpg']('1.25.0')], {
-        host: 'paperclip.example.com',
-        secretsName: 'existing-secrets',
-      })
-    )
-    const cnpg = result.operators.filter((op) => op.name === 'cnpg')
-    expect(cnpg).toHaveLength(1)
-    expect(cnpg[0].version).toBe('1.25.0')
-  })
-})
-
-describe('rendering defaults', () => {
-  it('renders main deployment, service, database and endpoint', () => {
-    const result = renderPaperclip({ host: 'paperclip.example.com' })
-    const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).toContain('Deployment')
-    expect(kinds).toContain('Service')
-    expect(kinds).toContain('Ingress')
-    expect(kinds).toContain('Cluster')
-  })
-
-  it('renders the main app with the paperclip image on port 3000', () => {
-    const result = renderPaperclip({ host: 'paperclip.example.com' })
-    const main = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip'
-    ) as any
-    expect(main).toBeDefined()
-    const container = main.spec.template.spec.containers[0]
-    expect(container.image).toBe('ghcr.io/berget-ai/paperclip:latest')
-    expect(container.ports[0].containerPort).toBe(3000)
-    expect(main.spec.replicas).toBe(2)
-  })
-
-  it('probes both workloads with TCP sockets (unknown HTTP health contract)', () => {
-    const result = renderPaperclip({
-      host: 'paperclip.example.com',
-      agents: { sandboxReplicas: 2 },
+    expect(inst.spec.auth).toEqual({
+      disableSignUp: true,
+      secretRef: { name: 'paperclip-secrets', key: 'better-auth-secret' },
     })
-    for (const name of ['paperclip', 'paperclip-agent-sandbox']) {
-      const deployment = result.resources.find(
-        (r: any) => r.kind === 'Deployment' && r.metadata.name === name
-      ) as any
-      const container = deployment.spec.template.spec.containers[0]
-      expect(container.livenessProbe.tcpSocket).toEqual({ port: 3000 })
-      expect(container.readinessProbe.tcpSocket).toEqual({ port: 3000 })
-      expect(container.livenessProbe.httpGet).toBeUndefined()
-      expect(container.readinessProbe.httpGet).toBeUndefined()
-    }
-  })
-
-  it('renders no sandbox deployment when agents is not set', () => {
-    const result = renderPaperclip({ host: 'paperclip.example.com' })
-    const names = result.resources
-      .filter((r) => r.kind === 'Deployment')
-      .map((d: any) => d.metadata.name)
-    expect(names).toEqual(['paperclip'])
-  })
-
-  it('renders the sandbox agent deployment when agents is set', () => {
-    const result = renderPaperclip({
-      host: 'paperclip.example.com',
-      agents: { sandboxReplicas: 3 },
+    expect(inst.spec.database).toEqual({
+      mode: 'external',
+      externalURLSecretRef: { name: 'paperclip-db-app', key: 'fqdn-uri' },
     })
-    const sandbox = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip-agent-sandbox'
-    ) as any
-    expect(sandbox).toBeDefined()
-    expect(sandbox.spec.replicas).toBe(3)
-    expect(sandbox.spec.template.spec.containers[0].image).toBe(
-      'ghcr.io/berget-ai/paperclip:latest'
-    )
-    expect(sandbox.spec.template.spec.containers[0].command).toEqual([
-      'paperclip',
-      'agent',
-      '--sandbox',
+    expect(inst.spec.adapters).toEqual({ apiKeysSecretRef: { name: 'berget-api-key' } })
+  })
+
+  it('renders facit storage/resources/networking/probes/heartbeat/backup/security', () => {
+    const s = resource(renderApp(), 'Instance').spec
+    expect(s.storage.persistence).toEqual({ enabled: true, size: '10Gi' })
+    expect(s.resources).toEqual(DEFAULT_RESOURCES_MATCH)
+    expect(s.networking.service).toEqual({ type: 'ClusterIP', port: 3100 })
+    expect(s.networking.ingress.ingressClassName).toBe('nginx')
+    expect(s.networking.ingress.hosts).toEqual(['paperclip.example.com'])
+    expect(s.networking.ingress.tls).toEqual([
+      { hosts: ['paperclip.example.com'], secretName: 'paperclip-tls' },
     ])
+    expect(s.probes).toEqual({ type: 'auto' })
+    expect(s.heartbeat).toEqual({ enabled: true, intervalMS: 30000 })
+    expect(s.backup.appNative).toEqual({ enabled: true, intervalMinutes: 60, retentionDays: 7 })
+    expect(s.security.containerSecurityContext.runAsUser).toBe(0)
+    expect(s.security.containerSecurityContext.runAsNonRoot).toBe(false)
+    expect(s.security.podSecurityContext).toEqual({ fsGroup: 1000 })
   })
 
-  it('hardens the sandbox with a locked-down securityContext', () => {
-    const result = renderPaperclip({
-      host: 'paperclip.example.com',
-      agents: {},
-    })
-    const sandbox = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip-agent-sandbox'
-    ) as any
-    const podSpec = sandbox.spec.template.spec
-    expect(podSpec.securityContext).toEqual({ seccompProfile: { type: 'RuntimeDefault' } })
-    const securityContext = podSpec.containers[0].securityContext
-    expect(securityContext.runAsNonRoot).toBe(true)
-    expect(securityContext.allowPrivilegeEscalation).toBe(false)
-    expect(securityContext.seccompProfile).toEqual({ type: 'RuntimeDefault' })
-    expect(securityContext.capabilities.drop).toEqual(['ALL'])
+  it('renders facit ingress annotations, mergeable via ingressAnnotations', () => {
+    const a = resource(renderApp(), 'Instance').spec.networking.ingress.annotations
+    expect(a['cert-manager.io/cluster-issuer']).toBe('letsencrypt-prod')
+    expect(a['nginx.ingress.kubernetes.io/proxy-body-size']).toBe('50m')
+    expect(a['nginx.ingress.kubernetes.io/proxy-read-timeout']).toBe('300')
+    expect(a['nginx.ingress.kubernetes.io/ssl-redirect']).toBe('true')
+
+    const b = resource(
+      renderApp({ ingressAnnotations: { 'nginx.ingress.kubernetes.io/proxy-body-size': '500m' } }),
+      'Instance'
+    ).spec.networking.ingress.annotations
+    expect(b['nginx.ingress.kubernetes.io/proxy-body-size']).toBe('500m')
   })
 
-  it('gives the sandbox explicit resources by default and honours overrides', () => {
-    const defaults = renderPaperclip({ host: 'paperclip.example.com', agents: {} })
-    const defaultSandbox = defaults.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip-agent-sandbox'
-    ) as any
-    const defaultContainer = defaultSandbox.spec.template.spec.containers[0]
-    expect(defaultContainer.resources.requests).toEqual({ cpu: '250m', memory: '256Mi' })
-    expect(defaultContainer.resources.limits).toEqual({ cpu: '1000m', memory: '2Gi' })
-
-    const result = renderPaperclip({
-      host: 'paperclip.example.com',
-      agents: {
-        sandboxReplicas: 1,
-        resources: {
-          requests: { cpu: '500m', memory: '1Gi' },
-          limits: { cpu: '2000m', memory: '4Gi' },
-        },
-      },
-    })
-    const sandbox = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip-agent-sandbox'
-    ) as any
-    const container = sandbox.spec.template.spec.containers[0]
-    expect(container.resources.requests).toEqual({ cpu: '500m', memory: '1Gi' })
-    expect(container.resources.limits).toEqual({ cpu: '2000m', memory: '4Gi' })
-  })
-
-  it('defaults sandbox replicas to 2', () => {
-    const result = renderPaperclip({ host: 'paperclip.example.com', agents: {} })
-    const sandbox = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip-agent-sandbox'
-    ) as any
-    expect(sandbox.spec.replicas).toBe(2)
-  })
-
-  it('renders gateway resources when platform uses gateway routing', () => {
-    const result = render(
-      jsx(RoutingContext.Provider, {
-        value: { mode: 'gateway', gatewayClassName: 'eg' },
-        children: jsx(SecretContext.Provider, {
-          value: openbao as never,
-          children: jsx(Paperclip, { host: 'paperclip.example.com' }),
-        }),
-      })
+  it('renders the facit env contract incl. model catalog', () => {
+    const env = Object.fromEntries(
+      resource(renderApp(), 'Instance').spec.env.map((e: { name: string; value?: string }) => [
+        e.name,
+        e.value,
+      ])
     )
-    const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).toContain('HTTPRoute')
-  })
-
-  it('renders a valid Ingress when platform uses ingress routing', () => {
-    const result = render(
-      jsx(RoutingContext.Provider, {
-        value: { mode: 'ingress' },
-        children: jsx(SecretContext.Provider, {
-          value: openbao as never,
-          children: jsx(Paperclip, { host: 'paperclip.example.com' }),
-        }),
-      })
+    expect(env.PAPERCLIP_TELEMETRY_DISABLED).toBe('1')
+    expect(env.OPENAI_BASE_URL).toBe('https://api.berget.ai/v1')
+    expect(env.PAPERCLIP_SECRETS_PROVIDER).toBe('local_encrypted')
+    expect(env.PAPERCLIP_STORAGE_LOCAL_DIR).toBe('/paperclip/storage')
+    expect(env.HEARTBEAT_SCHEDULER_ENABLED).toBe('true')
+    expect(env.PAPERCLIP_DB_BACKUP_ENABLED).toBe('true')
+    expect(env.PAPERCLIP_AUTH_BASE_URL_MODE).toBe('explicit')
+    expect(env.PAPERCLIP_AUTH_PUBLIC_BASE_URL).toBe('https://paperclip.example.com')
+    expect(env.OPENCODE_CONFIG_CONTENT).toContain('"moonshotai/Kimi-K3"')
+    expect(env.PAPERCLIP_ADAPTER_MODELS).toContain('berget/google/gemma-4-31B-it')
+    // OPENAI_API_KEY comes via secretKeyRef, never inline
+    const key = resource(renderApp(), 'Instance').spec.env.find(
+      (e: { name: string }) => e.name === 'OPENAI_API_KEY'
     )
-    const ingress = result.resources.find((r) => r.kind === 'Ingress') as any
-    expect(ingress).toBeDefined()
-    expect(ingress.spec.rules[0].host).toBe('paperclip.example.com')
+    expect(key.valueFrom.secretKeyRef).toEqual({ name: 'berget-api-key', key: 'api-key' })
   })
 
-  it('passes resource validation', () => {
-    const result = renderPaperclip({
-      host: 'paperclip.example.com',
-      agents: { sandboxReplicas: 2 },
-    })
-    for (const resource of result.resources) {
-      expect(validateResource(resource)).toEqual([])
-    }
-  })
-})
-
-describe('namespace inheritance', () => {
-  it('inherits namespace from the Platform context when namespace prop is not set', () => {
-    const result = renderPaperclipInNamespace('agents', {
-      host: 'paperclip.example.com',
-      agents: { sandboxReplicas: 1 },
-    })
-    for (const kind of ['Deployment', 'Service', 'Cluster', 'Ingress']) {
-      const resource = result.resources.find((r: any) => r.kind === kind)
-      expect(resource).toBeDefined()
-      expect(resource.metadata.namespace).toBe('agents')
-    }
-  })
-
-  it('explicit namespace prop wins over the Platform context', () => {
-    const result = renderPaperclipInNamespace('agents', {
-      host: 'paperclip.example.com',
-      namespace: 'paperclip-ns',
-    })
-    const main = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip'
-    ) as any
-    expect(main.metadata.namespace).toBe('paperclip-ns')
-  })
-
-  it('falls back to default when no Platform namespace is present', () => {
-    const result = renderPaperclip({ host: 'paperclip.example.com' })
-    const main = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip'
-    ) as any
-    expect(main.metadata.namespace).toBe('default')
-  })
-})
-
-describe('rendering with all props', () => {
-  it('accepts the full prop surface', () => {
-    const result = renderPaperclip({
-      name: 'agents',
-      namespace: 'agents',
-      version: '0.4.0',
-      host: 'agents.example.com',
-      replicas: 3,
-      dbStorage: '20Gi',
-      websockets: true,
-      agents: { sandboxReplicas: 4 },
-      resources: {
-        requests: { memory: '1Gi', cpu: '500m' },
-        limits: { memory: '4Gi', cpu: '2000m' },
-      },
-      tls: { secretName: 'agents-tls', clusterIssuer: 'letsencrypt-prod' },
-    })
-    expect(result.resources.length).toBeGreaterThan(0)
-
-    const main = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'agents'
-    ) as any
-    const container = main.spec.template.spec.containers[0]
-    expect(container.image).toBe('ghcr.io/berget-ai/paperclip:0.4.0')
-    expect(main.spec.replicas).toBe(3)
-    expect(container.resources.limits.memory).toBe('4Gi')
-    const websockets = container.env.find((e: any) => e.name === 'WEBSOCKETS_ENABLED')
-    expect(websockets.value).toBe('true')
-
-    const sandbox = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'agents-agent-sandbox'
-    ) as any
-    expect(sandbox.spec.replicas).toBe(4)
-
-    const cluster = result.resources.find((r) => r.kind === 'Cluster') as any
-    expect(cluster.spec.storage.size).toBe('20Gi')
-  })
-
-  it('renders unique env var names (k8s rejects duplicates)', () => {
-    const result = renderPaperclip({
-      host: 'paperclip.example.com',
-      agents: { sandboxReplicas: 1 },
-    })
-    for (const name of ['paperclip', 'paperclip-agent-sandbox']) {
-      const deployment = result.resources.find(
-        (r: any) => r.kind === 'Deployment' && r.metadata.name === name
-      ) as any
-      const env = deployment.spec.template.spec.containers[0].env as Array<{ name: string }>
-      const names = env.map((e) => e.name)
-      expect(new Set(names).size).toBe(names.length)
-    }
-  })
-})
-
-describe('secrets handling', () => {
-  it('provisions the model API key through a secrets backend', () => {
-    const result = renderPaperclip({ host: 'paperclip.example.com' })
-    const bundle = result.resources.find(
-      (r: any) => r.kind === 'OpenBaoStaticSecret' && r.metadata.name === 'paperclip-secrets'
-    ) as any
-    expect(bundle).toBeDefined()
-    expect(bundle.spec.path).toBe('test/paperclip/secrets')
-    expect(bundle.spec.destination).toEqual({
-      create: true,
-      name: 'paperclip-secrets',
-    })
-  })
-
-  it('provisions the model API key through Vault', () => {
-    const result = render(
-      jsx(SecretContext.Provider, {
-        value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(Paperclip, { host: 'paperclip.example.com' }),
-      })
+  it('modelCatalog: false omits both catalog vars; override replaces them', () => {
+    const envOff = Object.fromEntries(
+      resource(renderApp({ modelCatalog: false }), 'Instance').spec.env.map(
+        (e: { name: string; value?: string }) => [e.name, e.value]
+      )
     )
-    const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).toContain('VaultStaticSecret')
-  })
+    expect(envOff.OPENCODE_CONFIG_CONTENT).toBeUndefined()
+    expect(envOff.PAPERCLIP_ADAPTER_MODELS).toBeUndefined()
 
-  it('accepts an explicit secretsName without a backend', () => {
-    const result = render(
-      jsx(Paperclip, { host: 'paperclip.example.com', secretsName: 'existing-secrets' })
+    const envCustom = Object.fromEntries(
+      resource(renderApp({ modelCatalog: { adapterModels: '{"x":[]}' } }), 'Instance').spec.env.map(
+        (e: { name: string; value?: string }) => [e.name, e.value]
+      )
     )
-    const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).not.toContain('OpenBaoStaticSecret')
-    expect(kinds).not.toContain('VaultStaticSecret')
-    expect(result.resources.length).toBeGreaterThan(0)
+    expect(envCustom.PAPERCLIP_ADAPTER_MODELS).toBe('{"x":[]}')
   })
 
-  it('wires credentials via secretKeyRef (never plaintext env)', () => {
-    const result = render(
-      jsx(Paperclip, { host: 'paperclip.example.com', secretsName: 'existing-secrets' })
+  it('provisions paperclip-secrets + berget-api-key with StatefulSet rotation restart', () => {
+    const all = renderApp().resources.filter((r) => r.kind === 'OpenBaoStaticSecret') as {
+      metadata: { name: string }
+      spec: {
+        path: string
+        refreshAfter?: string
+        rolloutRestartTargets?: { kind: string; name: string }[]
+        destination: {
+          name: string
+          transformation: { templates: Record<string, { text: string }> }
+        }
+      }
+    }[]
+    const appSecret = all.find((r) => r.metadata.name === 'paperclip-secrets')
+    const apiKey = all.find((r) => r.metadata.name === 'berget-api-key')
+    expect(appSecret?.spec.path).toBe('paperclip/paperclip/app')
+    expect(appSecret?.spec.rolloutRestartTargets).toEqual([
+      { kind: 'StatefulSet', name: 'paperclip' },
+    ])
+    expect(appSecret?.spec.destination.transformation.templates['better-auth-secret'].text).toBe(
+      '{{ .Secrets.better-auth-secret }}'
     )
-    const main = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip'
-    ) as any
-    const env = main.spec.template.spec.containers[0].env
-    const modelApiKey = env.find((e: any) => e.name === 'MODEL_API_KEY')
-    const dbPassword = env.find((e: any) => e.name === 'PGPASSWORD')
-    expect(modelApiKey.valueFrom.secretKeyRef).toEqual({
-      name: 'existing-secrets',
-      key: 'modelApiKey',
-    })
-    expect(dbPassword.valueFrom.secretKeyRef).toEqual({
-      name: 'paperclip-db-credentials',
-      key: 'password',
-    })
-    expect(modelApiKey.value).toBeUndefined()
-    expect(dbPassword.value).toBeUndefined()
-    const databaseUrl = env.find((e: any) => e.name === 'DATABASE_URL')
-    expect(databaseUrl.value).toContain('$(PGPASSWORD)')
+    expect(apiKey?.spec.path).toBe('paperclip/paperclip/berget-ai')
+    expect(apiKey?.spec.refreshAfter).toBe('3600s')
+    expect(apiKey?.spec.rolloutRestartTargets).toEqual([{ kind: 'StatefulSet', name: 'paperclip' }])
   })
 
-  it('sandbox workers share the same secrets bundle', () => {
-    const result = render(
-      jsx(SecretContext.Provider, {
-        value: openbao as never,
-        children: jsx(Paperclip, {
-          host: 'paperclip.example.com',
-          agents: { sandboxReplicas: 2 },
-        }),
-      })
-    )
-    const sandbox = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'paperclip-agent-sandbox'
-    ) as any
-    const env = sandbox.spec.template.spec.containers[0].env
-    const modelApiKey = env.find((e: any) => e.name === 'MODEL_API_KEY')
-    const dbPassword = env.find((e: any) => e.name === 'PGPASSWORD')
-    expect(modelApiKey.valueFrom.secretKeyRef.name).toBe('paperclip-secrets')
-    expect(modelApiKey.valueFrom.secretKeyRef.key).toBe('modelApiKey')
-    expect(dbPassword.valueFrom.secretKeyRef.name).toBe('paperclip-db-credentials')
-    expect(modelApiKey.value).toBeUndefined()
+  it('secretsName/apiKeySecretName reference pre-created secrets (no provisioning)', () => {
+    const result = renderApp({ secretsName: 'existing-app', apiKeySecretName: 'existing-key' })
+    expect(result.resources.filter((r) => r.kind === 'OpenBaoStaticSecret')).toHaveLength(0)
+    const inst = resource(result, 'Instance')
+    expect(inst.spec.auth.secretRef.name).toBe('existing-app')
+    expect(inst.spec.adapters.apiKeysSecretRef.name).toBe('existing-key')
   })
 
-  it('renders no plaintext credentials anywhere', () => {
-    const result = renderPaperclip({
-      host: 'paperclip.example.com',
-      agents: { sandboxReplicas: 2 },
-    })
-    const { passed, errors } = runGuardrails(result.resources as any[], [noPlaintextSecrets])
-    if (!passed) {
-      console.error('Plaintext credential violations:', errors)
-    }
-    expect(passed).toBe(true)
-  })
-})
-
-describe('validation errors', () => {
-  it('throws when no secrets backend and no model key secret', () => {
-    expect(() => render(jsx(Paperclip, { host: 'paperclip.example.com' }))).toThrow(
-      /model api key/i
-    )
-  })
-
-  it('throws for unknown secrets backends', () => {
+  it('throws an actionable error without a backend and without secret references', () => {
     expect(() =>
       render(
         jsx(SecretContext.Provider, {
-          value: { backend: 'unknown' as never },
-          children: jsx(Paperclip, { host: 'paperclip.example.com' }),
+          value: { backend: 'manual-secrets' },
+          children: jsx(Paperclip, { host: 'paperclip.example.com' } as never),
         })
       )
-    ).toThrow(/model api key/i)
+    ).toThrow(/Paperclip "paperclip" requires/)
+  })
+
+  it('renders the CNPG cluster in cnpg credentialsMode (no backend VSO, default -app secret)', () => {
+    const result = renderApp()
+    const cluster = resource(result, 'Cluster')
+    expect(cluster.metadata.name).toBe('paperclip-db')
+    expect(cluster.spec.instances).toBe(2)
+    expect(cluster.spec.storage.size).toBe('20Gi')
+    expect(cluster.spec.postgresql.parameters.max_connections).toBe('200')
+    // CNPG default bootstrap secret naming — the Instance references `<db>-app`
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+    // No backend-managed credentials VSO for the database
+    expect(
+      result.resources.filter((r) => r.kind === 'OpenBaoStaticSecret').map((r) => r.metadata.name)
+    ).toEqual(['paperclip-secrets', 'berget-api-key'])
+  })
+
+  it('passes backup through to the Database recipe', () => {
+    const cluster = resource(
+      renderApp({
+        backup: {
+          destinationPath: 's3://backups/paperclip-cnpg',
+          endpointURL: 'https://s3.nl-ams.scw.cloud',
+          credentialsSecret: 'scaleway-s3-secret',
+        },
+      }),
+      'Cluster'
+    )
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://backups/paperclip-cnpg'
+    )
+  })
+
+  it('produces valid, plaintext-free manifests', () => {
+    const result = renderApp()
+    for (const r of result.resources) {
+      expect(validateResource(r)).toEqual([])
+    }
+    expect(runGuardrails(result.resources as never, [noPlaintextSecrets]).passed).toBe(true)
   })
 })
+
+const DEFAULT_RESOURCES_MATCH = {
+  requests: { memory: '512Mi', cpu: '250m' },
+  limits: { memory: '12Gi', cpu: '2' },
+}

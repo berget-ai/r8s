@@ -71833,25 +71833,33 @@ export const packages: Package[] = [
     components: [
       {
         name: 'Paperclip',
-        description: "Paperclip — Berget's agent platform (tasks, documents, agent orchestration).",
+        description:
+          "Paperclip — Berget's agent platform (tasks, documents, agent orchestration), facit-aligned on the paperclip-operator.",
         props: [
           {
             name: 'name',
             type: 'string',
             required: false,
-            description: "Resource name (defaults to 'paperclip')",
+            description: "Resource name / Instance CR name (defaults to 'paperclip')",
           },
           {
             name: 'namespace',
             type: 'string',
             required: false,
-            description: "Kubernetes namespace (defaults to 'default')",
+            description: 'Kubernetes namespace (inherited from <Platform> unless set)',
           },
           {
             name: 'version',
             type: 'string',
             required: false,
-            description: "Container image tag (defaults to 'latest' — pin a version in production)",
+            description:
+              "App image tag (defaults to 'sso-oidc' — the Berget fork branch build for SSO/OIDC work; a named moving tag, Always-pulled on purpose).",
+          },
+          {
+            name: 'repository',
+            type: 'string',
+            required: false,
+            description: 'Image repository (defaults to the Berget fork)',
           },
           {
             name: 'host',
@@ -71860,54 +71868,137 @@ export const packages: Package[] = [
             description: 'Public hostname for the web app and API (required)',
           },
           {
-            name: 'replicas',
+            name: 'pullSecrets',
+            type: 'string[]',
+            required: false,
+            description:
+              "Manual image pull secrets for the private ghcr image (defaults to ['ghcr-pull-secret'] — a fine-grained PAT read:packages Secret that is deliberately managed OUTSIDE Flux: rotate it by delete+recreate)",
+          },
+          {
+            name: 'operatorVersion',
+            type: 'string',
+            required: false,
+            description:
+              "Operator chart version for the paperclip-operator (defaults to '0.19.0'). The operator owns the StatefulSet/PVC/ingress/probes — the Instance CR is the entire app definition.",
+          },
+          {
+            name: 'dbName',
+            type: 'string',
+            required: false,
+            description:
+              "CNPG cluster name holding paperclip's data (defaults to 'paperclip-db'). Credentials are CNPG-managed: the Instance references the generated `<db>-app` secret's `fqdn-uri` key (requires CNPG ≥ 1.20).",
+          },
+          {
+            name: 'dbInstances',
             type: 'number',
             required: false,
-            description: 'Number of app replicas (defaults to 2)',
+            description: 'Number of CNPG instances (defaults to 2)',
           },
           {
             name: 'dbStorage',
             type: 'string',
             required: false,
-            description: "Storage size for the Postgres cluster (defaults to '10Gi')",
+            description: "CNPG data volume size (defaults to '20Gi')",
           },
           {
-            name: 'websockets',
-            type: 'boolean',
+            name: 'dbStorageClass',
+            type: 'string',
             required: false,
-            description: 'Enable websockets for live task and agent updates (defaults to false)',
+            description: 'CNPG storage class (defaults to cluster default)',
           },
           {
-            name: 'agents',
-            type: '{ sandboxReplicas?: number, resources?: { requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } } }',
+            name: 'backup',
+            type: "DatabaseProps['backup']",
             required: false,
             description:
-              'Sandbox agent workers. Workers run the same image with a command override (paperclip agent --sandbox) and share the model API key and database credentials via secretKeyRef. They run with a hardened securityContext (non-root, no privilege escalation, RuntimeDefault seccomp, all capabilities dropped) by default.',
+              'CNPG backup configuration passed through to the Database recipe (continuous WAL + scheduled base backups to Scaleway in facit)',
+          },
+          {
+            name: 'appBackup',
+            type: '{ enabled?: boolean, intervalMinutes?: number, retentionDays?: number } | false',
+            required: false,
+            description:
+              'App-native database backups (sql dumps on the persistence volume). Defaults to facit: enabled, hourly, 7 days retention.',
+          },
+          {
+            name: 'storage',
+            type: '{ size?: string, storageClass?: string } | false',
+            required: false,
+            description:
+              'Operator-managed persistence volume at /paperclip (storage dir /paperclip/storage, native backups /paperclip/backups). Defaults to 10Gi; storageClass optional.',
+          },
+          {
+            name: 'heartbeat',
+            type: '{ enabled?: boolean, intervalMS?: number } | false',
+            required: false,
+            description: 'Heartbeat scheduler (defaults to facit: every 30s)',
+          },
+          {
+            name: 'llm',
+            type: '{ baseUrl?: string, path?: string, refreshAfter?: string }',
+            required: false,
+            description:
+              'LLM access via the Berget gateway. `baseUrl` defaults to https://api.berget.ai/v1. The API key is provisioned through the Platform secrets backend (path `<path>/<name>/berget-ai`, key `api-key`) unless `apiKeySecretName` references a pre-created Secret (key: api-key). Rotation restarts the StatefulSet.',
+          },
+          {
+            name: 'apiKeySecretName',
+            type: 'string',
+            required: false,
+            description:
+              'Reference a pre-created LLM API key Secret (key: api-key) instead of backend provisioning',
+          },
+          {
+            name: 'auth',
+            type: '{ path?: string, refreshAfter?: string, disableSignUp?: boolean }',
+            required: false,
+            description:
+              'Better Auth secret — session signing. Provisioned through the Platform secrets backend (path `<path>/<name>/app`, key `better-auth-secret`) unless `secretsName` references a pre-created Secret (key: better-auth-secret). Rotation restarts the StatefulSet.',
           },
           {
             name: 'secretsName',
             type: 'string',
             required: false,
             description:
-              'Name of an existing Secret containing key `modelApiKey`. Paperclip uses this key to call LLM providers on behalf of agents. Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions the key automatically. Plaintext keys are not supported.',
+              'Reference a pre-created app secrets bundle (key: better-auth-secret) instead of backend provisioning',
+          },
+          {
+            name: 'modelCatalog',
+            type: '{ opencodeConfig?: string, adapterModels?: string } | false',
+            required: false,
+            description:
+              'Berget model catalog env vars (OPENCODE_CONFIG_CONTENT + PAPERCLIP_ADAPTER_MODELS) wiring Paperclip to the Berget gateway. Defaults to the facit catalog (Kimi K3/K2.6, GLM-5.2/4.7, GPT-OSS 120B, Mistral Medium/Small, Qwen3.8 27B, Gemma 4 31B). Pass `false` to omit both vars.',
+          },
+          {
+            name: 'ingressAnnotations',
+            type: 'Record',
+            required: false,
+            description:
+              'Extra ingress annotations merged over the facit defaults (body-size 50m, 300s timeouts, ssl-redirect)',
+          },
+          {
+            name: 'allowedHostnames',
+            type: 'string[]',
+            required: false,
+            description: 'Additional hostnames accepted by the deployment (defaults to [host])',
           },
           {
             name: 'resources',
             type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
             required: false,
-            description: 'Requested app resources',
+            description:
+              'Requested resources for the app StatefulSet (defaults to facit: 512Mi/250m → 12Gi/2)',
           },
           {
             name: 'tls',
             type: '{ secretName: string, clusterIssuer: string }',
             required: false,
-            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+            description: 'TLS secret for ingress (defaults to `${name}-tls` via letsencrypt-prod)',
           },
         ],
         examples: [
           {
-            tsx: "import { Platform } from '@r8s/recipes'\nimport { Paperclip } from '@r8s/paperclip'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Paperclip name=\"paperclip\" host=\"paperclip.example.com\" agents={{ sandboxReplicas: 3 }} />\n  </Platform>\n)\n",
-            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: paperclip-secrets\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/paperclip/secrets\n  destination:\n    create: true\n    name: paperclip-secrets\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: paperclip\n  namespace: default\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: paperclip\n      owner: paperclip\n      secret:\n        name: paperclip-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: paperclip-db-secret\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/paperclip\n  destination:\n    create: true\n    name: paperclip-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: paperclip\n  namespace: default\n  labels:\n    app: paperclip\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: paperclip\n  template:\n    metadata:\n      labels:\n        app: paperclip\n    spec:\n      containers:\n        - name: app\n          image: ghcr.io/berget-ai/paperclip:latest\n          imagePullPolicy: Always\n          ports:\n            - containerPort: 3000\n          env:\n            - name: MODEL_API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: paperclip-secrets\n                  key: modelApiKey\n            - name: PORT\n              value: '3000'\n            - name: PGHOST\n              value: paperclip-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: paperclip\n            - name: PGUSER\n              value: paperclip\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: paperclip-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: 1000m\n          livenessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: paperclip\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: paperclip\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: paperclip-agent-sandbox\n  namespace: default\n  labels:\n    app: paperclip-agent-sandbox\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: paperclip-agent-sandbox\n  template:\n    metadata:\n      labels:\n        app: paperclip-agent-sandbox\n    spec:\n      securityContext:\n        seccompProfile:\n          type: RuntimeDefault\n      containers:\n        - name: app\n          image: ghcr.io/berget-ai/paperclip:latest\n          imagePullPolicy: Always\n          command:\n            - paperclip\n            - agent\n            - '--sandbox'\n          ports:\n            - containerPort: 3000\n          env:\n            - name: MODEL_API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: paperclip-secrets\n                  key: modelApiKey\n            - name: PGHOST\n              value: paperclip-rw\n            - name: PGPORT\n              value: '5432'\n            - name: PGDATABASE\n              value: paperclip\n            - name: PGUSER\n              value: paperclip\n            - name: PGPASSWORD\n              valueFrom:\n                secretKeyRef:\n                  name: paperclip-db-credentials\n                  key: password\n            - name: DATABASE_URL\n              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)\n          resources:\n            requests:\n              cpu: 250m\n              memory: 256Mi\n            limits:\n              cpu: 1000m\n              memory: 2Gi\n          securityContext:\n            runAsNonRoot: true\n            allowPrivilegeEscalation: false\n            seccompProfile:\n              type: RuntimeDefault\n            capabilities:\n              drop:\n                - ALL\n          livenessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            tcpSocket:\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: paperclip-agent-sandbox\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: paperclip-agent-sandbox\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: paperclip-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: paperclip.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: paperclip\n                port:\n                  number: 3000\n  tls:\n    - hosts:\n        - paperclip.example.com\n      secretName: paperclip-tls\n",
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { Paperclip } from '@r8s/paperclip'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'paperclip' }}>\n    <Paperclip\n      host=\"paperclip.example.com\"\n      backup={{\n        destinationPath: 's3://backups/paperclip-cnpg',\n        endpointURL: 'https://s3.nl-ams.scw.cloud',\n        credentialsSecret: 'scaleway-s3-secret',\n      }}\n    />\n  </Platform>\n)\n",
+            yaml: 'apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: paperclip-secrets\n  namespace: default\nspec:\n  mount: secret\n  type: kv-v2\n  path: paperclip/paperclip/app\n  refreshAfter: 1h\n  rolloutRestartTargets:\n    - kind: StatefulSet\n      name: paperclip\n  destination:\n    create: true\n    name: paperclip-secrets\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        better-auth-secret:\n          text: \'{{ .Secrets.better-auth-secret }}\'\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: berget-api-key\n  namespace: default\nspec:\n  mount: secret\n  type: kv-v2\n  path: paperclip/paperclip/berget-ai\n  refreshAfter: 3600s\n  rolloutRestartTargets:\n    - kind: StatefulSet\n      name: paperclip\n  destination:\n    create: true\n    name: berget-api-key\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        api-key:\n          text: \'{{ .Secrets.api-key }}\'\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: paperclip-db\n  namespace: default\nspec:\n  instances: 2\n  storage:\n    size: 20Gi\n  bootstrap:\n    initdb:\n      database: paperclip-db\n      owner: paperclip-db\n  monitoring:\n    enablePodMonitor: true\n  postgresql:\n    parameters:\n      max_connections: \'200\'\n      effective_cache_size: 768MB\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://backups/paperclip-cnpg\n      endpointURL: https://s3.nl-ams.scw.cloud\n      s3Credentials:\n        accessKeyId:\n          name: scaleway-s3-secret\n          key: access-key-id\n        secretAccessKey:\n          name: scaleway-s3-secret\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: paperclip-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: paperclip-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: paperclip.inc/v1alpha1\nkind: Instance\nmetadata:\n  name: paperclip\n  namespace: default\n  labels:\n    app: paperclip\nspec:\n  image:\n    repository: ghcr.io/berget-ai/paperclip\n    tag: sso-oidc\n    pullPolicy: Always\n    pullSecrets:\n      - name: ghcr-pull-secret\n  deployment:\n    mode: authenticated\n    exposure: public\n    publicURL: https://paperclip.example.com\n    allowedHostnames:\n      - paperclip.example.com\n  auth:\n    disableSignUp: true\n    secretRef:\n      name: paperclip-secrets\n      key: better-auth-secret\n  database:\n    mode: external\n    externalURLSecretRef:\n      name: paperclip-db-app\n      key: fqdn-uri\n  adapters:\n    apiKeysSecretRef:\n      name: berget-api-key\n  storage:\n    persistence:\n      enabled: true\n      size: 10Gi\n  resources:\n    requests:\n      memory: 512Mi\n      cpu: 250m\n    limits:\n      memory: 12Gi\n      cpu: \'2\'\n  networking:\n    service:\n      type: ClusterIP\n      port: 3100\n    ingress:\n      enabled: true\n      ingressClassName: nginx\n      hosts:\n        - paperclip.example.com\n      tls:\n        - hosts:\n            - paperclip.example.com\n          secretName: paperclip-tls\n      annotations:\n        cert-manager.io/cluster-issuer: letsencrypt-prod\n        external-dns.alpha.kubernetes.io/hostname: paperclip.example.com\n        nginx.ingress.kubernetes.io/ssl-redirect: \'true\'\n        nginx.ingress.kubernetes.io/proxy-body-size: 50m\n        nginx.ingress.kubernetes.io/proxy-read-timeout: \'300\'\n        nginx.ingress.kubernetes.io/proxy-send-timeout: \'300\'\n        nginx.ingress.kubernetes.io/proxy-http-version: \'1.1\'\n  probes:\n    type: auto\n  heartbeat:\n    enabled: true\n    intervalMS: 30000\n  backup:\n    appNative:\n      enabled: true\n      intervalMinutes: 60\n      retentionDays: 7\n  security:\n    networkPolicy:\n      enabled: false\n    seLinuxRelabel: false\n    podSecurityContext:\n      fsGroup: 1000\n    containerSecurityContext:\n      allowPrivilegeEscalation: false\n      capabilities:\n        drop:\n          - ALL\n      runAsNonRoot: false\n      runAsUser: 0\n  env:\n    - name: PAPERCLIP_TELEMETRY_DISABLED\n      value: \'1\'\n    - name: OPENAI_BASE_URL\n      value: https://api.berget.ai/v1\n    - name: OPENAI_API_KEY\n      valueFrom:\n        secretKeyRef:\n          name: berget-api-key\n          key: api-key\n    - name: PAPERCLIP_SECRETS_PROVIDER\n      value: local_encrypted\n    - name: PAPERCLIP_STORAGE_PROVIDER\n      value: local_disk\n    - name: PAPERCLIP_STORAGE_LOCAL_DIR\n      value: /paperclip/storage\n    - name: HEARTBEAT_SCHEDULER_ENABLED\n      value: \'true\'\n    - name: PAPERCLIP_DB_BACKUP_ENABLED\n      value: \'true\'\n    - name: PAPERCLIP_DB_BACKUP_DIR\n      value: /paperclip/backups\n    - name: PAPERCLIP_AUTH_BASE_URL_MODE\n      value: explicit\n    - name: PAPERCLIP_AUTH_PUBLIC_BASE_URL\n      value: https://paperclip.example.com\n    - name: OPENCODE_CONFIG_CONTENT\n      value: \'{"provider":{"berget":{"npm":"@ai-sdk/openai-compatible","name":"Berget","options":{"baseURL":"https://api.berget.ai/v1","apiKey":"{env:OPENAI_API_KEY}"},"models":{"moonshotai/Kimi-K3":{"name":"Kimi K3"},"moonshotai/Kimi-K2.6":{"name":"Kimi K2.6"},"zai-org/GLM-5.2":{"name":"GLM-5.2"},"zai-org/GLM-4.7-FP8":{"name":"GLM-4.7"},"openai/gpt-oss-120b":{"name":"GPT-OSS 120B"},"mistralai/Mistral-Medium-3.5-128B":{"name":"Mistral Medium 3.5"},"mistralai/Mistral-Small-3.2-24B-Instruct-2506":{"name":"Mistral Small"},"Qwen/Qwen3.8-27B-FP8":{"name":"Qwen3.8 27B"},"google/gemma-4-31B-it":{"name":"Gemma 4 31B"}}}}}\'\n    - name: PAPERCLIP_ADAPTER_MODELS\n      value: \'{"opencode_local":[{"id":"berget/moonshotai/Kimi-K3","label":"Kimi K3"},{"id":"berget/moonshotai/Kimi-K2.6","label":"Kimi K2.6"},{"id":"berget/zai-org/GLM-5.2","label":"GLM-5.2"},{"id":"berget/zai-org/GLM-4.7-FP8","label":"GLM-4.7"},{"id":"berget/openai/gpt-oss-120b","label":"GPT-OSS 120B"},{"id":"berget/mistralai/Mistral-Medium-3.5-128B","label":"Mistral Medium 3.5"},{"id":"berget/mistralai/Mistral-Small-3.2-24B-Instruct-2506","label":"Mistral Small"},{"id":"berget/Qwen/Qwen3.8-27B-FP8","label":"Qwen3.8 27B"},{"id":"berget/google/gemma-4-31B-it","label":"Gemma 4 31B"}]}\'\n',
           },
         ],
       },
