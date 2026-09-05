@@ -382,11 +382,14 @@ export function WebService(props: WebServiceProps) {
       // Expose the app port directly (so consumers can reference it) while
       // keeping 80 as a stable backward-compatible alias: existing
       // Endpoints/default servicePort=80 users keep routing during
-      // migration to explicit servicePort
+      // migration to explicit servicePort.
+      // Port names are REQUIRED whenever a Service has more than one port —
+      // without them the API server rejects the resource (caught by Flux
+      // dry-run as "spec.ports[i].name: Required value").
       ports: [
-        { port, targetPort: port },
+        { name: 'http', port, targetPort: port },
         // eslint-disable-next-line -- 80 alias for legacy servicePort=80 consumers
-        ...(port !== 80 ? [{ port: 80, targetPort: port }] : []),
+        ...(port !== 80 ? [{ name: 'http-80', port: 80, targetPort: port }] : []),
       ],
     },
   }
