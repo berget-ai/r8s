@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/berget-ai/r8s-docs:79684ee
+          image: ghcr.io/berget-ai/r8s-docs:f9849d4
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
@@ -57,9 +57,11 @@ spec:
   selector:
     app: r8s-docs
   ports:
-    - port: 3000
+    - name: http
+      port: 3000
       targetPort: 3000
-    - port: 80
+    - name: http-80
+      port: 80
       targetPort: 3000
 ---
 apiVersion: cert-manager.io/v1
