@@ -1,5 +1,6 @@
-import { jsx, useContext, declareOperator } from '@r8s/core'
+import { jsx, useContext } from '@r8s/core'
 import { Cluster } from '@r8s/crds/postgresql'
+import { declareCnpg } from '@r8s/operator-cnpg'
 import {
   DatabaseContext,
   SecretContext,
@@ -7,7 +8,6 @@ import {
   ClusterContext,
   useNamespace,
 } from '@r8s/core/defaults'
-import { cnpgOperator } from './operators'
 import { provisionerForSecretProvider } from './secret-provider'
 
 /**
@@ -301,7 +301,7 @@ export function Database(props: DatabaseProps) {
     }
 
     if (!hasCNPG) {
-      resources.push(declareOperator(cnpgOperator(operatorVersion)))
+      resources.push(...declareCnpg(sharedOperators, operatorVersion))
     }
 
     resources.push(jsx('Cluster', cluster))

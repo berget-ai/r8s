@@ -17,9 +17,6 @@
     },
     {
       "path": "../crds"
-    },
-    {
-      "path": "../operator-cnpg"
     }
   ]
 }
