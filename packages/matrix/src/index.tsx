@@ -2,6 +2,7 @@ import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import type { EnvVar } from '@r8s/k8s-types'
 import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
 import { ClusterComponent, ScheduledBackupComponent, declareCnpg } from '@r8s/operator-cnpg'
+import { useS3, isBucketElement, resolveBucket, type BucketProps } from '@r8s/recipes'
 import { Endpoint, StaticSecret } from '@r8s/recipes'
 
 /** HA scheduling defaults learned from a production node-blip incident:
@@ -86,22 +87,27 @@ export interface MatrixDatabaseProps {
   /** StorageClass name (default: cluster default) */
   storageClass?: string
   /**
-   * Backup configuration — barman object store + scheduled full backups.
-   * Set to false to disable. Defaults to off unless specified (explicit opt-in
-   * so you can't forget: a disk-full WAL incident is exactly what this prevents).
+   * REQUIRED decision point (same contract as <Database backup>):
+   * - `<Bucket name="…"/>` descriptor — scoped destination under the S3 provider
+   * - explicit object — per-field gaps derive from the surrounding S3Provider
+   * - `true` — derive the whole target from the S3Provider
+   * - `false` — cluster without barman (explicit opt-out)
+   * Omitted → renderer throws with guidance.
    */
-  backup?: {
-    /** S3 destination path, e.g. s3://bucket/matrix-cnpg */
-    destinationPath: string
-    /** S3 endpoint URL (e.g. https://s3.berget.cloud) */
-    endpointURL: string
-    /** Existing Secret with keys `access-key-id` + `secret-access-key`. Provisioned by the secrets backend when not given. */
-    credentialsSecret?: string
-    /** Retention policy (default: '30d') */
-    retention?: string
-    /** Cron schedule for the daily full backup (default: '30 3 * * *') */
-    schedule?: string
-  } | null
+  backup?: MatrixBackupProps | true | false | { type: unknown; props: BucketProps }
+}
+
+export interface MatrixBackupProps {
+  /** S3 destination BASE path per database; e.g. s3://bucket/matrix_backup (synapse-cnpg / mas-cnpg appended) */
+  destinationPath?: string
+  /** S3 endpoint URL (e.g. https://s3.berget.cloud) — derives from the S3 provider when omitted */
+  endpointURL?: string
+  /** Existing Secret with keys `access-key-id` + `secret-access-key`. Provider/Secret-backend provide it when omitted. */
+  credentialsSecret?: string
+  /** Retention policy (default: '30d') */
+  retention?: string
+  /** Cron schedule for the daily full backup (default: '30 3 * * *') */
+  schedule?: string
 }
 
 export interface MatrixRTCProps {
@@ -387,9 +393,11 @@ function matrixDatabaseResources(opts: {
   name: string
   namespace: string
   database: NonNullable<MatrixProps['database']>
+  /** Normalized backup decision (see Matrix) — destinationPath is the per-database BASE */
+  backup: MatrixBackupProps | undefined
   backupCredsSecret: string | undefined
 }): ReturnType<typeof jsx>[] {
-  const { name, namespace, database, backupCredsSecret } = opts
+  const { name, namespace, database, backup, backupCredsSecret } = opts
   const resources: ReturnType<typeof jsx>[] = []
   const dbSpecs: {
     id: string
@@ -429,13 +437,14 @@ function matrixDatabaseResources(opts: {
     },
   ]
 
+  const backupSpecVal = backup
   for (const db of dbSpecs) {
     const clusterName = `${name}-${db.id}-db`
-    const backup = database.backup
+    const backup = backupSpecVal
       ? {
           barmanObjectStore: {
-            destinationPath: `${database.backup.destinationPath}/${db.id}-cnpg`,
-            endpointURL: database.backup.endpointURL,
+            destinationPath: `${backupSpecVal.destinationPath}/${db.id}-cnpg`,
+            endpointURL: backupSpecVal.endpointURL,
             s3Credentials: {
               accessKeyId: { name: backupCredsSecret!, key: 'access-key-id' },
               secretAccessKey: { name: backupCredsSecret!, key: 'secret-access-key' },
@@ -443,7 +452,7 @@ function matrixDatabaseResources(opts: {
             wal: { compression: 'gzip', encryption: 'AES256', maxParallel: 2 },
             data: { compression: 'gzip', encryption: 'AES256', jobs: 2 },
           },
-          retentionPolicy: database.backup.retention ?? '30d',
+          retentionPolicy: backupSpecVal.retention ?? '30d',
         }
       : undefined
 
@@ -489,13 +498,13 @@ function matrixDatabaseResources(opts: {
       })
     )
 
-    if (database.backup) {
+    if (backupSpecVal) {
       resources.push(
         jsx(ScheduledBackupComponent, {
           metadata: { name: `${clusterName}-backup`, namespace },
           spec: {
             cluster: { name: clusterName },
-            schedule: database.backup.schedule ?? '30 3 * * *',
+            schedule: backupSpecVal.schedule ?? '30 3 * * *',
             backupOwnerReference: 'none',
             method: 'barmanObjectStore',
           },
@@ -937,11 +946,88 @@ export function Matrix(props: MatrixProps) {
         `     or pass sso={{ ..., clientSecretRef: '${name}-keycloak-oidc' }} (a pre-created Secret with key 'clientSecret')`
     )
   }
-  if (database.backup && !database.backup.credentialsSecret && !hasBackend) {
+  if (database.backup === undefined) {
     throw new Error(
-      `Matrix "${name}": database.backup.credentialsSecret is required unless a secrets backend (openbao/vault) is configured.\n\n` +
-        `Fix: wrap in <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'matrix' }}>\n` +
-        `     or pass database={{ backup: { ..., credentialsSecret: '${name}-backup-credentials' } }}`
+      `Matrix "${name}": database.backup is a required decision.\n` +
+        `\n` +
+        `WAL segments accumulate until they are archived — a cluster without\n` +
+        `working backups slowly fills its PVC.\n` +
+        `\n` +
+        `Point the backups at the platform S3 store:\n` +
+        `  <S3Provider …>\n` +
+        `    <Matrix name="${name}" database={{ backup: <Bucket name="matrix_backup" /> }} />\n` +
+        `\n` +
+        `or pass the target explicitly:\n` +
+        `  backup={{ destinationPath: 's3://backups/matrix', endpointURL: 'https://s3.example.com' }}\n` +
+        `\n` +
+        `To explicitly run without backups (ephemeral test clusters):\n` +
+        `  database={{ backup: false }}`
+    )
+  }
+  const s3 = useS3()
+
+  // Resolve the backup decision into a per-database base spec. Explicit
+  // fields win; gaps derive from the surrounding S3Provider; a <Bucket>
+  // descriptor points at a scoped destination (matrix name composed under
+  // its prefix so several stacks can share a bucket cleanly).
+  let backupSpec: MatrixBackupProps | false = false
+  const rawBackup = database.backup
+  if (rawBackup !== false) {
+    let destinationBase: string | undefined
+    let endpointURL: string | undefined
+    let credentialsSecret: string | undefined
+    let retention: string | undefined
+    let schedule: string | undefined
+
+    if (rawBackup === true) {
+      destinationBase = s3
+        ? `s3://${s3.bucket}${s3.prefix ? `/${s3.prefix}` : ''}/${name}-backup`
+        : undefined
+      endpointURL = s3?.endpoint
+      credentialsSecret = s3?.credentialsSecret
+    } else if (rawBackup && typeof rawBackup === 'object' && isBucketElement(rawBackup)) {
+      const target = resolveBucket(rawBackup, s3)
+      destinationBase = `${target.root}/${name}-backup`
+      endpointURL = target.s3.endpoint
+      credentialsSecret = target.s3.credentialsSecret
+    } else if (rawBackup && typeof rawBackup === 'object') {
+      const spec = rawBackup as MatrixBackupProps
+      destinationBase = spec.destinationPath
+      endpointURL = spec.endpointURL ?? s3?.endpoint
+      credentialsSecret = spec.credentialsSecret ?? s3?.credentialsSecret
+      retention = spec.retention
+      schedule = spec.schedule
+    }
+
+    if (!destinationBase || !endpointURL) {
+      throw new Error(
+        `Matrix "${name}": backup needs an S3 target.\n` +
+          `\n` +
+          `Add an <S3Provider> so backup destinations (and credentials) derive from it:\n` +
+          `  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
+          `     <Matrix name="${name}" database={{ backup: <Bucket name="matrix_backup" /> }} />\n` +
+          `\n` +
+          `or pass the target explicitly:\n` +
+          `  backup={{ destinationPath: 's3://backups/matrix', endpointURL: 'https://s3.example.com' }}\n` +
+          `\n` +
+          `Missing: ${[!destinationBase && 'destinationPath', !endpointURL && 'endpointURL'].filter(Boolean).join(', ')}`
+      )
+    }
+    backupSpec = {
+      destinationPath: destinationBase,
+      endpointURL,
+      credentialsSecret,
+      retention,
+      schedule,
+    }
+  }
+
+  if (backupSpec && !backupSpec.credentialsSecret && !hasBackend) {
+    throw new Error(
+      `Matrix "${name}": backup credentials missing.\n\n` +
+        `Fix: the <S3Provider> credentials Secret is used automatically — give it keys access-key-id + secret-access-key\n` +
+        `     or pass database={{ backup: { ..., credentialsSecret: '${name}-backup-credentials' } }}\n` +
+        `     or configure a secrets backend (openbao/vault) to provision '<path>/${name}/backup'`
     )
   }
 
@@ -960,7 +1046,7 @@ export function Matrix(props: MatrixProps) {
         keys: { clientSecret: 'clientSecret' },
       })
     }
-    if (database.backup && !database.backup.credentialsSecret) {
+    if (backupSpec && !backupSpec.credentialsSecret) {
       secretSecretDefs.push({
         name: `${name}-backup-credentials`,
         path: `${secretProvider!.path ?? name}/${name}/backup`,
@@ -987,11 +1073,24 @@ export function Matrix(props: MatrixProps) {
   }
 
   const keycloakSecretName = sso?.clientSecretRef ?? (sso ? `${name}-keycloak-oidc` : undefined)
+  // From the resolved spec (provider/descriptor/explicit) — falls back to
+  // the secrets-backend provisioned Secret when a backend is configured.
   const backupCredsSecret =
-    database.backup?.credentialsSecret ??
-    (database.backup ? `${name}-backup-credentials` : undefined)
+    backupSpec && backupSpec.credentialsSecret
+      ? backupSpec.credentialsSecret
+      : backupSpec
+        ? `${name}-backup-credentials`
+        : undefined
 
-  resources.push(...matrixDatabaseResources({ name, namespace, database, backupCredsSecret }))
+  resources.push(
+    ...matrixDatabaseResources({
+      name,
+      namespace,
+      database,
+      backup: backupSpec || (undefined as never),
+      backupCredsSecret,
+    })
+  )
 
   // --- Config Maps -----------------------------------------------------------
   const synapseConfig = buildSynapseConfig({

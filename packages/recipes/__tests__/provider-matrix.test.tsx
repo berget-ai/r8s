@@ -88,6 +88,7 @@ const fixtures: Fixture[] = [
     // StaticSecrets (OIDC bundle etc.) are gated on sso
     props: {
       domain: 'example.com',
+      database: { backup: false },
       sso: { issuer: 'https://keycloak.example.com/realms/x', clientId: 'matrix' },
     },
     expectedHosts: ['matrix.example.com', 'element.example.com'],
