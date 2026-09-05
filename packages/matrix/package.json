@@ -1,7 +1,7 @@
 {
   "name": "@r8s/matrix",
   "version": "0.2.1",
-  "description": "Matrix (Element Server Suite) — Synapse homeserver, MAS auth with Keycloak OIDC, Element Web/Admin, MatrixRTC/LiveKit SFU with HA defaults",
+  "description": "Matrix (Element Server Suite) \u2014 Synapse homeserver, MAS auth with Keycloak OIDC, Element Web/Admin, MatrixRTC/LiveKit SFU with HA defaults",
   "license": "MIT",
   "author": "Berget AI AB",
   "homepage": "https://r8s.berget.ai",
@@ -49,5 +49,8 @@
   "bugs": "https://github.com/berget-ai/r8s/issues",
   "r8s": {
     "category": "Collaboration & Productivity"
+  },
+  "peerDependencies": {
+    "@r8s/operator-cnpg": "^1.27.0"
   }
 }

@@ -1,8 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import type { EnvVar } from '@r8s/k8s-types'
 import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
-import { operators } from '@r8s/crds'
-import { ClusterComponent, ScheduledBackupComponent } from '@r8s/crds/postgresql'
+import { ClusterComponent, ScheduledBackupComponent, declareCnpg } from '@r8s/operator-cnpg'
 import { Endpoint, StaticSecret } from '@r8s/recipes'
 
 /** HA scheduling defaults learned from a production node-blip incident:
@@ -949,9 +948,7 @@ export function Matrix(props: MatrixProps) {
   const resources: ReturnType<typeof jsx>[] = []
 
   // CNPG operator for the two databases
-  if (!sharedOperators.some((op) => op.name === 'cnpg')) {
-    resources.push(declareOperator(operators['cnpg']()))
-  }
+  resources.push(...declareCnpg(sharedOperators))
 
   // --- Secrets via backend (OpenBao/Vault static secret bundles) -------------
   const secretSecretDefs: { name: string; path: string; keys: Record<string, string> }[] = []
