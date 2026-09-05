@@ -88,6 +88,16 @@ export function Backup(props: BackupProps) {
     }
     bucketDesc = resolveBucket(bucketProp, s3)
   }
+  if (storageLocation && (bucketProp || credentialKeyProp)) {
+    throw new Error(
+      `<Backup "${name}">: storageLocation points at an externally-managed
+` +
+        `BackupStorageLocation — bucket/credentialKey would be ignored.\n` +
+        `\n` +
+        `Remove storageLocation to target the platform S3 store, or drop\n` +
+        `bucket/credentialKey to keep the external location.`
+    )
+  }
   const storeS3 = bucketDesc ? bucketDesc.s3 : s3
   const storePrefix = bucketDesc ? bucketDesc.prefix : undefined
   const hasVelero = sharedOperators.some((op) => op.name === 'velero')

@@ -298,6 +298,23 @@ describe('Velero Backup via S3 context', () => {
     expect(bsl.spec.credential).toEqual({ name: 'infra-s3-creds', key: 'cloud' })
   })
 
+  it('storageLocation forbids bucket/credentialKey (externally-managed location)', () => {
+    expect(() =>
+      render(
+        <WithS3>
+          <Backup name="x" storageLocation="external" credentialKey="cloud" />
+        </WithS3>
+      )
+    ).toThrow(/externally-managed/)
+    expect(() =>
+      render(
+        <WithS3>
+          <Backup name="x" storageLocation="external" bucket={<Bucket name="b" />} />
+        </WithS3>
+      )
+    ).toThrow(/externally-managed/)
+  })
+
   it('explicit storageLocation wins — no BSL is emitted', () => {
     const result = render(
       <WithS3>

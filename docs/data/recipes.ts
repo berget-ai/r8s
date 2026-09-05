@@ -532,6 +532,24 @@ export const recipes: Recipe[] = [
     },
   },
   {
+    slug: 'database-s3-credentials',
+    title: 'DatabaseS3Credentials',
+    description: '',
+    category: 'Recipes',
+    keywords: [],
+    component: {
+      name: 'DatabaseS3Credentials',
+      description: '',
+      props: [],
+      examples: [
+        {
+          tsx: 'import { DatabaseS3Credentials } from \'@r8s/recipes\'\n\nexport default <DatabaseS3Credentials name="my-creds" path="kv/infra/s3" />',
+          yaml: null,
+        },
+      ],
+    },
+  },
+  {
     slug: 'dns-provider',
     title: 'DnsProvider',
     description:

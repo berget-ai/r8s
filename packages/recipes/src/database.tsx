@@ -606,3 +606,52 @@ function createStaticSecretResource(
   })
   return Array.isArray(el) ? el : [el as ReturnType<typeof jsx>]
 }
+
+/**
+ * @deprecated CNPG's barman destination derivation now lives inside
+ * <Database> (S3 provider + <Bucket> descriptors cover the layout).
+ * Kept for one minor as a compat shim.
+ *
+ * @example
+ * import { cnpgBackupFromS3 } from '@r8s/recipes'
+ *
+ * export const target = cnpgBackupFromS3(s3Config, 'api-db')
+ */
+export function cnpgBackupFromS3(s3: import('./s3-provider').S3Config, name: string) {
+  const base = s3.prefix ? `${s3.prefix}/` : ''
+  return {
+    endpointURL: s3.endpoint,
+    destinationPath: `s3://${s3.bucket}/${base}${name}-cnpg`,
+    credentialsSecret: s3.credentialsSecret,
+  }
+}
+
+/**
+ * @deprecated Emit S3 credentials via the Database recipe or the secrets
+ * backend directly — moved out of the provider layer.
+ *
+ * @example
+ * import { DatabaseS3Credentials } from '@r8s/recipes'
+ *
+ * export default <DatabaseS3Credentials name="my-creds" path="kv/infra/s3" />
+ */
+export function DatabaseS3Credentials(props: {
+  /** Kubernetes Secret name to create */
+  name: string
+  /** Path in the secrets backend holding access_key_id / secret_access_key */
+  path: string
+  namespace?: string
+  /** Extra static-secret templates (e.g. a velero 'cloud' file) */
+  templates?: Record<string, string>
+}) {
+  const { jsx } = require('@r8s/core') as typeof import('@r8s/core')
+  const { StaticSecret } = require('./static-secret') as typeof import('./static-secret')
+  return jsx(StaticSecret, {
+    name: props.name,
+    namespace: props.namespace,
+    path: props.path,
+    keys: { 'access-key-id': 'access_key_id', 'secret-access-key': 'secret_access_key' },
+    templates: props.templates,
+    refreshAfter: '3600s',
+  })
+}

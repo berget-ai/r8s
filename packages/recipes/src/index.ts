@@ -68,6 +68,11 @@ export {
 export { cnpgOperator, nginxIngressOperator, vaultSecretsOperator } from './operators'
 
 export { StaticSecret, type StaticSecretProps } from './static-secret'
+
+/** @deprecated moved to the CNPG consumer layer */ export {
+  cnpgBackupFromS3,
+  DatabaseS3Credentials,
+} from './database'
 export {
   S3Provider,
   type S3ProviderProps,
