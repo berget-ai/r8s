@@ -2,6 +2,7 @@ import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
 import { useS3, isBucketElement, resolveBucket, type BucketProps } from './s3-provider'
+import type { r8sElement } from '@r8s/core'
 
 export interface BackupProps {
   /** Resource name */
@@ -20,10 +21,16 @@ export interface BackupProps {
 
   storageLocation?: string
   /**
-   * <Bucket name="…"/> descriptor — scopes the BackupStorageLocation to
-   * that prefix (`<name>/velero`) of the surrounding provider's bucket.
+   * <Bucket name="…"/> descriptor element — scopes the BackupStorageLocation
+   * to that prefix (`<name>/velero`) of the surrounding provider's bucket.
    */
-  bucket?: BucketProps
+  bucket?: r8sElement
+  /**
+   * Key inside the store's credentials Secret holding a velero-format
+   * cloud credentials file (`[default] aws_access_key_id = …`). Omit on
+   * workload-identity / IRSA clusters.
+   */
+  credentialKey?: string
   /** Backup retention (e.g., '720h' for 30 days) */
   ttl?: string
 }
@@ -65,6 +72,7 @@ export function Backup(props: BackupProps) {
     namespaces,
     storageLocation,
     bucket: bucketProp,
+    credentialKey: credentialKeyProp,
     ttl = '720h',
   } = props
 
@@ -80,7 +88,18 @@ export function Backup(props: BackupProps) {
     }
     bucketDesc = resolveBucket(bucketProp, s3)
   }
-  const effectiveS3 = bucketDesc ? bucketDesc.s3 : s3
+  if (storageLocation && (bucketProp || credentialKeyProp)) {
+    throw new Error(
+      `<Backup "${name}">: storageLocation points at an externally-managed
+` +
+        `BackupStorageLocation — bucket/credentialKey would be ignored.\n` +
+        `\n` +
+        `Remove storageLocation to target the platform S3 store, or drop\n` +
+        `bucket/credentialKey to keep the external location.`
+    )
+  }
+  const storeS3 = bucketDesc ? bucketDesc.s3 : s3
+  const storePrefix = bucketDesc ? bucketDesc.prefix : undefined
   const hasVelero = sharedOperators.some((op) => op.name === 'velero')
 
   const resources: ReturnType<typeof jsx>[] = []
@@ -93,9 +112,9 @@ export function Backup(props: BackupProps) {
   // prefix of the platform bucket and point the schedule at it. Without a
   // provider the schedule references 'default' — a storage location the
   // cluster is expected to manage itself.
-  const locationName = effectiveS3 && !storageLocation ? name : (storageLocation ?? 'default')
+  const locationName = storeS3 && !storageLocation ? name : (storageLocation ?? 'default')
 
-  if (effectiveS3 && !storageLocation) {
+  if (storeS3 && !storageLocation) {
     resources.push(
       jsx('BackupStorageLocation', {
         apiVersion: 'velero.io/v1',
@@ -106,19 +125,18 @@ export function Backup(props: BackupProps) {
           // it; each Schedule pins its storageLocation explicitly
           provider: 'aws',
           objectStorage: {
-            bucket: effectiveS3.bucket,
-            prefix: bucketDesc ? `${bucketDesc.prefix}/velero` : 'velero',
+            bucket: storeS3.bucket,
+            prefix: storePrefix ? `${storePrefix}/velero` : 'velero',
           },
           config: {
-            region: effectiveS3.region ?? 'us-east-1',
-            ...(effectiveS3.forcePathStyle !== false && { s3ForcePathStyle: 'true' }),
-            s3Url: effectiveS3.endpoint,
+            region: storeS3.region ?? 'us-east-1',
+            ...(storeS3.forcePathStyle !== false && { s3ForcePathStyle: 'true' }),
+            s3Url: storeS3.endpoint,
           },
-          ...(effectiveS3.veleroCredentialKey && {
-            credential: {
-              name: effectiveS3.credentialsSecret,
-              key: effectiveS3.veleroCredentialKey,
-            },
+          // Velero owns how it reads the credential — its key inside the
+          // store's Secret. Omit on workload-identity/IRSA clusters.
+          ...(credentialKeyProp && {
+            credential: { name: storeS3.credentialsSecret, key: credentialKeyProp },
           }),
         },
       })

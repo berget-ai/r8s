@@ -222,6 +222,35 @@ describe('Bucket descriptor (backup={<Bucket … />} )', () => {
     expect(bsl.spec.credential).toBeUndefined()
   })
 
+  it('a bucket override isolates the destination from the tenant prefix', () => {
+    const result = render(
+      <S3Provider provider={{ ...s3, prefix: 'tenant-a' } as never}>
+        <Database
+          name="cold-db"
+          backup={<Bucket name="nightly" bucket="cold-storage" credentialsSecret="cold-creds" />}
+        />
+      </S3Provider>
+    )
+    const cluster = result.resources.find((r) => r.kind === 'Cluster') as any
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://cold-storage/nightly/cold-db-cnpg'
+    )
+  })
+
+  it('a credentialsSecret override gets its credential key from the Backup prop', () => {
+    const result = render(
+      <S3Provider provider={{ ...s3, prefix: 'tenant-a' } as never}>
+        <Backup
+          name="daily"
+          credentialKey="cloud"
+          bucket={<Bucket name="dumps" credentialsSecret="other-creds" />}
+        />
+      </S3Provider>
+    )
+    const bsl = result.resources.find((r) => r.kind === 'BackupStorageLocation') as any
+    expect(bsl.spec.credential).toEqual({ name: 'other-creds', key: 'cloud' })
+  })
+
   it('direct-rendering <Bucket /> fails loudly instead of recursing', () => {
     expect(() => render(<Bucket name="oops" />)).toThrow(/descriptor/)
   })
@@ -251,16 +280,7 @@ describe('Velero Backup via S3 context', () => {
     expect(schedule.spec.template.storageLocation).toBe(bsl.metadata.name)
   })
 
-  it('credentials appear only via veleroCredentialKey (workload identity otherwise)', () => {
-    const withCreds = render(
-      jsx(S3Provider as never, {
-        provider: { ...s3, veleroCredentialKey: 'cloud' },
-        children: jsx(Backup as never, { name: 'nightly' }),
-      })
-    )
-    const bsl = withCreds.resources.find((r) => r.kind === 'BackupStorageLocation') as any
-    expect(bsl.spec.credential).toEqual({ name: 'infra-s3-creds', key: 'cloud' })
-
+  it('workload identity is the default — credential only via explicit credentialKey', () => {
     const without = render(
       <WithS3>
         <Backup name="nightly" />
@@ -268,6 +288,31 @@ describe('Velero Backup via S3 context', () => {
     )
     const plain = without.resources.find((r) => r.kind === 'BackupStorageLocation') as any
     expect(plain.spec.credential).toBeUndefined()
+
+    const withCreds = render(
+      <WithS3>
+        <Backup name="nightly" credentialKey="cloud" />
+      </WithS3>
+    )
+    const bsl = withCreds.resources.find((r) => r.kind === 'BackupStorageLocation') as any
+    expect(bsl.spec.credential).toEqual({ name: 'infra-s3-creds', key: 'cloud' })
+  })
+
+  it('storageLocation forbids bucket/credentialKey (externally-managed location)', () => {
+    expect(() =>
+      render(
+        <WithS3>
+          <Backup name="x" storageLocation="external" credentialKey="cloud" />
+        </WithS3>
+      )
+    ).toThrow(/externally-managed/)
+    expect(() =>
+      render(
+        <WithS3>
+          <Backup name="x" storageLocation="external" bucket={<Bucket name="b" />} />
+        </WithS3>
+      )
+    ).toThrow(/externally-managed/)
   })
 
   it('explicit storageLocation wins — no BSL is emitted', () => {
