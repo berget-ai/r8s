@@ -213,6 +213,21 @@ describe('WebService — pod placement and lifecycle', () => {
     const dep = find(result, 'Deployment', 'app') as any
     expect(dep.spec.template.spec.containers[0].imagePullPolicy).toBe('Always')
   })
+
+  it('names Service ports — the API server rejects multi-port Services without names', () => {
+    const result = render(jsx(WebService, { ...base, port: 3000 }))
+    const svc = find(result, 'Service', 'app') as any
+    expect(svc.spec.ports).toHaveLength(2)
+    for (const p of svc.spec.ports) {
+      expect(p.name).toBeTruthy()
+    }
+    expect(svc.spec.ports[0]).toMatchObject({ name: 'http', port: 3000, targetPort: 3000 })
+    expect(svc.spec.ports[1]).toMatchObject({ name: 'http-80', port: 80, targetPort: 3000 })
+
+    const at80 = render(jsx(WebService, { ...base, port: 80 }))
+    expect((find(at80, 'Service', 'app') as any).spec.ports).toHaveLength(1)
+    expect((find(at80, 'Service', 'app') as any).spec.ports[0].name).toBe('http')
+  })
 })
 
 describe('WebService — vault rotation semantics', () => {
