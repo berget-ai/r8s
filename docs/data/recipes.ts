@@ -532,24 +532,6 @@ export const recipes: Recipe[] = [
     },
   },
   {
-    slug: 'database-s3-credentials',
-    title: 'DatabaseS3Credentials',
-    description: '',
-    category: 'Recipes',
-    keywords: [],
-    component: {
-      name: 'DatabaseS3Credentials',
-      description: '',
-      props: [],
-      examples: [
-        {
-          tsx: 'import { SecretProvider, OpenBao, DatabaseS3Credentials } from \'@r8s/recipes\'\n\nexport default (\n  <SecretProvider provider={<OpenBao mount="kv" path="infra" />}>\n    <DatabaseS3Credentials name="my-creds" path="infra/s3" />\n  </SecretProvider>\n)',
-          yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: my-creds\n  namespace: default\nspec:\n  mount: kv\n  type: kv-v2\n  path: infra/s3\n  refreshAfter: 3600s\n  destination:\n    create: true\n    name: my-creds\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        access-key-id:\n          text: '{{ .Secrets.access_key_id }}'\n        secret-access-key:\n          text: '{{ .Secrets.secret_access_key }}'\n",
-        },
-      ],
-    },
-  },
-  {
     slug: 'dns-provider',
     title: 'DnsProvider',
     description:
@@ -850,7 +832,7 @@ export const recipes: Recipe[] = [
           yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: production\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: api-endpoint\n  namespace: production\n  annotations: {}\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: api.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: api\n                port:\n                  number: 80\n',
         },
         {
-          tsx: 'import { Platform, App, Database, cnpgOperator } from \'@r8s/recipes\'\nimport { operators } from \'@r8s/crds\'\n\nexport default (\n  <Platform\n    routing="gateway"\n    namespace="production"\n    operators={[cnpgOperator(), operators[\'cert-manager\']()]}\n  >\n    <Database backup={false} name="app-db" storage="10Gi" />\n    <App name="api" image="myapp/api:v1" host="api.example.com" />\n  </Platform>\n)',
+          tsx: 'import { Platform, App, Database } from \'@r8s/recipes\'\nimport { cnpgOperator } from \'@r8s/operator-cnpg\'\nimport { operators } from \'@r8s/crds\'\n\nexport default (\n  <Platform\n    routing="gateway"\n    namespace="production"\n    operators={[cnpgOperator(), operators[\'cert-manager\']()]}\n  >\n    <Database backup={false} name="app-db" storage="10Gi" />\n    <App name="api" image="myapp/api:v1" host="api.example.com" />\n  </Platform>\n)',
           yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: production\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: app-db\n  namespace: production\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: app-db\n      owner: app-db\n      secret:\n        name: app-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: Gateway\nmetadata:\n  name: api-endpoint-gateway\n  namespace: production\nspec:\n  gatewayClassName: eg\n  listeners:\n    - name: http\n      protocol: HTTP\n      port: 80\n      hostname: api.example.com\n---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\nmetadata:\n  name: api-endpoint-route\n  namespace: production\nspec:\n  parentRefs:\n    - name: api-endpoint-gateway\n  hostnames:\n    - api.example.com\n  rules:\n    - backendRefs:\n        - name: api\n          port: 80\n',
         },
         {

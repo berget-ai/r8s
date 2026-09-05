@@ -72183,7 +72183,7 @@ export const packages: Package[] = [
           },
           {
             name: 'backup',
-            type: 'MatrixBackupProps | true | false | null | { type: unknown, props: BucketProps }',
+            type: 'MatrixBackupProps | true | false | { type: unknown, props: BucketProps }',
             required: false,
             description:
               'REQUIRED decision point (same contract as <Database backup>): - `<Bucket name="…"/>` descriptor — scoped destination under the S3 provider - explicit object — per-field gaps derive from the surrounding S3Provider - `true` — derive the whole target from the S3Provider - `false` — cluster without barman (explicit opt-out) Omitted → renderer throws with guidance.',
@@ -72436,7 +72436,7 @@ export const packages: Package[] = [
               },
               {
                 name: 'backup',
-                type: 'MatrixBackupProps | true | false | null | { type: unknown, props: BucketProps }',
+                type: 'MatrixBackupProps | true | false | { type: unknown, props: BucketProps }',
                 required: false,
                 description:
                   'REQUIRED decision point (same contract as <Database backup>):\n- `<Bucket name="…"/>` descriptor — scoped destination under the S3 provider\n- explicit object — per-field gaps derive from the surrounding S3Provider\n- `true` — derive the whole target from the S3Provider\n- `false` — cluster without barman (explicit opt-out)\nOmitted → renderer throws with guidance.',

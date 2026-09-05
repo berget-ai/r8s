@@ -285,11 +285,6 @@ describe('Matrix — secrets backends', () => {
     }
   })
 
-  it('legacy backup: null maps to explicit opt-out', () => {
-    const result = renderMatrix({ database: { backup: null } })
-    expect(find(result, 'ScheduledBackup', 'matrix-synapse-db-backup')).toBeUndefined()
-  })
-
   it('explicit object gaps derive from the S3 provider (destinationPath included)', () => {
     const element = jsx(S3Provider as never, {
       provider: {

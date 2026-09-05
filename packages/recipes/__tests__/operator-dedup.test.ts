@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment, declareOperator } from '@r8s/core'
-import { cnpgOperator } from '../src/operators'
+import { cnpgOperator } from '@r8s/operator-cnpg'
 import { operators } from '@r8s/crds'
 
 describe('Operator deduplication', () => {

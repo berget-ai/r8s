@@ -65,14 +65,8 @@ export {
 } from './cert-provider'
 
 // Operator declarations for components in this package
-export { cnpgOperator, nginxIngressOperator, vaultSecretsOperator } from './operators'
-
 export { StaticSecret, type StaticSecretProps } from './static-secret'
 
-/** @deprecated moved to the CNPG consumer layer */ export {
-  cnpgBackupFromS3,
-  DatabaseS3Credentials,
-} from './database'
 export {
   S3Provider,
   type S3ProviderProps,
@@ -87,5 +81,5 @@ export {
 } from './s3-provider'
 
 // Composition helpers — loose building blocks for packages
-export { useOperators, maybeOperator } from './operators'
+export { useOperators } from './use-operators'
 export { secretsRequiredError, type SecretsRequiredOptions } from './errors'

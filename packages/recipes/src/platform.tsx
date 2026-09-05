@@ -100,7 +100,8 @@ export interface PlatformProps {
  * )
  *
  * @example
- * import { Platform, App, Database, cnpgOperator } from '@r8s/recipes'
+ * import { Platform, App, Database } from '@r8s/recipes'
+ * import { cnpgOperator } from '@r8s/operator-cnpg'
  * import { operators } from '@r8s/crds'
  *
  * export default (

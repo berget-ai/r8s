@@ -3,7 +3,8 @@ import { render, jsx, Fragment } from '@r8s/core'
 import { validateResource } from '@r8s/core'
 import { Database, App, WebService, Endpoint } from '../src/index'
 import { OperatorContext, SecretContext, ClusterContext } from '@r8s/core/defaults'
-import { cnpgOperator, nginxIngressOperator } from '../src/operators'
+import { cnpgOperator } from '@r8s/operator-cnpg'
+import { NginxIngressOperator } from '@r8s/operator-nginx-ingress'
 
 const sharedClusterConfig = {
   name: 'main',
@@ -145,7 +146,7 @@ describe('Recipes Error Cases', () => {
   describe('Integration', () => {
     it('should handle complex composition', () => {
       const element = jsx(OperatorContext.Provider, {
-        value: [cnpgOperator('1.22.5'), nginxIngressOperator('1.15.1')],
+        value: [cnpgOperator('1.22.5'), NginxIngressOperator('1.15.1')],
         children: jsx(Fragment, {
           children: [
             jsx(Database, { backup: false, name: 'app-db', storage: '10Gi' }),

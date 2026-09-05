@@ -171,7 +171,7 @@ Two strategies, scaffolded by `r8s init`:
 
 ## Status
 
-v0.2.x — core and CLI are stable; app recipes are actively derived from production reference deployments, so they keep improving release over release. Breaking changes are called out per release.
+**v0.3.0** — core, CLI and the recipes are stable and in daily production use at Berget AI. The 0.3.0 line switched operators to npm-resolved packages (one `@r8s/operator-*` per operator, version-mirrored, peer-contract deduplicated) and made backups a required decision on `<Database>`/`<Matrix>`. Migrations: [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 

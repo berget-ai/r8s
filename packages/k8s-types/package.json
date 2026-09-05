@@ -1,6 +1,6 @@
 {
   "name": "@r8s/k8s-types",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Auto-generated Kubernetes TypeScript types from OpenAPI spec",
   "license": "MIT",
   "author": "Berget AI AB",

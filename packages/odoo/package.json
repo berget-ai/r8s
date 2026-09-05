@@ -1,7 +1,7 @@
 {
   "name": "@r8s/odoo",
-  "version": "0.2.1",
-  "description": "Odoo ERP — Postgres persistence, filestore PVC, worker tuning, master password via secrets backend",
+  "version": "0.3.0",
+  "description": "Odoo ERP \u2014 Postgres persistence, filestore PVC, worker tuning, master password via secrets backend",
   "license": "MIT",
   "author": "Berget AI AB",
   "homepage": "https://r8s.berget.ai",
@@ -29,10 +29,10 @@
   },
   "category": "Apps & Automation",
   "dependencies": {
-    "@r8s/core": "^0.2.0",
-    "@r8s/crds": "^0.2.0",
-    "@r8s/k8s-types": "^0.2.0",
-    "@r8s/recipes": "^0.2.0"
+    "@r8s/core": "^0.3.0",
+    "@r8s/crds": "^0.3.0",
+    "@r8s/k8s-types": "^0.3.0",
+    "@r8s/recipes": "^0.3.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",

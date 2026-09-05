@@ -1,6 +1,6 @@
 {
   "name": "@r8s/wireguard",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "WireGuard VPN server (wg-easy) components for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
@@ -34,8 +34,8 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@r8s/core": "^0.2.0",
-    "@r8s/k8s-types": "^0.2.0"
+    "@r8s/core": "^0.3.0",
+    "@r8s/k8s-types": "^0.3.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
