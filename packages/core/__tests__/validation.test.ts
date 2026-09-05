@@ -213,6 +213,43 @@ describe('Service Validation', () => {
     expect(errors.find((e) => e.code === 'INVALID_PORT')?.suggestion).toContain('65535')
   })
 
+  it('requires port names when a Service has more than one port', () => {
+    const anonymous = {
+      apiVersion: 'v1',
+      kind: 'Service',
+      metadata: { name: 'multi' },
+      spec: { selector: {}, ports: [{ port: 3000 }, { port: 80 }] },
+    } as any
+    const errors = validateService(anonymous)
+    expect(errors.filter((e) => e.code === 'MULTI_PORT_WITHOUT_NAME')).toHaveLength(2)
+    expect(errors[0].suggestion).toContain('Name every port')
+
+    const named = {
+      ...anonymous,
+      spec: {
+        ...anonymous.spec,
+        ports: [
+          { name: 'http', port: 3000 },
+          { name: 'http-80', port: 80 },
+        ],
+      },
+    }
+    expect(
+      validateService(named as any).filter((e) => e.code === 'MULTI_PORT_WITHOUT_NAME')
+    ).toHaveLength(0)
+
+    // single-port Services may stay anonymous (API server allows it)
+    const single = {
+      apiVersion: 'v1',
+      kind: 'Service',
+      metadata: { name: 's' },
+      spec: { selector: {}, ports: [{ port: 80 }] },
+    }
+    expect(
+      validateService(single as any).filter((e) => e.code === 'MULTI_PORT_WITHOUT_NAME')
+    ).toHaveLength(0)
+  })
+
   it('should catch negative port', () => {
     const service = {
       apiVersion: 'v1',

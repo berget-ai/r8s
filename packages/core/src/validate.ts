@@ -193,6 +193,18 @@ export function validateService(resource: KubernetesResource): ValidationError[]
   } else {
     for (let i = 0; i < spec.ports.length; i++) {
       const port = spec.ports[i]
+      // The API server rejects multi-port Services whose ports lack names —
+      // Flux catches this at dry-run time (after merge), so catch it in tests
+      if (spec.ports.length > 1 && !port.name) {
+        errors.push({
+          code: 'MULTI_PORT_WITHOUT_NAME',
+          message: `Service "${resource.metadata?.name}" has ${spec.ports.length} ports — every port requires a name (spec.ports[${i}] is anonymous)`,
+          resource: 'Service',
+          field: `spec.ports[${i}].name`,
+          suggestion:
+            'Name every port when a Service has more than one, e.g. { name: "http", port: 8080 }',
+        })
+      }
       if (!port.port || port.port < 1 || port.port > 65535) {
         errors.push({
           code: 'INVALID_PORT',
