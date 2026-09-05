@@ -29,11 +29,17 @@ const operatorPackages = readdirSync(packagesDir)
   .filter((d) => d.startsWith('operator-'))
   .filter((d) => existsSync(join(packagesDir, d, 'package.json')))
 
-/** cnpg → '1.27.0' straight from the single-source registry (phase-2 guard) */
-function registryVersion(operator: string): string {
+/** Package dir slug → registry key (r8s.operator field, fallback = derived slug) */
+const registryKeyOf = (dir: string) => {
+  const pj = packageJson(dir)
+  return (pj.r8s?.operator as string | undefined) ?? dir.replace(/^operator-/, '')
+}
+
+/** Registry key → version, straight from the single-source registry */
+function registryVersion(operatorKey: string): string {
   const yaml = readFileSync(join(packagesDir, 'crds', 'operators.yaml'), 'utf8')
-  const block = yaml.split('\n- name: ').find((b) => b.startsWith(`${operator}\n`))
-  if (!block) throw new Error(`operator '${operator}' missing from operators.yaml`)
+  const block = yaml.split('\n- name: ').find((b) => b.startsWith(`${operatorKey}\n`))
+  if (!block) throw new Error(`operator '${operatorKey}' missing from operators.yaml`)
   return block.match(/version: '([^']+)'/)?.[1] ?? ''
 }
 
@@ -49,15 +55,11 @@ describe.each(operatorPackages.map((dir) => [dir]))('operator package %s', (dir)
     expect(pj.files).toContain('dist')
     expect(pj.r8s?.category).toBe('Operators')
     expect(pj.keywords).toContain('r8s')
-    expect(pj.keywords).toContain('operator')
+    expect(pj.r8s?.operator).toBeTruthy()
   })
 
-  it('package major mirrors the operator major (semver-mapped, never 0.x)', () => {
-    expect(Number(pj.version.split('.')[0])).toBeGreaterThanOrEqual(1)
-  })
-
-  it('agrees with operators.yaml until phase 2 splits the registry', () => {
-    expect(pj.version).toBe(registryVersion(operator))
+  it('version mirrors the operator version 1:1 (upstream semver carried as-is)', () => {
+    expect(pj.version).toBe(registryVersion(pj.r8s.operator))
   })
 })
 
