@@ -26,7 +26,9 @@ export const DEFAULT_CNPG_VERSION = '1.27.0'
  * that registry remains the CLI's metadata source until phase 2. Deep
  * equality with the generated entry is enforced by operator-contracts.
  */
-export function cnpgOperator(version: string = DEFAULT_CNPG_VERSION): Operator & { namespace: string } {
+export function cnpgOperator(
+  version: string = DEFAULT_CNPG_VERSION
+): Operator & { namespace: string } {
   const minor = version.split('.').slice(0, 2).join('.')
   return {
     name: 'cnpg',
