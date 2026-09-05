@@ -203,7 +203,12 @@ export function WebService(props: WebServiceProps) {
     const initialDelaySeconds = spec.initialDelaySeconds ?? 10
     const periodSeconds = spec.periodSeconds ?? 10
     if (spec.tcp) {
-      return { tcpSocket: { port: spec.port ?? port }, initialDelaySeconds, periodSeconds }
+      return {
+        tcpSocket: { port: spec.port ?? port },
+        initialDelaySeconds,
+        periodSeconds,
+        ...(spec.failureThreshold && { failureThreshold: spec.failureThreshold }),
+      }
     }
     return {
       httpGet: { path: spec.path ?? fallbackPath, port: spec.port ?? port },

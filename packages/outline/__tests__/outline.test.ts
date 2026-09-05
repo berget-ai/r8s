@@ -80,7 +80,12 @@ describe('rendering defaults', () => {
     expect(kinds).toContain('Service')
     expect(kinds).toContain('Ingress')
     expect(kinds).toContain('Cluster')
-    expect(kinds).toContain('RedisReplication')
+    // facit: standalone Redis (durable PVC + exporter), not a Replication
+    expect(kinds).toContain('Redis')
+    const redis = result.resources.find((r: any) => r.kind === 'Redis') as any
+    expect(redis.spec.kubernetesConfig.image).toBe('redis:7.0.12')
+    expect(redis.spec.storage.volumeClaimTemplate.spec.resources.requests.storage).toBe('1Gi')
+    expect(redis.spec.redisExporter.enabled).toBe(true)
   })
 
   it('renders gateway resources when platform uses gateway routing', () => {
@@ -209,5 +214,159 @@ describe('secrets handling', () => {
       console.error('Plaintext credential violations:', errors)
     }
     expect(passed).toBe(true)
+  })
+})
+
+describe('facit deltas', () => {
+  it('pins docker.getoutline.com/outlinewiki/outline:1.9.2 with IfNotPresent', () => {
+    const result = renderOutline({ host: 'wiki.example.com' })
+    const app = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'outline'
+    ) as any
+    expect(app.spec.template.spec.containers[0].image).toBe(
+      'docker.getoutline.com/outlinewiki/outline:1.9.2'
+    )
+    expect(app.spec.template.spec.containers[0].imagePullPolicy).toBe('IfNotPresent')
+  })
+
+  it('rolls Recreate at replicas=1 with migration-safe probe timings', () => {
+    const result = renderOutline({ host: 'wiki.example.com' })
+    const app = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'outline'
+    ) as any
+    expect(app.spec.strategy.type).toBe('Recreate')
+    expect(app.spec.replicas).toBe(1)
+    const c = app.spec.template.spec.containers[0]
+    expect(c.readinessProbe).toMatchObject({
+      tcpSocket: { port: 3000 },
+      initialDelaySeconds: 30,
+      failureThreshold: 6,
+    })
+    expect(c.livenessProbe).toMatchObject({
+      tcpSocket: { port: 3000 },
+      initialDelaySeconds: 90,
+      periodSeconds: 30,
+    })
+  })
+
+  it('sizes CNPG per facit (2 instances, 20Gi) and supports backup passthrough', () => {
+    const result = renderOutline({
+      host: 'wiki.example.com',
+      backup: {
+        destinationPath: 's3://outline-cnpg-backups',
+        endpointURL: 'https://s3.example.com',
+      },
+    })
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster.spec.instances).toBe(2)
+    expect(cluster.spec.storage.size).toBe('20Gi')
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe('s3://outline-cnpg-backups')
+  })
+
+  it('uploads use endpoint-only AWS_S3_UPLOAD_BUCKET_URL semantics', () => {
+    const result = renderOutline({ host: 'wiki.example.com', objectStorage })
+    const app = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'outline'
+    ) as any
+    const env = app.spec.template.spec.containers[0].env
+    expect(env.find((e: any) => e.name === 'AWS_S3_UPLOAD_BUCKET_URL').value).toBe(
+      'https://s3.internal.example.com'
+    )
+    expect(env.find((e: any) => e.name === 'AWS_S3_UPLOAD_BUCKET_NAME').value).toBe(
+      'wiki-attachments'
+    )
+  })
+
+  it('provisions the facit secret bundle — snake_case vault keys templated to env-case, hourly refresh, restart on rotation', () => {
+    const result = renderOutline({ host: 'wiki.example.com' })
+    const vso = result.resources.find((r: any) => r.kind === 'OpenBaoStaticSecret') as any
+    expect(vso.spec.path).toBe('test/outline/app')
+    expect(vso.spec.refreshAfter).toBe('3600s')
+    expect(vso.spec.rolloutRestartTargets).toEqual([{ kind: 'Deployment', name: 'outline' }])
+    expect(vso.spec.destination.overwrite).toBe(true)
+    expect(vso.spec.destination.transformation.excludeRaw).toBe(true)
+    const tpl = vso.spec.destination.transformation.templates
+    expect(tpl.SECRET_KEY.text).toContain('secret_key')
+    expect(tpl.UTILS_SECRET.text).toContain('utils_secret')
+  })
+
+  it('bundle carries OIDC creds when sso is set; clientId/SecretRef override individually', () => {
+    const result = renderOutline({ host: 'wiki.example.com', sso })
+    const vso = result.resources.find((r: any) => r.kind === 'OpenBaoStaticSecret') as any
+    const tpl = vso.spec.destination.transformation.templates
+    expect(tpl.OIDC_CLIENT_ID.text).toContain('oidc_client_id')
+    expect(tpl.OIDC_CLIENT_SECRET.text).toContain('oidc_client_secret')
+    // clientId given in fixture → literal env; clientSecretRef given → used directly
+    const app = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'outline'
+    ) as any
+    const env = app.spec.template.spec.containers[0].env
+    expect(env.find((e: any) => e.name === 'OIDC_CLIENT_ID').value).toBe('outline')
+    expect(env.find((e: any) => e.name === 'OIDC_CLIENT_SECRET').valueFrom.secretKeyRef).toEqual({
+      name: 'outline-sso',
+      key: 'clientSecret',
+    })
+  })
+
+  it('reads OIDC_CLIENT_ID from the bundle when clientId is omitted', () => {
+    const result = renderOutline({
+      host: 'wiki.example.com',
+      sso: { issuer: 'https://keycloak.example.com/realms/x' },
+    })
+    const app = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'outline'
+    ) as any
+    const env = app.spec.template.spec.containers[0].env
+    expect(env.find((e: any) => e.name === 'OIDC_CLIENT_ID').valueFrom.secretKeyRef).toEqual({
+      name: 'outline-app-secrets',
+      key: 'OIDC_CLIENT_ID',
+    })
+    expect(env.find((e: any) => e.name === 'OIDC_USERNAME_CLAIM').value).toBe('preferred_username')
+    expect(env.find((e: any) => e.name === 'OIDC_DISPLAY_NAME').value).toBe('SSO')
+  })
+
+  it('hardened production env defaults: NODE_ENV, FORCE_HTTPS, rate limiter, no updates', () => {
+    const result = renderOutline({ host: 'wiki.example.com' })
+    const app = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'outline'
+    ) as any
+    const env = Object.fromEntries(
+      app.spec.template.spec.containers[0].env.map((e: any) => [e.name, e.value ?? '--ref--'])
+    )
+    expect(env.NODE_ENV).toBe('production')
+    expect(env.WEB_CONCURRENCY).toBe('1')
+    expect(env.PGSSLMODE).toBe('disable')
+    expect(env.FORCE_HTTPS).toBe('true')
+    expect(env.RATE_LIMITER_ENABLED).toBe('true')
+    expect(env.ENABLE_UPDATES).toBe('false')
+    expect(env.APP_URL).toBeUndefined()
+    expect(env.PROXY_HEADERS_TRUSTED).toBeUndefined()
+  })
+
+  it('injects websocket-friendly ingress timeouts, overridable per annotation', () => {
+    const result = renderOutline({ host: 'wiki.example.com' })
+    const ingress = result.resources.find((r: any) => r.kind === 'Ingress') as any
+    expect(ingress.metadata.annotations['nginx.ingress.kubernetes.io/proxy-read-timeout']).toBe(
+      '3600'
+    )
+    const o = renderOutline({
+      host: 'wiki.example.com',
+      endpointAnnotations: { 'nginx.ingress.kubernetes.io/proxy-read-timeout': '600' },
+    })
+    const ing2 = o.resources.find((r: any) => r.kind === 'Ingress') as any
+    expect(ing2.metadata.annotations['nginx.ingress.kubernetes.io/proxy-read-timeout']).toBe('600')
+  })
+
+  it('extra env merges last (escape hatch)', () => {
+    const result = renderOutline({
+      host: 'wiki.example.com',
+      env: { LOG_LEVEL: 'debug', CUSTOM_KEY: 'x' },
+    })
+    const app = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'outline'
+    ) as any
+    const env = app.spec.template.spec.containers[0].env
+    expect(env.find((e: any) => e.name === 'LOG_LEVEL').value).toBe('debug')
+    expect(env.find((e: any) => e.name === 'CUSTOM_KEY').value).toBe('x')
   })
 })
