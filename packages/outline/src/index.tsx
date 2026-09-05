@@ -196,7 +196,8 @@ export function Outline(props: OutlineProps) {
           `    <Outline name="${name}" host="${host}" />\n` +
           `  </Platform>\n` +
           `\n` +
-          `Or reference a pre-created Secret (keys: secretKey, utilsSecret):\n` +
+          `Or reference a pre-created Secret (keys: SECRET_KEY, UTILS_SECRET — plus\n` +
+          `OIDC_CLIENT_ID/OIDC_CLIENT_SECRET when using bundled SSO):\n` +
           `  <Outline name="${name}" host="${host}" secretsName="${name}-app-secrets" />`
       )
     }
@@ -268,10 +269,15 @@ export function Outline(props: OutlineProps) {
         metadata: {
           name: `${name}-redis`,
           namespace,
-          annotations: {
-            'prometheus.io/scrape': 'true',
-            'prometheus.io/port': '9121',
-          },
+          // Scrape annotations only make sense when the exporter sidecar runs
+          ...(exporter
+            ? {
+                annotations: {
+                  'prometheus.io/scrape': 'true',
+                  'prometheus.io/port': '9121',
+                },
+              }
+            : {}),
         },
         spec: {
           kubernetesConfig: {
@@ -316,7 +322,9 @@ export function Outline(props: OutlineProps) {
     NODE_ENV: 'production',
     PORT: '3000',
     HOST: '0.0.0.0',
-    // Migrations + per-process memory: one worker, scale replicas instead
+    // One in-process worker: scaling happens via WEB_CONCURRENCY/resources
+    // inside the pod, while replicas stays 1 (boot-time DB migrations must
+    // never run concurrently — see the Recreate strategy)
     WEB_CONCURRENCY: '1',
     // Deterministic parts inlined; password arrives via PGPASSWORD
     DATABASE_URL: `postgresql://${name}:$(PGPASSWORD)@${dbHost}:5432/${name}`,
