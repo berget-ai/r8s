@@ -196,12 +196,12 @@ export interface BucketProps {
  * )
  */
 export function Bucket(props: BucketProps) {
-  if (!props.name || props.name.includes('/') || props.name.includes('..')) {
-    throw new Error(
-      `Bucket name "${props.name}" must be a single path segment without slashes or '..' — it becomes the prefix under s3://<bucket>/`
-    )
-  }
-  return jsx(Bucket as unknown as string, props)
+  // Descriptors are VALUES — the renderer only reaches this body if someone
+  // renders <Bucket /> directly. Fail loudly instead of recursing.
+  throw new Error(
+    'Bucket is a descriptor, not a renderable component — pass it to consumers:' +
+      ` <Database backup={<Bucket name="${props?.name ?? '…'}" />} />`
+  )
 }
 
 export interface ResolvedBucket {
@@ -243,6 +243,9 @@ export function resolveBucket(
     ...(bucket !== undefined && { bucket }),
     ...(credentialsSecret !== undefined && { credentialsSecret }),
   }
+  // The original Secret's velero-format `cloud` entry belongs to the
+  // original credential — an override almost certainly lacks it.
+  if (credentialsSecret !== undefined) delete effective.veleroCredentialKey
   if (!effective.endpoint || !effective.bucket || !effective.credentialsSecret) {
     throw new Error(
       `Bucket "${name}" cannot resolve its store config:\n` +
@@ -252,10 +255,11 @@ export function resolveBucket(
         `  <Bucket name="${name}" bucket="…" endpoint="https://…" credentialsSecret="…" />`
     )
   }
+  const prefix = [s3?.prefix, name].filter(Boolean).join('/')
   return {
     s3: effective as S3Config,
-    prefix: name,
-    root: `s3://${effective.bucket}/${name}`,
+    prefix,
+    root: `s3://${effective.bucket}/${prefix}`,
   }
 }
 

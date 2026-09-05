@@ -253,6 +253,13 @@ export const recipes: Recipe[] = [
             "Velero storage location name. With an S3 provider on the Platform this defaults to this component's name (the emitted BackupStorageLocation); without one, 'default' (an externally-managed location must exist).",
         },
         {
+          name: 'bucket',
+          type: 'BucketProps',
+          required: false,
+          description:
+            '<Bucket name="…"/> descriptor — scopes the BackupStorageLocation to that prefix (`<name>/velero`) of the surrounding provider\'s bucket.',
+        },
+        {
           name: 'ttl',
           type: 'string',
           required: false,

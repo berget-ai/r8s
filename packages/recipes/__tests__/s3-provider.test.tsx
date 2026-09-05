@@ -199,6 +199,33 @@ describe('Bucket descriptor (backup={<Bucket … />} )', () => {
     expect(schedule.spec.template.storageLocation).toBe(bsl.metadata.name)
   })
 
+  it('composes context prefix + descriptor name', () => {
+    // hand-built provider with its own scope prefix (source-controller style)
+    const result = render(
+      <S3Provider provider={{ ...s3, prefix: 'tenant-a' } as never}>
+        <Database name="db" backup={<Bucket name="nightly" />} />
+      </S3Provider>
+    )
+    const cluster = result.resources.find((r) => r.kind === 'Cluster') as any
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://infra/tenant-a/nightly/db-cnpg'
+    )
+  })
+
+  it('credential override drops the provider veleroCredentialKey (different Secret)', () => {
+    const result = render(
+      <S3Provider provider={{ ...s3, veleroCredentialKey: 'cloud' } as never}>
+        <Backup name="daily" bucket={<Bucket name="dumps" credentialsSecret="other-creds" />} />
+      </S3Provider>
+    )
+    const bsl = result.resources.find((r) => r.kind === 'BackupStorageLocation') as any
+    expect(bsl.spec.credential).toBeUndefined()
+  })
+
+  it('direct-rendering <Bucket /> fails loudly instead of recursing', () => {
+    expect(() => render(<Bucket name="oops" />)).toThrow(/descriptor/)
+  })
+
   it('rejects names that would escape the prefix', () => {
     expect(() => render(<Database name="x" backup={<Bucket name="a/b" />} />)).toThrow(
       /single path segment/

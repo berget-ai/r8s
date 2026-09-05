@@ -238,6 +238,10 @@ export function Database(props: DatabaseProps) {
       destinationPath: `${target.root}/${name}-cnpg`,
       credentialsSecret: target.s3.credentialsSecret,
     }
+  } else if (backupProp && typeof backupProp === 'object' && 'type' in (backupProp as never)) {
+    throw new Error(
+      `Database "${name}": backup element must be a <Bucket name="…" /> descriptor — got another component`
+    )
   }
   const backupSpec: DatabaseBackupProps | false | undefined =
     backup === false ? false : backup === true ? {} : { ...(backup as DatabaseBackupProps) }
