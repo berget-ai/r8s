@@ -8,6 +8,7 @@ import {
   useNamespace,
 } from '@r8s/core/defaults'
 import { cnpgOperator } from './operators'
+import { provisionerForSecretProvider } from './secret-provider'
 
 /**
  * Continuous + scheduled backup configuration for a dedicated CNPG cluster.
@@ -476,6 +477,11 @@ function createSecretResources(
  * `refreshAfter` comes from the provider (Platform secrets config),
  * `rolloutRestartTargets` restarts consuming workloads on rotation.
  * The secret content itself is never rendered into the manifest.
+ *
+ * Delegates to the shared provisioner in raw-sync mode (empty keys → the
+ * destination passes the whole store entry through — byte-identical to
+ * the legacy inline emission). Identity awareness lives ONLY in
+ * `secret-provider.tsx`.
  */
 function createStaticSecretResource(
   resourceName: string,
@@ -497,31 +503,16 @@ function createStaticSecretResource(
     name: t.name,
   }))
 
-  const spec = {
-    mount: secretProvider.mount,
-    type: 'kv-v2',
+  const el = provisionerForSecretProvider(secretProvider as never)!({
+    name: resourceName,
+    namespace,
     path: vaultPath,
-    ...(secretProvider.refreshAfter && { refreshAfter: secretProvider.refreshAfter }),
-    ...(targets && targets.length > 0 && { rolloutRestartTargets: targets }),
-    destination: { create: true, name: destinationName },
-  }
-
-  if (secretProvider.backend === 'openbao') {
-    return [
-      jsx('OpenBaoStaticSecret', {
-        apiVersion: 'secrets.openbao.org/v1beta1',
-        kind: 'OpenBaoStaticSecret',
-        metadata: { name: resourceName, namespace },
-        spec: { openbaoAuthRef: secretProvider.authRef, ...spec },
-      }),
-    ]
-  }
-  return [
-    jsx('VaultStaticSecret', {
-      apiVersion: 'secrets.hashicorp.com/v1beta1',
-      kind: 'VaultStaticSecret',
-      metadata: { name: resourceName, namespace },
-      spec: { vaultAuthRef: secretProvider.authRef, ...spec },
-    }),
-  ]
+    // Raw sync: callers (DB credentials, backup creds) don't enumerate
+    // store keys at render time — pass the whole entry through
+    keys: {},
+    secretName: destinationName,
+    refreshAfter: secretProvider.refreshAfter,
+    restartTargets: targets,
+  })
+  return Array.isArray(el) ? el : [el as ReturnType<typeof jsx>]
 }

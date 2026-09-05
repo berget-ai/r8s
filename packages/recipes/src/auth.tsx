@@ -221,108 +221,67 @@ export function Auth(props: AuthProps) {
   return jsx(Fragment, { children: resources })
 }
 
+/** Normalize JSX children into an array. */
+function childrenOf(children: unknown): any[] {
+  if (!children) return []
+  return Array.isArray(children) ? children : [children]
+}
+
+/** JSX element check — matches the component function reference. */
+function isElement(child: unknown, type: unknown): child is { props: any } {
+  return !!child && typeof child === 'object' && (child as any).type === type
+}
+
+function realmConfigFrom(child: { props: any }): RealmConfig {
+  const realmProps = child.props
+  // Merge identity providers from both prop and child components
+  const identityProviders = [
+    ...(realmProps.identityProviders ?? []),
+    ...collectIdentityProviders(realmProps.children),
+  ]
+  const clients = collectClients(realmProps.children)
+  return {
+    id: realmProps.id,
+    displayName: realmProps.displayName,
+    enabled: realmProps.enabled,
+    identityProviders,
+    clients,
+  }
+}
+
 /** Collect Realm configurations from children */
 function collectRealms(children: unknown): RealmConfig[] {
-  const realms: RealmConfig[] = []
-
-  if (!children) return realms
-
-  const childArray = Array.isArray(children) ? children : [children]
-  for (const child of childArray) {
-    if (child && typeof child === 'object' && 'type' in child) {
-      if (child.type === Realms) {
-        const realmsProps = (child as any).props
-        const realmChildren = Array.isArray(realmsProps.children)
-          ? realmsProps.children
-          : [realmsProps.children]
-        for (const realmChild of realmChildren) {
-          if (
-            realmChild &&
-            typeof realmChild === 'object' &&
-            'type' in realmChild &&
-            realmChild.type === Realm
-          ) {
-            const realmProps = (realmChild as any).props
-            const clients = collectClients(realmProps.children)
-            // Merge identity providers from both prop and child components
-            const identityProviders = [
-              ...(realmProps.identityProviders ?? []),
-              ...collectIdentityProviders(realmProps.children),
-            ]
-            realms.push({
-              id: realmProps.id,
-              displayName: realmProps.displayName,
-              enabled: realmProps.enabled,
-              identityProviders,
-              clients,
-            })
-          }
-        }
-      } else if (child.type === Realm) {
-        const realmProps = (child as any).props
-        const clients = collectClients(realmProps.children)
-        // Merge identity providers from both prop and child components
-        const identityProviders = [
-          ...(realmProps.identityProviders ?? []),
-          ...collectIdentityProviders(realmProps.children),
-        ]
-        realms.push({
-          id: realmProps.id,
-          displayName: realmProps.displayName,
-          enabled: realmProps.enabled,
-          identityProviders,
-          clients,
-        })
-      }
+  return childrenOf(children).flatMap((child) => {
+    if (isElement(child, Realms)) {
+      return childrenOf(child.props.children)
+        .filter((realmChild) => isElement(realmChild, Realm))
+        .map(realmConfigFrom)
     }
-  }
-
-  return realms
+    if (isElement(child, Realm)) return [realmConfigFrom(child)]
+    return []
+  })
 }
 
 /** Collect Client configurations from children */
 function collectClients(children: unknown): ClientConfig[] {
-  const clients: ClientConfig[] = []
-
-  if (!children) return clients
-
-  const childArray = Array.isArray(children) ? children : [children]
-  for (const child of childArray) {
-    if (child && typeof child === 'object' && 'type' in child) {
-      if (child.type === Clients) {
-        const clientsProps = (child as any).props
-        const clientChildren = Array.isArray(clientsProps.children)
-          ? clientsProps.children
-          : [clientsProps.children]
-        for (const clientChild of clientChildren) {
-          if (
-            clientChild &&
-            typeof clientChild === 'object' &&
-            'type' in clientChild &&
-            clientChild.type === Client
-          ) {
-            clients.push((clientChild as any).props)
-          }
-        }
-      } else if (child.type === Client) {
-        clients.push((child as any).props)
-      }
+  return childrenOf(children).flatMap((child) => {
+    if (isElement(child, Clients)) {
+      return childrenOf(child.props.children)
+        .filter((clientChild) => isElement(clientChild, Client))
+        .map((clientChild) => clientChild.props)
     }
-  }
-
-  return clients
+    if (isElement(child, Client)) return [(child as any).props]
+    return []
+  })
 }
 
 /** Collect IdentityProvider configurations from children */
 function collectIdentityProviders(children: unknown): IdentityProviderConfig[] {
   const identityProviders: IdentityProviderConfig[] = []
 
-  if (!children) return identityProviders
-
-  const childArray = Array.isArray(children) ? children : [children]
-  for (const child of childArray) {
-    if (child && typeof child === 'object' && 'type' in child) {
-      if (child.type === EntraID) {
+  for (const child of childrenOf(children)) {
+    if (typeof child === 'object' && child !== null) {
+      if (isElement(child, EntraID)) {
         const entraProps = (child as any).props
         identityProviders.push({
           alias: 'entra-id',

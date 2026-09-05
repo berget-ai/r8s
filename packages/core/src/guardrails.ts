@@ -48,48 +48,45 @@ export const requireNetworkPolicies: GuardrailRule = {
 }
 
 /** Check that all Deployments have resource limits */
+/** Workload kinds carrying a pod template with resource needs. */
+export const RESOURCE_LIMIT_KINDS = ['Deployment', 'StatefulSet', 'DaemonSet'] as const
+
+function containerResourceErrors(resource: any): ValidationError[] {
+  const name = resource.metadata?.name
+  return (resource.spec?.template?.spec?.containers || []).flatMap((container: any) => {
+    const label = `Container "${container.name}" in ${resource.kind} "${name}"`
+    const errors: ValidationError[] = []
+    if (!container.resources?.requests) {
+      errors.push({
+        code: 'MISSING_RESOURCE_REQUESTS',
+        message: `${label} is missing resource requests`,
+        resource: resource.kind,
+        field: 'spec.template.spec.containers[].resources.requests',
+        suggestion: 'Add resource.requests with cpu and memory values',
+      })
+    }
+    if (!container.resources?.limits) {
+      errors.push({
+        code: 'MISSING_RESOURCE_LIMITS',
+        message: `${label} is missing resource limits`,
+        resource: resource.kind,
+        field: 'spec.template.spec.containers[].resources.limits',
+        suggestion: 'Add resource.limits with cpu and memory values to prevent resource exhaustion',
+      })
+    }
+    return errors
+  })
+}
+
 export const requireResourceLimits: GuardrailRule = {
   id: 'require-resource-limits',
   description: 'All containers must have resource requests and limits',
   severity: 'error',
-  test: (resources) => {
-    const errors: ValidationError[] = []
-
-    for (const resource of resources as any[]) {
-      if (
-        resource.kind === 'Deployment' ||
-        resource.kind === 'StatefulSet' ||
-        resource.kind === 'DaemonSet'
-      ) {
-        const containers = resource.spec?.template?.spec?.containers || []
-        for (const container of containers) {
-          if (!container.resources?.requests) {
-            errors.push({
-              code: 'MISSING_RESOURCE_REQUESTS',
-              message: `Container "${container.name}" in ${resource.kind} "${resource.metadata?.name}" is missing resource requests`,
-              resource: resource.kind,
-              field: 'spec.template.spec.containers[].resources.requests',
-              suggestion: 'Add resource.requests with cpu and memory values',
-            })
-          }
-          if (!container.resources?.limits) {
-            errors.push({
-              code: 'MISSING_RESOURCE_LIMITS',
-              message: `Container "${container.name}" in ${resource.kind} "${resource.metadata?.name}" is missing resource limits`,
-              resource: resource.kind,
-              field: 'spec.template.spec.containers[].resources.limits',
-              suggestion:
-                'Add resource.limits with cpu and memory values to prevent resource exhaustion',
-            })
-          }
-        }
-      }
-    }
-
-    return errors
-  },
+  test: (resources) =>
+    (resources as any[])
+      .filter((resource) => (RESOURCE_LIMIT_KINDS as readonly string[]).includes(resource.kind))
+      .flatMap(containerResourceErrors),
 }
-
 /** Check that all resources have required labels */
 export const requireLabels = (requiredLabels: string[]): GuardrailRule => ({
   id: `require-labels-${requiredLabels.sort().join('-')}`,
@@ -286,6 +283,202 @@ function workloadsContainers(resource: KubernetesResource): any[] {
   return [...(podSpec.containers ?? []), ...(podSpec.initContainers ?? [])]
 }
 
+type SecretScanPush = (kind: string, where: string, field: string, suggestion: string) => void
+type SecretScanValue = (resourceKind: string, where: string, field: string, value: unknown) => void
+interface SecretScanCtx {
+  push: SecretScanPush
+  scanValue: SecretScanValue
+}
+
+const CREDENTIAL_VALUE_SUGGESTION =
+  'Use a secrets backend (openbao/vault/sealed-secrets) or let the operator provision the credential'
+const SEALED_FILE_SUGGESTION =
+  'Move the credential into a secrets backend and reference it, or render this file as a sealed secret'
+const CONFIGMAP_SUGGESTION =
+  'ConfigMaps carry no protection — render credentials as a Secret (from a secrets backend or sealed secret) instead'
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0
+}
+
+/** Does this key name look like it holds a credential value (not a reference)? */
+function isCredentialKeyName(normalized: string, extraExclusions: string[] = []): boolean {
+  return (
+    SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
+    !isReferenceKey(normalized) &&
+    !extraExclusions.some((suffix) => normalized.endsWith(suffix))
+  )
+}
+
+/** Multi-line values may embed YAML/INI payloads holding credential keys (e.g. appservice registration.yaml). */
+function pushEmbeddedCredentialHits(
+  ctx: SecretScanCtx,
+  hitInfo: { kind: string; where: string; field: string; value: unknown; suggestion: string }
+): void {
+  const { kind, where, field, value, suggestion } = hitInfo
+  if (typeof value !== 'string' || !value.includes('\n')) return
+  for (const hit of embeddedCredentialLines(value)) {
+    ctx.push(kind, `${where} — embedded key "${hit.key}"`, field, suggestion)
+  }
+}
+
+/** One stringData/data entry: credential keys, connection strings, PEM keys, embedded payloads. */
+function scanSecretEntry(
+  ctx: SecretScanCtx,
+  entry: { name: string | undefined; map: string; key: string; value: unknown }
+): void {
+  const { name, map, key, value } = entry
+  const where = `Secret "${name}" (${map}.${key})`
+  const field = `${map}.${key}`
+  if (isCredentialKeyName(normalizeKey(key)) && isNonEmptyString(value)) {
+    ctx.push('Secret', where, field, CREDENTIAL_VALUE_SUGGESTION)
+  }
+  ctx.scanValue('Secret', where, field, value)
+  pushEmbeddedCredentialHits(ctx, {
+    kind: 'Secret',
+    where,
+    field,
+    value,
+    suggestion: SEALED_FILE_SUGGESTION,
+  })
+}
+
+/** Secret stringData/data maps of a non-exempt Secret. */
+function scanSecretResource(resource: KubernetesResource, ctx: SecretScanCtx): void {
+  const anyResource = resource as any
+  const secretType = (anyResource.type as string) || ''
+  if (EXEMPT_SECRET_TYPES.includes(secretType) || anyResource.encryptedData !== undefined) return
+
+  for (const map of ['stringData', 'data'] as const) {
+    const data = anyResource[map]
+    if (!data || typeof data !== 'object') continue
+    for (const [key, value] of Object.entries(data)) {
+      scanSecretEntry(ctx, { name: resource.metadata?.name, map, key, value })
+    }
+  }
+}
+
+/** ConfigMap data — same exposure as Secrets when credentials are embedded. */
+function scanConfigMapResource(resource: KubernetesResource, ctx: SecretScanCtx): void {
+  const { push, scanValue } = ctx
+  const data = (resource as any).data
+  if (!data || typeof data !== 'object') return
+  const name = resource.metadata?.name
+  for (const [key, value] of Object.entries(data)) {
+    if (!isNonEmptyString(value)) continue
+    const where = `ConfigMap "${name}" (data.${key})`
+    const field = `data.${key}`
+    const isCredentialKey =
+      isCredentialKeyName(normalizeKey(key), EMBEDDED_KEY_EXCLUDE_SUFFIXES) &&
+      !looksLikeReference(value) &&
+      !PLACEHOLDER_VALUE_RE.test(value)
+    if (isCredentialKey) push('ConfigMap', where, field, CONFIGMAP_SUGGESTION)
+    pushEmbeddedCredentialHits(ctx, {
+      kind: 'ConfigMap',
+      where,
+      field,
+      value,
+      suggestion: CONFIGMAP_SUGGESTION,
+    })
+    scanValue('ConfigMap', where, field, value)
+  }
+}
+
+/** Env entries that embed a literal string via `value` (valueFrom is a reference, not exposure). */
+function hasPlainValue(env: any): env is { name: string; value: string } {
+  return (
+    !!env &&
+    typeof env === 'object' &&
+    typeof env.name === 'string' &&
+    typeof env.value === 'string' &&
+    env.valueFrom === undefined
+  )
+}
+
+function envIsSecretNamed(name: string): boolean {
+  return SECRET_ENV_NAME_PATTERN.test(name) && !NON_SECRET_ENV_NAME_PATTERN.test(name)
+}
+
+/** Workload env vars: only `value` embeds the credential — valueFrom is a reference. */
+function scanWorkloadEnv(
+  resource: KubernetesResource,
+  kindName: string,
+  push: SecretScanPush
+): void {
+  for (const container of workloadsContainers(resource)) {
+    for (const env of (container.env ?? []).filter(hasPlainValue)) {
+      const where = `${kindName} container "${container.name}" env "${env.name}"`
+      const field = `spec.template.spec.containers[].env[name=${env.name}].value`
+      if (envIsSecretNamed(env.name) && !looksLikeReference(env.value)) {
+        push(
+          resource.kind,
+          where,
+          field,
+          'Use valueFrom.secretKeyRef, a Vault/OpenBao secret reference, or $(VAR) expansion'
+        )
+      }
+      if (connectionStringPassword(env.value) !== null) {
+        push(
+          resource.kind,
+          where,
+          field,
+          'Connection string embeds a password. Split into individual vars and reference the secret'
+        )
+      }
+    }
+  }
+}
+
+/** Nested fields — credentials anywhere in the resource tree (CRD specs, realm users, …). */
+function walkNestedFields(
+  resource: KubernetesResource,
+  kindName: string,
+  ctx: SecretScanCtx
+): void {
+  const { push, scanValue } = ctx
+
+  const leafScan = (value: unknown, path: string): void => {
+    if (typeof value === 'string') scanValue(resource.kind, `${kindName} (${path})`, path, value)
+  }
+
+  const reportCredentialKey = (key: string, value: unknown, path: string): void => {
+    if (!isCredentialKeyName(normalizeKey(key))) return
+    if (!isNonEmptyString(value) || looksLikeReference(value)) return
+    push(
+      resource.kind,
+      `${kindName} (${path}.${key})`,
+      `${path}.${key}`,
+      'Move the credential into a secrets backend and reference it by name'
+    )
+  }
+
+  const walkObject = (obj: Record<string, unknown>, path: string): void => {
+    for (const [key, value] of Object.entries(obj)) {
+      // sealed-secrets ciphertext is encrypted with the cluster key
+      if (key === 'encryptedData') continue
+      reportCredentialKey(key, value, path)
+      // Recurse into child objects/arrays so credentials are caught at every
+      // depth; leaf strings are scanned for connection strings / PEM keys
+      if (value && typeof value === 'object') walk(value, `${path}.${key}`)
+      else leafScan(value, `${path}.${key}`)
+    }
+  }
+
+  const walk = (node: unknown, path: string): void => {
+    if (Array.isArray(node)) {
+      node.forEach((item, i) => walk(item, `${path}[${i}]`))
+      return
+    }
+    if (!node || typeof node !== 'object') {
+      leafScan(node, path)
+      return
+    }
+    walkObject(node as Record<string, unknown>, path)
+  }
+
+  walk((resource as any).spec, 'spec')
+}
+
 /**
  * Check that no credentials are rendered as plaintext. Covers:
  * - Secret stringData/data values for credential keys, connection-string
@@ -307,7 +500,7 @@ export const noPlaintextSecrets: GuardrailRule = {
     const errors: ValidationError[] = []
     const seen = new Set<string>()
 
-    const push = (kind: string, where: string, field: string, suggestion: string) => {
+    const push: SecretScanPush = (kind, where, field, suggestion) => {
       const dedupeKey = `${where}:${field}`
       if (seen.has(dedupeKey)) return
       seen.add(dedupeKey)
@@ -320,7 +513,7 @@ export const noPlaintextSecrets: GuardrailRule = {
       })
     }
 
-    const scanValue = (resourceKind: string, where: string, field: string, value: unknown) => {
+    const scanValue: SecretScanValue = (resourceKind, where, field, value) => {
       if (typeof value !== 'string' || value.length === 0) return
       if (connectionStringPassword(value) !== null) {
         push(
@@ -339,173 +532,19 @@ export const noPlaintextSecrets: GuardrailRule = {
       }
     }
 
+    const ctx: SecretScanCtx = { push, scanValue }
     for (const resource of resources) {
       const kindName = `${resource.kind} "${resource.metadata?.name ?? '?'}"`
-      const anyResource = resource as any
-
-      // 1. Kubernetes Secret resources
       if (resource.kind === 'Secret') {
-        const secretType = (anyResource.type as string) || ''
-        const isEncrypted = anyResource.encryptedData !== undefined
-        const exempt = EXEMPT_SECRET_TYPES.includes(secretType)
-
-        if (!exempt && !isEncrypted) {
-          for (const map of ['stringData', 'data'] as const) {
-            const data = anyResource[map]
-            if (!data || typeof data !== 'object') continue
-            for (const [key, value] of Object.entries(data)) {
-              const normalized = normalizeKey(key)
-              const isCredentialKey =
-                SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
-                !isReferenceKey(normalized)
-              if (isCredentialKey && typeof value === 'string' && value.length > 0) {
-                push(
-                  'Secret',
-                  `Secret "${resource.metadata?.name}" (${map}.${key})`,
-                  `${map}.${key}`,
-                  'Use a secrets backend (openbao/vault/sealed-secrets) or let the operator provision the credential'
-                )
-              }
-              scanValue(
-                'Secret',
-                `Secret "${resource.metadata?.name}" (${map}.${key})`,
-                `${map}.${key}`,
-                value
-              )
-              // Multi-line values may embed YAML/INI with credential keys
-              // (e.g. appservice registration.yaml holding as_token)
-              if (typeof value === 'string' && value.includes('\n')) {
-                for (const hit of embeddedCredentialLines(value)) {
-                  push(
-                    'Secret',
-                    `Secret "${resource.metadata?.name}" (${map}.${key}) — embedded key "${hit.key}"`,
-                    `${map}.${key}`,
-                    'Move the credential into a secrets backend and reference it, or render this file as a sealed secret'
-                  )
-                }
-              }
-            }
-          }
-        }
+        scanSecretResource(resource, ctx)
         continue
       }
-
-      // 1b. ConfigMap data — same exposure as Secrets when credentials are
-      // embedded (ConfigMaps are committed to git alongside everything else)
       if (resource.kind === 'ConfigMap') {
-        const data = anyResource.data
-        if (data && typeof data === 'object') {
-          for (const [key, value] of Object.entries(data)) {
-            if (typeof value !== 'string' || value.length === 0) continue
-            const normalized = normalizeKey(key)
-            const isCredentialKey =
-              SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
-              !isReferenceKey(normalized) &&
-              !EMBEDDED_KEY_EXCLUDE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
-            if (
-              isCredentialKey &&
-              !looksLikeReference(value) &&
-              !PLACEHOLDER_VALUE_RE.test(value)
-            ) {
-              push(
-                'ConfigMap',
-                `ConfigMap "${resource.metadata?.name}" (data.${key})`,
-                `data.${key}`,
-                'ConfigMaps carry no protection — render credentials as a Secret (from a secrets backend or sealed secret) instead'
-              )
-            }
-            if (value.includes('\n')) {
-              for (const hit of embeddedCredentialLines(value)) {
-                push(
-                  'ConfigMap',
-                  `ConfigMap "${resource.metadata?.name}" (data.${key}) — embedded key "${hit.key}"`,
-                  `data.${key}`,
-                  'ConfigMaps carry no protection — render credentials as a Secret (from a secrets backend or sealed secret) instead'
-                )
-              }
-            }
-            scanValue(
-              'ConfigMap',
-              `ConfigMap "${resource.metadata?.name}" (data.${key})`,
-              `data.${key}`,
-              value
-            )
-          }
-        }
+        scanConfigMapResource(resource, ctx)
         continue
       }
-
-      // 2. Workload env vars
-      for (const container of workloadsContainers(resource)) {
-        for (const env of container.env ?? []) {
-          if (!env || typeof env !== 'object' || !env.name) continue
-          // Only `value` embeds the credential — valueFrom is a reference.
-          if (env.value === undefined || env.valueFrom) continue
-          if (typeof env.value !== 'string') continue
-          const isSecretName =
-            SECRET_ENV_NAME_PATTERN.test(env.name) && !NON_SECRET_ENV_NAME_PATTERN.test(env.name)
-          const hasConnectionString = connectionStringPassword(env.value) !== null
-          if (isSecretName && !looksLikeReference(env.value)) {
-            push(
-              resource.kind,
-              `${kindName} container "${container.name}" env "${env.name}"`,
-              `spec.template.spec.containers[].env[name=${env.name}].value`,
-              'Use valueFrom.secretKeyRef, a Vault/OpenBao secret reference, or $(VAR) expansion'
-            )
-          }
-          if (hasConnectionString) {
-            push(
-              resource.kind,
-              `${kindName} container "${container.name}" env "${env.name}"`,
-              `spec.template.spec.containers[].env[name=${env.name}].value`,
-              'Connection string embeds a password. Split into individual vars and reference the secret'
-            )
-          }
-        }
-      }
-
-      // 3. Nested fields — credentials anywhere in the resource tree
-      const walk = (node: unknown, path: string) => {
-        if (Array.isArray(node)) {
-          node.forEach((item, i) => walk(item, `${path}[${i}]`))
-          return
-        }
-        if (!node || typeof node !== 'object') {
-          if (typeof node === 'string')
-            scanValue(resource.kind, `${kindName} (${path})`, path, node)
-          return
-        }
-        for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
-          // sealed-secrets ciphertext is encrypted with the cluster key
-          if (key === 'encryptedData') continue
-          const normalized = normalizeKey(key)
-          const isCredentialKey =
-            SECRET_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) &&
-            !isReferenceKey(normalized)
-          if (
-            isCredentialKey &&
-            typeof value === 'string' &&
-            value.length > 0 &&
-            !looksLikeReference(value)
-          ) {
-            push(
-              resource.kind,
-              `${kindName} (${path}.${key})`,
-              `${path}.${key}`,
-              'Move the credential into a secrets backend and reference it by name'
-            )
-          }
-          // Recurse into child objects/arrays so credentials are caught at
-          // every depth (pod templates, CRD specs, realm users, …); leaf
-          // strings are scanned for connection strings / PEM keys
-          if (value && typeof value === 'object') {
-            walk(value, `${path}.${key}`)
-          } else {
-            scanValue(resource.kind, `${kindName} (${path}.${key})`, `${path}.${key}`, value)
-          }
-        }
-      }
-      walk(anyResource.spec, 'spec')
+      scanWorkloadEnv(resource, kindName, push)
+      walkNestedFields(resource, kindName, ctx)
     }
 
     return errors
@@ -541,52 +580,48 @@ export const requireTLS: GuardrailRule = {
 }
 
 /** Check that Pods don't run as root */
+function runsAsRoot(securityContext: any): boolean {
+  return securityContext?.runAsUser === 0 || securityContext?.runAsRoot === true
+}
+
+function rootContainerErrors(resource: any): ValidationError[] {
+  const podSpec = resource.spec?.template?.spec || resource.spec || {}
+  const name = resource.metadata?.name
+  const errors: ValidationError[] = []
+  if (runsAsRoot(podSpec.securityContext ?? {})) {
+    errors.push({
+      code: 'CONTAINER_RUNS_AS_ROOT',
+      message: `${resource.kind} "${name}" is configured to run as root`,
+      resource: resource.kind,
+      field: 'spec.template.spec.securityContext.runAsUser',
+      suggestion: 'Set runAsUser to a non-zero UID and runAsRoot to false',
+    })
+  }
+  for (const container of podSpec.containers || []) {
+    if (runsAsRoot(container.securityContext ?? {})) {
+      errors.push({
+        code: 'CONTAINER_RUNS_AS_ROOT',
+        message: `Container "${container.name}" in ${resource.kind} "${name}" runs as root`,
+        resource: resource.kind,
+        field: 'spec.template.spec.containers[].securityContext.runAsUser',
+        suggestion: 'Set securityContext.runAsUser to a non-zero UID',
+      })
+    }
+  }
+  return errors
+}
+
 export const noRootContainers: GuardrailRule = {
   id: 'no-root-containers',
   description: 'Containers should not run as root user',
   severity: 'error',
-  test: (resources) => {
-    const errors: ValidationError[] = []
-
-    for (const resource of resources as any[]) {
-      if (
-        resource.kind === 'Deployment' ||
-        resource.kind === 'StatefulSet' ||
-        resource.kind === 'DaemonSet' ||
-        resource.kind === 'Pod'
-      ) {
-        const podSpec = resource.spec?.template?.spec || resource.spec || {}
-        const securityContext = podSpec.securityContext || {}
-
-        if (securityContext.runAsUser === 0 || securityContext.runAsRoot === true) {
-          errors.push({
-            code: 'CONTAINER_RUNS_AS_ROOT',
-            message: `${resource.kind} "${resource.metadata?.name}" is configured to run as root`,
-            resource: resource.kind,
-            field: 'spec.template.spec.securityContext.runAsUser',
-            suggestion: 'Set runAsUser to a non-zero UID and runAsRoot to false',
-          })
-        }
-
-        for (const container of podSpec.containers || []) {
-          const containerSecurity = container.securityContext || {}
-          if (containerSecurity.runAsUser === 0 || containerSecurity.runAsRoot === true) {
-            errors.push({
-              code: 'CONTAINER_RUNS_AS_ROOT',
-              message: `Container "${container.name}" in ${resource.kind} "${resource.metadata?.name}" runs as root`,
-              resource: resource.kind,
-              field: 'spec.template.spec.containers[].securityContext.runAsUser',
-              suggestion: 'Set securityContext.runAsUser to a non-zero UID',
-            })
-          }
-        }
-      }
-    }
-
-    return errors
-  },
+  test: (resources) =>
+    (resources as any[])
+      .filter((resource) =>
+        ([...RESOURCE_LIMIT_KINDS, 'Pod'] as readonly string[]).includes(resource.kind)
+      )
+      .flatMap(rootContainerErrors),
 }
-
 /** Default set of guardrails for production use */
 export const defaultGuardrails: GuardrailRule[] = [
   requireNetworkPolicies,
