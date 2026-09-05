@@ -9,7 +9,7 @@ import {
   useNamespace,
 } from '@r8s/core/defaults'
 import { provisionerForSecretProvider } from './secret-provider'
-import { useS3 } from './s3-provider'
+import { useS3, isBucketElement, resolveBucket } from './s3-provider'
 
 /**
  * Continuous + scheduled backup configuration for a dedicated CNPG cluster.
@@ -180,7 +180,7 @@ export function Database(props: DatabaseProps) {
     storageClass,
     parameters,
     credentialsMode = 'backend',
-    backup,
+    backup: backupProp,
     rolloutRestartTargets,
     operatorVersion,
     postInitSQL,
@@ -213,7 +213,7 @@ export function Database(props: DatabaseProps) {
   // recycling fills the data PVC over time. Passing nothing is a bug the
   // renderer must catch, not a silent default.
   const s3 = useS3()
-  if (backup === undefined) {
+  if (backupProp === undefined) {
     throw new Error(
       `Database "${name}": backup is a required decision.\n` +
         `\n` +
@@ -229,6 +229,15 @@ export function Database(props: DatabaseProps) {
         `To explicitly run without backups (forks, ephemeral CI databases):\n` +
         `  <Database name="${name}" backup={false} />`
     )
+  }
+  let backup = backupProp
+  if (backupProp && typeof backupProp === 'object' && isBucketElement(backupProp)) {
+    const target = resolveBucket(backupProp, s3)
+    backup = {
+      endpointURL: target.s3.endpoint,
+      destinationPath: `${target.root}/${name}-cnpg`,
+      credentialsSecret: target.s3.credentialsSecret,
+    }
   }
   const backupSpec: DatabaseBackupProps | false | undefined =
     backup === false ? false : backup === true ? {} : { ...(backup as DatabaseBackupProps) }

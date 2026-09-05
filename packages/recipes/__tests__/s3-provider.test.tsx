@@ -123,27 +123,71 @@ describe('Database backup via S3 context', () => {
   })
 })
 
-describe('Bucket scoping', () => {
-  it('prefixes child destinations with the bucket name', () => {
+describe('Bucket descriptor (backup={<Bucket … />} )', () => {
+  it('points the backup at <bucket>/<name>/<consumer>-suffix', () => {
     const result = render(
       <WithS3>
-        <Bucket name="matrix_backup">
-          <Database name="matrix-db" backup />
-        </Bucket>
+        <Database name="api-db" backup={<Bucket name="matrix_backup" />} />
       </WithS3>
     )
     const cluster = result.resources.find((r) => r.kind === 'Cluster') as any
     expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
-      's3://infra/matrix_backup/matrix-db-cnpg'
+      's3://infra/matrix_backup/api-db-cnpg'
+    )
+    expect(cluster.spec.backup.barmanObjectStore.endpointURL).toBe('https://rustfs:9000')
+    expect(cluster.spec.backup.barmanObjectStore.s3Credentials.accessKeyId.name).toBe(
+      'infra-s3-creds'
+    )
+    const schedules = result.resources.filter((r) => r.kind === 'ScheduledBackup')
+    expect(schedules).toHaveLength(1)
+  })
+
+  it('inherits endpoint/credentials from the surrounding provider and lets the descriptor override', () => {
+    const result = render(
+      <WithS3>
+        <Database
+          name="cold-db"
+          backup={<Bucket name="cold" bucket="cold-storage" credentialsSecret="cold-creds" />}
+        />
+      </WithS3>
+    )
+    const barman = (result.resources.find((r) => r.kind === 'Cluster') as any).spec.backup
+      .barmanObjectStore
+    expect(barman.destinationPath).toBe('s3://cold-storage/cold/cold-db-cnpg')
+    expect(barman.endpointURL).toBe('https://rustfs:9000')
+    expect(barman.s3Credentials.accessKeyId.name).toBe('cold-creds')
+  })
+
+  it('a descriptor outside any S3Provider must carry the full store config', () => {
+    const result = render(
+      <Database
+        name="solo-db"
+        backup={
+          <Bucket
+            name="solo"
+            bucket="standalone"
+            endpoint="https://s3.example.com"
+            credentialsSecret="solo-creds"
+          />
+        }
+      />
+    )
+    const barman = (result.resources.find((r) => r.kind === 'Cluster') as any).spec.backup
+      .barmanObjectStore
+    expect(barman.destinationPath).toBe('s3://standalone/solo/solo-db-cnpg')
+    expect(barman.s3Credentials.accessKeyId.name).toBe('solo-creds')
+  })
+
+  it('a partial descriptor outside a provider fails with guidance', () => {
+    expect(() => render(<Database name="api-db" backup={<Bucket name="orphan" />} />)).toThrow(
+      /S3Provider/
     )
   })
 
-  it('composes with the velero consumer: <bucket-prefix>/velero', () => {
+  it('Velero composes the descriptor prefix: <name>/velero', () => {
     const result = render(
       <WithS3>
-        <Bucket name="cluster-dumps">
-          <Backup name="daily" />
-        </Bucket>
+        <Backup name="daily" bucket={<Bucket name="cluster-dumps" />} />
       </WithS3>
     )
     const bsl = result.resources.find((r) => r.kind === 'BackupStorageLocation') as any
@@ -151,64 +195,14 @@ describe('Bucket scoping', () => {
       bucket: 'infra',
       prefix: 'cluster-dumps/velero',
     })
-  })
-
-  it('can re-scope bucket/credentials for its children only', () => {
-    let inside: unknown = null
-    let outside: unknown = null
-    function Probe({ out }: { out?: boolean }) {
-      const v = useS3()
-      if (out) outside = v
-      else inside = v
-      return jsx(Fragment, {})
-    }
-    render(
-      <WithS3>
-        <Probe out />
-        <Bucket name="cold" bucket="cold-storage" credentialsSecret="cold-creds">
-          <Probe />
-        </Bucket>
-      </WithS3>
-    )
-    expect(outside).toMatchObject({ bucket: 'infra', credentialsSecret: 'infra-s3-creds' })
-    expect(inside).toMatchObject({
-      bucket: 'cold-storage',
-      credentialsSecret: 'cold-creds',
-      prefix: 'cold',
-    })
-  })
-
-  it('composes nested buckets instead of overwriting the prefix', () => {
-    const result = render(
-      <WithS3>
-        <Bucket name="team-a">
-          <Bucket name="nightly">
-            <Database name="db" backup />
-          </Bucket>
-        </Bucket>
-      </WithS3>
-    )
-    const cluster = result.resources.find((r) => r.kind === 'Cluster') as any
-    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
-      's3://infra/team-a/nightly/db-cnpg'
-    )
+    const schedule = result.resources.find((r) => r.kind === 'Schedule') as any
+    expect(schedule.spec.template.storageLocation).toBe(bsl.metadata.name)
   })
 
   it('rejects names that would escape the prefix', () => {
-    expect(() =>
-      render(
-        <WithS3>
-          <Bucket name="a/b">nothing</Bucket>
-        </WithS3>
-      )
-    ).toThrow(/single path segment/)
-    expect(() =>
-      render(
-        <WithS3>
-          <Bucket name="../escape">nothing</Bucket>
-        </WithS3>
-      )
-    ).toThrow(/single path segment/)
+    expect(() => render(<Database name="x" backup={<Bucket name="a/b" />} />)).toThrow(
+      /single path segment/
+    )
   })
 })
 

@@ -163,66 +163,100 @@ export function S3Provider(props: S3ProviderProps) {
   return jsx(S3Context.Provider, { value: config, children })
 }
 
+export interface BucketProps {
+  /** Prefix segment under the bucket (single path segment, no slashes) */
+  name: string
+  /** Point at another bucket than the surrounding provider's */
+  bucket?: string
+  /** Point at another endpoint than the surrounding provider's */
+  endpoint?: string
+  /** Point at another credentials Secret than the surrounding provider's */
+  credentialsSecret?: string
+}
+
 /**
- * Bucket — scope S3 destinations for its children inside the surrounding
- * S3Provider. Backups land under `s3://<bucket>/<name>/…` instead of the
- * bucket root, so layouts stay readable and movable:
+ * Bucket — a declarative pointer at an S3 destination to pass into
+ * consumers' backup/bucket props:
  *
- * <S3Provider …>
- *   <Bucket name="matrix_backup">   →  s3://bucket/matrix_backup/matrix-db-cnpg
- *     <Matrix …/>
- *   <Bucket name="velero">          →  s3://bucket/velero/…
- *     <Backup name="daily" />
+ *   <Database name="api-db" backup={<Bucket name="matrix_backup" />} />
  *
- * Consumers append their own conventional suffix (-cnpg, …); explicit
- * backup props still win over anything derived. Optionally re-scopes
- * bucket/endpoint/credentials for children that need another store.
+ * Endpoint/credentials resolve from the surrounding S3Provider unless the
+ * descriptor overrides them, so the call site shows exactly where data
+ * goes without repeating store config. Consumers append their own
+ * conventional suffix (`-cnpg`, `velero`, …).
  *
  * @example
  * import { S3Provider, MinIO, Bucket, Database, Backup } from '@r8s/recipes'
  *
  * export default (
  *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
- *     <Bucket name="matrix_backup">
- *       <Database name="matrix-db" backup />
- *     </Bucket>
- *     <Backup name="daily" />
+ *     <Database name="matrix-db" backup={<Bucket name="matrix_backup" />} />
+ *     <Backup name="daily" bucket={<Bucket name="cluster-dumps" />} />
  *   </S3Provider>
  * )
  */
-export interface BucketProps {
-  /** Prefix segment for children (single path segment, no slashes) */
-  name: string
-  /** Re-scope children to another bucket */
-  bucket?: string
-  /** Re-scope children to another endpoint */
-  endpoint?: string
-  /** Re-scope children to another credentials Secret */
-  credentialsSecret?: string
-  children?: unknown
+export function Bucket(props: BucketProps) {
+  if (!props.name || props.name.includes('/') || props.name.includes('..')) {
+    throw new Error(
+      `Bucket name "${props.name}" must be a single path segment without slashes or '..' — it becomes the prefix under s3://<bucket>/`
+    )
+  }
+  return jsx(Bucket as unknown as string, props)
 }
 
-export function Bucket(props: BucketProps) {
-  const { name, bucket, endpoint, credentialsSecret, children } = props
+export interface ResolvedBucket {
+  /** Effective store config after descriptor overrides */
+  s3: S3Config
+  /** Prefix under the bucket the consumer composes with */
+  prefix: string
+  /** Destination root including prefix (no consumer suffix) */
+  root: string
+}
+
+/** Element check for the Bucket descriptor. */
+export function isBucketElement(value: unknown): value is { props: BucketProps } {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'type' in (value as any) &&
+    (value as any).type === Bucket
+  )
+}
+
+/**
+ * Resolve a Bucket descriptor against the enclosing S3Provider (or its own
+ * full overrides) — children never need to know which half came from where.
+ */
+export function resolveBucket(
+  element: { props: BucketProps },
+  s3: S3Config | null
+): ResolvedBucket {
+  const { name, bucket, endpoint, credentialsSecret } = element.props
   if (!name || name.includes('/') || name.includes('..')) {
     throw new Error(
       `Bucket name "${name}" must be a single path segment without slashes or '..' — it becomes the prefix under s3://<bucket>/`
     )
   }
-  const parent = useS3()
-  if (!parent && !endpoint) {
-    throw new Error(
-      `Bucket "${name}" needs a surrounding <S3Provider> (or an explicit endpoint prop) — there is no object store to scope against`
-    )
-  }
-  const scoped: S3Config = {
-    ...parent!,
+  const effective: Partial<S3Config> = {
+    ...s3,
     ...(endpoint !== undefined && { endpoint }),
     ...(bucket !== undefined && { bucket }),
     ...(credentialsSecret !== undefined && { credentialsSecret }),
-    prefix: parent?.prefix ? `${parent.prefix}/${name}` : name,
   }
-  return jsx(S3Context.Provider, { value: scoped, children })
+  if (!effective.endpoint || !effective.bucket || !effective.credentialsSecret) {
+    throw new Error(
+      `Bucket "${name}" cannot resolve its store config:\n` +
+        `\n` +
+        `Wrap the consumer in an <S3Provider> (endpoint/credentials derive from it)\n` +
+        `or give the descriptor the full config:\n` +
+        `  <Bucket name="${name}" bucket="…" endpoint="https://…" credentialsSecret="…" />`
+    )
+  }
+  return {
+    s3: effective as S3Config,
+    prefix: name,
+    root: `s3://${effective.bucket}/${name}`,
+  }
 }
 
 /**
