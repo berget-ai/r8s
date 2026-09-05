@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -51,12 +52,21 @@ jobs:
         run: |
           git diff --quiet k8s/rendered/manifest.yaml || echo "changed=true" >> $GITHUB_OUTPUT
 
-      - name: Commit rendered manifests
+      # main is protected — the render bot opens a PR with the freshly
+      # rendered manifest instead of pushing to the branch directly.
+      - name: Open render PR
         if: steps.git-check.outputs.changed == 'true' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: render/${{ github.sha }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          git checkout -b "$BRANCH"
           git add k8s/rendered/manifest.yaml
-          git commit -m "chore: render kubernetes manifests [skip ci]"
-          git pull --rebase
-          git push
+          git commit -m "chore: render kubernetes manifests for ${{ github.sha }}"
+          git push -q origin "$BRANCH"
+          gh pr create --head "$BRANCH" --base main \
+            --title "chore: render kubernetes manifests (${{ github.event.head_commit.message }})" \
+            --body "Auto-rendered from ${{ github.sha }} — merge to sync the committed manifest with the TSX." \
+            --label automation || echo "PR already open for this render"
