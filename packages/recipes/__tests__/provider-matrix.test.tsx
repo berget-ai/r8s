@@ -73,14 +73,7 @@ const fixtures: Fixture[] = [
   {
     name: 'EuroOffice',
     component: EuroOffice,
-    props: {
-      host: 'docs.example.com',
-      objectStorage: {
-        endpoint: 'https://s3.test',
-        bucket: 'docs-blobs',
-        credentialsSecret: 'docs-blobs-credentials',
-      },
-    },
+    props: { host: 'docs.example.com' },
     expectedHosts: ['docs.example.com'],
   },
   {

@@ -1,427 +1,257 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import { Namespace, OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
+import { SecretContext } from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
-import { operators } from '@r8s/crds'
-import type { r8sElement } from '@r8s/core'
-
-// EuroOffice recipe tests:
-//   1. Operator declarations (deduped via OperatorContext)
-//   2. Rendering: defaults, all props, gateway/ingress adaptation, TCP probes
-//   3. Namespace inheritance from the Platform context
-//   4. Security: no plaintext credentials in rendered output
 import { EuroOffice } from '../src/index'
 
-const objectStorage = {
-  endpoint: 'https://s3.test',
-  bucket: 'docs-blobs',
-  credentialsSecret: 'docs-blobs-credentials',
-}
+// EuroOffice (DocumentServer) recipe tests, facit-aligned against
+// berget-internal/apps/onlyoffice:
+//   1. DocumentServer model (image/port/probes/lifecycle/resources)
+//   2. Single-replica + Recreate + data PVC (secure-link secret / WOPI keys)
+//   3. JWT secret via secrets backend (refresh + rotation restart) or reference
+//   4. CNPG database: instances/storage/parameters, DB_* env (no DATABASE_URL)
+//   5. Version pinning policy and error cases
+//   6. Brand fonts init container (default/on/off), Endpoint annotations
 
-const openbao = { backend: 'openbao', mount: 'kv', path: 'test' }
+const openbao = { backend: 'openbao', mount: 'secret', path: 'onlyoffice' }
 
-/** Render EuroOffice inside a Platform-like secrets backend (OpenBao). */
-function renderEuroOffice(props: Record<string, unknown>): ReturnType<typeof render> {
+function renderApp(props: Record<string, unknown> = {}) {
   return render(
     jsx(SecretContext.Provider, {
-      value: { backend: 'openbao', mount: 'kv', path: 'test' },
-      children: jsx(EuroOffice, { objectStorage, ...props } as never),
+      value: openbao,
+      children: jsx(EuroOffice, { host: 'docs.example.com', ...props } as never),
     })
   )
 }
 
-/** Render EuroOffice wrapped only in an OperatorContext (no secrets backend). */
-function renderEuroOfficeWithContext(
-  operators_: any[],
-  props: Record<string, unknown>
-): r8sElement {
-  return jsx(OperatorContext.Provider, {
-    value: operators_,
-    children: jsx(EuroOffice, {
-      objectStorage,
-      secretsName: 'existing-secrets',
-      ...props,
-    } as never),
-  })
-}
+const resource = (result: ReturnType<typeof render>, kind: string) =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  result.resources.find((r: any) => r.kind === kind) as any
 
-/** Render EuroOffice inside a Platform-like Namespace context (no explicit namespace prop). */
-function renderEuroOfficeInNamespace(
-  namespaceValue: string,
-  props: Record<string, unknown>
-): ReturnType<typeof render> {
-  return render(
-    jsx(Namespace.Provider, {
-      value: namespaceValue,
-      children: jsx(SecretContext.Provider, {
-        value: openbao as never,
-        children: jsx(EuroOffice, { objectStorage, ...props } as never),
-      }),
-    })
-  )
-}
-
-describe('operator declarations', () => {
-  it('declares the cnpg operator via the Database recipe', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com' })
-    expect(result.operators.some((op) => op.name === 'cnpg')).toBe(true)
+describe('EuroOffice DocumentServer', () => {
+  it('renders the pinned documentserver image on port 80 with facit probes', () => {
+    const d = resource(renderApp(), 'Deployment')
+    const c = d.spec.template.spec.containers[0]
+    expect(c.image).toBe('ghcr.io/euro-office/documentserver:v9.3.2')
+    expect(c.imagePullPolicy).toBe('IfNotPresent')
+    expect(c.ports[0].containerPort).toBe(80)
+    expect(d.spec.template.spec.startupProbe ?? c.startupProbe).toBeDefined()
+    expect(c.startupProbe.httpGet.path).toBe('/healthcheck')
+    expect(c.startupProbe.failureThreshold).toBe(60)
+    expect(c.startupProbe.periodSeconds).toBe(10)
+    expect(c.readinessProbe.httpGet.path).toBe('/healthcheck')
+    expect(c.readinessProbe.periodSeconds).toBe(15)
+    expect(c.livenessProbe.httpGet.path).toBe('/healthcheck')
+    expect(c.livenessProbe.periodSeconds).toBe(30)
+    expect(c.resources.requests).toEqual({ memory: '1Gi', cpu: '500m' })
+    expect(c.resources.limits).toEqual({ memory: '4Gi', cpu: '2' })
   })
 
-  it('adds no app-level operators beyond cnpg (Endpoint owns routing operators)', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com', conversions: true })
-    const names = result.operators.map((op) => op.name)
-    expect(names.filter((n) => n === 'cnpg')).toHaveLength(1)
-    expect(names).not.toContain('redis-operator')
-  })
+  it('is single-replica Recreate with the data PVC mounted at the WOPI path', () => {
+    const result = renderApp()
+    const d = resource(result, 'Deployment')
+    expect(d.spec.replicas).toBe(1)
+    expect(d.spec.strategy.type).toBe('Recreate')
 
-  it('deduplicates operators provided via context', () => {
-    const result = render(
-      renderEuroOfficeWithContext([operators['cnpg']()], { host: 'docs.example.com' })
+    const pvc = resource(result, 'PersistentVolumeClaim')
+    expect(pvc.metadata.name).toBe('onlyoffice-data')
+    expect(pvc.spec.resources.requests.storage).toBe('5Gi')
+
+    const c = d.spec.template.spec.containers[0]
+    const dataMount = c.volumeMounts.find((m: { name: string }) => m.name === 'data')
+    expect(dataMount.mountPath).toBe('/var/www/euro-office/Data')
+    expect(dataMount.subPath).toBe('data')
+    const dataVol = d.spec.template.spec.volumes.find((v: { name: string }) => v.name === 'data')
+    expect(dataVol.persistentVolumeClaim.claimName).toBe('onlyoffice-data')
+
+    // PVC size + storage class overridable; dataStorage: false drops the volume
+    const custom = resource(
+      renderApp({ dataStorage: { size: '10Gi', storageClass: 'harvester' } }),
+      'PersistentVolumeClaim'
     )
-    const names = result.operators.map((op) => op.name)
-    expect(names.filter((n) => n === 'cnpg')).toHaveLength(1)
+    expect(custom.spec.resources.requests.storage).toBe('10Gi')
+    expect(custom.spec.storageClassName).toBe('harvester')
+    expect(
+      renderApp({ dataStorage: false }).resources.find((r) => r.kind === 'PersistentVolumeClaim')
+    ).toBeUndefined()
   })
 
-  it('allows version overrides through context operators', () => {
-    const result = render(renderEuroOfficeWithContext([operators['cnpg']('1.24.0')], {}))
-    const cnpg = result.operators.filter((op) => op.name === 'cnpg')
-    expect(cnpg).toHaveLength(1)
-    expect(cnpg[0].version).toBe('1.24.0')
-  })
-})
-
-describe('rendering defaults', () => {
-  it('renders app deployment, service, database and endpoint', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com' })
-    const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).toContain('Deployment')
-    expect(kinds).toContain('Service')
-    expect(kinds).toContain('Ingress')
-    expect(kinds).toContain('Cluster')
+  it('rejects replicas != 1 (embedded Redis/RabbitMQ + RWO volume)', () => {
+    expect(() => renderApp({ replicas: 2 })).toThrow('replicas=1')
   })
 
-  it('adds LibreOffice conversion workers when conversions is set', () => {
-    const result = renderEuroOffice({
-      host: 'docs.example.com',
-      conversions: true,
-      conversionWorkers: 2,
-    })
-    const deployments = result.resources.filter((r) => r.kind === 'Deployment')
-    const soffice = deployments.find((d: any) => d.metadata.name === 'eurooffice-soffice') as any
-    expect(soffice).toBeDefined()
-    expect(soffice.spec.replicas).toBe(2)
-    expect(soffice.spec.template.spec.containers[0].command).toContain(
-      '--accept=socket,host=0.0.0.0,port=2002;urp;'
+  it('rejects the unpinned latest tag with an actionable error', () => {
+    expect(() => renderApp({ version: 'latest' })).toThrow('pinned version')
+  })
+
+  it('sets DB_* env against the CNPG cluster FQDN (no DATABASE_URL autowiring)', () => {
+    const d = resource(renderApp(), 'Deployment')
+    const env = Object.fromEntries(
+      d.spec.template.spec.containers[0].env.map((e: { name: string; value?: string }) => [
+        e.name,
+        e.value,
+      ])
     )
-    const services = result.resources.filter((r) => r.kind === 'Service')
-    expect(services.some((s: any) => s.metadata.name === 'eurooffice-soffice')).toBe(true)
-  })
+    expect(env.DB_TYPE).toBe('postgres')
+    expect(env.DB_HOST).toBe('eurooffice-db-rw.default.svc.cluster.local')
+    expect(env.DB_PORT).toBe('5432')
+    expect(env.DB_NAME).toBe('eurooffice-db')
+    expect(env.DB_USER).toBe('eurooffice-db')
+    expect(env.DATABASE_URL).toBeUndefined()
+    expect(env.JWT_ENABLED).toBe('true')
+    expect(env.JWT_HEADER).toBe('Authorization')
+    expect(env.EXAMPLE_ENABLED).toBeUndefined()
 
-  it('probes the soffice workers on the UNO TCP socket (not HTTP)', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com', conversions: true })
-    const soffice = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice-soffice'
-    ) as any
-    const container = soffice.spec.template.spec.containers[0]
-    expect(container.livenessProbe.tcpSocket).toEqual({ port: 2002 })
-    expect(container.readinessProbe.tcpSocket).toEqual({ port: 2002 })
-    expect(container.readinessProbe.initialDelaySeconds).toBe(20)
-    expect(container.livenessProbe.httpGet).toBeUndefined()
-    expect(container.readinessProbe.httpGet).toBeUndefined()
-  })
-
-  it('does not render conversion workers by default', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com' })
-    const deployments = result.resources
-      .filter((r) => r.kind === 'Deployment')
-      .map((d: any) => d.metadata.name)
-    expect(deployments).not.toContain('eurooffice-soffice')
-  })
-
-  it('defaults app replicas to 1 when websockets are enabled (no session affinity)', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com' })
-    const app = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    expect(app.spec.replicas).toBe(1)
-  })
-
-  it('defaults app replicas to 2 when websockets are disabled', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com', websockets: false })
-    const app = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    expect(app.spec.replicas).toBe(2)
-  })
-
-  it('renders explicit replicas with websockets enabled (caller opts into sticky sessions)', () => {
-    const result = renderEuroOffice({
-      host: 'docs.example.com',
-      websockets: true,
-      replicas: 3,
-    })
-    const app = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    expect(app.spec.replicas).toBe(3)
-  })
-
-  it('enables websockets by default and allows disabling them', () => {
-    const on = renderEuroOffice({ host: 'docs.example.com' })
-    const appOn = on.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    const envOn = appOn.spec.template.spec.containers[0].env
-    expect(envOn.find((e: any) => e.name === 'WEBSOCKETS_ENABLED').value).toBe('true')
-
-    const off = renderEuroOffice({ host: 'docs.example.com', websockets: false })
-    const appOff = off.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    const envOff = appOff.spec.template.spec.containers[0].env
-    expect(envOff.find((e: any) => e.name === 'WEBSOCKETS_ENABLED').value).toBe('false')
-  })
-
-  it('renders gateway resources when platform uses gateway routing', () => {
-    const result = render(
-      jsx(RoutingContext.Provider, {
-        value: { mode: 'gateway', gatewayClassName: 'eg' },
-        children: jsx(SecretContext.Provider, {
-          value: openbao as never,
-          children: jsx(EuroOffice, { objectStorage, host: 'docs.example.com' } as never),
-        }),
-      })
+    const withExample = Object.fromEntries(
+      resource(
+        renderApp({ exampleEnabled: true }),
+        'Deployment'
+      ).spec.template.spec.containers[0].env.map((e: { name: string; value?: string }) => [
+        e.name,
+        e.value,
+      ])
     )
-    const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).toContain('HTTPRoute')
+    expect(withExample.EXAMPLE_ENABLED).toBe('true')
   })
 
-  it('renders a valid Ingress when platform uses ingress routing', () => {
-    const result = render(
-      jsx(RoutingContext.Provider, {
-        value: { mode: 'ingress' },
-        children: jsx(SecretContext.Provider, {
-          value: openbao as never,
-          children: jsx(EuroOffice, { objectStorage, host: 'docs.example.com' } as never),
-        }),
-      })
-    )
-    const ingress = result.resources.find((r) => r.kind === 'Ingress') as any
-    expect(ingress).toBeDefined()
-    expect(ingress.spec.rules[0].host).toBe('docs.example.com')
-  })
-
-  it('passes resource validation', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com', conversions: true })
-    for (const resource of result.resources) {
-      expect(validateResource(resource)).toEqual([])
-    }
-  })
-})
-
-describe('namespace inheritance', () => {
-  it('inherits namespace from the Platform context when namespace prop is not set', () => {
-    const result = renderEuroOfficeInNamespace('docs', { host: 'docs.example.com' })
-    for (const kind of ['Deployment', 'Service', 'Cluster', 'Ingress']) {
-      const resource = result.resources.find((r: any) => r.kind === kind)
-      expect(resource).toBeDefined()
-      expect(resource.metadata.namespace).toBe('docs')
-    }
-  })
-
-  it('explicit namespace prop wins over the Platform context', () => {
-    const result = renderEuroOfficeInNamespace('docs', {
-      host: 'docs.example.com',
-      namespace: 'collab',
-    })
-    const app = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    expect(app.metadata.namespace).toBe('collab')
-  })
-
-  it('falls back to default when no Platform namespace is present', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com' })
-    const app = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    expect(app.metadata.namespace).toBe('default')
-  })
-})
-
-describe('rendering with all props', () => {
-  it('accepts the full prop surface', () => {
-    const result = renderEuroOffice({
-      name: 'docs',
-      namespace: 'docs',
-      version: '1.2.0',
-      host: 'docs.example.com',
-      replicas: 3,
-      websockets: false,
-      smtp: { host: 'smtp.example.com', port: 465, from: 'no-reply@docs.example.com' },
-      conversions: true,
-      conversionWorkers: 4,
-      objectStorage: {
-        endpoint: 'https://s3.internal.example.com',
-        bucket: 'docs-blobs',
-        credentialsSecret: 'docs-blobs-credentials',
-        region: 'eu-north-1',
-      },
-      resources: {
-        requests: { memory: '1Gi', cpu: '500m' },
-        limits: { memory: '4Gi', cpu: '2000m' },
-      },
-      tls: { secretName: 'docs-tls', clusterIssuer: 'letsencrypt-prod' },
-    })
-    expect(result.resources.length).toBeGreaterThan(0)
-    const app = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'docs'
-    ) as any
-    expect(app.spec.template.spec.containers[0].image).toBe('ghcr.io/berget-ai/eurooffice:1.2.0')
-    expect(app.spec.replicas).toBe(3)
-    expect(app.spec.template.spec.containers[0].resources.limits.memory).toBe('4Gi')
-    const env = app.spec.template.spec.containers[0].env
-    expect(env.find((e: any) => e.name === 'WEBSOCKETS_ENABLED').value).toBe('false')
-    expect(env.find((e: any) => e.name === 'SMTP_HOST').value).toBe('smtp.example.com')
-    expect(env.find((e: any) => e.name === 'SMTP_PORT').value).toBe('465')
-    expect(env.find((e: any) => e.name === 'SMTP_FROM').value).toBe('no-reply@docs.example.com')
-    expect(env.find((e: any) => e.name === 'AWS_REGION').value).toBe('eu-north-1')
-    expect(env.find((e: any) => e.name === 'SOFFICE_HOST').value).toBe('docs-soffice')
-
-    const soffice = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'docs-soffice'
-    ) as any
-    expect(soffice.spec.template.spec.containers[0].image).toBe(
-      'ghcr.io/berget-ai/eurooffice:1.2.0'
-    )
-    expect(soffice.spec.replicas).toBe(4)
-  })
-})
-
-describe('secrets handling', () => {
-  it('accepts an explicit secretsName without a backend', () => {
-    expect(() =>
-      render(
-        jsx(EuroOffice, {
-          host: 'docs.example.com',
-          objectStorage,
-          secretsName: 'existing-secrets',
-        } as never)
+  it('DB_PWD references the CNPG credentials secret; JWT_SECRET the provisioned secret', () => {
+    const d = resource(renderApp(), 'Deployment')
+    const byName = Object.fromEntries(
+      d.spec.template.spec.containers[0].env.map(
+        (e: { name: string; valueFrom?: { secretKeyRef?: { name: string; key: string } } }) => [
+          e.name,
+          e.valueFrom?.secretKeyRef,
+        ]
       )
-    ).not.toThrow()
-
-    const result = render(
-      jsx(EuroOffice, {
-        host: 'docs.example.com',
-        objectStorage,
-        secretsName: 'existing-secrets',
-      } as never)
     )
-    const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).not.toContain('OpenBaoStaticSecret')
-    const app = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    const env = app.spec.template.spec.containers[0].env
-    const appSecret = env.find((e: any) => e.name === 'APP_SECRET')
-    expect(appSecret.valueFrom.secretKeyRef.name).toBe('existing-secrets')
-    expect(appSecret.valueFrom.secretKeyRef.key).toBe('secretKey')
+    expect(byName.DB_PWD).toEqual({ name: 'eurooffice-db-db-credentials', key: 'password' })
+    expect(byName.JWT_SECRET).toEqual({ name: 'onlyoffice-jwt-secret', key: 'JWT_SECRET' })
   })
 
-  it('provisions the app secrets bundle through a secrets backend', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com' })
-    const secretCr = result.resources.find((r) => r.kind === 'OpenBaoStaticSecret') as any
-    expect(secretCr).toBeDefined()
-    expect(secretCr.metadata.name).toBe('eurooffice-secrets')
-    expect(secretCr.spec.destination.name).toBe('eurooffice-secrets')
-    expect(secretCr.spec.path).toBe('test/eurooffice/secrets')
-  })
-
-  it('provisions the app secrets bundle through Vault', () => {
-    const result = render(
-      jsx(SecretContext.Provider, {
-        value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(EuroOffice, { objectStorage, host: 'docs.example.com' } as never),
-      })
+  it('provisions the JWT secret via StaticSecret with 1h refresh + rotation restart', () => {
+    const vso = resource(renderApp(), 'OpenBaoStaticSecret')
+    expect(vso.metadata.name).toBe('onlyoffice-jwt')
+    expect(vso.spec.mount).toBe('secret')
+    expect(vso.spec.type).toBe('kv-v2')
+    expect(vso.spec.path).toBe('onlyoffice/onlyoffice/jwt')
+    expect(vso.spec.refreshAfter).toBe('1h')
+    expect(vso.spec.rolloutRestartTargets).toEqual([{ kind: 'Deployment', name: 'onlyoffice' }])
+    expect(vso.spec.destination.name).toBe('onlyoffice-jwt-secret')
+    expect(vso.spec.destination.transformation.templates.JWT_SECRET.text).toBe(
+      '{{ .Secrets.JWT_SECRET }}'
     )
-    const kinds = result.resources.map((r) => r.kind)
-    expect(kinds).toContain('VaultStaticSecret')
-    const secretCr = result.resources.find((r) => r.kind === 'VaultStaticSecret') as any
-    expect(secretCr.spec.path).toBe('apps/eurooffice/secrets')
   })
 
-  it('wires credentials via secretKeyRef (never plaintext env)', () => {
-    const result = renderEuroOffice({
-      host: 'docs.example.com',
-      smtp: { host: 'smtp.example.com' },
-    })
-    const app = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    const env = app.spec.template.spec.containers[0].env
-    const smtpPassword = env.find((e: any) => e.name === 'SMTP_PASSWORD')
-    const appSecret = env.find((e: any) => e.name === 'APP_SECRET')
-    const accessKey = env.find((e: any) => e.name === 'AWS_ACCESS_KEY_ID')
-    const secretAccessKey = env.find((e: any) => e.name === 'AWS_SECRET_ACCESS_KEY')
-    expect(smtpPassword.valueFrom.secretKeyRef.name).toBe('eurooffice-secrets')
-    expect(smtpPassword.valueFrom.secretKeyRef.key).toBe('smtpPassword')
-    expect(appSecret.valueFrom.secretKeyRef.name).toBe('eurooffice-secrets')
-    expect(appSecret.valueFrom.secretKeyRef.key).toBe('secretKey')
-    expect(accessKey.valueFrom.secretKeyRef.name).toBe('docs-blobs-credentials')
-    expect(accessKey.valueFrom.secretKeyRef.key).toBe('accessKey')
-    expect(secretAccessKey.valueFrom.secretKeyRef.name).toBe('docs-blobs-credentials')
-    expect(secretAccessKey.valueFrom.secretKeyRef.key).toBe('secretKey')
-    expect(smtpPassword.value).toBeUndefined()
-    expect(appSecret.value).toBeUndefined()
-    expect(accessKey.value).toBeUndefined()
-    expect(secretAccessKey.value).toBeUndefined()
-  })
-
-  it('auto-wires DATABASE_URL from the DatabaseContext (no manual connection string)', () => {
-    const result = renderEuroOffice({ host: 'docs.example.com' })
-    const app = result.resources.find(
-      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eurooffice'
-    ) as any
-    const env = app.spec.template.spec.containers[0].env
-    const databaseUrl = env.find((e: any) => e.name === 'DATABASE_URL')
-    expect(databaseUrl.value).toBe(
-      'postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)'
+  it('jwtSecretName references a pre-created secret instead of provisioning', () => {
+    const result = renderApp({ jwtSecretName: 'existing-jwt' })
+    expect(
+      result.resources.find(
+        (r) => r.kind === 'OpenBaoStaticSecret' && r.metadata.name === 'onlyoffice-jwt'
+      )
+    ).toBeUndefined()
+    const d = resource(result, 'Deployment')
+    const jwt = d.spec.template.spec.containers[0].env.find(
+      (e: { name: string }) => e.name === 'JWT_SECRET'
     )
-    const dbPassword = env.find((e: any) => e.name === 'PGPASSWORD')
-    expect(dbPassword.valueFrom.secretKeyRef.name).toBe('eurooffice-db-credentials')
-    expect(dbPassword.value).toBeUndefined()
+    expect(jwt.valueFrom.secretKeyRef.name).toBe('existing-jwt')
   })
 
-  it('renders no plaintext credentials anywhere', () => {
-    const result = renderEuroOffice({
-      host: 'docs.example.com',
-      smtp: { host: 'smtp.example.com', port: 587, from: 'no-reply@docs.example.com' },
-      conversions: true,
-      conversionWorkers: 2,
-    })
-    const { passed, errors } = runGuardrails(result.resources as any[], [noPlaintextSecrets])
-    if (!passed) {
-      console.error('Plaintext credential violations:', errors)
-    }
-    expect(passed).toBe(true)
-  })
-})
-
-describe('validation errors', () => {
-  it('throws when no secrets backend and no secrets name', () => {
-    expect(() =>
-      render(jsx(EuroOffice, { host: 'docs.example.com', objectStorage } as never))
-    ).toThrow(/application secrets/)
-  })
-
-  it('throws for unknown secrets backends', () => {
+  it('throws an actionable error without a backend and without jwtSecretName', () => {
     expect(() =>
       render(
         jsx(SecretContext.Provider, {
-          value: { backend: 'unknown' as never },
-          children: jsx(EuroOffice, { objectStorage, host: 'docs.example.com' } as never),
+          value: { backend: 'manual-secrets' },
+          children: jsx(EuroOffice, { host: 'docs.example.com' } as never),
         })
       )
-    ).toThrow(/application secrets/)
+    ).toThrow(/EuroOffice "onlyoffice" requires/)
+  })
+
+  it('renders the CNPG cluster: 2 instances, 20Gi, facit parameters + PodMonitor', () => {
+    const cluster = resource(renderApp(), 'Cluster')
+    expect(cluster.metadata.name).toBe('eurooffice-db')
+    expect(cluster.spec.instances).toBe(2)
+    expect(cluster.spec.storage.size).toBe('20Gi')
+    expect(cluster.spec.postgresql.parameters).toMatchObject({
+      shared_buffers: '256MB',
+      max_connections: '200',
+    })
+    expect(cluster.spec.monitoring.enablePodMonitor).toBe(true)
+
+    const scaled = resource(
+      renderApp({ dbInstances: 3, dbStorage: '50Gi', dbStorageClass: 'harvester' }),
+      'Cluster'
+    )
+    expect(scaled.spec.instances).toBe(3)
+    expect(scaled.spec.storage.size).toBe('50Gi')
+    expect(scaled.spec.storage.storageClass).toBe('harvester')
+  })
+
+  it('passes backup through to the Database recipe (WAL + scheduled)', () => {
+    const cluster = resource(
+      renderApp({
+        backup: {
+          destinationPath: 's3://backups/eurooffice-cnpg',
+          endpointURL: 'https://s3.nl-ams.scw.cloud',
+          credentialsSecret: 'scaleway-s3-secret',
+          schedule: '0 0 3 * * *',
+        },
+      }),
+      'Cluster'
+    )
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://backups/eurooffice-cnpg'
+    )
+  })
+
+  it('adds the preStop shutdown hook (save documents before shutdown)', () => {
+    const c = resource(renderApp(), 'Deployment').spec.template.spec.containers[0]
+    expect(c.lifecycle.preStop.exec.command.join(' ')).toContain(
+      'documentserver-prepare4shutdown.sh'
+    )
+  })
+
+  it('downloads the Berget brand fonts by default into core-fonts/berget', () => {
+    const d = resource(renderApp(), 'Deployment')
+    const init = d.spec.template.spec.initContainers.find(
+      (c: { name: string }) => c.name === 'custom-fonts'
+    )
+    expect(init.image).toBe('curlimages/curl:8.12.0')
+    expect(init.args[0]).toContain('DMSans-Regular.ttf')
+    expect(init.args[0]).toContain('Ovo-Regular.ttf')
+    const c = d.spec.template.spec.containers[0]
+    const fontMount = c.volumeMounts.find((m: { name: string }) => m.name === 'custom-fonts')
+    expect(fontMount.mountPath).toBe('/var/www/euro-office/documentserver/core-fonts/berget')
+
+    // customFonts: false removes init + mounts entirely
+    const dOff = resource(renderApp({ customFonts: false }), 'Deployment')
+    expect(dOff.spec.template.spec.initContainers ?? []).toHaveLength(0)
+  })
+
+  it('renders the Endpoint with facit proxy annotations', () => {
+    const ann = resource(renderApp(), 'Ingress').metadata.annotations
+    expect(ann['nginx.ingress.kubernetes.io/proxy-body-size']).toBe('100m')
+    expect(ann['nginx.ingress.kubernetes.io/proxy-read-timeout']).toBe('600')
+    expect(ann['nginx.ingress.kubernetes.io/proxy-send-timeout']).toBe('600')
+    expect(ann['cert-manager.io/cluster-issuer']).toBe('letsencrypt-prod')
+  })
+
+  it('user endpointAnnotations merge over the defaults', () => {
+    const ann = resource(
+      renderApp({
+        endpointAnnotations: { 'nginx.ingress.kubernetes.io/proxy-body-size': '250m' },
+      }),
+      'Ingress'
+    ).metadata.annotations
+    expect(ann['nginx.ingress.kubernetes.io/proxy-body-size']).toBe('250m')
+    expect(ann['nginx.ingress.kubernetes.io/proxy-read-timeout']).toBe('600')
+  })
+
+  it('produces valid, plaintext-free manifests', () => {
+    const result = renderApp()
+    for (const r of result.resources) {
+      expect(validateResource(r)).toEqual([])
+    }
+    expect(runGuardrails(result.resources as never, [noPlaintextSecrets]).passed).toBe(true)
   })
 })
