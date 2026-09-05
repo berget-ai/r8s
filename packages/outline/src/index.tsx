@@ -1,7 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
-import { Database, WebService, Endpoint, type DatabaseProps } from '@r8s/recipes'
+import { Database, WebService, Endpoint, StaticSecret, type DatabaseProps } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
 
 export interface OutlineProps {
@@ -204,50 +204,24 @@ export function Outline(props: OutlineProps) {
 
     // Facit bundle: vault keys are snake_case, the destination carries
     // env-case names so Outline reads SECRET_KEY/UTILS_SECRET/OIDC_* directly.
-    const spec = {
-      ...(secretProvider.backend === 'vault'
-        ? { vaultAuthRef: secretProvider.authRef }
-        : { openbaoAuthRef: secretProvider.authRef }),
-      mount: secretProvider.mount,
-      type: 'kv-v2' as const,
-      path: `${secretProvider.path ?? name}/${name}/app`,
-      refreshAfter: secretProvider.refreshAfter ?? '3600s',
-      // Rotation of SECRET_KEY/OIDC invalidates sessions — restart the single
-      // Deployment so the pod re-reads fresh values promptly
-      rolloutRestartTargets: [{ kind: 'Deployment', name }],
-      destination: {
-        create: true,
-        name: platformSecretsName,
-        overwrite: true,
-        transformation: {
-          excludeRaw: true,
-          templates: {
-            SECRET_KEY: { text: '{{ .Secrets.secret_key }}' },
-            UTILS_SECRET: { text: '{{ .Secrets.utils_secret }}' },
-            ...(sso
-              ? {
-                  OIDC_CLIENT_ID: { text: '{{ .Secrets.oidc_client_id }}' },
-                  OIDC_CLIENT_SECRET: { text: '{{ .Secrets.oidc_client_secret }}' },
-                }
-              : {}),
-          },
-        },
-      },
-    }
     resources_.push(
-      secretProvider.backend === 'vault'
-        ? jsx('VaultStaticSecret', {
-            apiVersion: 'secrets.hashicorp.com/v1beta1',
-            kind: 'VaultStaticSecret',
-            metadata: { name: `${name}-secrets`, namespace },
-            spec,
-          })
-        : jsx('OpenBaoStaticSecret', {
-            apiVersion: 'secrets.openbao.org/v1beta1',
-            kind: 'OpenBaoStaticSecret',
-            metadata: { name: `${name}-secrets`, namespace },
-            spec,
-          })
+      jsx(StaticSecret, {
+        name: `${name}-secrets`,
+        namespace,
+        path: `${secretProvider.path ?? name}/${name}/app`,
+        secretName: platformSecretsName,
+        // Facit interval; rotation of SECRET_KEY/OIDC invalidates sessions —
+        // restart the single Deployment so the pod re-reads fresh values
+        refreshAfter: '3600s',
+        keys: {
+          SECRET_KEY: 'secret_key',
+          UTILS_SECRET: 'utils_secret',
+          ...(sso
+            ? { OIDC_CLIENT_ID: 'oidc_client_id', OIDC_CLIENT_SECRET: 'oidc_client_secret' }
+            : {}),
+        },
+        restart: [{ kind: 'Deployment', name }],
+      })
     )
   }
 

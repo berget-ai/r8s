@@ -85,9 +85,16 @@ function findSecrets(): string[] {
         const quotedValues = [...line.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])
         const location = `${relPath}:${i + 1}`
         if (SUSPICIOUS_ASSIGNMENT.test(line) && !SEALED_PLACEHOLDER_ASSIGNMENT.test(line)) {
-          findings.push(
-            `${location}: hardcoded credential assignment: ${line.trim().slice(0, 120)}`
-          )
+          // Key-name mappings (StaticSecret / transformation templates) are
+          // NOT credential assignments: SECRET_KEY: 'secret_key' maps a
+          // destination env name to the source field name — identical modulo
+          // case. A real credential value would not equal its own key.
+          const assignment = line.match(/([A-Za-z_]+)\s*[:=]\s*['"]([^'"]+)['"]/)
+          if (!(assignment && assignment[2] === assignment[1].toLowerCase())) {
+            findings.push(
+              `${location}: hardcoded credential assignment: ${line.trim().slice(0, 120)}`
+            )
+          }
         }
         if (SUSPICIOUS_CONNECTION_STRING.test(line)) {
           findings.push(`${location}: connection string with embedded password in literals`)
