@@ -97,7 +97,11 @@ export interface WebServiceProps {
   tolerations?: Record<string, unknown>[]
   /** Pod topologySpreadConstraints (spread replicas across nodes) */
   topologySpreadConstraints?: Record<string, unknown>[]
-  /** Deployment update strategy — 'Recreate' for RWO-volume/migration apps */
+  /**
+   * Deployment update strategy ('Recreate' for RWO-volume/migration apps).
+   * Default: 'Recreate' when the pod mounts a PVC volume and replicas=1
+   * (RollingUpdate would deadlock on the single-attach volume).
+   */
   strategy?:
     | 'Recreate'
     | 'RollingUpdate'
@@ -117,7 +121,11 @@ export interface WebServiceProps {
   initContainers?: ({ name: string; image: string } & Record<string, unknown>)[]
   /** Container lifecycle hooks (e.g. { preStop: { exec: { command: [...] } } }) */
   lifecycle?: Record<string, unknown>
-  /** Image pull policy (defaults to 'Always') */
+  /**
+   * Image pull policy. Default depends on the tag: floating tags
+   * (latest/main/master/dev/edge/head/nightly/canary) get 'Always', pinned
+   * tags and digests get 'IfNotPresent' (immutable — pointless to re-pull).
+   */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never'
   /** Names of Secrets used to pull private registry images */
   imagePullSecrets?: string[]
@@ -184,7 +192,7 @@ export function WebService(props: WebServiceProps) {
     volumeMounts,
     initContainers,
     lifecycle,
-    imagePullPolicy = 'Always',
+    imagePullPolicy,
     imagePullSecrets,
   } = props
 
@@ -208,6 +216,41 @@ export function WebService(props: WebServiceProps) {
   const livenessProbe = buildProbe(probes?.liveness, '/health')
   const readinessProbe = buildProbe(probes?.readiness, '/ready')
   const startupProbe = buildProbe(probes?.startup ?? null, '/health')
+
+  // --- Safe defaults derived from the image and storage shape -------------
+  // imagePullPolicy: a floating tag must be re-pulled (Always); a pinned tag
+  // (or digest) is immutable, so IfNotPresent avoids pointless pulls and
+  // makes deploys robust when a registry is slow/unreachable. Explicit prop
+  // always wins. Floating set covers the conventional mutables.
+  const imageLeaf = image.slice(image.lastIndexOf('/') + 1)
+  const imageTag = imageLeaf.includes('@')
+    ? imageLeaf.slice(imageLeaf.indexOf('@') + 1)
+    : imageLeaf.includes(':')
+      ? imageLeaf.slice(imageLeaf.indexOf(':') + 1)
+      : 'latest'
+  const FLOATING_TAGS = new Set([
+    'latest',
+    'main',
+    'master',
+    'dev',
+    'edge',
+    'head',
+    'nightly',
+    'canary',
+  ])
+  const pullPolicy =
+    imagePullPolicy ??
+    (!imageLeaf.includes('@') && FLOATING_TAGS.has(imageTag.toLowerCase())
+      ? 'Always'
+      : 'IfNotPresent')
+
+  // strategy: RollingUpdate + a ReadWriteOnce PVC + replicas=1 deadlocks
+  // (the new pod cannot attach the volume until the old releases it), and
+  // in-place DB-migration apps (n8n, outline) must not run two versions at
+  // once. Recreate is always safe at replicas=1 — there is already no HA.
+  const hasPvcVolume = (volumes ?? []).some((v) => 'persistentVolumeClaim' in v)
+  const derivedStrategy =
+    strategy ?? (hasPvcVolume && replicas === 1 ? ('Recreate' as const) : undefined)
 
   const envVars: EnvVar[] = []
   const vaultResources: ReturnType<typeof jsx>[] = []
@@ -332,8 +375,8 @@ export function WebService(props: WebServiceProps) {
     metadata: { name, namespace, labels: { app: name } },
     spec: {
       replicas,
-      ...(strategy && {
-        strategy: typeof strategy === 'string' ? { type: strategy } : strategy,
+      ...(derivedStrategy && {
+        strategy: typeof derivedStrategy === 'string' ? { type: derivedStrategy } : derivedStrategy,
       }),
       selector: { matchLabels: { app: name } },
       template: {
@@ -353,7 +396,7 @@ export function WebService(props: WebServiceProps) {
             {
               name: 'app',
               image,
-              imagePullPolicy,
+              imagePullPolicy: pullPolicy,
               ...(command && { command }),
               ...(args && { args }),
               ports: [{ containerPort: port }],

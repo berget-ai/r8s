@@ -208,10 +208,68 @@ describe('WebService — pod placement and lifecycle', () => {
     expect(dep.spec.strategy).toBeUndefined()
   })
 
-  it('defaults imagePullPolicy to Always', () => {
-    const result = render(jsx(WebService, base))
-    const dep = find(result, 'Deployment', 'app') as any
-    expect(dep.spec.template.spec.containers[0].imagePullPolicy).toBe('Always')
+  it('derives imagePullPolicy from the tag: Always for floating, IfNotPresent for pinned', () => {
+    const floating = render(jsx(WebService, { ...base, image: 'app:latest' }))
+    expect(
+      find(floating, 'Deployment', 'app').spec.template.spec.containers[0].imagePullPolicy
+    ).toBe('Always')
+    for (const tag of ['master', 'main', 'dev', 'edge', 'head', 'nightly', 'canary']) {
+      const r = render(jsx(WebService, { ...base, image: `app:${tag}` }))
+      expect(find(r, 'Deployment', 'app').spec.template.spec.containers[0].imagePullPolicy).toBe(
+        'Always'
+      )
+    }
+    const pinned = render(jsx(WebService, { ...base, image: 'app:1.2.3' }))
+    expect(find(pinned, 'Deployment', 'app').spec.template.spec.containers[0].imagePullPolicy).toBe(
+      'IfNotPresent'
+    )
+    const digest = render(jsx(WebService, { ...base, image: 'ghcr.io/x/app@sha256:abc123' }))
+    expect(find(digest, 'Deployment', 'app').spec.template.spec.containers[0].imagePullPolicy).toBe(
+      'IfNotPresent'
+    )
+    const withRegistryPort = render(jsx(WebService, { ...base, image: 'registry.local:5000/app' }))
+    expect(
+      find(withRegistryPort, 'Deployment', 'app').spec.template.spec.containers[0].imagePullPolicy
+    ).toBe('Always')
+    const explicit = render(
+      jsx(WebService, { ...base, image: 'app:1.2.3', imagePullPolicy: 'Always' })
+    )
+    expect(
+      find(explicit, 'Deployment', 'app').spec.template.spec.containers[0].imagePullPolicy
+    ).toBe('Always')
+  })
+
+  it('derives Recreate for single-replica PVC-backed pods', () => {
+    const withPvc = (overrides: object = {}) =>
+      render(
+        jsx(WebService, {
+          ...base,
+          replicas: 1,
+          volumes: [{ name: 'data', persistentVolumeClaim: { claimName: 'pvc' } }],
+          volumeMounts: [{ name: 'data', mountPath: '/data' }],
+          ...overrides,
+        })
+      )
+    expect(find(withPvc(), 'Deployment', 'app').spec.strategy.type).toBe('Recreate')
+    // replicas > 1 keeps RollingUpdate — operators decide
+    const scaled = withPvc({ replicas: 2 })
+    expect(find(scaled, 'Deployment', 'app').spec.strategy).toBeUndefined()
+    // no volumes → no opinion
+    const stateless = render(jsx(WebService, { ...base, replicas: 1 }))
+    expect(find(stateless, 'Deployment', 'app').spec.strategy).toBeUndefined()
+    // explicit prop always wins
+    const explicit = withPvc({ strategy: 'RollingUpdate' })
+    expect(find(explicit, 'Deployment', 'app').spec.strategy.type).toBe('RollingUpdate')
+    // emptyDir does not attach — no Recreate needed
+    const ephemeral = render(
+      jsx(WebService, {
+        ...base,
+        replicas: 1,
+        volumes: [{ name: 'tmp', emptyDir: {} }],
+        volumeMounts: [{ name: 'tmp', mountPath: '/tmp' }],
+      })
+    )
+    expect(find(ephemeral, 'Deployment', 'app').spec.strategy).toBeUndefined()
   })
 
   it('names Service ports — the API server rejects multi-port Services without names', () => {
