@@ -76,6 +76,9 @@ export {
   MinIO,
   AwsS3,
   Bucket,
+  type BucketProps,
+  isBucketElement,
+  resolveBucket,
   S3BackendCredentials,
   cnpgBackupFromS3,
 } from './s3-provider'

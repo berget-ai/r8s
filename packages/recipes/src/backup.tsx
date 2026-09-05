@@ -1,7 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext } from '@r8s/core/defaults'
 import { operators } from '@r8s/crds'
-import { useS3 } from './s3-provider'
+import { useS3, isBucketElement, resolveBucket } from './s3-provider'
 
 export interface BackupProps {
   /** Resource name */
@@ -52,18 +52,22 @@ export interface BackupProps {
  *   />
  * )
  */
-export function Backup(props: BackupProps) {
+export function Backup(props: BackupProps & { bucket?: unknown }) {
   const {
     name,
     namespace = 'default',
     schedule = '0 2 * * *',
     namespaces,
     storageLocation,
+    bucket: bucketProp,
     ttl = '720h',
   } = props
 
   const sharedOperators = useContext(OperatorContext)
   const s3 = useS3()
+  const bucketDesc =
+    bucketProp && isBucketElement(bucketProp) ? resolveBucket(bucketProp, s3) : undefined
+  const effectiveS3 = bucketDesc ? bucketDesc.s3 : s3
   const hasVelero = sharedOperators.some((op) => op.name === 'velero')
 
   const resources: ReturnType<typeof jsx>[] = []
@@ -76,9 +80,9 @@ export function Backup(props: BackupProps) {
   // prefix of the platform bucket and point the schedule at it. Without a
   // provider the schedule references 'default' — a storage location the
   // cluster is expected to manage itself.
-  const locationName = s3 && !storageLocation ? name : (storageLocation ?? 'default')
+  const locationName = effectiveS3 && !storageLocation ? name : (storageLocation ?? 'default')
 
-  if (s3 && !storageLocation) {
+  if (effectiveS3 && !storageLocation) {
     resources.push(
       jsx('BackupStorageLocation', {
         apiVersion: 'velero.io/v1',
@@ -89,16 +93,19 @@ export function Backup(props: BackupProps) {
           // it; each Schedule pins its storageLocation explicitly
           provider: 'aws',
           objectStorage: {
-            bucket: s3.bucket,
-            prefix: s3.prefix ? `${s3.prefix}/velero` : 'velero',
+            bucket: effectiveS3.bucket,
+            prefix: bucketDesc ? `${bucketDesc.prefix}/velero` : 'velero',
           },
           config: {
-            region: s3.region ?? 'us-east-1',
-            ...(s3.forcePathStyle !== false && { s3ForcePathStyle: 'true' }),
-            s3Url: s3.endpoint,
+            region: effectiveS3.region ?? 'us-east-1',
+            ...(effectiveS3.forcePathStyle !== false && { s3ForcePathStyle: 'true' }),
+            s3Url: effectiveS3.endpoint,
           },
-          ...(s3.veleroCredentialKey && {
-            credential: { name: s3.credentialsSecret, key: s3.veleroCredentialKey },
+          ...(effectiveS3.veleroCredentialKey && {
+            credential: {
+              name: effectiveS3.credentialsSecret,
+              key: effectiveS3.veleroCredentialKey,
+            },
           }),
         },
       })
