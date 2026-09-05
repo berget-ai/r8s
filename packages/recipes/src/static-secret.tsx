@@ -42,7 +42,7 @@ export interface StaticSecretProps {
    * runs, and the Cluster CRD is not a supported restart target), so an
    * automatic restart is wrong for them.
    */
-  restart?: { kind?: string; name: string }[]
+  restart?: { kind?: string; name: string; apiVersion?: string }[]
   /**
    * Auth reference override (defaults to the provider's authRef).
    * Rendered as vaultAuthRef / openbaoAuthRef per backend.
@@ -113,7 +113,7 @@ export function StaticSecret(props: StaticSecretProps) {
         `    <StaticSecret name="${name}" path="${path}" keys={...} />\n` +
         `  </Platform>\n` +
         `\n` +
-        `On passive backends (manual-secrets, sealed-secrets), create the Secret\n` +
+        `On passive backends (manual-secrets, sealed-secrets, kubernetes), create the Secret\n` +
         `out of band and reference it directly instead of rendering this component.`
     )
   }
@@ -122,15 +122,21 @@ export function StaticSecret(props: StaticSecretProps) {
     ? Object.fromEntries(keys.map((k) => [k, k]))
     : keys
 
+  // Default missing fields (consistent with Database/WebService restart
+  // target conventions)
+  const restartTargets = restart?.map((t) => ({ kind: 'Deployment', ...t }))
+
   const spec = {
     ...(secretProvider.backend === 'vault'
       ? { vaultAuthRef: authRef ?? secretProvider.authRef }
-      : { openbaoAuthRef: authRef ?? secretProvider.authRef }),
+      : { openbaoAuthRef: secretProvider.authRef }),
     mount: secretProvider.mount,
     type: 'kv-v2' as const,
     path,
     refreshAfter: refreshAfter ?? secretProvider.refreshAfter ?? '1h',
-    ...(restart && restart.length > 0 ? { rolloutRestartTargets: restart } : {}),
+    ...(restartTargets && restartTargets.length > 0
+      ? { rolloutRestartTargets: restartTargets }
+      : {}),
     destination: {
       create: true,
       name: secretName ?? name,

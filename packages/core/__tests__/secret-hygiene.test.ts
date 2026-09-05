@@ -87,10 +87,15 @@ function findSecrets(): string[] {
         if (SUSPICIOUS_ASSIGNMENT.test(line) && !SEALED_PLACEHOLDER_ASSIGNMENT.test(line)) {
           // Key-name mappings (StaticSecret / transformation templates) are
           // NOT credential assignments: SECRET_KEY: 'secret_key' maps a
-          // destination env name to the source field name — identical modulo
-          // case. A real credential value would not equal its own key.
+          // destination ENV_CASE name to the source field name — identical
+          // modulo case. The exemption requires the SCREAMING_CASE lhs form,
+          // so lowercase literals (password: 'password') stay flagged.
           const assignment = line.match(/([A-Za-z_]+)\s*[:=]\s*['"]([^'"]+)['"]/)
-          if (!(assignment && assignment[2] === assignment[1].toLowerCase())) {
+          const isKeyMapping =
+            assignment &&
+            /^[A-Z0-9_]+$/.test(assignment[1]) &&
+            assignment[2] === assignment[1].toLowerCase()
+          if (!isKeyMapping) {
             findings.push(
               `${location}: hardcoded credential assignment: ${line.trim().slice(0, 120)}`
             )
