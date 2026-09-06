@@ -1,3 +1,9 @@
+# syntax=docker/dockerfile:1
+# (parser directive pinned to the stable dockerfile:1 frontend for the
+# --parents flag in the COPY below; the dockerfile must start with it or
+# it is ignored — older bundled frontends flatten glob matches into a
+# single file, which survives only as a basename)
+
 # r8s Documentation Site
 # Multi-stage build for minimal image
 
@@ -5,13 +11,19 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy root package files
-COPY package.json package-lock.json ./
+# Copy root package files + every workspace manifest, keeping the
+# packages/<name>/ structure (--parents: a plain multi-file COPY flattens
+# matches into one file in the destination). npm ci needs the workspace
+# package.jsons present to link the workspaces — without them no @r8s/*
+# symlinks exist in node_modules and bare-specifier imports that lack a
+# tsconfig paths entry (e.g. @r8s/operator-nginx-ingress) fail with TS2307.
+COPY --parents package.json package-lock.json packages/*/package.json ./
 
 # Install root dependencies (includes workspace packages)
 RUN npm ci
 
-# Copy workspace packages, tsconfig, and docs package.json (needed for dep extraction)
+# Copy the full workspace sources, tsconfig, and docs package.json (needed
+# for dep extraction). Source-only changes don't bust the npm ci layer.
 COPY packages/ ./packages/
 COPY tsconfig.json ./
 COPY docs/package.json ./docs/
