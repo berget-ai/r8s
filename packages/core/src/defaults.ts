@@ -46,33 +46,38 @@ export interface SecretProvider {
  *
  * @example
  * ```tsx
- * import { Namespace, Labels } from '@r8s/core/defaults';
+ * import { NamespaceContext, Labels } from '@r8s/core/defaults';
  *
  * export default function App() {
  *   return (
- *     <Namespace.Provider value="production">
+ *     <NamespaceContext.Provider value="production">
  *       <Labels.Provider value={{ app: 'myapp', team: 'platform' }}>
  *         <Database name="app-db" />
  *         <WebService name="api" image="myapp/api:v1" />
  *       </Labels.Provider>
- *     </Namespace.Provider>
+ *     </NamespaceContext.Provider>
  *   );
  * }
  * ```
  */
 
-/** Inherits namespace to all child resources */
-export const Namespace = createContext<string>('default')
+/**
+ * Inherits namespace to all child resources. Set via the <Namespace name="…">
+ * recipe component (or <Platform namespace="…">) — consume it through
+ * useNamespace(), which layers the explicit-prop override on top.
+ */
+export const NamespaceContext = createContext<string>('default')
 
 /**
  * Resolve the effective namespace: explicit prop wins, otherwise inherit
- * from the Platform tree, otherwise 'default'. Replaces the inline
+ * from the surrounding <Namespace>/<Platform> scope, otherwise 'default'.
+ * Replaces the inline
  * `namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace :
  * undefined) ?? 'default'` formula that was copied through every recipe
  * and package — namespace policy lives here now.
  */
 export function useNamespace(override?: string): string {
-  const contextNamespace = useContext(Namespace)
+  const contextNamespace = useContext(NamespaceContext)
   return override ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
 }
 

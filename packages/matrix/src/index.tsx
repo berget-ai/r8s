@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import type { EnvVar } from '@r8s/k8s-types'
-import { Namespace, OperatorContext, SecretContext } from '@r8s/core/defaults'
+import { OperatorContext, SecretContext, useNamespace } from '@r8s/core/defaults'
 import { ClusterComponent, ScheduledBackupComponent, declareCnpg } from '@r8s/operator-cnpg'
 import { useS3, isBucketElement, resolveBucket, type BucketProps } from '@r8s/recipes'
 import { Endpoint, StaticSecret } from '@r8s/recipes'
@@ -921,9 +921,7 @@ export function Matrix(props: MatrixProps) {
     urlPreview = true,
   } = props
 
-  const contextNamespace = useContext(Namespace)
-  const namespace =
-    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+  const namespace = useNamespace(namespaceProp)
   const secretProvider = useContext(SecretContext)
   const sharedOperators = useContext(OperatorContext)
 

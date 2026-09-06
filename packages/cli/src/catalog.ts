@@ -348,6 +348,35 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
     example: `import { Platform, App } from '@r8s/recipes'\n\nexport default (\n  <Platform namespace="prod" routing="gateway">\n    <App name="api" image="api:v1" host="api.example.com" />\n  </Platform>\n)`,
   },
   {
+    name: 'Namespace',
+    package: '@r8s/recipes',
+    category: 'Complete Solution',
+    description:
+      'Namespace scope — composable cluster partitioning. Children inherit the namespace (innermost scope wins; explicit namespace props still override). Emits the v1/Namespace resource by default so rendered output is self-contained.',
+    props: [
+      {
+        name: 'name',
+        type: 'string',
+        required: true,
+        description: 'Namespace name — DNS-1123 label (lowercase alphanumerics and -)',
+      },
+      {
+        name: 'create',
+        type: 'boolean',
+        required: false,
+        default: 'true',
+        description: 'Emit the v1/Namespace resource (set false when managed elsewhere)',
+      },
+      {
+        name: 'children',
+        type: 'unknown',
+        required: false,
+        description: 'Components scoped to this namespace',
+      },
+    ],
+    example: `import { Platform, Namespace, App, Database } from '@r8s/recipes'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Namespace name="team-a">\n      <App name="api" image="api:v1" host="api.example.com" />\n      <Database backup={false} name="api-db" />\n    </Namespace>\n    <Namespace name="team-b">\n      <App name="billing" image="api:v2" host="billing.example.com" />\n    </Namespace>\n  </Platform>\n)`,
+  },
+  {
     name: 'Auth',
     package: '@r8s/recipes',
     category: 'Identity',

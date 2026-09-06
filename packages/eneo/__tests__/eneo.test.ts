@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import { Namespace, OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
+import {
+  NamespaceContext,
+  OperatorContext,
+  SecretContext,
+  RoutingContext,
+} from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
 import { operators } from '@r8s/crds'
 import type { r8sElement } from '@r8s/core'
@@ -30,7 +35,7 @@ function renderEneoInNamespace(
   props: Record<string, unknown>
 ): ReturnType<typeof render> {
   return render(
-    jsx(Namespace.Provider, {
+    jsx(NamespaceContext.Provider, {
       value: namespaceValue,
       children: jsx(SecretContext.Provider, {
         value: openbao as never,

@@ -1,5 +1,5 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
-import { Namespace, SecretContext } from '@r8s/core/defaults'
+import { SecretContext, useNamespace } from '@r8s/core/defaults'
 import { Database, WebService, Endpoint, type DatabaseProps } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
 
@@ -156,10 +156,7 @@ export function Eneo(props: EneoProps) {
     backup,
   } = props
 
-  // Inherit namespace from <Platform> context if not explicitly set
-  const contextNamespace = useContext(Namespace)
-  const namespace =
-    namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace : undefined) ?? 'default'
+  const namespace = useNamespace(namespaceProp)
 
   const secretProvider = useContext(SecretContext)
   const resources_: ReturnType<typeof jsx>[] = []

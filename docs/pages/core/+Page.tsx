@@ -82,17 +82,17 @@ console.log(result.resources);
 console.log(result.operators);
 // [{ name: "cnpg", source: { type: "helm", ... } }, ...]`
 
-const contextExample = `import { Namespace, Labels } from '@r8s/core/defaults';
+const contextExample = `import { NamespaceContext, Labels } from '@r8s/core/defaults';
 import { Database, App } from '@r8s/recipes';
 
 export default function Platform() {
   return (
-    <Namespace.Provider value="production">
+    <NamespaceContext.Provider value="production">
       <Labels.Provider value={{ app: 'myapp', team: 'platform' }}>
         <Database name="app-db" storage="10Gi" />
         <App name="api" image="myapp/api:v1" host="api.example.com" />
       </Labels.Provider>
-    </Namespace.Provider>
+    </NamespaceContext.Provider>
   );
 }`
 

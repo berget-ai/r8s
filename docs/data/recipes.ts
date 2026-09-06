@@ -753,6 +753,46 @@ export const recipes: Recipe[] = [
     },
   },
   {
+    slug: 'namespace',
+    title: 'Namespace',
+    description:
+      'Namespace scope — composable cluster partitioning. Everything below inherits the namespace: <App>, <Database>, <WebService>, <Endpoint>, <Auth>, <StaticSecret> and every app package read it through useNamespace(). Nest to partition a cluster — the innermost scope wins, explicit `namespace` props on a component still override the scope:',
+    category: 'Cluster Foundation',
+    keywords: [],
+    component: {
+      name: 'Namespace',
+      description:
+        'Namespace scope — composable cluster partitioning. Everything below inherits the namespace: <App>, <Database>, <WebService>, <Endpoint>, <Auth>, <StaticSecret> and every app package read it through useNamespace(). Nest to partition a cluster — the innermost scope wins, explicit `namespace` props on a component still override the scope:',
+      props: [
+        {
+          name: 'name',
+          type: 'string',
+          required: true,
+          description: "Namespace name — DNS-1123 label (lowercase alphanumerics and '-')",
+        },
+        {
+          name: 'create',
+          type: 'boolean',
+          required: false,
+          description:
+            'Emit the `v1/Namespace` resource so the rendered output is self-contained (kubectl apply / Flux creates the namespace as part of the same manifest). Default: true. Set false when the namespace is managed elsewhere (GitOps repo convention, existing tenant setup).',
+        },
+        {
+          name: 'children',
+          type: 'unknown',
+          required: false,
+          description: 'Components scoped to this namespace',
+        },
+      ],
+      examples: [
+        {
+          tsx: 'import { Platform, Namespace, App, Database } from \'@r8s/recipes\'\n\nexport default (\n  <Platform secrets={{ backend: \'openbao\', mount: \'kv\', path: \'apps\' }}>\n    <Namespace name="team-a">\n      <App name="api" image="myorg/api:v1" host="api.example.com" />\n      <Database name="api-db" backup={false} />\n    </Namespace>\n    <Namespace name="team-b">\n      <App name="billing" image="myorg/billing:v2" host="billing.example.com" />\n    </Namespace>\n  </Platform>\n)',
+          yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-a\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: team-a\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myorg/api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: team-a\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: api-endpoint\n  namespace: team-a\n  annotations: {}\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: api.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: api\n                port:\n                  number: 80\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: api-db\n  namespace: team-a\nspec:\n  instances: 3\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: api-db\n      owner: api-db\n      secret:\n        name: api-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: api-db-db-secret\n  namespace: team-a\nspec:\n  mount: kv\n  type: kv-v2\n  path: apps/api-db\n  destination:\n    create: true\n    name: api-db-db-credentials\n---\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-b\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: billing\n  namespace: team-b\n  labels:\n    app: billing\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: billing\n  template:\n    metadata:\n      labels:\n        app: billing\n    spec:\n      containers:\n        - name: app\n          image: myorg/billing:v2\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: billing\n  namespace: team-b\nspec:\n  type: ClusterIP\n  selector:\n    app: billing\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: billing-endpoint\n  namespace: team-b\n  annotations: {}\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: billing.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: billing\n                port:\n                  number: 80\n',
+        },
+      ],
+    },
+  },
+  {
     slug: 'platform',
     title: 'Platform',
     description: 'Platform — cluster-level configuration wrapper.',
@@ -837,7 +877,7 @@ export const recipes: Recipe[] = [
         },
         {
           tsx: "import { Platform, App } from '@r8s/recipes'\n\nexport default (\n  <Platform\n    namespace=\"production\"\n    secrets={{ backend: 'openbao', mount: 'secret', path: 'infra' }}\n    dns={{\n      provider: 'external-dns',\n      settings: {\n        server: 'ns1.example.com',\n        zone: 'example.com',\n        tsig: { path: 'dns/tsig', key: 'secret' },\n      },\n    }}\n  >\n    <App name=\"api\" image=\"myapp/api:v1\" host=\"api.example.com\" />\n  </Platform>\n)",
-          yaml: 'apiVersion: secrets.hashicorp.com/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: external-dns-tsig\n  namespace: external-dns\nspec:\n  mount: secret\n  path: infra/dns/tsig\n  type: kv-v2\n  destination:\n    name: external-dns-tsig\n    create: true\n  refreshAfter: 1h\n---\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: production\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: api-endpoint\n  namespace: production\n  annotations:\n    external-dns.alpha.kubernetes.io/hostname: api.example.com\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: api.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: api\n                port:\n                  number: 80\n',
+          yaml: 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: production\n---\napiVersion: secrets.hashicorp.com/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: external-dns-tsig\n  namespace: external-dns\nspec:\n  mount: secret\n  path: infra/dns/tsig\n  type: kv-v2\n  destination:\n    name: external-dns-tsig\n    create: true\n  refreshAfter: 1h\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  namespace: production\n  labels:\n    app: api\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: app\n          image: myapp/api:v1\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env: []\n          livenessProbe:\n            httpGet:\n              path: /health\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n          readinessProbe:\n            httpGet:\n              path: /ready\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api\n  namespace: production\nspec:\n  type: ClusterIP\n  selector:\n    app: api\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: api-endpoint\n  namespace: production\n  annotations:\n    external-dns.alpha.kubernetes.io/hostname: api.example.com\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: api.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: api\n                port:\n                  number: 80\n',
           title: 'Full hierarchy with DNS and secrets',
         },
       ],

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import { SecretContext, Namespace } from '@r8s/core/defaults'
+import { SecretContext, NamespaceContext } from '@r8s/core/defaults'
 import { StaticSecret } from '../src/index'
 
 const openbao = { backend: 'openbao', mount: 'kv', path: 'apps' }
@@ -119,7 +119,7 @@ describe('StaticSecret', () => {
 
   it('honors secretName override and namespace context', () => {
     const result = render(
-      jsx(Namespace.Provider, {
+      jsx(NamespaceContext.Provider, {
         value: 'team-x',
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
