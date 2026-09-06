@@ -1,6 +1,6 @@
 {
   "name": "@r8s/open-webui",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Open WebUI \u2014 chat frontend for OpenAI-compatible backends, Postgres persistence, uploads/RAG storage, OIDC SSO, optional Redis cache",
   "license": "MIT",
   "author": "Berget AI AB",

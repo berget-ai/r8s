@@ -1,6 +1,6 @@
 {
   "name": "@r8s/umami",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Umami web analytics \u2014 Postgres persistence, CNPG backups, Keycloak OIDC for r8s",
   "license": "MIT",
   "author": "Berget AI AB",

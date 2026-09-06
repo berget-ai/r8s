@@ -1,6 +1,6 @@
 {
   "name": "@r8s/eurooffice",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "EuroOffice collaborative document suite \u2014 Postgres persistence, S3 blob storage, LibreOffice conversions, SMTP delivery and websocket collaboration",
   "license": "MIT",
   "author": "Berget AI AB",

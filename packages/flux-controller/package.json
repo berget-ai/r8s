@@ -1,6 +1,6 @@
 {
   "name": "@r8s/flux-controller",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "FluxCD source controller for r8s TSX manifests",
   "license": "MIT",
   "author": "Berget AI AB",
