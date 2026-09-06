@@ -41,6 +41,7 @@ my-app/**/*.js.map
 my-app/**/*.d.ts
 my-app/**/*.d.ts.map
 .tmp-docs-*/
+.tmp-test-*/
 
 .r8s-explain-*.tsx
 .r8s-preview-*.tsx
