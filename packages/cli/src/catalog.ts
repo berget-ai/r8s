@@ -1478,7 +1478,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
       },
       {
         name: 'backup',
-        type: 'DatabaseBackupProps | true | false',
+        type: '{ destinationPath?: string; endpointURL?: string; credentialsSecret?: string; retention?: string; schedule?: string; compression?: string; encryption?: string } | true | false',
         required: false,
         description:
           "CNPG backup passthrough (continuous WAL + scheduled base backups). Defaults to **enabled** via the platform's S3Provider; `false` opts out",
