@@ -169,9 +169,13 @@ export function DnsProvider(props: DnsProviderProps) {
       : config.settings.tsig.path
 
     const SecretKind = secrets.backend === 'openbao' ? 'OpenBaoStaticSecret' : 'VaultStaticSecret'
+    const apiVersion =
+      secrets.backend === 'openbao'
+        ? 'secrets.openbao.org/v1beta1'
+        : 'secrets.hashicorp.com/v1beta1'
     resources.push(
       jsx(SecretKind, {
-        apiVersion: 'secrets.hashicorp.com/v1beta1',
+        apiVersion,
         kind: SecretKind,
         metadata: { name: secretName, namespace: 'external-dns' },
         spec: {

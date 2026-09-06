@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import type { Deployment, EnvVar, PersistentVolumeClaim, Service } from '@r8s/k8s-types'
-import { OperatorContext, SecretContext } from '@r8s/core/defaults'
+import { OperatorContext, SecretContext, useNamespace } from '@r8s/core/defaults'
 import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
 import { declareIfMissing } from '@r8s/operator-redis'
@@ -151,7 +151,7 @@ const STATUS_PATH = '/status.php'
 export function Nextcloud(props: NextcloudProps) {
   const {
     name = 'nextcloud',
-    namespace = 'default',
+    namespace: namespaceProp,
     version = '31-apache',
     host,
     replicas = 1,
@@ -167,6 +167,8 @@ export function Nextcloud(props: NextcloudProps) {
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
     backup,
   } = props
+
+  const namespace = useNamespace(namespaceProp)
 
   const sharedOperators = useContext(OperatorContext)
   const secretProvider = useContext(SecretContext)

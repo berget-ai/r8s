@@ -143,8 +143,11 @@ describe('Provider Hierarchy', () => {
       // Should declare both operators
       expect(result.operators.some((op) => op.name === 'external-dns')).toBe(true)
       expect(result.operators.some((op) => op.name === 'vault-secrets-operator')).toBe(true)
-      // Should create OpenBaoStaticSecret for TSIG
-      expect(result.resources.some((r) => r.kind === 'OpenBaoStaticSecret')).toBe(true)
+      // Should create OpenBaoStaticSecret for TSIG — with the openbao group,
+      // not the vault/hashicorp group (secret-provider parity)
+      const tsig = result.resources.find((r) => r.kind === 'OpenBaoStaticSecret')
+      expect(tsig).toBeDefined()
+      expect(tsig?.apiVersion).toBe('secrets.openbao.org/v1beta1')
       // Without explicit targets, no DNSEndpoint CR is created
       expect(result.resources.some((r) => r.kind === 'DNSEndpoint')).toBe(false)
       const ingress = result.resources.find((r) => r.kind === 'Ingress') as any

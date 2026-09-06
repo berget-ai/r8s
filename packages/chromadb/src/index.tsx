@@ -1,5 +1,5 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
-import { SecretContext } from '@r8s/core/defaults'
+import { SecretContext, useNamespace } from '@r8s/core/defaults'
 import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
 
 export interface ChromaDbProps {
@@ -112,7 +112,7 @@ export interface ChromaDbProps {
 export function ChromaDb(props: ChromaDbProps) {
   const {
     name = 'chromadb',
-    namespace = 'default',
+    namespace: namespaceProp,
     version = 'latest',
     host,
     port = 8000,
@@ -131,6 +131,8 @@ export function ChromaDb(props: ChromaDbProps) {
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
     backup,
   } = props
+
+  const namespace = useNamespace(namespaceProp)
 
   const secretProvider = useContext(SecretContext)
   const resources_: ReturnType<typeof jsx>[] = []

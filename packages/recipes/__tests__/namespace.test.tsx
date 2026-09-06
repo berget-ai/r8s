@@ -73,6 +73,24 @@ describe('Namespace scope', () => {
     )
   })
 
+  it('throws on a non-string name instead of coercing it past validation', () => {
+    expect(() => render(jsx(Namespace, { name: undefined as never, children: null }))).toThrow(
+      /DNS-1123/
+    )
+  })
+
+  it('nested scopes reusing the same name emit the resource only once', () => {
+    const result = render(
+      jsx(Namespace, {
+        name: 'team-a',
+        children: jsx(Namespace, { name: 'team-a', children: scopedStaticSecret('s') }),
+      })
+    )
+    expect(result.resources.filter((r) => r.kind === 'Namespace')).toHaveLength(1)
+    const sec = result.resources.find((r) => r.kind === 'OpenBaoStaticSecret')
+    expect(sec?.metadata?.namespace).toBe('team-a')
+  })
+
   it('Platform namespace prop still emits the resource and scopes children (delegates to <Namespace>)', () => {
     const result = render(
       jsx(Platform, {

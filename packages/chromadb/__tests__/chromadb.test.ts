@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import { OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
+import {
+  NamespaceContext,
+  OperatorContext,
+  SecretContext,
+  RoutingContext,
+} from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
 import { operators } from '@r8s/crds'
 import type { r8sElement } from '@r8s/core'
@@ -376,5 +381,21 @@ describe('validation errors', () => {
         storageClassName: 'NFS-RWX',
       })
     ).not.toThrow()
+  })
+})
+
+describe('namespace scope', () => {
+  it('inherits a surrounding NamespaceContext via useNamespace()', () => {
+    const result = render(
+      jsx(NamespaceContext.Provider, {
+        value: 'team-a',
+        children: jsx(SecretContext.Provider, {
+          value: openbao,
+          children: jsx(ChromaDb, { host: 'app.example.com', backup: false } as never),
+        }),
+      })
+    )
+    const dep = result.resources.find((r: any) => r.kind === 'Deployment') as any
+    expect(dep?.metadata?.namespace).toBe('team-a')
   })
 })

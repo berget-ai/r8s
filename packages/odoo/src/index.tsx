@@ -1,5 +1,5 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
-import { SecretContext } from '@r8s/core/defaults'
+import { SecretContext, useNamespace } from '@r8s/core/defaults'
 import type {
   ConfigMap,
   Deployment,
@@ -166,7 +166,7 @@ function memoryToBytes(memory: string): number {
 export function Odoo(props: OdooProps) {
   const {
     name = 'odoo',
-    namespace = 'default',
+    namespace: namespaceProp,
     version = '18',
     host,
     replicas = 1,
@@ -180,6 +180,8 @@ export function Odoo(props: OdooProps) {
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
     backup,
   } = props
+
+  const namespace = useNamespace(namespaceProp)
 
   const secretProvider = useContext(SecretContext)
   const resources_: ReturnType<typeof jsx>[] = []

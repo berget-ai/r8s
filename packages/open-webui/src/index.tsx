@@ -1,5 +1,5 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
-import { OperatorContext, SecretContext } from '@r8s/core/defaults'
+import { OperatorContext, SecretContext, useNamespace } from '@r8s/core/defaults'
 import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
@@ -156,7 +156,7 @@ export interface OpenWebuiProps {
 export function OpenWebui(props: OpenWebuiProps) {
   const {
     name = 'open-webui',
-    namespace = 'default',
+    namespace: namespaceProp,
     version = 'latest',
     host,
     replicas = 1,
@@ -173,6 +173,8 @@ export function OpenWebui(props: OpenWebuiProps) {
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
     backup,
   } = props
+
+  const namespace = useNamespace(namespaceProp)
 
   const sharedOperators = useContext(OperatorContext)
   const secretProvider = useContext(SecretContext)
