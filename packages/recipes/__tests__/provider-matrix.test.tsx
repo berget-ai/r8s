@@ -54,9 +54,12 @@ interface Fixture {
 
 const fixtures: Fixture[] = [
   // App fixtures pass `backup: false`: this matrix exercises endpoint
-  // provider × secrets backend wiring — backup derivation has its own
-  // coverage (s3-provider.test.tsx + each package's suite). Without an
-  // S3Provider in scope the secure default would (correctly) throw.
+  // provider × secrets backend wiring. Backup default + derivation has
+  // its own dedicated coverage in s3-provider.test.tsx (Database) and
+  // the package suites' throw/validation tests; the package suites here
+  // only opt out explicitly and do not assert derived barman fields.
+  // Without an S3Provider in scope the secure default would (correctly)
+  // throw.
   {
     name: 'N8n',
     component: N8n,

@@ -124,6 +124,12 @@ describe('Database backup via S3 context', () => {
     expect(backup.barmanObjectStore.destinationPath).toBe('s3://infra/api-db-cnpg')
     expect(backup.barmanObjectStore.endpointURL).toBe('https://rustfs:9000')
     expect(backup.barmanObjectStore.s3Credentials.accessKeyId.name).toBe('infra-s3-creds')
+    // Lock the continuous-WAL contract: a regression dropping the `wal`
+    // block must fail, not just the barman target fields.
+    expect(backup.barmanObjectStore.wal?.compression).toBe('gzip')
+    expect(backup.barmanObjectStore.wal?.encryption).toBe('AES256')
+    expect(backup.barmanObjectStore.data?.compression).toBe('gzip')
+    expect(backup.retentionPolicy).toBe('30d')
     const schedules = result.resources.filter((r) => r.kind === 'ScheduledBackup')
     expect(schedules).toHaveLength(1)
   })

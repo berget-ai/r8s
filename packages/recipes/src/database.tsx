@@ -229,12 +229,12 @@ export function Database(props: DatabaseProps) {
           `working backups slowly fills its PVC.\n` +
           `\n` +
           `There is no <S3Provider> in scope, so backups cannot be defaulted on.\n` +
-          `Add one to the Platform and backups enable automatically:\n` +
-          `  <Platform>\n` +
-          `    <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
-          `      <Database name="${name}" />\n` +
-          `    </S3Provider>\n` +
-          `  </Platform>\n` +
+          `Add one in scope (inside a <Platform> or stand-alone) and backups\n` +
+          `enable automatically:\n` +
+          `  import { Database, S3Provider, MinIO } from '@r8s/recipes'\n` +
+          `  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
+          `    <Database name="${name}" />\n` +
+          `  </S3Provider>\n` +
           `\n` +
           `or pass the full target explicitly:\n` +
           `  backup={{ destinationPath: 's3://backups/${name}-cnpg', endpointURL: 'https://s3.example.com' }}\n` +
