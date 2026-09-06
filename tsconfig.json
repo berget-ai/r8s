@@ -44,6 +44,7 @@
       "@r8s/matrix": ["./packages/matrix/src/index.tsx"],
       "@r8s/umami": ["./packages/umami/src/index.tsx"],
       "@r8s/harbor": ["./packages/harbor/src/index.tsx"],
+      "@r8s/forgejo": ["./packages/forgejo/src/index.tsx"],
       "@r8s/flux-controller": ["./packages/flux-controller/src/index.ts"],
       "@r8s/operator-cnpg": ["./packages/operator-cnpg/src/index.tsx"],
       "@r8s/operator-cert-manager": ["./packages/operator-cert-manager/src/index.tsx"],
@@ -138,6 +139,9 @@
     },
     {
       "path": "./packages/harbor"
+    },
+    {
+      "path": "./packages/forgejo"
     },
     {
       "path": "./packages/flux-controller"

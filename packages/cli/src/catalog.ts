@@ -1514,6 +1514,144 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
       "import { Platform, S3Provider, MinIO } from '@r8s/recipes'\nimport { EuroOffice } from '@r8s/eurooffice'\n\n// Backups default to on — the S3Provider derives target and credentials\nexport default (\n  <S3Provider provider={<MinIO endpoint=\"https://rustfs:9000\" bucket=\"infra\" credentialsSecret=\"infra-s3-creds\" />}>\n    <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'onlyoffice' }}>\n      <EuroOffice host=\"docs.example.com\" />\n    </Platform>\n  </S3Provider>\n)",
   },
   {
+    name: 'Forgejo',
+    package: '@r8s/forgejo',
+    category: 'Developer Tools',
+    description:
+      'Forgejo git forge — repos + PRs on an RWO PVC, CNPG persistence with backups on by default, LFS on S3 (PVC fallback), Actions runners by default (forgejo-runner + docker-in-docker), SSH via a dedicated LoadBalancer',
+    props: [
+      {
+        name: 'name',
+        type: 'string',
+        required: false,
+        description: "Resource name (defaults to 'forgejo')",
+      },
+      {
+        name: 'namespace',
+        type: 'string',
+        required: false,
+        description: 'Kubernetes namespace (inherited from <Platform>/<Namespace> unless set)',
+      },
+      {
+        name: 'version',
+        type: 'string',
+        required: false,
+        description:
+          "Forgejo image tag (defaults to '11' — tracks patch releases within the major). Pinned version REQUIRED — 'latest' is rejected",
+      },
+      {
+        name: 'host',
+        type: 'string',
+        required: true,
+        description: 'Public hostname — web UI, git-over-HTTPS and the advertised SSH host',
+      },
+      {
+        name: 'storage',
+        type: 'string | { size?: string; storageClass?: string } | false',
+        required: false,
+        description:
+          "Repository data on an RWO PVC at /data. Defaults to '20Gi'; false manages storage yourself. Forgejo is single-replica",
+      },
+      {
+        name: 'dbName',
+        type: 'string',
+        required: false,
+        description:
+          "CNPG cluster name (also the database and user name). Defaults to 'forgejo-db'",
+      },
+      {
+        name: 'dbInstances',
+        type: 'number',
+        required: false,
+        description: 'CNPG instances (defaults to 2)',
+      },
+      {
+        name: 'dbStorage',
+        type: 'string',
+        required: false,
+        description: "CNPG data volume size (defaults to '20Gi')",
+      },
+      {
+        name: 'dbStorageClass',
+        type: 'string',
+        required: false,
+        description: 'CNPG storage class (defaults to cluster default)',
+      },
+      {
+        name: 'backup',
+        type: '{ destinationPath?; endpointURL?; credentialsSecret?; retention?; schedule?; compression?; encryption? } | true | false',
+        required: false,
+        description:
+          "CNPG backup passthrough — defaults to **enabled** via the platform's S3Provider; `false` opts out",
+      },
+      {
+        name: 'lfs',
+        type: "'s3' | 'pvc' | false",
+        required: false,
+        description:
+          "LFS storage. 's3' derives bucket and credentials from the S3Provider (the default when one is in scope), 'pvc' keeps large files on the data volume (the fallback without an S3Provider), false disables LFS",
+      },
+      {
+        name: 'actions',
+        type: '{ replicas?; version?; registrationTokenSecretName?; labels? } | true | false',
+        required: false,
+        default: 'true',
+        description:
+          'Actions runners — enabled by default. forgejo-runner Deployment with a docker-in-docker sidecar (privileged — run untrusted-code runners in a dedicated namespace/node pool). The registration token is provisioned from the secrets backend (<path>/<name>/runner-registration-token) or referenced via registrationTokenSecretName',
+      },
+      {
+        name: 'registration',
+        type: 'boolean',
+        required: false,
+        default: 'false',
+        description: 'Open registration (default false — private forge; open deliberately)',
+      },
+      {
+        name: 'metrics',
+        type: 'boolean',
+        required: false,
+        default: 'false',
+        description: 'Expose Prometheus /metrics',
+      },
+      {
+        name: 'credentialsSecretName',
+        type: 'string',
+        required: false,
+        description:
+          'Reference a pre-created Secret holding SECRET_KEY, INTERNAL_TOKEN and LFS_JWT_SECRET instead of backend provisioning',
+      },
+      {
+        name: 'endpointAnnotations',
+        type: 'Record<string, string>',
+        required: false,
+        description:
+          'Extra annotations merged onto the Endpoint (proxy-body-size 512m + 900s proxy timeouts are defaults)',
+      },
+      {
+        name: 'tls',
+        type: '{ secretName: string; clusterIssuer: string }',
+        required: false,
+        description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+      },
+      {
+        name: 'ssh',
+        type: '{ port?; annotations? } | false',
+        required: false,
+        default: 'enabled on port 22',
+        description:
+          'SSH over a dedicated LoadBalancer Service. port changes the external port AND the port advertised in clone URLs; false = git over HTTPS only',
+      },
+      {
+        name: 'operatorVersion',
+        type: 'string',
+        required: false,
+        description: 'CNPG operator version override',
+      },
+    ],
+    example:
+      'import { Platform, Namespace, S3Provider, MinIO } from \'@r8s/recipes\'\nimport { Forgejo } from \'@r8s/forgejo\'\n\n// Backups + LFS derive from the S3Provider; runners ship by default\nexport default (\n  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n    <Platform secrets={{ backend: \'openbao\', mount: \'kv\', path: \'forgejo\' }}>\n      <Namespace name="git">\n        <Forgejo host="git.example.com" />\n      </Namespace>\n    </Platform>\n  </S3Provider>\n)',
+  },
+  {
     name: 'Paperclip',
     package: '@r8s/paperclip',
     category: 'Collaboration & Productivity',

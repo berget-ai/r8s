@@ -1,0 +1,45 @@
+{
+  "name": "@r8s/forgejo",
+  "version": "0.3.1",
+  "description": "Forgejo git forge \u2014 repos, PRs, Actions runners (forgejo-runner + dind), LFS on S3, CNPG persistence, SSH via LoadBalancer",
+  "license": "MIT",
+  "author": "Berget AI AB",
+  "homepage": "https://r8s.berget.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/berget-ai/r8s.git",
+    "directory": "packages/forgejo"
+  },
+  "bugs": "https://github.com/berget-ai/r8s/issues",
+  "keywords": [
+    "forgejo",
+    "git",
+    "ci",
+    "actions",
+    "lfs"
+  ],
+  "r8s": {
+    "category": "Developer Tools"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "category": "Developer Tools",
+  "dependencies": {
+    "@r8s/core": "^0.3.0",
+    "@r8s/crds": "^0.3.0",
+    "@r8s/k8s-types": "^0.3.0",
+    "@r8s/recipes": "^0.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "files": [
+    "dist"
+  ]
+}

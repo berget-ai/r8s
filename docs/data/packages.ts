@@ -72527,6 +72527,190 @@ export const packages: Package[] = [
       },
     ],
   },
+  {
+    slug: 'forgejo',
+    name: '@r8s/forgejo',
+    title: 'forgejo',
+    description:
+      'Forgejo git forge — repos, PRs, Actions runners (forgejo-runner + dind), LFS on S3, CNPG persistence, SSH via LoadBalancer',
+    category: 'Developer Tools',
+    keywords: ['forgejo', 'git', 'ci', 'actions', 'lfs'],
+    components: [
+      {
+        name: 'ForgejoActions',
+        description: '',
+        props: [
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description: 'Runner replicas (default 1 — runners are stateless, scale freely)',
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description: "forgejo-runner image tag (default '6.3.1' — pinned, 'latest' rejected)",
+          },
+          {
+            name: 'registrationTokenSecretName',
+            type: 'string',
+            required: false,
+            description:
+              'Pre-created Secret holding the runner registration token (key: `registration-token`). Copy the token from Forgejo (Site administration → Actions → Runners → Create registration token) into your secrets store at `<path>/<name>/runner-registration-token` — the backend then provisions the Secret — or reference an existing Secret here.',
+          },
+          {
+            name: 'labels',
+            type: 'string[]',
+            required: false,
+            description: 'Runner job labels (default: forgejo runner-images ubuntu-latest)',
+          },
+        ],
+        examples: [
+          {
+            tsx: 'import { Platform, Namespace, S3Provider, MinIO } from \'@r8s/recipes\'\nimport { Forgejo } from \'@r8s/forgejo\'\n\n// Backups + LFS derive from the S3Provider; runners ship by default\nexport default (\n  <S3Provider\n    provider={\n      <MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />\n    }\n  >\n    <Platform secrets={{ backend: \'openbao\', mount: \'kv\', path: \'forgejo\' }}>\n      <Namespace name="git">\n        <Forgejo host="git.example.com" />\n      </Namespace>\n    </Platform>\n  </S3Provider>\n)\n',
+            yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: git\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: forgejo-credentials\n  namespace: git\nspec:\n  mount: kv\n  type: kv-v2\n  path: forgejo/forgejo\n  refreshAfter: 1h\n  rolloutRestartTargets:\n    - kind: Deployment\n      name: forgejo\n  destination:\n    create: true\n    name: forgejo-credentials\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        SECRET_KEY:\n          text: '{{ .Secrets.SECRET_KEY }}'\n        INTERNAL_TOKEN:\n          text: '{{ .Secrets.INTERNAL_TOKEN }}'\n        LFS_JWT_SECRET:\n          text: '{{ .Secrets.LFS_JWT_SECRET }}'\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: forgejo-runner-registration\n  namespace: git\nspec:\n  mount: kv\n  type: kv-v2\n  path: forgejo/forgejo/runner-registration-token\n  refreshAfter: 1h\n  destination:\n    create: true\n    name: forgejo-runner-registration\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        registration-token:\n          text: '{{ .Secrets.registration-token }}'\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: forgejo-data\n  namespace: git\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 20Gi\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: forgejo-db\n  namespace: git\nspec:\n  instances: 2\n  storage:\n    size: 20Gi\n  bootstrap:\n    initdb:\n      database: forgejo-db\n      owner: forgejo-db\n      secret:\n        name: forgejo-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/forgejo-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: forgejo-db-backup\n  namespace: git\nspec:\n  cluster:\n    name: forgejo-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: forgejo-db-db-secret\n  namespace: git\nspec:\n  mount: kv\n  type: kv-v2\n  path: forgejo/forgejo-db\n  destination:\n    create: true\n    name: forgejo-db-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: forgejo\n  namespace: git\n  labels:\n    app: forgejo\nspec:\n  replicas: 1\n  strategy:\n    type: Recreate\n  selector:\n    matchLabels:\n      app: forgejo\n  template:\n    metadata:\n      labels:\n        app: forgejo\n    spec:\n      volumes:\n        - name: data\n          persistentVolumeClaim:\n            claimName: forgejo-data\n      containers:\n        - name: app\n          image: codeberg.org/forgejo/forgejo:11\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env:\n            - name: FORGEJO__database__PASSWD\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-db-db-credentials\n                  key: password\n            - name: FORGEJO__security__SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-credentials\n                  key: SECRET_KEY\n            - name: FORGEJO__security__INTERNAL_TOKEN\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-credentials\n                  key: INTERNAL_TOKEN\n            - name: FORGEJO__lfs__LFS_JWT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-credentials\n                  key: LFS_JWT_SECRET\n            - name: FORGEJO__storage.lfs__MINIO_ACCESS_KEY_ID\n              valueFrom:\n                secretKeyRef:\n                  name: infra-s3-creds\n                  key: access-key-id\n            - name: FORGEJO__storage.lfs__MINIO_SECRET_ACCESS_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: infra-s3-creds\n                  key: secret-access-key\n            - name: FORGEJO__server__DOMAIN\n              value: git.example.com\n            - name: FORGEJO__server__ROOT_URL\n              value: https://git.example.com\n            - name: FORGEJO__server__HTTP_PORT\n              value: '3000'\n            - name: FORGEJO__server__SSH_DOMAIN\n              value: git.example.com\n            - name: FORGEJO__server__SSH_LISTEN_PORT\n              value: '22'\n            - name: FORGEJO__server__SSH_PORT\n              value: '22'\n            - name: FORGEJO__database__DB_TYPE\n              value: postgres\n            - name: FORGEJO__database__HOST\n              value: forgejo-db-rw.git.svc.cluster.local:5432\n            - name: FORGEJO__database__NAME\n              value: forgejo-db\n            - name: FORGEJO__database__USER\n              value: forgejo-db\n            - name: FORGEJO__database__SSL_MODE\n              value: disable\n            - name: FORGEJO__security__INSTALL_LOCK\n              value: 'true'\n            - name: FORGEJO__service__DISABLE_REGISTRATION\n              value: 'true'\n            - name: FORGEJO__lfs__ENABLED\n              value: 'true'\n            - name: FORGEJO__storage.lfs__STORAGE_TYPE\n              value: minio\n            - name: FORGEJO__storage.lfs__MINIO_ENDPOINT\n              value: rustfs:9000\n            - name: FORGEJO__storage.lfs__MINIO_USE_SSL\n              value: 'true'\n            - name: FORGEJO__storage.lfs__MINIO_BUCKET_LOOKUP_TYPE\n              value: path\n            - name: FORGEJO__storage.lfs__MINIO_BUCKET\n              value: infra\n            - name: FORGEJO__actions__ENABLED\n              value: 'true'\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: '2'\n          volumeMounts:\n            - name: data\n              mountPath: /data\n          startupProbe:\n            httpGet:\n              path: /api/healthz\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 5\n            failureThreshold: 60\n          livenessProbe:\n            httpGet:\n              path: /api/healthz\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 30\n            failureThreshold: 3\n          readinessProbe:\n            httpGet:\n              path: /api/healthz\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n            failureThreshold: 3\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: forgejo\n  namespace: git\nspec:\n  type: ClusterIP\n  selector:\n    app: forgejo\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: forgejo-endpoint\n  namespace: git\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\n    nginx.ingress.kubernetes.io/proxy-body-size: 512m\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '900'\n    nginx.ingress.kubernetes.io/proxy-send-timeout: '900'\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: git.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: forgejo\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - git.example.com\n      secretName: forgejo-tls\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: forgejo-ssh\n  namespace: git\nspec:\n  type: LoadBalancer\n  selector:\n    app: forgejo\n  ports:\n    - name: ssh\n      port: 22\n      targetPort: 22\n      protocol: TCP\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: forgejo-runner-config\n  namespace: git\ndata:\n  config.yaml: |-\n    runner:\n      file: /runner/.runner\n      capacity: 2\n      timeout: 3h\n      labels:\n        - 'docker:docker://code.forgejo.org/forgejo/runner-images:ubuntu-latest'\n    container:\n      docker_host: unix:///var/run/docker.sock\n      privileged: false\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: forgejo-runner\n  namespace: git\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: forgejo-runner\n  template:\n    metadata:\n      labels:\n        app: forgejo-runner\n    spec:\n      automountServiceAccountToken: false\n      volumes:\n        - name: runner\n          emptyDir: {}\n        - name: config\n          configMap:\n            name: forgejo-runner-config\n        - name: docker-sock\n          emptyDir: {}\n      initContainers:\n        - name: runner-register\n          image: code.forgejo.org/forgejo/runner:6.3.1\n          command:\n            - sh\n            - '-c'\n          args:\n            - forgejo-runner register --instance \"$INSTANCE_URL\" --token \"$REGISTRATION_TOKEN\" --name \"$RUNNER_NAME\" --no-interactive\n          env:\n            - name: INSTANCE_URL\n              value: https://git.example.com\n            - name: RUNNER_NAME\n              valueFrom:\n                fieldRef:\n                  fieldPath: metadata.name\n            - name: REGISTRATION_TOKEN\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-runner-registration\n                  key: registration-token\n          workingDir: /runner\n          volumeMounts:\n            - name: runner\n              mountPath: /runner\n      containers:\n        - name: runner\n          image: code.forgejo.org/forgejo/runner:6.3.1\n          command:\n            - forgejo-runner\n            - daemon\n            - '--config'\n            - /runner-config/config.yaml\n          env:\n            - name: DOCKER_HOST\n              value: unix:///var/run/docker.sock\n          volumeMounts:\n            - name: runner\n              mountPath: /runner\n            - name: config\n              mountPath: /runner-config\n            - name: docker-sock\n              mountPath: /var/run\n          resources:\n            requests:\n              memory: 256Mi\n              cpu: 100m\n            limits:\n              memory: 1Gi\n              cpu: '1'\n        - name: dind\n          image: docker:27-dind\n          env:\n            - name: DOCKER_TLS_CERTDIR\n              value: ''\n          securityContext:\n            privileged: true\n          volumeMounts:\n            - name: docker-sock\n              mountPath: /var/run\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 4Gi\n              cpu: '2'\n",
+          },
+        ],
+      },
+      {
+        name: 'Forgejo',
+        description:
+          'Forgejo — self-hosted git forge (GitHub-like: repos, PRs, Actions runners, LFS).',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'forgejo')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace (inherited from <Platform>/<Namespace> unless set)',
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description:
+              "Forgejo image tag (defaults to '11' — tracks patch releases within the major). PINNED VERSION REQUIRED — 'latest' is rejected.",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description:
+              'Public hostname (required) — web UI, git-over-HTTPS and the advertised SSH host',
+          },
+          {
+            name: 'storage',
+            type: 'string | { size?: string, storageClass?: string } | false',
+            required: false,
+            description:
+              "Repository data on an RWO PVC mounted at /data. Defaults to '20Gi'. Pass `false` to manage storage yourself. Forgejo is single-replica: repos, LFS (pvc mode) and attachments live on this volume.",
+          },
+          {
+            name: 'dbName',
+            type: 'string',
+            required: false,
+            description:
+              "CNPG cluster name (also the database and user name). Defaults to 'forgejo-db'",
+          },
+          {
+            name: 'dbInstances',
+            type: 'number',
+            required: false,
+            description: 'Number of CNPG instances (defaults to 2)',
+          },
+          {
+            name: 'dbStorage',
+            type: 'string',
+            required: false,
+            description: "CNPG data volume size (defaults to '20Gi')",
+          },
+          {
+            name: 'dbStorageClass',
+            type: 'string',
+            required: false,
+            description: 'CNPG storage class (defaults to cluster default)',
+          },
+          {
+            name: 'backup',
+            type: "DatabaseProps['backup']",
+            required: false,
+            description:
+              "CNPG backup passthrough — defaults to **enabled** via the platform's S3Provider; `false` opts out",
+          },
+          {
+            name: 'lfs',
+            type: "'s3' | 'pvc' | false",
+            required: false,
+            description:
+              "LFS storage. `'s3'` derives bucket and credentials from the S3Provider (the default when one is in scope), `'pvc'` keeps large files on the data volume (the fallback without an S3Provider), `false` disables LFS.",
+          },
+          {
+            name: 'actions',
+            type: 'ForgejoActionsProps | true | false',
+            required: false,
+            description:
+              'Actions runners — enabled by default (a GitHub-like forge ships Actions). Each runner is a forgejo-runner Deployment with a docker-in-docker sidecar (privileged — run untrusted-code runners in a dedicated namespace/node pool). `false` opts out.',
+          },
+          {
+            name: 'registration',
+            type: 'boolean',
+            required: false,
+            description: 'Open registration (default false — private forge; open deliberately)',
+          },
+          {
+            name: 'metrics',
+            type: 'boolean',
+            required: false,
+            description: 'Expose Prometheus /metrics (default false)',
+          },
+          {
+            name: 'credentialsSecretName',
+            type: 'string',
+            required: false,
+            description:
+              'Reference a pre-created Secret holding `SECRET_KEY`, `INTERNAL_TOKEN` and `LFS_JWT_SECRET` instead of backend provisioning.',
+          },
+          {
+            name: 'endpointAnnotations',
+            type: 'Record',
+            required: false,
+            description: 'Extra annotations merged onto the Endpoint',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+          {
+            name: 'ssh',
+            type: '{ port?: number, annotations?: Record } | false',
+            required: false,
+            description:
+              'SSH over a dedicated LoadBalancer Service (default: enabled, port 22). `port` changes the external port AND the port advertised in clone URLs; `annotations` merge onto the Service (MetalLB pools etc.). `false` = git over HTTPS only.',
+          },
+          {
+            name: 'operatorVersion',
+            type: 'string',
+            required: false,
+            description: 'Operator version override (CNPG)',
+          },
+        ],
+        examples: [
+          {
+            tsx: 'import { Platform, Namespace, S3Provider, MinIO } from \'@r8s/recipes\'\nimport { Forgejo } from \'@r8s/forgejo\'\n\n// Backups + LFS derive from the S3Provider; runners ship by default\nexport default (\n  <S3Provider\n    provider={\n      <MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />\n    }\n  >\n    <Platform secrets={{ backend: \'openbao\', mount: \'kv\', path: \'forgejo\' }}>\n      <Namespace name="git">\n        <Forgejo host="git.example.com" />\n      </Namespace>\n    </Platform>\n  </S3Provider>\n)\n',
+            yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: git\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: forgejo-credentials\n  namespace: git\nspec:\n  mount: kv\n  type: kv-v2\n  path: forgejo/forgejo\n  refreshAfter: 1h\n  rolloutRestartTargets:\n    - kind: Deployment\n      name: forgejo\n  destination:\n    create: true\n    name: forgejo-credentials\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        SECRET_KEY:\n          text: '{{ .Secrets.SECRET_KEY }}'\n        INTERNAL_TOKEN:\n          text: '{{ .Secrets.INTERNAL_TOKEN }}'\n        LFS_JWT_SECRET:\n          text: '{{ .Secrets.LFS_JWT_SECRET }}'\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: forgejo-runner-registration\n  namespace: git\nspec:\n  mount: kv\n  type: kv-v2\n  path: forgejo/forgejo/runner-registration-token\n  refreshAfter: 1h\n  destination:\n    create: true\n    name: forgejo-runner-registration\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        registration-token:\n          text: '{{ .Secrets.registration-token }}'\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: forgejo-data\n  namespace: git\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 20Gi\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: forgejo-db\n  namespace: git\nspec:\n  instances: 2\n  storage:\n    size: 20Gi\n  bootstrap:\n    initdb:\n      database: forgejo-db\n      owner: forgejo-db\n      secret:\n        name: forgejo-db-db-credentials\n  monitoring:\n    enablePodMonitor: true\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/forgejo-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: forgejo-db-backup\n  namespace: git\nspec:\n  cluster:\n    name: forgejo-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: forgejo-db-db-secret\n  namespace: git\nspec:\n  mount: kv\n  type: kv-v2\n  path: forgejo/forgejo-db\n  destination:\n    create: true\n    name: forgejo-db-db-credentials\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: forgejo\n  namespace: git\n  labels:\n    app: forgejo\nspec:\n  replicas: 1\n  strategy:\n    type: Recreate\n  selector:\n    matchLabels:\n      app: forgejo\n  template:\n    metadata:\n      labels:\n        app: forgejo\n    spec:\n      volumes:\n        - name: data\n          persistentVolumeClaim:\n            claimName: forgejo-data\n      containers:\n        - name: app\n          image: codeberg.org/forgejo/forgejo:11\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env:\n            - name: FORGEJO__database__PASSWD\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-db-db-credentials\n                  key: password\n            - name: FORGEJO__security__SECRET_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-credentials\n                  key: SECRET_KEY\n            - name: FORGEJO__security__INTERNAL_TOKEN\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-credentials\n                  key: INTERNAL_TOKEN\n            - name: FORGEJO__lfs__LFS_JWT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-credentials\n                  key: LFS_JWT_SECRET\n            - name: FORGEJO__storage.lfs__MINIO_ACCESS_KEY_ID\n              valueFrom:\n                secretKeyRef:\n                  name: infra-s3-creds\n                  key: access-key-id\n            - name: FORGEJO__storage.lfs__MINIO_SECRET_ACCESS_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: infra-s3-creds\n                  key: secret-access-key\n            - name: FORGEJO__server__DOMAIN\n              value: git.example.com\n            - name: FORGEJO__server__ROOT_URL\n              value: https://git.example.com\n            - name: FORGEJO__server__HTTP_PORT\n              value: '3000'\n            - name: FORGEJO__server__SSH_DOMAIN\n              value: git.example.com\n            - name: FORGEJO__server__SSH_LISTEN_PORT\n              value: '22'\n            - name: FORGEJO__server__SSH_PORT\n              value: '22'\n            - name: FORGEJO__database__DB_TYPE\n              value: postgres\n            - name: FORGEJO__database__HOST\n              value: forgejo-db-rw.git.svc.cluster.local:5432\n            - name: FORGEJO__database__NAME\n              value: forgejo-db\n            - name: FORGEJO__database__USER\n              value: forgejo-db\n            - name: FORGEJO__database__SSL_MODE\n              value: disable\n            - name: FORGEJO__security__INSTALL_LOCK\n              value: 'true'\n            - name: FORGEJO__service__DISABLE_REGISTRATION\n              value: 'true'\n            - name: FORGEJO__lfs__ENABLED\n              value: 'true'\n            - name: FORGEJO__storage.lfs__STORAGE_TYPE\n              value: minio\n            - name: FORGEJO__storage.lfs__MINIO_ENDPOINT\n              value: rustfs:9000\n            - name: FORGEJO__storage.lfs__MINIO_USE_SSL\n              value: 'true'\n            - name: FORGEJO__storage.lfs__MINIO_BUCKET_LOOKUP_TYPE\n              value: path\n            - name: FORGEJO__storage.lfs__MINIO_BUCKET\n              value: infra\n            - name: FORGEJO__actions__ENABLED\n              value: 'true'\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 2Gi\n              cpu: '2'\n          volumeMounts:\n            - name: data\n              mountPath: /data\n          startupProbe:\n            httpGet:\n              path: /api/healthz\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 5\n            failureThreshold: 60\n          livenessProbe:\n            httpGet:\n              path: /api/healthz\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 30\n            failureThreshold: 3\n          readinessProbe:\n            httpGet:\n              path: /api/healthz\n              port: 3000\n            initialDelaySeconds: 10\n            periodSeconds: 10\n            failureThreshold: 3\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: forgejo\n  namespace: git\nspec:\n  type: ClusterIP\n  selector:\n    app: forgejo\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: forgejo-endpoint\n  namespace: git\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\n    nginx.ingress.kubernetes.io/proxy-body-size: 512m\n    nginx.ingress.kubernetes.io/proxy-read-timeout: '900'\n    nginx.ingress.kubernetes.io/proxy-send-timeout: '900'\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: git.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: forgejo\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - git.example.com\n      secretName: forgejo-tls\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: forgejo-ssh\n  namespace: git\nspec:\n  type: LoadBalancer\n  selector:\n    app: forgejo\n  ports:\n    - name: ssh\n      port: 22\n      targetPort: 22\n      protocol: TCP\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: forgejo-runner-config\n  namespace: git\ndata:\n  config.yaml: |-\n    runner:\n      file: /runner/.runner\n      capacity: 2\n      timeout: 3h\n      labels:\n        - 'docker:docker://code.forgejo.org/forgejo/runner-images:ubuntu-latest'\n    container:\n      docker_host: unix:///var/run/docker.sock\n      privileged: false\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: forgejo-runner\n  namespace: git\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: forgejo-runner\n  template:\n    metadata:\n      labels:\n        app: forgejo-runner\n    spec:\n      automountServiceAccountToken: false\n      volumes:\n        - name: runner\n          emptyDir: {}\n        - name: config\n          configMap:\n            name: forgejo-runner-config\n        - name: docker-sock\n          emptyDir: {}\n      initContainers:\n        - name: runner-register\n          image: code.forgejo.org/forgejo/runner:6.3.1\n          command:\n            - sh\n            - '-c'\n          args:\n            - forgejo-runner register --instance \"$INSTANCE_URL\" --token \"$REGISTRATION_TOKEN\" --name \"$RUNNER_NAME\" --no-interactive\n          env:\n            - name: INSTANCE_URL\n              value: https://git.example.com\n            - name: RUNNER_NAME\n              valueFrom:\n                fieldRef:\n                  fieldPath: metadata.name\n            - name: REGISTRATION_TOKEN\n              valueFrom:\n                secretKeyRef:\n                  name: forgejo-runner-registration\n                  key: registration-token\n          workingDir: /runner\n          volumeMounts:\n            - name: runner\n              mountPath: /runner\n      containers:\n        - name: runner\n          image: code.forgejo.org/forgejo/runner:6.3.1\n          command:\n            - forgejo-runner\n            - daemon\n            - '--config'\n            - /runner-config/config.yaml\n          env:\n            - name: DOCKER_HOST\n              value: unix:///var/run/docker.sock\n          volumeMounts:\n            - name: runner\n              mountPath: /runner\n            - name: config\n              mountPath: /runner-config\n            - name: docker-sock\n              mountPath: /var/run\n          resources:\n            requests:\n              memory: 256Mi\n              cpu: 100m\n            limits:\n              memory: 1Gi\n              cpu: '1'\n        - name: dind\n          image: docker:27-dind\n          env:\n            - name: DOCKER_TLS_CERTDIR\n              value: ''\n          securityContext:\n            privileged: true\n          volumeMounts:\n            - name: docker-sock\n              mountPath: /var/run\n          resources:\n            requests:\n              memory: 512Mi\n              cpu: 250m\n            limits:\n              memory: 4Gi\n              cpu: '2'\n",
+          },
+        ],
+      },
+    ],
+  },
 ]
 
 export function getPackageCategories(): string[] {
