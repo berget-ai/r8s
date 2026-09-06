@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext, SecretContext } from '@r8s/core/defaults'
-import { Database, Endpoint } from '@r8s/recipes'
+import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
 import { declareIfMissing } from '@r8s/operator-redis'
@@ -80,6 +80,12 @@ export interface OpenWebuiProps {
     secretName: string
     clusterIssuer: string
   }
+  /**
+   * Backup decision for the backing CNPG cluster — defaults to **enabled**
+   * (barman WAL + scheduled backups derived from the platform's S3Provider).
+   * Pass `false` to opt out explicitly.
+   */
+  backup?: DatabaseProps['backup']
 }
 
 /**
@@ -108,38 +114,43 @@ export interface OpenWebuiProps {
  * OPENAI-models via the OpenAI-compatible `backend`.
  *
  * @example
- * import { Platform } from '@r8s/recipes'
+ * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { OpenWebui } from '@r8s/open-webui'
  *
+ * // Backups default to on — the S3Provider derives target and credentials
  * export default (
- *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *     <OpenWebui
- *       name="chat"
- *       host="chat.example.com"
- *       version="v0.6.5"
- *       storage="10Gi"
- *     />
- *   </Platform>
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *       <OpenWebui
+ *         name="chat"
+ *         host="chat.example.com"
+ *         version="v0.6.5"
+ *         storage="10Gi"
+ *       />
+ *     </Platform>
+ *   </S3Provider>
  * )
  *
  * @example
- * import { Platform } from '@r8s/recipes'
+ * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { OpenWebui } from '@r8s/open-webui'
  *
  * export default (
- *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *     <OpenWebui
- *       name="chat"
- *       host="chat.example.com"
- *       storage="10Gi"
- *       cache
- *       sso={{
- *         issuer: 'https://keycloak.example.com/realms/platform',
- *         clientId: 'open-webui',
- *         clientSecretRef: { secret: 'chat-sso', key: 'clientSecret' },
- *       }}
- *     />
- *   </Platform>
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *       <OpenWebui
+ *         name="chat"
+ *         host="chat.example.com"
+ *         storage="10Gi"
+ *         cache
+ *         sso={{
+ *           issuer: 'https://keycloak.example.com/realms/platform',
+ *           clientId: 'open-webui',
+ *           clientSecretRef: { secret: 'chat-sso', key: 'clientSecret' },
+ *         }}
+ *       />
+ *     </Platform>
+ *   </S3Provider>
  * )
  */
 export function OpenWebui(props: OpenWebuiProps) {
@@ -160,6 +171,7 @@ export function OpenWebui(props: OpenWebuiProps) {
       limits: { memory: '4Gi', cpu: '2000m' },
     },
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
+    backup,
   } = props
 
   const sharedOperators = useContext(OperatorContext)
@@ -389,7 +401,7 @@ export function OpenWebui(props: OpenWebuiProps) {
   // DATABASE_URL statically (the WebService auto-PG block does not apply).
   resources_.push(
     jsx(Database, {
-      backup: false,
+      backup: backup ?? true,
       name,
       namespace,
       storage: '10Gi',

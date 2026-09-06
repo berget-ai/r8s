@@ -22,7 +22,12 @@ function renderApp(props: Record<string, unknown> = {}) {
   return render(
     jsx(SecretContext.Provider, {
       value: openbao,
-      children: jsx(Harbor, { host: 'registry.example.com', s3: baseS3, ...props } as never),
+      children: jsx(Harbor, {
+        host: 'registry.example.com',
+        s3: baseS3,
+        backup: false,
+        ...props,
+      } as never),
     })
   )
 }
@@ -162,7 +167,11 @@ describe('Harbor chart release', () => {
       render(
         jsx(SecretContext.Provider, {
           value: { backend: 'manual-secrets' },
-          children: jsx(Harbor, { host: 'registry.example.com', s3: baseS3 } as never),
+          children: jsx(Harbor, {
+            host: 'registry.example.com',
+            s3: baseS3,
+            backup: false,
+          } as never),
         })
       )
     ).toThrow(/Harbor "harbor" requires/)

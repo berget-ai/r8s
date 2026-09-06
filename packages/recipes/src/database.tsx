@@ -14,8 +14,9 @@ import { useS3, isBucketElement, resolveBucket, type BucketProps } from './s3-pr
 /**
  * Continuous + scheduled backup configuration for a dedicated CNPG cluster.
  * Renders `spec.backup.barmanObjectStore` on the Cluster plus a
- * ScheduledBackup resource. Backup is explicit opt-in — nothing renders
- * unless this prop is set.
+ * ScheduledBackup resource. With an <S3Provider> in scope, backups are on
+ * by default — this prop only needs setting for an explicit target or to
+ * opt out (`false`).
  */
 export interface DatabaseBackupProps {
   /** S3 destination path, e.g. 's3://backups/myapp-cnpg'. Derived from the S3 provider as `s3://<bucket>/<name>-cnpg` when omitted. */
@@ -63,12 +64,14 @@ export interface DatabaseProps {
   parameters?: Record<string, string>
   /**
    * Continuous barman backup to S3 object storage + ScheduledBackup.
-   * REQUIRED decision point: omit → renderer throws with guidance.
-   * `false` → cluster without barman (forks, ephemeral CI).
-   * `true`/object → barman WAL + scheduled backups; target and credentials
-   * derive from the Platform's S3 provider, explicit object values win.
+   * Secure default: with an <S3Provider> in scope, backups are ENABLED
+   * when omitted — target and credentials derive from the provider.
+   * Without a provider there is no valid default target, so omitting
+   * throws with guidance. `false` → cluster without barman (forks,
+   * ephemeral CI) — the only way to run unbacked. `true`/object → barman
+   * WAL + scheduled backups; explicit object values win over derived ones.
    */
-  backup: DatabaseBackupProps | true | false | { type: unknown; props: BucketProps }
+  backup?: DatabaseBackupProps | true | false | { type: unknown; props: BucketProps }
   /**
    * Workloads that consume the database credentials. Rendered as
    * `rolloutRestartTargets` on the generated VaultStaticSecret/
@@ -209,28 +212,39 @@ export function Database(props: DatabaseProps) {
   // Inherit namespace from <Platform> context if not explicitly set
   const namespace = useNamespace(namespaceProp)
 
-  // Backups are a REQUIRED decision: no barman archive means stalled WAL
-  // recycling fills the data PVC over time. Passing nothing is a bug the
-  // renderer must catch, not a silent default.
+  // Backups default to SECURE: with an S3 provider in scope, omitting the
+  // decision enables backups (target/credentials derive from the provider
+  // below). Without a provider there is no valid default target — the
+  // decision stays required, and running unbacked is always an explicit
+  // `backup={false}`. No barman archive means stalled WAL recycling fills
+  // the data PVC over time, so silence must never mean "unbacked".
   const s3 = useS3()
-  if (backupProp === undefined) {
-    throw new Error(
-      `Database "${name}": backup is a required decision.\n` +
-        `\n` +
-        `WAL segments accumulate until they are archived — a cluster without\n` +
-        `working backups slowly fills its PVC.\n` +
-        `\n` +
-        `Enable backups (derives target/credentials from the platform's S3Provider):\n` +
-        `  <Database name="${name}" backup />\n` +
-        `\n` +
-        `or pass the full target explicitly:\n` +
-        `  backup={{ destinationPath: 's3://backups/${name}-cnpg', endpointURL: 'https://s3.example.com' }}\n` +
-        `\n` +
-        `To explicitly run without backups (forks, ephemeral CI databases):\n` +
-        `  <Database name="${name}" backup={false} />`
-    )
-  }
   let backup = backupProp
+  if (backup === undefined) {
+    if (!s3) {
+      throw new Error(
+        `Database "${name}": backup is a required decision.\n` +
+          `\n` +
+          `WAL segments accumulate until they are archived — a cluster without\n` +
+          `working backups slowly fills its PVC.\n` +
+          `\n` +
+          `There is no <S3Provider> in scope, so backups cannot be defaulted on.\n` +
+          `Add one to the Platform and backups enable automatically:\n` +
+          `  <Platform>\n` +
+          `    <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
+          `      <Database name="${name}" />\n` +
+          `    </S3Provider>\n` +
+          `  </Platform>\n` +
+          `\n` +
+          `or pass the full target explicitly:\n` +
+          `  backup={{ destinationPath: 's3://backups/${name}-cnpg', endpointURL: 'https://s3.example.com' }}\n` +
+          `\n` +
+          `To explicitly run without backups (forks, ephemeral CI databases):\n` +
+          `  <Database name="${name}" backup={false} />`
+      )
+    }
+    backup = true
+  }
   if (backupProp && typeof backupProp === 'object' && isBucketElement(backupProp)) {
     const target = resolveBucket(backupProp, s3)
     backup = {

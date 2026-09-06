@@ -31,7 +31,9 @@ export interface OutlineProps {
   instances?: number
   /**
    * CNPG backup configuration passed through to the Database recipe
-   * (continuous WAL archiving + scheduled base backups). Attachments
+   * (continuous WAL archiving + scheduled base backups). Defaults to
+   * **enabled** — target and credentials derive from the platform's
+   * S3Provider. Pass `false` to opt out explicitly. Attachments
    * durability belongs to the object store (erasure-coded RustFS),
    * NOT to Velero — CNPG barman is the backup path.
    */
@@ -129,26 +131,29 @@ export interface OutlineProps {
  * - OIDC SSO against the Keycloak `Auth` recipe
  *
  * @example
- * import { Platform } from '@r8s/recipes'
+ * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { Outline } from '@r8s/outline'
  *
+ * // Backups default to on — the S3Provider derives target and credentials
  * export default (
- *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *     <Outline
- *       name="wiki"
- *       host="wiki.example.com"
- *       objectStorage={{
- *         endpoint: 'https://s3.internal.example.com',
- *         bucket: 'wiki-attachments',
- *         credentialsSecret: 'wiki-attachments-credentials',
- *       }}
- *       sso={{
- *         issuer: 'https://keycloak.example.com/realms/platform',
- *         clientId: 'outline',
- *         clientSecretRef: { secret: 'outline-sso', key: 'clientSecret' },
- *       }}
- *     />
- *   </Platform>
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *       <Outline
+ *         name="wiki"
+ *         host="wiki.example.com"
+ *         objectStorage={{
+ *           endpoint: 'https://s3.internal.example.com',
+ *           bucket: 'wiki-attachments',
+ *           credentialsSecret: 'wiki-attachments-credentials',
+ *         }}
+ *         sso={{
+ *           issuer: 'https://keycloak.example.com/realms/platform',
+ *           clientId: 'outline',
+ *           clientSecretRef: { secret: 'outline-sso', key: 'clientSecret' },
+ *         }}
+ *       />
+ *     </Platform>
+ *   </S3Provider>
  * )
  */
 export function Outline(props: OutlineProps) {
@@ -374,7 +379,7 @@ export function Outline(props: OutlineProps) {
       namespace,
       storage,
       instances,
-      backup: backup ?? false,
+      backup: backup ?? true,
       children: (
         <WebService
           name={name}

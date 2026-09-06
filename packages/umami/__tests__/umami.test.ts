@@ -17,7 +17,7 @@ function renderApp(props: Record<string, unknown> = {}) {
   return render(
     jsx(SecretContext.Provider, {
       value: openbao,
-      children: jsx(Umami, { host: 'umami.example.com', ...props } as never),
+      children: jsx(Umami, { host: 'umami.example.com', backup: false, ...props } as never),
     })
   )
 }

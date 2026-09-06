@@ -19,7 +19,7 @@ function renderEneo(props: Record<string, unknown>): ReturnType<typeof render> {
   return render(
     jsx(SecretContext.Provider, {
       value: openbao as never,
-      children: jsx(Eneo, props as never),
+      children: jsx(Eneo, { backup: false, ...(props ?? {}) } as never),
     })
   )
 }
@@ -34,7 +34,7 @@ function renderEneoInNamespace(
       value: namespaceValue,
       children: jsx(SecretContext.Provider, {
         value: openbao as never,
-        children: jsx(Eneo, props as never),
+        children: jsx(Eneo, { backup: false, ...(props ?? {}) } as never),
       }),
     })
   )
@@ -44,7 +44,7 @@ function renderEneoInNamespace(
 function elementWithContext(ops: any[], props: Record<string, unknown>): r8sElement {
   return jsx(OperatorContext.Provider, {
     value: ops,
-    children: jsx(Eneo, props as never),
+    children: jsx(Eneo, { backup: false, ...(props ?? {}) } as never),
   })
 }
 
@@ -100,7 +100,7 @@ describe('rendering defaults', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Eneo, { host: 'eneo.example.com', objectStorage }),
+          children: jsx(Eneo, { backup: false, host: 'eneo.example.com', objectStorage }),
         }),
       })
     )
@@ -114,7 +114,7 @@ describe('rendering defaults', () => {
         value: { mode: 'ingress' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Eneo, { host: 'eneo.example.com', objectStorage }),
+          children: jsx(Eneo, { backup: false, host: 'eneo.example.com', objectStorage }),
         }),
       })
     )
@@ -285,7 +285,7 @@ describe('secrets handling', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(Eneo, { host: 'eneo.example.com', objectStorage }),
+        children: jsx(Eneo, { backup: false, host: 'eneo.example.com', objectStorage }),
       })
     )
     const vault = result.resources.find((r: any) => r.kind === 'VaultStaticSecret') as any
@@ -295,9 +295,9 @@ describe('secrets handling', () => {
   })
 
   it('throws when no secrets backend and no secretsName (bundle requires appSecret)', () => {
-    expect(() => render(jsx(Eneo, { host: 'eneo.example.com', objectStorage }))).toThrow(
-      /application secrets \(appSecret\)/
-    )
+    expect(() =>
+      render(jsx(Eneo, { backup: false, host: 'eneo.example.com', objectStorage }))
+    ).toThrow(/application secrets \(appSecret\)/)
   })
 
   it('requires smtpPassword from the bundle only when the smtp prop is set', () => {
@@ -312,6 +312,7 @@ describe('secrets handling', () => {
     expect(() =>
       render(
         jsx(Eneo, {
+          backup: false,
           host: 'eneo.example.com',
           objectStorage,
           secretsName: 'existing-secrets',

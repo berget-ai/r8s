@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
 import { Namespace, SecretContext } from '@r8s/core/defaults'
-import { Database, WebService, Endpoint } from '@r8s/recipes'
+import { Database, WebService, Endpoint, type DatabaseProps } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
 
 export interface EneoProps {
@@ -81,6 +81,12 @@ export interface EneoProps {
     secretName: string
     clusterIssuer: string
   }
+  /**
+   * Backup decision for the backing CNPG cluster — defaults to **enabled**
+   * (barman WAL + scheduled backups derived from the platform's S3Provider).
+   * Pass `false` to opt out explicitly.
+   */
+  backup?: DatabaseProps['backup']
 }
 
 /**
@@ -110,21 +116,24 @@ export interface EneoProps {
  * must point `secretsName` at a pre-created Secret.
  *
  * @example
- * import { Platform } from '@r8s/recipes'
+ * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { Eneo } from '@r8s/eneo'
  *
+ * // Backups default to on — the S3Provider derives target and credentials
  * export default (
- *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *     <Eneo
- *       name="eneo"
- *       host="eneo.example.com"
- *       objectStorage={{
- *         endpoint: 'https://s3.internal.example.com',
- *         bucket: 'eneo-corpora',
- *         credentialsSecret: 'eneo-object-storage',
- *       }}
- *     />
- *   </Platform>
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *       <Eneo
+ *         name="eneo"
+ *         host="eneo.example.com"
+ *         objectStorage={{
+ *           endpoint: 'https://s3.internal.example.com',
+ *           bucket: 'eneo-corpora',
+ *           credentialsSecret: 'eneo-object-storage',
+ *         }}
+ *       />
+ *     </Platform>
+ *   </S3Provider>
  * )
  */
 export function Eneo(props: EneoProps) {
@@ -144,6 +153,7 @@ export function Eneo(props: EneoProps) {
       limits: { memory: '2Gi', cpu: '1000m' },
     },
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
+    backup,
   } = props
 
   // Inherit namespace from <Platform> context if not explicitly set
@@ -259,7 +269,7 @@ export function Eneo(props: EneoProps) {
   // WebService auto-wires PG* + DATABASE_URL from DatabaseContext.
   resources_.push(
     jsx(Database, {
-      backup: false,
+      backup: backup ?? true,
       name,
       namespace,
       storage: dbStorage,

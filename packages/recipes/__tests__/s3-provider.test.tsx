@@ -5,7 +5,9 @@
  *
  * 1. <S3Provider> sets the context; useS3() reads it (null without one)
  * 2. CNPG: <Database backup /> derives destinationPath '<bucket>/<name>-cnpg',
- *    endpointURL and credentialsSecret from the context — explicit props win
+ *    endpointURL and credentialsSecret from the context — explicit props win.
+ *    Omitting `backup` defaults to ENABLED under a provider (secure default);
+ *    without a provider the decision stays required and throws
  * 3. Velero: <Backup /> emits a BackupStorageLocation against the 'velero/'
  *    prefix and points the schedule at it — explicit storageLocation wins
  * 4. without an S3 context, `backup` with no credentials fails with
@@ -112,7 +114,21 @@ describe('Database backup via S3 context', () => {
     expect(backup.barmanObjectStore.s3Credentials.accessKeyId.name).toBe('explicit-creds')
   })
 
-  it('throws the required-decision guidance when backup is omitted entirely', () => {
+  it('defaults to enabled when backup is omitted under an S3Provider', () => {
+    const result = render(
+      <WithS3>
+        <Database name="api-db" />
+      </WithS3>
+    )
+    const backup = (findCluster(result) as any).spec.backup
+    expect(backup.barmanObjectStore.destinationPath).toBe('s3://infra/api-db-cnpg')
+    expect(backup.barmanObjectStore.endpointURL).toBe('https://rustfs:9000')
+    expect(backup.barmanObjectStore.s3Credentials.accessKeyId.name).toBe('infra-s3-creds')
+    const schedules = result.resources.filter((r) => r.kind === 'ScheduledBackup')
+    expect(schedules).toHaveLength(1)
+  })
+
+  it('throws the required-decision guidance when backup is omitted without an S3Provider', () => {
     expect(() => render(<Database name="api-db" />)).toThrow(
       /backup is a required decision[\s\S]*backup=\{false\}/
     )

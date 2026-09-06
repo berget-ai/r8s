@@ -16,7 +16,7 @@ function renderChromaDb(props: Record<string, unknown>): ReturnType<typeof rende
   return render(
     jsx(SecretContext.Provider, {
       value: { backend: 'openbao', mount: 'kv', path: 'test' },
-      children: jsx(ChromaDb, props as never),
+      children: jsx(ChromaDb, { backup: false, ...(props ?? {}) } as never),
     })
   )
 }
@@ -25,7 +25,7 @@ function renderChromaDb(props: Record<string, unknown>): ReturnType<typeof rende
 function renderChromaDbWithContext(operators_: any[], props: Record<string, unknown>): r8sElement {
   return jsx(OperatorContext.Provider, {
     value: operators_,
-    children: jsx(ChromaDb, props as never),
+    children: jsx(ChromaDb, { backup: false, ...(props ?? {}) } as never),
   })
 }
 
@@ -142,7 +142,7 @@ describe('rendering defaults', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(ChromaDb, { host: 'vectors.example.com' }),
+          children: jsx(ChromaDb, { backup: false, host: 'vectors.example.com' }),
         }),
       })
     )
@@ -157,7 +157,7 @@ describe('rendering defaults', () => {
         value: { mode: 'ingress' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(ChromaDb, { host: 'vectors.example.com' }),
+          children: jsx(ChromaDb, { backup: false, host: 'vectors.example.com' }),
         }),
       })
     )
@@ -235,6 +235,7 @@ describe('secrets handling', () => {
     expect(() =>
       render(
         jsx(ChromaDb, {
+          backup: false,
           host: 'vectors.example.com',
           auth: true,
           authTokenSecretName: 'existing-token-secret',
@@ -257,7 +258,12 @@ describe('secrets handling', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'ai' },
-        children: jsx(ChromaDb, { name: 'vectors', host: 'vectors.example.com', auth: true }),
+        children: jsx(ChromaDb, {
+          backup: false,
+          name: 'vectors',
+          host: 'vectors.example.com',
+          auth: true,
+        }),
       })
     )
     const secret = result.resources.find((r) => r.kind === 'VaultStaticSecret') as any
@@ -318,7 +324,7 @@ describe('secrets handling', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(ChromaDb, { host: 'vectors.example.com', pg: true }),
+        children: jsx(ChromaDb, { backup: false, host: 'vectors.example.com', pg: true }),
       })
     )
     const kinds = result.resources.map((r) => r.kind)
@@ -346,9 +352,9 @@ describe('secrets handling', () => {
 
 describe('validation errors', () => {
   it('throws when auth is enabled without an auth token secret or backend', () => {
-    expect(() => render(jsx(ChromaDb, { host: 'vectors.example.com', auth: true }))).toThrow(
-      /auth token/
-    )
+    expect(() =>
+      render(jsx(ChromaDb, { backup: false, host: 'vectors.example.com', auth: true }))
+    ).toThrow(/auth token/)
   })
 
   it('throws when autoscaling on RWO storage without an RWX StorageClass', () => {

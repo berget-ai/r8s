@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
 import { SecretContext } from '@r8s/core/defaults'
-import { Database, WebService, Endpoint } from '@r8s/recipes'
+import { Database, WebService, Endpoint, type DatabaseProps } from '@r8s/recipes'
 
 export interface SupabaseProps {
   /** Resource name — base for every derived resource (defaults to 'supabase') */
@@ -62,6 +62,12 @@ export interface SupabaseProps {
     secretName: string
     clusterIssuer: string
   }
+  /**
+   * Backup decision for the backing CNPG cluster — defaults to **enabled**
+   * (barman WAL + scheduled backups derived from the platform's S3Provider).
+   * Pass `false` to opt out explicitly.
+   */
+  backup?: DatabaseProps['backup']
 }
 
 /**
@@ -93,37 +99,44 @@ export interface SupabaseProps {
  * must point `jwtSecretsName` at a pre-created Secret.
  *
  * @example
- * import { Platform } from '@r8s/recipes'
+ * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
+ * import { Supabase } from '@r8s/supabase'
+ *
+ * // Backups default to on — the S3Provider derives target and credentials
+ * export default (
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *       <Supabase
+ *         name="backend"
+ *         host="backend.example.com"
+ *         objectStorage={{
+ *           endpoint: 'https://s3.internal.example.com',
+ *           bucket: 'backend-uploads',
+ *           credentialsSecret: 'backend-object-store-credentials',
+ *         }}
+ *       />
+ *     </Platform>
+ *   </S3Provider>
+ * )
+ *
+ * @example
+ * // Reference a pre-created JWT bundle instead of provisioning one —
+ * // still under an S3Provider so database backups stay on
+ * import { S3Provider, MinIO } from '@r8s/recipes'
  * import { Supabase } from '@r8s/supabase'
  *
  * export default (
- *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
  *     <Supabase
- *       name="backend"
  *       host="backend.example.com"
+ *       jwtSecretsName="backend-jwt"
  *       objectStorage={{
  *         endpoint: 'https://s3.internal.example.com',
  *         bucket: 'backend-uploads',
  *         credentialsSecret: 'backend-object-store-credentials',
  *       }}
  *     />
- *   </Platform>
- * )
- *
- * @example
- * // Reference a pre-created JWT bundle instead of provisioning one
- * import { Supabase } from '@r8s/supabase'
- *
- * export default (
- *   <Supabase
- *     host="backend.example.com"
- *     jwtSecretsName="backend-jwt"
- *     objectStorage={{
- *       endpoint: 'https://s3.internal.example.com',
- *       bucket: 'backend-uploads',
- *       credentialsSecret: 'backend-object-store-credentials',
- *     }}
- *   />
+ *   </S3Provider>
  * )
  */
 export function Supabase(props: SupabaseProps) {
@@ -143,6 +156,7 @@ export function Supabase(props: SupabaseProps) {
       limits: { memory: '2Gi', cpu: '1000m' },
     },
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
+    backup,
   } = props
 
   const secretProvider = useContext(SecretContext)
@@ -238,7 +252,7 @@ export function Supabase(props: SupabaseProps) {
   // the r8s Database recipe (CNPG dedicated cluster provisions the secret).
   resources_.push(
     jsx(Database, {
-      backup: false,
+      backup: backup ?? true,
       name,
       namespace,
       storage,

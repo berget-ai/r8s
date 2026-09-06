@@ -357,13 +357,13 @@ export const recipes: Recipe[] = [
     slug: 'database-backup',
     title: 'DatabaseBackup',
     description:
-      'Continuous + scheduled backup configuration for a dedicated CNPG cluster. Renders `spec.backup.barmanObjectStore` on the Cluster plus a ScheduledBackup resource. Backup is explicit opt-in — nothing renders unless this prop is set.',
+      'Continuous + scheduled backup configuration for a dedicated CNPG cluster. Renders `spec.backup.barmanObjectStore` on the Cluster plus a ScheduledBackup resource. With an <S3Provider> in scope, backups are on by default — this prop only needs setting for an explicit target or to opt out (`false`).',
     category: 'Recipes',
     keywords: [],
     component: {
       name: 'DatabaseBackup',
       description:
-        'Continuous + scheduled backup configuration for a dedicated CNPG cluster. Renders `spec.backup.barmanObjectStore` on the Cluster plus a ScheduledBackup resource. Backup is explicit opt-in — nothing renders unless this prop is set.',
+        'Continuous + scheduled backup configuration for a dedicated CNPG cluster. Renders `spec.backup.barmanObjectStore` on the Cluster plus a ScheduledBackup resource. With an <S3Provider> in scope, backups are on by default — this prop only needs setting for an explicit target or to opt out (`false`).',
       props: [
         {
           name: 'destinationPath',
@@ -476,9 +476,9 @@ export const recipes: Recipe[] = [
         {
           name: 'backup',
           type: 'DatabaseBackupProps | true | false | { type: unknown, props: BucketProps }',
-          required: true,
+          required: false,
           description:
-            "Continuous barman backup to S3 object storage + ScheduledBackup. REQUIRED decision point: omit → renderer throws with guidance. `false` → cluster without barman (forks, ephemeral CI). `true`/object → barman WAL + scheduled backups; target and credentials derive from the Platform's S3 provider, explicit object values win.",
+            'Continuous barman backup to S3 object storage + ScheduledBackup. Secure default: with an <S3Provider> in scope, backups are ENABLED when omitted — target and credentials derive from the provider. Without a provider there is no valid default target, so omitting throws with guidance. `false` → cluster without barman (forks, ephemeral CI) — the only way to run unbacked. `true`/object → barman WAL + scheduled backups; explicit object values win over derived ones.',
         },
         {
           name: 'rolloutRestartTargets',

@@ -16,7 +16,7 @@ function renderN8n(props: Record<string, unknown>): ReturnType<typeof render> {
   return render(
     jsx(SecretContext.Provider, {
       value: { backend: 'openbao', mount: 'kv', path: 'test' },
-      children: jsx(N8n, props as never),
+      children: jsx(N8n, { backup: false, ...(props ?? {}) } as never),
     })
   )
 }
@@ -25,7 +25,7 @@ function renderN8n(props: Record<string, unknown>): ReturnType<typeof render> {
 function renderN8nWithContext(operators_: any[], props: Record<string, unknown>): r8sElement {
   return jsx(OperatorContext.Provider, {
     value: operators_,
-    children: jsx(N8n, props as never),
+    children: jsx(N8n, { backup: false, ...(props ?? {}) } as never),
   })
 }
 
@@ -124,7 +124,7 @@ describe('rendering defaults', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(N8n, { host: 'n8n.example.com' }),
+          children: jsx(N8n, { backup: false, host: 'n8n.example.com' }),
         }),
       })
     )
@@ -138,7 +138,7 @@ describe('rendering defaults', () => {
         value: { mode: 'ingress' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(N8n, { host: 'n8n.example.com' }),
+          children: jsx(N8n, { backup: false, host: 'n8n.example.com' }),
         }),
       })
     )
@@ -183,7 +183,13 @@ describe('rendering with all props', () => {
 describe('secrets handling', () => {
   it('accepts an explicit encryptionKeySecretName without a backend', () => {
     expect(() =>
-      render(jsx(N8n, { host: 'n8n.example.com', encryptionKeySecretName: 'existing-encryption' }))
+      render(
+        jsx(N8n, {
+          backup: false,
+          host: 'n8n.example.com',
+          encryptionKeySecretName: 'existing-encryption',
+        })
+      )
     ).not.toThrow()
   })
 
@@ -197,7 +203,7 @@ describe('secrets handling', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(N8n, { host: 'n8n.example.com' }),
+        children: jsx(N8n, { backup: false, host: 'n8n.example.com' }),
       })
     )
     const kinds = result.resources.map((r) => r.kind)
@@ -233,7 +239,9 @@ describe('secrets handling', () => {
 
 describe('validation errors', () => {
   it('throws when no secrets backend and no encryption key secret', () => {
-    expect(() => render(jsx(N8n, { host: 'n8n.example.com' }))).toThrow(/encryption key/)
+    expect(() => render(jsx(N8n, { backup: false, host: 'n8n.example.com' }))).toThrow(
+      /encryption key/
+    )
   })
 
   it('throws for unknown secrets backends', () => {
@@ -241,7 +249,7 @@ describe('validation errors', () => {
       render(
         jsx(SecretContext.Provider, {
           value: { backend: 'unknown' as never },
-          children: jsx(N8n, { host: 'n8n.example.com' }),
+          children: jsx(N8n, { backup: false, host: 'n8n.example.com' }),
         })
       )
     ).toThrow(/encryption key/)

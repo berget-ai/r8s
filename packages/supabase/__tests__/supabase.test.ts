@@ -24,7 +24,7 @@ function renderSupabase(props: Record<string, unknown>): ReturnType<typeof rende
   return render(
     jsx(SecretContext.Provider, {
       value: openbao as never,
-      children: jsx(Supabase, props as never),
+      children: jsx(Supabase, { backup: false, ...(props ?? {}) } as never),
     })
   )
 }
@@ -33,7 +33,7 @@ function renderSupabase(props: Record<string, unknown>): ReturnType<typeof rende
 function renderSupabaseWithContext(operators_: any[], props: Record<string, unknown>): r8sElement {
   return jsx(OperatorContext.Provider, {
     value: operators_,
-    children: jsx(Supabase, props as never),
+    children: jsx(Supabase, { backup: false, ...(props ?? {}) } as never),
   })
 }
 
@@ -93,7 +93,7 @@ describe('rendering defaults', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Supabase, { host: 'backend.example.com', objectStorage }),
+          children: jsx(Supabase, { backup: false, host: 'backend.example.com', objectStorage }),
         }),
       })
     )
@@ -107,7 +107,7 @@ describe('rendering defaults', () => {
         value: { mode: 'ingress' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Supabase, { host: 'backend.example.com', objectStorage }),
+          children: jsx(Supabase, { backup: false, host: 'backend.example.com', objectStorage }),
         }),
       })
     )
@@ -295,7 +295,7 @@ describe('path-based routing', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Supabase, { host: 'backend.example.com', objectStorage }),
+          children: jsx(Supabase, { backup: false, host: 'backend.example.com', objectStorage }),
         }),
       })
     )
@@ -393,7 +393,7 @@ describe('secrets handling', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(Supabase, { host: 'backend.example.com', objectStorage }),
+        children: jsx(Supabase, { backup: false, host: 'backend.example.com', objectStorage }),
       })
     )
     const kinds = result.resources.map((r) => r.kind)
@@ -404,6 +404,7 @@ describe('secrets handling', () => {
     expect(() =>
       render(
         jsx(Supabase, {
+          backup: false,
           host: 'backend.example.com',
           objectStorage,
           jwtSecretsName: 'existing-jwt',
@@ -413,9 +414,9 @@ describe('secrets handling', () => {
   })
 
   it('throws when no secrets backend and no JWT bundle secret', () => {
-    expect(() => render(jsx(Supabase, { host: 'backend.example.com', objectStorage }))).toThrow(
-      /JWT secret bundle/
-    )
+    expect(() =>
+      render(jsx(Supabase, { backup: false, host: 'backend.example.com', objectStorage }))
+    ).toThrow(/JWT secret bundle/)
   })
 
   it('wires credentials via secretKeyRef (never plaintext env)', () => {

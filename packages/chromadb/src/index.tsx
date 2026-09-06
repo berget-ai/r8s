@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
 import { SecretContext } from '@r8s/core/defaults'
-import { Database, Endpoint } from '@r8s/recipes'
+import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
 
 export interface ChromaDbProps {
   /** Resource name (defaults to 'chromadb') */
@@ -55,6 +55,12 @@ export interface ChromaDbProps {
     secretName: string
     clusterIssuer: string
   }
+  /**
+   * Backup decision for the backing CNPG cluster — defaults to **enabled**
+   * (barman WAL + scheduled backups derived from the platform's S3Provider).
+   * Pass `false` to opt out explicitly.
+   */
+  backup?: DatabaseProps['backup']
 }
 
 /**
@@ -123,6 +129,7 @@ export function ChromaDb(props: ChromaDbProps) {
       limits: { memory: '2Gi', cpu: '1000m' },
     },
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
+    backup,
   } = props
 
   const secretProvider = useContext(SecretContext)
@@ -317,7 +324,7 @@ export function ChromaDb(props: ChromaDbProps) {
   if (pg) {
     resources_.push(
       jsx(Database, {
-        backup: false,
+        backup: backup ?? true,
         name: `${name}-meta`,
         namespace,
         storage: '10Gi',

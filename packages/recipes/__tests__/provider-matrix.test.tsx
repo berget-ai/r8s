@@ -53,23 +53,27 @@ interface Fixture {
 }
 
 const fixtures: Fixture[] = [
+  // App fixtures pass `backup: false`: this matrix exercises endpoint
+  // provider × secrets backend wiring — backup derivation has its own
+  // coverage (s3-provider.test.tsx + each package's suite). Without an
+  // S3Provider in scope the secure default would (correctly) throw.
   {
     name: 'N8n',
     component: N8n,
-    props: { host: 'n8n.example.com' },
+    props: { host: 'n8n.example.com', backup: false },
     manualProps: { encryptionKeySecretName: 'n8n-encryption' },
     expectedHosts: ['n8n.example.com'],
   },
   {
     name: 'Outline',
     component: Outline,
-    props: { host: 'wiki.example.com' },
+    props: { host: 'wiki.example.com', backup: false },
     expectedHosts: ['wiki.example.com'],
   },
   {
     name: 'Paperclip',
     component: Paperclip,
-    props: { host: 'paperclip.example.com' },
+    props: { host: 'paperclip.example.com', backup: false },
     expectedHosts: ['paperclip.example.com'],
     // The paperclip-operator owns routing: the Instance CR carries hosts in
     // its own spec and the operator renders the Ingress itself — no r8s
@@ -79,7 +83,7 @@ const fixtures: Fixture[] = [
   {
     name: 'EuroOffice',
     component: EuroOffice,
-    props: { host: 'docs.example.com' },
+    props: { host: 'docs.example.com', backup: false },
     expectedHosts: ['docs.example.com'],
   },
   {
@@ -96,19 +100,19 @@ const fixtures: Fixture[] = [
   {
     name: 'Nextcloud',
     component: Nextcloud,
-    props: { port: 80, host: 'cloud.example.com' },
+    props: { port: 80, host: 'cloud.example.com', backup: false },
     expectedHosts: ['cloud.example.com'],
   },
   {
     name: 'Odoo',
     component: Odoo,
-    props: { host: 'erp.example.com' },
+    props: { host: 'erp.example.com', backup: false },
     expectedHosts: ['erp.example.com'],
   },
   {
     name: 'Umami',
     component: Umami,
-    props: { host: 'umami.example.com' },
+    props: { host: 'umami.example.com', backup: false },
     expectedHosts: ['umami.example.com'],
   },
   {
@@ -116,6 +120,7 @@ const fixtures: Fixture[] = [
     component: Harbor,
     props: {
       host: 'registry.example.com',
+      backup: false,
       s3: { bucket: 'harbor-registry', region: 'berget-cloud', endpoint: 'https://s3.example.com' },
     },
     expectedHosts: ['registry.example.com'],
