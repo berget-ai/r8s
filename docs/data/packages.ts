@@ -72532,7 +72532,7 @@ export const packages: Package[] = [
     name: '@r8s/forgejo',
     title: 'forgejo',
     description:
-      'Forgejo git forge — repos, PRs, Actions runners (act_runner + dind), LFS on S3, CNPG persistence, SSH via LoadBalancer',
+      'Forgejo git forge — repos, PRs, Actions runners (forgejo-runner + dind), LFS on S3, CNPG persistence, SSH via LoadBalancer',
     category: 'Developer Tools',
     keywords: ['forgejo', 'git', 'ci', 'actions', 'lfs'],
     components: [
@@ -72655,7 +72655,7 @@ export const packages: Package[] = [
             type: 'ForgejoActionsProps | true | false',
             required: false,
             description:
-              'Actions runners — enabled by default (a GitHub-like forge ships Actions). Each runner is an act_runner Deployment with a docker-in-docker sidecar (privileged — run untrusted-code runners in a dedicated namespace/node pool). `false` opts out.',
+              'Actions runners — enabled by default (a GitHub-like forge ships Actions). Each runner is a forgejo-runner Deployment with a docker-in-docker sidecar (privileged — run untrusted-code runners in a dedicated namespace/node pool). `false` opts out.',
           },
           {
             name: 'registration',

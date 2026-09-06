@@ -1518,7 +1518,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
     package: '@r8s/forgejo',
     category: 'Developer Tools',
     description:
-      'Forgejo git forge — repos + PRs on an RWO PVC, CNPG persistence with backups on by default, LFS on S3 (PVC fallback), Actions runners by default (act_runner + docker-in-docker), SSH via a dedicated LoadBalancer',
+      'Forgejo git forge — repos + PRs on an RWO PVC, CNPG persistence with backups on by default, LFS on S3 (PVC fallback), Actions runners by default (forgejo-runner + docker-in-docker), SSH via a dedicated LoadBalancer',
     props: [
       {
         name: 'name',
@@ -1597,7 +1597,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         required: false,
         default: 'true',
         description:
-          'Actions runners — enabled by default. act_runner Deployment with a docker-in-docker sidecar (privileged — run untrusted-code runners in a dedicated namespace/node pool). The registration token is provisioned from the secrets backend (<path>/<name>/runner-registration-token) or referenced via registrationTokenSecretName',
+          'Actions runners — enabled by default. forgejo-runner Deployment with a docker-in-docker sidecar (privileged — run untrusted-code runners in a dedicated namespace/node pool). The registration token is provisioned from the secrets backend (<path>/<name>/runner-registration-token) or referenced via registrationTokenSecretName',
       },
       {
         name: 'registration',

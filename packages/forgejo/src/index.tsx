@@ -64,7 +64,7 @@ export interface ForgejoProps {
   lfs?: 's3' | 'pvc' | false
   /**
    * Actions runners — enabled by default (a GitHub-like forge ships
-   * Actions). Each runner is an act_runner Deployment with a
+   * Actions). Each runner is a forgejo-runner Deployment with a
    * docker-in-docker sidecar (privileged — run untrusted-code runners in a
    * dedicated namespace/node pool). `false` opts out.
    */
@@ -114,7 +114,7 @@ const DEFAULT_RUNNER_LABELS = [
  * - CNPG Postgres cluster (2 instances) with backups on by default via the
  *   platform S3Provider
  * - LFS on S3 when an S3Provider is in scope (PVC fallback otherwise)
- * - Actions runners by default: act_runner + docker-in-docker sidecar,
+ * - Actions runners by default: forgejo-runner + docker-in-docker sidecar,
  *   registered via a token from the secrets backend
  * - Credential bundle (SECRET_KEY, INTERNAL_TOKEN, LFS_JWT_SECRET)
  *   provisioned through the Platform secrets backend with rotation restart
@@ -410,7 +410,7 @@ export function Forgejo(props: ForgejoProps) {
     )
   }
 
-  // --- Actions runner: act_runner + docker-in-docker ----------------------------
+  // --- Actions runner: forgejo-runner + docker-in-docker ----------------------------
   if (actionsEnabled) {
     const runnerLabels = actionsCfg.labels ?? DEFAULT_RUNNER_LABELS
     const runnerConfig = [
