@@ -98,6 +98,7 @@ Complete real-world applications as packages — **pinned versions, derived from
 | `@r8s/librechat` | Multi-provider chat UI |
 | `@r8s/eneo` | AI platform |
 | `@r8s/paperclip` | Agent orchestration |
+| `@r8s/forgejo` | Git forge (Actions runners, LFS on S3) |
 | `@r8s/chromadb` | Vector database (Chroma) |
 | `@r8s/supabase` | Postgres backend-as-a-service |
 | `@r8s/outline` | Knowledge base |

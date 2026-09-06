@@ -63,6 +63,7 @@ const APP_PACKAGES: Record<string, string> = {
   matrix: 'index.tsx',
   harbor: 'index.tsx',
   umami: 'index.tsx',
+  forgejo: 'index.tsx',
 }
 
 /** tsc paths variant of the same mapping (file targets, NodeNext resolution) */

@@ -22,6 +22,7 @@ import { ChromaDb } from '../../chromadb/src/index'
 import { LibreChat } from '../../librechat/src/index'
 import { Umami } from '../../umami/src/index'
 import { Harbor } from '../../harbor/src/index'
+import { Forgejo } from '../../forgejo/src/index'
 
 const openbao = { backend: 'openbao', mount: 'kv', path: 'test' }
 const vault = { backend: 'vault', mount: 'kv', path: 'test' }
@@ -129,6 +130,12 @@ const fixtures: Fixture[] = [
     expectedHosts: ['registry.example.com'],
     // The chart renders its own nginx ingress — no r8s Endpoint resources
     skipEndpoints: true,
+  },
+  {
+    name: 'Forgejo',
+    component: Forgejo,
+    props: { host: 'git.example.com', backup: false },
+    expectedHosts: ['git.example.com'],
   },
   {
     name: 'ChromaDb',

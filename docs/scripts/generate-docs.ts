@@ -94,6 +94,9 @@ async function renderToYaml(code: string): Promise<string | null> {
             '@r8s/paperclip': [path.join(ROOT, 'packages/paperclip/src/index.tsx')],
             '@r8s/eneo': [path.join(ROOT, 'packages/eneo/src/index.tsx')],
             '@r8s/matrix': [path.join(ROOT, 'packages/matrix/src/index.tsx')],
+            '@r8s/harbor': [path.join(ROOT, 'packages/harbor/src/index.tsx')],
+            '@r8s/umami': [path.join(ROOT, 'packages/umami/src/index.tsx')],
+            '@r8s/forgejo': [path.join(ROOT, 'packages/forgejo/src/index.tsx')],
           },
         },
       }),
@@ -132,6 +135,9 @@ async function renderToYaml(code: string): Promise<string | null> {
         '@r8s/paperclip': path.join(ROOT, 'packages/paperclip/src/index.tsx'),
         '@r8s/eneo': path.join(ROOT, 'packages/eneo/src/index.tsx'),
         '@r8s/matrix': path.join(ROOT, 'packages/matrix/src/index.tsx'),
+        '@r8s/harbor': path.join(ROOT, 'packages/harbor/src/index.tsx'),
+        '@r8s/umami': path.join(ROOT, 'packages/umami/src/index.tsx'),
+        '@r8s/forgejo': path.join(ROOT, 'packages/forgejo/src/index.tsx'),
       },
     })
 
@@ -722,6 +728,7 @@ async function generatePackages(): Promise<PackageDoc[]> {
     'paperclip',
     'eneo',
     'matrix',
+    'forgejo',
   ]
   for (const dir of appPackages) {
     const srcPath =
