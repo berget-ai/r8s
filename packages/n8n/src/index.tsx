@@ -47,7 +47,9 @@ export interface N8nProps {
   dataStorage?: string | { size?: string; storageClass?: string }
   /**
    * CNPG backup configuration passed through to the Database recipe
-   * (continuous WAL archiving + scheduled base backups).
+   * (continuous WAL archiving + scheduled base backups). Defaults to
+   * **enabled** — target and credentials derive from the platform's
+   * S3Provider. Pass `false` to opt out explicitly.
    */
   backup?: DatabaseProps['backup']
   /**
@@ -120,13 +122,16 @@ export interface N8nProps {
  * must point `encryptionKeySecretName` at a pre-created Secret.
  *
  * @example
- * import { Platform } from '@r8s/recipes'
+ * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { N8n } from '@r8s/n8n'
  *
+ * // Backups default to on — the S3Provider derives target and credentials
  * export default (
- *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *     <N8n name="n8n" host="n8n.example.com" queueMode workers={3} />
- *   </Platform>
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *       <N8n name="n8n" host="n8n.example.com" queueMode workers={3} />
+ *     </Platform>
+ *   </S3Provider>
  * )
  */
 export function N8n(props: N8nProps) {
@@ -297,7 +302,7 @@ export function N8n(props: N8nProps) {
       name,
       namespace,
       storage,
-      backup: backup ?? false,
+      backup: backup ?? true,
       children: (
         <WebService
           name={name}

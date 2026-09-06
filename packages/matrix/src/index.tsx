@@ -87,12 +87,14 @@ export interface MatrixDatabaseProps {
   /** StorageClass name (default: cluster default) */
   storageClass?: string
   /**
-   * REQUIRED decision point (same contract as <Database backup>):
+   * Secure default (same contract as <Database backup>): with an
+   * <S3Provider> in scope, backups are ENABLED when omitted — the whole
+   * target derives from the provider. Without a provider, omitting throws
+   * with guidance. Values:
    * - `<Bucket name="…"/>` descriptor — scoped destination under the S3 provider
    * - explicit object — per-field gaps derive from the surrounding S3Provider
    * - `true` — derive the whole target from the S3Provider
    * - `false` — cluster without barman (explicit opt-out)
-   * Omitted → renderer throws with guidance.
    */
   backup?: MatrixBackupProps | true | false | { type: unknown; props: BucketProps }
 }
@@ -946,13 +948,19 @@ export function Matrix(props: MatrixProps) {
         `     or pass sso={{ ..., clientSecretRef: '${name}-keycloak-oidc' }} (a pre-created Secret with key 'clientSecret')`
     )
   }
-  if (database.backup === undefined) {
+  // Same secure default as <Database backup>: with an S3 provider in scope,
+  // omitting the decision enables backups (target/credentials derive from
+  // the provider below). Without a provider the decision stays required —
+  // running unbacked is always an explicit `backup: false`.
+  const s3 = useS3()
+  if (database.backup === undefined && !s3) {
     throw new Error(
       `Matrix "${name}": database.backup is a required decision.\n` +
         `\n` +
         `WAL segments accumulate until they are archived — a cluster without\n` +
         `working backups slowly fills its PVC.\n` +
         `\n` +
+        `There is no <S3Provider> in scope, so backups cannot be defaulted on.\n` +
         `Point the backups at the platform S3 store:\n` +
         `  <S3Provider …>\n` +
         `    <Matrix name="${name}" database={{ backup: <Bucket name="matrix_backup" /> }} />\n` +
@@ -964,14 +972,15 @@ export function Matrix(props: MatrixProps) {
         `  database={{ backup: false }}`
     )
   }
-  const s3 = useS3()
 
   // Resolve the backup decision into a per-database base spec. Explicit
   // fields win; gaps derive from the surrounding S3Provider; a <Bucket>
   // descriptor points at a scoped destination (matrix name composed under
   // its prefix so several stacks can share a bucket cleanly).
   let backupSpec: MatrixBackupProps | false = false
-  const rawBackup = database.backup
+  // Omitted + S3 provider in scope = the secure default (enabled, derived).
+  // The throw above guarantees s3 exists whenever rawBackup is undefined.
+  const rawBackup = database.backup ?? (s3 ? true : false)
   if (rawBackup !== false) {
     let destinationBase: string | undefined
     let endpointURL: string | undefined

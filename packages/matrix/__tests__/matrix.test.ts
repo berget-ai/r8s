@@ -8,7 +8,9 @@ import { Matrix } from '../src/index'
 function renderMatrix(overrides: any = {}) {
   const element = jsx(Matrix, {
     domain: 'example.com',
-    // explicit opt-out — backup is a required decision, covered by its own test
+    // explicit opt-out — without an S3Provider the backup decision is
+    // required; under one, omitting defaults to enabled (covered by its
+    // own test)
     database: { backup: false },
     ...overrides,
   })
@@ -305,12 +307,30 @@ describe('Matrix — secrets backends', () => {
     expect(synapseDb.spec.backup.retentionPolicy).toBe('14d')
   })
 
-  it('omitting the backup decision fails with guidance', () => {
+  it('omitting the backup decision fails with guidance when no S3Provider is in scope', () => {
     expect(() =>
       renderMatrixWithPlatform({
         sso: { issuer: 'https://keycloak.example.com/realms/x', clientId: 'matrix' },
       })
     ).toThrow(/backup is a required decision/)
+  })
+
+  it('omitting the backup decision defaults to enabled under an S3Provider', () => {
+    const element = jsx(S3Provider as never, {
+      provider: {
+        endpoint: 'https://rustfs:9000',
+        bucket: 'infra',
+        credentialsSecret: 'infra-s3-creds',
+      },
+      children: jsx(Matrix, { domain: 'example.com', database: {} }),
+    })
+    const result = render(element)
+    const synapseDb = find(result, 'Cluster', 'matrix-synapse-db') as any
+    expect(synapseDb.spec.backup.barmanObjectStore.destinationPath).toBe(
+      's3://infra/matrix-backup/synapse-cnpg'
+    )
+    expect(find(result, 'ScheduledBackup', 'matrix-synapse-db-backup')).toBeDefined()
+    expect(find(result, 'ScheduledBackup', 'matrix-mas-db-backup')).toBeDefined()
   })
 
   it('throws on backup without credentialsSecret and without secrets backend', () => {

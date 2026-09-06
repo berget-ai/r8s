@@ -17,7 +17,7 @@ function renderOdoo(props: Record<string, unknown>): ReturnType<typeof render> {
   return render(
     jsx(SecretContext.Provider, {
       value: { backend: 'openbao', mount: 'kv', path: 'test' },
-      children: jsx(Odoo, props as never),
+      children: jsx(Odoo, { backup: false, ...(props ?? {}) } as never),
     })
   )
 }
@@ -26,7 +26,7 @@ function renderOdoo(props: Record<string, unknown>): ReturnType<typeof render> {
 function renderOdooWithContext(operators_: any[], props: Record<string, unknown>): r8sElement {
   return jsx(OperatorContext.Provider, {
     value: operators_,
-    children: jsx(Odoo, props as never),
+    children: jsx(Odoo, { backup: false, ...(props ?? {}) } as never),
   })
 }
 
@@ -167,7 +167,7 @@ describe('rendering defaults', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Odoo, { host: 'erp.example.com' }),
+          children: jsx(Odoo, { backup: false, host: 'erp.example.com' }),
         }),
       })
     )
@@ -181,7 +181,7 @@ describe('rendering defaults', () => {
         value: { mode: 'ingress' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Odoo, { host: 'erp.example.com' }),
+          children: jsx(Odoo, { backup: false, host: 'erp.example.com' }),
         }),
       })
     )
@@ -253,7 +253,13 @@ describe('rendering with all props', () => {
 describe('secrets handling', () => {
   it('accepts an explicit masterPasswordSecretName without a backend', () => {
     expect(() =>
-      render(jsx(Odoo, { host: 'erp.example.com', masterPasswordSecretName: 'existing-master' }))
+      render(
+        jsx(Odoo, {
+          backup: false,
+          host: 'erp.example.com',
+          masterPasswordSecretName: 'existing-master',
+        })
+      )
     ).not.toThrow()
   })
 
@@ -271,7 +277,7 @@ describe('secrets handling', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(Odoo, { host: 'erp.example.com' }),
+        children: jsx(Odoo, { backup: false, host: 'erp.example.com' }),
       })
     )
     const kinds = result.resources.map((r) => r.kind)
@@ -308,7 +314,9 @@ describe('secrets handling', () => {
 
 describe('validation errors', () => {
   it('throws when no secrets backend and no master password secret', () => {
-    expect(() => render(jsx(Odoo, { host: 'erp.example.com' }))).toThrow(/master password/)
+    expect(() => render(jsx(Odoo, { backup: false, host: 'erp.example.com' }))).toThrow(
+      /master password/
+    )
   })
 
   it('throws for unknown secrets backends', () => {
@@ -316,7 +324,7 @@ describe('validation errors', () => {
       render(
         jsx(SecretContext.Provider, {
           value: { backend: 'unknown' as never },
-          children: jsx(Odoo, { host: 'erp.example.com' }),
+          children: jsx(Odoo, { backup: false, host: 'erp.example.com' }),
         })
       )
     ).toThrow(/master password/)

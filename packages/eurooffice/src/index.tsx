@@ -74,7 +74,7 @@ export interface EuroOfficeProps {
   dbStorage?: string
   /** CNPG storage class (defaults to cluster default) */
   dbStorageClass?: string
-  /** CNPG backup configuration passed through to the Database recipe (continuous WAL + scheduled base backups) */
+  /** CNPG backup configuration passed through to the Database recipe (continuous WAL + scheduled base backups). Defaults to **enabled** via the platform's S3Provider; `false` opts out. */
   backup?: DatabaseProps['backup']
   /**
    * SQL statements run once on a fresh cluster (CNPG postInitApplicationSQL).
@@ -142,13 +142,16 @@ const DEFAULT_FONT_URLS = [
  * RabbitMQ, RWO volume) — `replicas` other than 1 is rejected.
  *
  * @example
- * import { Platform } from '@r8s/recipes'
+ * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { EuroOffice } from '@r8s/eurooffice'
  *
+ * // Backups default to on — the S3Provider derives target and credentials
  * export default (
- *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *     <EuroOffice host="docs.example.com" exampleEnabled />
- *   </Platform>
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *       <EuroOffice host="docs.example.com" exampleEnabled />
+ *     </Platform>
+ *   </S3Provider>
  * )
  */
 export function EuroOffice(props: EuroOfficeProps) {
@@ -320,7 +323,7 @@ export function EuroOffice(props: EuroOfficeProps) {
         maintenance_work_mem: '128MB',
         effective_cache_size: '768MB',
       },
-      backup: backup ?? false,
+      backup: backup ?? true,
       ...(postInitSQL && postInitSQL.length > 0 ? { postInitSQL } : {}),
     }),
     jsx(WebService, {

@@ -48,7 +48,7 @@ export interface PaperclipProps {
   dbStorage?: string
   /** CNPG storage class (defaults to cluster default) */
   dbStorageClass?: string
-  /** CNPG backup configuration passed through to the Database recipe (continuous WAL + scheduled base backups to Scaleway in facit) */
+  /** CNPG backup configuration passed through to the Database recipe (continuous WAL + scheduled base backups to Scaleway in facit). Defaults to **enabled** via the platform's S3Provider; `false` opts out. */
   backup?: DatabaseProps['backup']
   /**
    * App-native database backups (sql dumps on the persistence volume).
@@ -250,7 +250,7 @@ export function Paperclip(props: PaperclipProps) {
       ...(dbStorageClass ? { storageClass: dbStorageClass } : {}),
       parameters: { max_connections: '200', effective_cache_size: '768MB' },
       credentialsMode: 'cnpg',
-      backup: backup ?? false,
+      backup: backup ?? true,
     })
   )
 

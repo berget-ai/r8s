@@ -17,7 +17,7 @@ function renderOpenWebui(props: Record<string, unknown>): ReturnType<typeof rend
   return render(
     jsx(SecretContext.Provider, {
       value: { backend: 'openbao', mount: 'kv', path: 'test' },
-      children: jsx(OpenWebui, props as never),
+      children: jsx(OpenWebui, { backup: false, ...(props ?? {}) } as never),
     })
   )
 }
@@ -26,7 +26,7 @@ function renderOpenWebui(props: Record<string, unknown>): ReturnType<typeof rend
 function renderOpenWebuiWithContext(operators_: any[], props: Record<string, unknown>): r8sElement {
   return jsx(OperatorContext.Provider, {
     value: operators_,
-    children: jsx(OpenWebui, props as never),
+    children: jsx(OpenWebui, { backup: false, ...(props ?? {}) } as never),
   })
 }
 
@@ -56,7 +56,7 @@ describe('operator declarations', () => {
 
   it('does not declare operators when cache is off (default)', () => {
     const result = render(
-      jsx(OpenWebui, { host: 'chat.example.com', secretsName: 'existing-secrets' })
+      jsx(OpenWebui, { backup: false, host: 'chat.example.com', secretsName: 'existing-secrets' })
     )
     const names = result.operators.map((op) => op.name)
     expect(names).toContain('cnpg')
@@ -176,7 +176,7 @@ describe('rendering defaults', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(OpenWebui, { host: 'chat.example.com' }),
+          children: jsx(OpenWebui, { backup: false, host: 'chat.example.com' }),
         }),
       })
     )
@@ -190,7 +190,7 @@ describe('rendering defaults', () => {
         value: { mode: 'ingress' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(OpenWebui, { host: 'chat.example.com' }),
+          children: jsx(OpenWebui, { backup: false, host: 'chat.example.com' }),
         }),
       })
     )
@@ -304,7 +304,7 @@ describe('secrets handling', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(OpenWebui, { host: 'chat.example.com' }),
+        children: jsx(OpenWebui, { backup: false, host: 'chat.example.com' }),
       })
     )
     const kinds = result.resources.map((r) => r.kind)
@@ -314,10 +314,12 @@ describe('secrets handling', () => {
 
   it('accepts an explicit secretsName without a backend', () => {
     expect(() =>
-      render(jsx(OpenWebui, { host: 'chat.example.com', secretsName: 'existing-secrets' }))
+      render(
+        jsx(OpenWebui, { backup: false, host: 'chat.example.com', secretsName: 'existing-secrets' })
+      )
     ).not.toThrow()
     const result = render(
-      jsx(OpenWebui, { host: 'chat.example.com', secretsName: 'existing-secrets' })
+      jsx(OpenWebui, { backup: false, host: 'chat.example.com', secretsName: 'existing-secrets' })
     )
     const kinds = result.resources.map((r) => r.kind)
     expect(kinds).not.toContain('OpenBaoStaticSecret')
@@ -426,7 +428,7 @@ describe('sso wiring', () => {
 
 describe('validation errors', () => {
   it('throws when no secrets backend and no existing Secret ref', () => {
-    expect(() => render(jsx(OpenWebui, { host: 'chat.example.com' }))).toThrow(
+    expect(() => render(jsx(OpenWebui, { backup: false, host: 'chat.example.com' }))).toThrow(
       /application secrets/
     )
   })
@@ -436,7 +438,7 @@ describe('validation errors', () => {
       render(
         jsx(SecretContext.Provider, {
           value: { backend: 'unknown' as never },
-          children: jsx(OpenWebui, { host: 'chat.example.com' }),
+          children: jsx(OpenWebui, { backup: false, host: 'chat.example.com' }),
         })
       )
     ).toThrow(/application secrets/)

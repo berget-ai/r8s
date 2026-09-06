@@ -18,7 +18,7 @@ function renderOutline(props: Record<string, unknown>): ReturnType<typeof render
   return render(
     jsx(SecretContext.Provider, {
       value: openbao as never,
-      children: jsx(Outline, props as never),
+      children: jsx(Outline, { backup: false, ...(props ?? {}) } as never),
     })
   )
 }
@@ -27,7 +27,7 @@ function renderOutline(props: Record<string, unknown>): ReturnType<typeof render
 function elementWithContext(ops: any[], props: Record<string, unknown>): r8sElement {
   return jsx(OperatorContext.Provider, {
     value: ops,
-    children: jsx(Outline, props as never),
+    children: jsx(Outline, { backup: false, ...(props ?? {}) } as never),
   })
 }
 
@@ -94,7 +94,7 @@ describe('rendering defaults', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Outline, { host: 'wiki.example.com' }),
+          children: jsx(Outline, { backup: false, host: 'wiki.example.com' }),
         }),
       })
     )
@@ -108,7 +108,7 @@ describe('rendering defaults', () => {
         value: { mode: 'ingress' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Outline, { host: 'wiki.example.com' }),
+          children: jsx(Outline, { backup: false, host: 'wiki.example.com' }),
         }),
       })
     )
@@ -180,12 +180,16 @@ describe('secrets handling', () => {
   })
 
   it('throws when no secrets backend and no secretsName', () => {
-    expect(() => render(jsx(Outline, { host: 'wiki.example.com' }))).toThrow(/application secrets/)
+    expect(() => render(jsx(Outline, { backup: false, host: 'wiki.example.com' }))).toThrow(
+      /application secrets/
+    )
   })
 
   it('accepts an existing secretsName without a backend', () => {
     expect(() =>
-      render(jsx(Outline, { host: 'wiki.example.com', secretsName: 'existing-secrets' }))
+      render(
+        jsx(Outline, { backup: false, host: 'wiki.example.com', secretsName: 'existing-secrets' })
+      )
     ).not.toThrow()
   })
 

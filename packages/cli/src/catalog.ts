@@ -162,7 +162,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         type: '{ destinationPath: string; endpointURL: string; credentialsSecret?: string; retention?: string; schedule?: string; compression?: string; encryption?: string }',
         required: false,
         description:
-          'Opt-in barman backup to S3 + ScheduledBackup. Credentials from the secrets backend or an existing Secret (keys access-key-id/secret-access-key) — never plaintext.',
+          'Barman backup to S3 + ScheduledBackup. Secure default: enabled when an S3Provider is in scope (target/credentials derive from it); without one, omitting throws. backup={false} opts out. Credentials from the secrets backend or an existing Secret (keys access-key-id/secret-access-key) — never plaintext.',
       },
       {
         name: 'rolloutRestartTargets',

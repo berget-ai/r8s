@@ -19,7 +19,7 @@ function renderApp(props: Record<string, unknown> = {}) {
   return render(
     jsx(SecretContext.Provider, {
       value: openbao,
-      children: jsx(EuroOffice, { host: 'docs.example.com', ...props } as never),
+      children: jsx(EuroOffice, { host: 'docs.example.com', backup: false, ...props } as never),
     })
   )
 }

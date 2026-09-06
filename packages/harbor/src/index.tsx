@@ -61,13 +61,15 @@ export interface HarborProps {
    * `access-key-id`/`secret-access-key` — path defaults to
    * `<provider.path>/berget-internal-cnpg` (facit). Set
    * `credentialsSecret` to reference an existing, correctly-keyed Secret
-   * instead.
+   * instead. Defaults to **enabled** — pass `backup: false` to opt out.
    */
-  backup?: Omit<DatabaseProps['backup'], 'credentialsSecret'> & {
-    credentialsSecret?: string
-    /** Backend path for the remapped backup creds (defaults to `<provider.path>/berget-internal-cnpg`) */
-    credentialsPath?: string
-  }
+  backup?:
+    | DatabaseProps['backup']
+    | (Omit<DatabaseProps['backup'], 'credentialsSecret'> & {
+        credentialsSecret?: string
+        /** Backend path for the remapped backup creds (defaults to `<provider.path>/berget-internal-cnpg`) */
+        credentialsPath?: string
+      })
   /** Reference a pre-created admin password Secret (key: HARBOR_ADMIN_PASSWORD) instead of provisioning */
   adminPasswordSecretRef?: string
   /**
@@ -99,6 +101,11 @@ export interface HarborProps {
     secretName: string
     clusterIssuer: string
   }
+}
+
+/** Bucket-element guard for the backup prop (mirrors recipes' isBucketElement) */
+function isBucketElementStr(v: unknown): boolean {
+  return !!v && typeof v === 'object' && 'type' in (v as any) && 'props' in (v as any)
 }
 
 /**
@@ -164,6 +171,10 @@ export function Harbor(props: HarborProps) {
   const namespace = useNamespace(namespaceProp)
   const secretProvider = useContext(SecretContext)
   const resources_: ReturnType<typeof jsx>[] = []
+  const backupObject =
+    backup && typeof backup === 'object' && !('type' in backup)
+      ? (backup as { credentialsSecret?: string; credentialsPath?: string })
+      : undefined
 
   // --- S3 credentials bundle (chart + registry read DIFFERENT key sets) ------
   const s3CredentialsName = s3.credentialsSecret ?? `${name}-s3-credentials`
@@ -278,7 +289,7 @@ export function Harbor(props: HarborProps) {
   // --- CNPG cluster (CNPG-managed credentials: the chart's existingSecret) -----
   resources_.push(
     jsx(Database, {
-      backup: false,
+      backup: backup ?? true,
       name: dbName,
       namespace,
       database: 'registry',
@@ -294,20 +305,20 @@ export function Harbor(props: HarborProps) {
         effective_cache_size: '768MB',
       },
       credentialsMode: 'cnpg',
-      ...(backup
+      ...(backup && typeof backup === 'object' && !isBucketElementStr(backup)
         ? {
             backup: {
               ...backup,
               // Explicit reference wins; otherwise the package provisions
               // the remapped bundle below
-              credentialsSecret: backup.credentialsSecret ?? `${name}-cnpg-backup`,
+              credentialsSecret: backupObject?.credentialsSecret ?? `${name}-cnpg-backup`,
             },
           }
         : {}),
     })
   )
 
-  if (backup && !backup.credentialsSecret) {
+  if (backupObject && !backupObject.credentialsSecret) {
     if (!canProvisionSecrets(secretProvider)) {
       throw secretsRequiredError(
         'Harbor',
@@ -324,7 +335,7 @@ export function Harbor(props: HarborProps) {
       jsx(StaticSecret, {
         name: `${name}-cnpg-backup`,
         namespace,
-        path: backup.credentialsPath ?? `${secretProvider.path}/berget-internal-cnpg`,
+        path: backupObject.credentialsPath ?? `${secretProvider.path}/berget-internal-cnpg`,
         secretName: `${name}-cnpg-backup`,
         // The store uses camelCase keys; CNPG requires kebab-case
         keys: { 'access-key-id': 'accesskey', 'secret-access-key': 'secretkey' },

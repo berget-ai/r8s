@@ -8,7 +8,7 @@ import type {
   Service,
   VolumeMount,
 } from '@r8s/k8s-types'
-import { Database, Endpoint } from '@r8s/recipes'
+import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
 
 export interface OdooProps {
   /** Resource name (defaults to 'odoo') */
@@ -54,6 +54,12 @@ export interface OdooProps {
     secretName: string
     clusterIssuer: string
   }
+  /**
+   * Backup decision for the backing CNPG cluster — defaults to **enabled**
+   * (barman WAL + scheduled backups derived from the platform's S3Provider).
+   * Pass `false` to opt out explicitly.
+   */
+  backup?: DatabaseProps['backup']
 }
 
 const APP_PORT = 8069
@@ -128,25 +134,33 @@ function memoryToBytes(memory: string): number {
  * must point `masterPasswordSecretName` at a pre-created Secret.
  *
  * @example
- * import { Platform } from '@r8s/recipes'
+ * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { Odoo } from '@r8s/odoo'
  *
+ * // Backups default to on — the S3Provider derives target and credentials
  * export default (
- *   <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *     <Odoo name="erp" host="erp.example.com" workers={4} />
- *   </Platform>
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
+ *       <Odoo name="erp" host="erp.example.com" workers={4} />
+ *     </Platform>
+ *   </S3Provider>
  * )
  *
  * @example
+ * // Explicit master-password reference instead of a Platform secrets
+ * // backend — still under an S3Provider so database backups stay on
+ * import { S3Provider, MinIO } from '@r8s/recipes'
  * import { Odoo } from '@r8s/odoo'
  *
  * export default (
- *   <Odoo
- *     name="erp"
- *     host="erp.example.com"
- *     filestore="100Gi"
- *     masterPasswordSecretName="odoo-master-password"
- *   />
+ *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+ *     <Odoo
+ *       name="erp"
+ *       host="erp.example.com"
+ *       filestore="100Gi"
+ *       masterPasswordSecretName="odoo-master-password"
+ *     />
+ *   </S3Provider>
  * )
  */
 export function Odoo(props: OdooProps) {
@@ -164,6 +178,7 @@ export function Odoo(props: OdooProps) {
       limits: { memory: '2Gi', cpu: '1000m' },
     },
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
+    backup,
   } = props
 
   const secretProvider = useContext(SecretContext)
@@ -366,7 +381,7 @@ export function Odoo(props: OdooProps) {
 
   resources_.push(
     jsx(Database, {
-      backup: false,
+      backup: backup ?? true,
       name,
       namespace,
       storage: '10Gi',

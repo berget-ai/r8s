@@ -55,8 +55,10 @@ export interface UmamiProps {
   dbStorageClass?: string
   /**
    * CNPG backup configuration passed through to the Database recipe.
-   * Facit targets Scaleway S3 (https://s3.nl-ams.scw.cloud) — the
-   * endpoint is therefore a required part of the prop, not a constant.
+   * Defaults to **enabled** — target and credentials derive from the
+   * platform's S3Provider. Pass `false` to opt out explicitly. Facit
+   * targets Scaleway S3 (https://s3.nl-ams.scw.cloud) — the endpoint is
+   * therefore a required part of the prop, not a constant.
    */
   backup?: DatabaseProps['backup']
   /** Number of app replicas (defaults to 1 — umami is not horizontally scaled in facit) */
@@ -208,7 +210,7 @@ export function Umami(props: UmamiProps) {
         effective_cache_size: '768MB',
       },
       credentialsMode: 'cnpg',
-      backup: backup ?? false,
+      backup: backup ?? true,
     })
   )
 

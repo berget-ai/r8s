@@ -19,7 +19,7 @@ function renderNextcloud(props: Record<string, unknown>): ReturnType<typeof rend
   return render(
     jsx(SecretContext.Provider, {
       value: openbao as never,
-      children: jsx(Nextcloud, props as never),
+      children: jsx(Nextcloud, { backup: false, ...(props ?? {}) } as never),
     })
   )
 }
@@ -28,7 +28,7 @@ function renderNextcloud(props: Record<string, unknown>): ReturnType<typeof rend
 function elementWithContext(ops: any[], props: Record<string, unknown>): r8sElement {
   return jsx(OperatorContext.Provider, {
     value: ops,
-    children: jsx(Nextcloud, props as never),
+    children: jsx(Nextcloud, { backup: false, ...(props ?? {}) } as never),
   })
 }
 
@@ -194,7 +194,7 @@ describe('rendering defaults', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Nextcloud, { host: 'cloud.example.com' }),
+          children: jsx(Nextcloud, { backup: false, host: 'cloud.example.com' }),
         }),
       })
     )
@@ -208,7 +208,7 @@ describe('rendering defaults', () => {
         value: { mode: 'ingress' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Nextcloud, { host: 'cloud.example.com' }),
+          children: jsx(Nextcloud, { backup: false, host: 'cloud.example.com' }),
         }),
       })
     )
@@ -333,7 +333,7 @@ describe('secrets handling', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(Nextcloud, { host: 'cloud.example.com' }),
+        children: jsx(Nextcloud, { backup: false, host: 'cloud.example.com' }),
       })
     )
     const kinds = result.resources.map((r) => r.kind)
@@ -341,14 +341,20 @@ describe('secrets handling', () => {
   })
 
   it('throws when no secrets backend and no secretsName', () => {
-    expect(() => render(jsx(Nextcloud, { host: 'cloud.example.com' }))).toThrow(
+    expect(() => render(jsx(Nextcloud, { backup: false, host: 'cloud.example.com' }))).toThrow(
       /application secrets/
     )
   })
 
   it('accepts an existing secretsName without a backend', () => {
     expect(() =>
-      render(jsx(Nextcloud, { host: 'cloud.example.com', secretsName: 'existing-secrets' }))
+      render(
+        jsx(Nextcloud, {
+          backup: false,
+          host: 'cloud.example.com',
+          secretsName: 'existing-secrets',
+        })
+      )
     ).not.toThrow()
   })
 
