@@ -14,7 +14,7 @@ import {
 export interface ForgejoActionsProps {
   /** Runner replicas (default 1 — runners are stateless, scale freely) */
   replicas?: number
-  /** act_runner image tag (default '6.3.1' — pinned, 'latest' rejected) */
+  /** forgejo-runner image tag (default '6.3.1' — pinned, 'latest' rejected) */
   version?: string
   /**
    * Pre-created Secret holding the runner registration token (key:
@@ -217,6 +217,16 @@ export function Forgejo(props: ForgejoProps) {
   if (lfsMode === 's3' && !s3!.credentialsSecret) {
     throw new Error(
       `Forgejo "${name}": the S3Provider has no credentialsSecret — LFS on S3 needs the bucket credentials.`
+    )
+  }
+  if (lfsMode === 'pvc' && !storage) {
+    throw new Error(
+      `Forgejo "${name}": lfs='pvc' with storage={false} writes LFS files to ephemeral\n` +
+        `container storage — they would be lost on pod restart. LFS on PVC lives on the /data volume.\n` +
+        `\n` +
+        `Fix: give the instance storage (<Forgejo storage="20Gi" />),\n` +
+        `put LFS on S3 via an <S3Provider>, or disable LFS explicitly:\n` +
+        `  <Forgejo storage={false} lfs={false} />`
     )
   }
   const lfsEnabled = lfsMode !== false
@@ -432,6 +442,9 @@ export function Forgejo(props: ForgejoProps) {
           template: {
             metadata: { labels: { app: runnerName } },
             spec: {
+              // the runner talks to Forgejo over HTTPS, never the kube API —
+              // don't hand a privileged (dind) pod API credentials for free
+              automountServiceAccountToken: false,
               volumes: [
                 { name: 'runner', emptyDir: {} },
                 { name: 'config', configMap: { name: `${name}-runner-config` } },
@@ -440,10 +453,10 @@ export function Forgejo(props: ForgejoProps) {
               initContainers: [
                 {
                   name: 'runner-register',
-                  image: `code.forgejo.org/forgejo/act_runner:${actionsCfg.version ?? '6.3.1'}`,
+                  image: `code.forgejo.org/forgejo/runner:${actionsCfg.version ?? '6.3.1'}`,
                   command: ['sh', '-c'],
                   args: [
-                    'act_runner register --instance "$INSTANCE_URL" --token "$REGISTRATION_TOKEN" --name "$RUNNER_NAME" --no-interactive',
+                    'forgejo-runner register --instance "$INSTANCE_URL" --token "$REGISTRATION_TOKEN" --name "$RUNNER_NAME" --no-interactive',
                   ],
                   env: [
                     { name: 'INSTANCE_URL', value: `https://${host}` },
@@ -465,8 +478,8 @@ export function Forgejo(props: ForgejoProps) {
               containers: [
                 {
                   name: 'runner',
-                  image: `code.forgejo.org/forgejo/act_runner:${actionsCfg.version ?? '6.3.1'}`,
-                  command: ['act_runner', 'daemon', '--config', '/runner-config/config.yaml'],
+                  image: `code.forgejo.org/forgejo/runner:${actionsCfg.version ?? '6.3.1'}`,
+                  command: ['forgejo-runner', 'daemon', '--config', '/runner-config/config.yaml'],
                   env: [{ name: 'DOCKER_HOST', value: 'unix:///var/run/docker.sock' }],
                   volumeMounts: [
                     { name: 'runner', mountPath: '/runner' },

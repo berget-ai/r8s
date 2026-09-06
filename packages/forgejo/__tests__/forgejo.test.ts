@@ -214,6 +214,11 @@ describe('Forgejo LFS', () => {
     expect(env['FORGEJO__lfs__ENABLED']).toBeUndefined()
     expect(env['FORGEJO__storage.lfs__STORAGE_TYPE']).toBeUndefined()
   })
+
+  it('throws when pvc LFS (the no-provider fallback) is combined with storage: false', () => {
+    // LFS would write to ephemeral container storage and vanish on restart
+    expect(() => renderApp({ storage: false }, false)).toThrow(/lfs='pvc' with storage=\{false\}/)
+  })
 })
 
 describe('Forgejo SSH', () => {
@@ -254,19 +259,22 @@ describe('Forgejo Actions runners', () => {
     const d = resource(result, 'Deployment', 'forgejo-runner')
     expect(d.spec.replicas).toBe(1)
     const init = d.spec.template.spec.initContainers[0]
-    expect(init.image).toBe('code.forgejo.org/forgejo/act_runner:6.3.1')
-    expect(init.args[0]).toContain('act_runner register')
+    expect(init.image).toBe('code.forgejo.org/forgejo/runner:6.3.1')
+    expect(init.args[0]).toContain('forgejo-runner register')
     const runner = d.spec.template.spec.containers.find(
       (c: { name: string }) => c.name === 'runner'
     )
     expect(runner.command).toEqual([
-      'act_runner',
+      'forgejo-runner',
       'daemon',
       '--config',
       '/runner-config/config.yaml',
     ])
+    expect(runner.image).toBe('code.forgejo.org/forgejo/runner:6.3.1')
     const dind = d.spec.template.spec.containers.find((c: { name: string }) => c.name === 'dind')
     expect(dind.securityContext.privileged).toBe(true)
+    // runner never touches the kube API — no ambient credentials in a privileged pod
+    expect(d.spec.template.spec.automountServiceAccountToken).toBe(false)
     // token provisioned through the backend
     const vso = resource(result, 'OpenBaoStaticSecret', 'forgejo-runner-registration')
     expect(vso.spec.path).toBe('forgejo/forgejo/runner-registration-token')
