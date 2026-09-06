@@ -53,54 +53,67 @@ npx r8s context              # compact context blob, made for LLM prompts
 
 ## A complete platform in one file
 
-Providers nest around your apps and decide how everything below them is wired — certificates, secrets, DNS, routing — and each child automatically consumes the whole stack:
+Providers nest around your apps and decide how everything below them is wired — certificates, secrets, object storage, DNS, routing — and each child automatically consumes the whole stack:
 
 ```tsx
-import { CertProvider, SecretProvider, OpenBao, DnsProvider, EndpointProvider, EnvoyGateway, App } from '@r8s/recipes'
+import { CertProvider, SecretProvider, OpenBao, S3Provider, MinIO, DnsProvider, EndpointProvider, EnvoyGateway, Namespace, App } from '@r8s/recipes'
 import { Supabase } from '@r8s/supabase'
 
 export default (
   <CertProvider provider="cert-manager">
     <SecretProvider provider={<OpenBao mount="secret" path="infra" />}>
-      <DnsProvider provider="external-dns">
-        <EndpointProvider provider={<EnvoyGateway tls={{ clusterIssuer: 'letsencrypt' }} />}>
-          <>
-            <App name="web" image="myorg/web:v2" host="app.example.com" />
-            <Supabase
-              name="supabase"
-              host="db.example.com"
-              objectStorage={{
-                endpoint: 'https://s3.example.com',
-                bucket: 'supabase-files',
-                credentialsSecret: 'supabase-s3-creds',
-              }}
-            />
-          </>
-        </EndpointProvider>
-      </DnsProvider>
+      <S3Provider provider={<MinIO endpoint="https://s3.example.com" bucket="infra" credentialsSecret="infra-s3-creds" />}>
+        <DnsProvider provider="external-dns">
+          <EndpointProvider provider={<EnvoyGateway tls={{ clusterIssuer: 'letsencrypt' }} />}>
+            <Namespace name="apps">
+              <App name="web" image="myorg/web:v2" host="app.example.com" />
+              <Supabase
+                name="supabase"
+                host="db.example.com"
+                objectStorage={{
+                  endpoint: 'https://s3.example.com',
+                  bucket: 'supabase-files',
+                  credentialsSecret: 'supabase-s3-creds',
+                }}
+              />
+            </Namespace>
+          </EndpointProvider>
+        </DnsProvider>
+      </S3Provider>
     </SecretProvider>
   </CertProvider>
 )
 ```
 
-One `render` → all Deployments, Services, Gateway listeners + HTTPRoutes, cert-manager wiring, DNSEndpoint records, and OpenBao-provisioned Secrets — plus the pinned install manifests for every operator involved, emitted by `r8s operators`. Swap `EnvoyGateway` for `Nginx` on the EndpointProvider line and every endpoint reroutes; nothing below changes.
+One `render` → all Deployments, Services, Gateway listeners + HTTPRoutes, cert-manager wiring, DNSEndpoint records, OpenBao-provisioned Secrets, CNPG clusters with scheduled backups, and the `Namespace` resource itself — plus the pinned install manifests for every operator involved, emitted by `r8s operators`. Swap `EnvoyGateway` for `Nginx` on the EndpointProvider line and every endpoint reroutes; nothing below changes.
 
 ## Ship-the-stack recipes
 
 Complete real-world applications as packages — **pinned versions, derived from our own production manifests and regression-tested against that reference output**:
 
-| Package | Stack | Package | Stack |
-|---|---|---|---|
-| `@r8s/n8n` | Workflow automation | `@r8s/librechat` | Multi-provider chat UI |
-| `@r8s/outline` | Knowledge base | `@r8s/eneo` | AI platform |
-| `@r8s/paperclip` | Agent orchestration | `@r8s/supabase` | Postgres backend-as-a-service |
-| `@r8s/eurooffice` | Browser office suite | `@r8s/nextcloud` | File sync & groupware |
-| `@r8s/matrix` | Full Matrix stack + SFU | `@r8s/odoo` | Odoo ERP |
-| `@r8s/harbor` | OCI registry | `@r8s/chromadb` | Vector DB |
-| `@r8s/umami` | Analytics | `@r8s/grafana` · `@r8s/superset` | Dashboards |
-| `@r8s/open-webui` | Model frontend | `@r8s/rustfs` · `@r8s/wireguard` · `@r8s/element` | S3 store · VPN · Matrix web client |
+| Package | Stack |
+|---|---|
+| `@r8s/n8n` | Workflow automation |
+| `@r8s/open-webui` | Model frontend |
+| `@r8s/librechat` | Multi-provider chat UI |
+| `@r8s/eneo` | AI platform |
+| `@r8s/paperclip` | Agent orchestration |
+| `@r8s/chromadb` | Vector database (Chroma) |
+| `@r8s/supabase` | Postgres backend-as-a-service |
+| `@r8s/outline` | Knowledge base |
+| `@r8s/nextcloud` | File sync & groupware |
+| `@r8s/eurooffice` | Browser office suite |
+| `@r8s/matrix` | Full Matrix stack + SFU |
+| `@r8s/element` | Matrix web client |
+| `@r8s/odoo` | Odoo ERP |
+| `@r8s/harbor` | OCI container registry |
+| `@r8s/rustfs` | S3-compatible object store |
+| `@r8s/wireguard` | VPN |
+| `@r8s/umami` | Analytics |
+| `@r8s/grafana` | Metrics & dashboards |
+| `@r8s/superset` | BI dashboards |
 
-Core primitives (`@r8s/recipes`): `<Platform>`, `<App>`, `<Database>` (CNPG PostgreSQL), `<Endpoint>`, `<WebService>`, `<Auth>` (Keycloak), `<Monitoring>`, `<Backup>` (Velero), `<StaticSecret>`, and the providers shown in the example above.
+Core primitives (`@r8s/recipes`): `<Platform>`, `<Namespace>` (cluster partitioning), `<App>`, `<Database>` (CNPG PostgreSQL), `<Endpoint>`, `<WebService>`, `<Auth>` (Keycloak), `<Monitoring>`, `<Backup>` (Velero), `<StaticSecret>`, and the providers shown in the example above.
 
 ## Design decisions that hold up under pressure
 
@@ -135,7 +148,7 @@ Same seam for routing: `RoutingConfig.route` lets you emit IngressRoute/HTTPRout
 
 **Plaintext credentials don't compile.** Every render scans Secrets, ConfigMaps, env vars, and nested CRD fields for credential values — and understands *values vs references* (`secretKeyRef`, `$(VAR)`, `existingSecret*`, `_FROM_FILE` are fine). Hard fail in CI with a suggested fix. Also bundled: network policies, resource limits, required labels, TLS on Ingress, no-root-containers.
 
-**Operators are explicit dependencies.** Declaring components, deduplicated at render, versions pinned in [operators.yaml](packages/crds/operators.yaml), install manifests via `r8s operators`. Also: `useOperators()` + `maybeOperator('cnpg', shared)` for "declare only if the Platform doesn't already run it."
+**Operators are explicit dependencies.** Declaring components, deduplicated at render, versions pinned in [operators.yaml](packages/crds/operators.yaml), install manifests via `r8s operators`. Also: `useOperators()` + `declareCnpg(shared)` (from `@r8s/operator-cnpg`) for "declare only if the Platform doesn't already run it."
 
 ## Testable infrastructure
 
@@ -149,7 +162,7 @@ it('creates a 3-replica deployment', () => {
 })
 ```
 
-The repo runs ~900 such tests across 46 suites — including a provider-matrix suite rendering every package under every secrets-backend × routing-mode combination.
+The repo runs ~1,050 such tests across 64 suites — including a provider-matrix suite rendering every package under every secrets-backend × routing-mode combination.
 
 ## GitOps
 
@@ -171,7 +184,7 @@ Two strategies, scaffolded by `r8s init`:
 
 ## Status
 
-**v0.3.0** — core, CLI and the recipes are stable and in daily production use at Berget AI. The 0.3.0 line switched operators to npm-resolved packages (one `@r8s/operator-*` per operator, version-mirrored, peer-contract deduplicated) and made backups a required decision on `<Database>`/`<Matrix>`. Migrations: [CHANGELOG.md](CHANGELOG.md).
+**v0.3.1** — core, CLI and the recipes are stable and in daily production use at Berget AI. 0.3.1 ships `<Namespace>` (composable cluster partitioning) and turns database backups on by default whenever an `<S3Provider>` is in scope. The 0.3.0 line switched operators to npm-resolved packages (one `@r8s/operator-*` per operator, version-mirrored, peer-contract deduplicated). Migrations: [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
