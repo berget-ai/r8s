@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import { SecretContext, NamespaceContext, RoutingContext } from '@r8s/core/defaults'
+import { SecretContext, Namespace, RoutingContext } from '@r8s/core/defaults'
 import {
   StaticSecret,
   Endpoint,
@@ -118,14 +118,14 @@ describe('capability hooks — namespace', () => {
     const inherited = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'openbao', mount: 'kv', path: 'apps' } as never,
-        children: jsx(NamespaceContext.Provider, { value: 'team-x', children: child }),
+        children: jsx(Namespace.Provider, { value: 'team-x', children: child }),
       })
     )
     const sec = inherited.resources.find((r) => r.kind === 'OpenBaoStaticSecret')
     expect(sec?.metadata?.namespace).toBe('team-x')
 
     const overridden = render(
-      jsx(NamespaceContext.Provider, {
+      jsx(Namespace.Provider, {
         value: 'team-y',
         children: jsx(SecretContext.Provider, {
           value: { backend: 'openbao', mount: 'kv', path: 'apps' } as never,

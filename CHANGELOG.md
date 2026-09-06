@@ -4,13 +4,9 @@ All notable changes to r8s are documented here. Versions follow semver; while pr
 
 ## Unreleased
 
-### Breaking
-
-- **`@r8s/core/defaults` context `Namespace` renamed to `NamespaceContext`.** The recipe component that sets it now owns the ergonomic `<Namespace>` name; consume the context directly as `NamespaceContext`, or — the supported path — through `useNamespace()`. No compat alias: no consumer code exists in the wild.
-
 ### Added
 
-- **`<Namespace name="…" create?>`** — composable cluster partitioning. Children inherit the namespace through `useNamespace()` (innermost scope wins, explicit `namespace` props still override); the `v1/Namespace` resource is emitted by default so output stays self-contained (`create={false}` opts out; enclosing scopes with the same name don't double-emit); names are validated as DNS-1123 labels with actionable guidance. `<Platform namespace="…">` delegates to it — one code path for emission + scoping + validation.
+- **`<Namespace name="…" create?>`** — composable cluster partitioning. Children inherit the namespace through `useNamespace()` (innermost scope wins, explicit `namespace` props still override); the `v1/Namespace` resource is emitted by default so output stays self-contained (`create={false}` opts out; enclosing scopes with the same name don't double-emit); names are validated as DNS-1123 labels with actionable guidance. `<Platform namespace="…">` delegates to it — one code path for emission + scoping + validation. The recipe component and the raw `@r8s/core/defaults` context share the `Namespace` name (different modules; the component aliases the context internally) — `<Namespace>` reads the same at every level.
 - App packages (`matrix`, `eneo`, `odoo`, `nextcloud`, `supabase`, `chromadb`, `librechat`, `open-webui`, …) resolved off the copied inline namespace formula onto the shared `useNamespace()` hook — every app package now honors the surrounding `<Namespace>`/`<Platform>` scope.
 
 ## 0.3.0

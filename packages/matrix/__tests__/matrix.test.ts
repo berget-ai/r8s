@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
 import { runGuardrails, noPlaintextSecrets } from '@r8s/core'
-import { SecretContext, NamespaceContext } from '@r8s/core/defaults'
+import { SecretContext, Namespace } from '@r8s/core/defaults'
 import { S3Provider, Bucket } from '@r8s/recipes'
 import { Matrix } from '../src/index'
 
@@ -218,7 +218,7 @@ describe('Matrix — resource rendering', () => {
   })
 
   it('inherits namespace from the Platform context', () => {
-    const element = jsx(NamespaceContext.Provider, {
+    const element = jsx(Namespace.Provider, {
       value: 'collab',
       children: jsx(Matrix, { domain: 'example.com', database: { backup: false } }),
     })

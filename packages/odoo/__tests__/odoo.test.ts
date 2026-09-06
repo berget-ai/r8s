@@ -1,11 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import {
-  NamespaceContext,
-  OperatorContext,
-  SecretContext,
-  RoutingContext,
-} from '@r8s/core/defaults'
+import { Namespace, OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
 import { operators } from '@r8s/crds'
 import type { r8sElement } from '@r8s/core'
@@ -337,9 +332,9 @@ describe('validation errors', () => {
 })
 
 describe('namespace scope', () => {
-  it('inherits a surrounding NamespaceContext via useNamespace()', () => {
+  it('inherits a surrounding Namespace via useNamespace()', () => {
     const result = render(
-      jsx(NamespaceContext.Provider, {
+      jsx(Namespace.Provider, {
         value: 'team-a',
         children: jsx(SecretContext.Provider, {
           value: openbao,

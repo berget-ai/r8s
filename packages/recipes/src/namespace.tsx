@@ -1,5 +1,8 @@
 import { jsx, useContext } from '@r8s/core'
-import { NamespaceContext } from '@r8s/core/defaults'
+// The raw context shares the component's name (same word, different module).
+// The alias keeps this file unambiguous; users never see it — they write
+// <Namespace name="…"> from @r8s/recipes or Namespace.Provider from core.
+import { Namespace as NamespaceContext } from '@r8s/core/defaults'
 
 /**
  * DNS-1123 label: lowercase alphanumeric or '-', start/end alphanumeric,
