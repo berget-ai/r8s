@@ -1,5 +1,5 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
-import { OperatorContext, SecretContext } from '@r8s/core/defaults'
+import { OperatorContext, SecretContext, useNamespace } from '@r8s/core/defaults'
 import { WebService, Endpoint } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
 import { declareIfMissing } from '@r8s/operator-redis'
@@ -146,7 +146,7 @@ export interface LibreChatProps {
 export function LibreChat(props: LibreChatProps) {
   const {
     name = 'librechat',
-    namespace = 'default',
+    namespace: namespaceProp,
     version = 'latest',
     host,
     port = 3080,
@@ -163,6 +163,8 @@ export function LibreChat(props: LibreChatProps) {
     },
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
   } = props
+
+  const namespace = useNamespace(namespaceProp)
 
   const sharedOperators = useContext(OperatorContext)
   const secretProvider = useContext(SecretContext)

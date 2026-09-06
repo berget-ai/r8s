@@ -1,5 +1,5 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
-import { SecretContext } from '@r8s/core/defaults'
+import { SecretContext, useNamespace } from '@r8s/core/defaults'
 import { Database, WebService, Endpoint, type DatabaseProps } from '@r8s/recipes'
 
 export interface SupabaseProps {
@@ -142,7 +142,7 @@ export interface SupabaseProps {
 export function Supabase(props: SupabaseProps) {
   const {
     name = 'supabase',
-    namespace = 'default',
+    namespace: namespaceProp,
     host,
     replicas = 1,
     storage = '10Gi',
@@ -158,6 +158,8 @@ export function Supabase(props: SupabaseProps) {
     tls = { secretName: `${name}-tls`, clusterIssuer: 'letsencrypt-prod' },
     backup,
   } = props
+
+  const namespace = useNamespace(namespaceProp)
 
   const secretProvider = useContext(SecretContext)
   const resources_: ReturnType<typeof jsx>[] = []

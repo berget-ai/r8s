@@ -61,12 +61,19 @@ export interface SecretProvider {
  * ```
  */
 
-/** Inherits namespace to all child resources */
+/**
+ * Inherits namespace to all child resources. Set via the <Namespace name="…">
+ * recipe component in @r8s/recipes (or <Platform namespace="…">) — consume it
+ * through useNamespace(), which layers the explicit-prop override on top.
+ * The recipe component shares this name (different module — it aliases this
+ * context internally), so `<Namespace>` reads the same at every level.
+ */
 export const Namespace = createContext<string>('default')
 
 /**
  * Resolve the effective namespace: explicit prop wins, otherwise inherit
- * from the Platform tree, otherwise 'default'. Replaces the inline
+ * from the surrounding <Namespace>/<Platform> scope, otherwise 'default'.
+ * Replaces the inline
  * `namespaceProp ?? (contextNamespace !== 'default' ? contextNamespace :
  * undefined) ?? 'default'` formula that was copied through every recipe
  * and package — namespace policy lives here now.

@@ -1,7 +1,6 @@
-import { jsx, Fragment, useContext } from '@r8s/core'
+import { jsx } from '@r8s/core'
 import {
   RoutingContext,
-  Namespace,
   Labels,
   OperatorContext,
   SecretContext,
@@ -15,6 +14,7 @@ import {
   type EndpointProviderValue,
   type EndpointConfig,
 } from './endpoint-provider'
+import { Namespace } from './namespace'
 
 export type RoutingMode = 'ingress' | 'gateway'
 
@@ -150,21 +150,6 @@ export function Platform(props: PlatformProps) {
 
   let result: unknown = children
 
-  // Materialize the Namespace resource so rendered output is self-contained.
-  // Without this, every resource references a namespace that may not exist.
-  if (namespace) {
-    result = jsx(Fragment, {
-      children: [
-        jsx('Namespace', {
-          apiVersion: 'v1',
-          kind: 'Namespace',
-          metadata: { name: namespace },
-        }),
-        result,
-      ],
-    })
-  }
-
   // Apply DNS context via DnsProvider (inside SecretProvider so it can access secrets)
   if (dns) {
     result = jsx(DnsProvider, { provider: dns, children: result })
@@ -190,9 +175,10 @@ export function Platform(props: PlatformProps) {
     result = jsx(Labels.Provider, { value: labels, children: result })
   }
 
-  // Apply namespace context
+  // Apply namespace scope via the <Namespace> recipe — emits the v1/Namespace
+  // resource (self-contained output) and inherits the namespace to children.
   if (namespace) {
-    result = jsx(Namespace.Provider, { value: namespace, children: result })
+    result = jsx(Namespace, { name: namespace, children: result })
   }
 
   return result

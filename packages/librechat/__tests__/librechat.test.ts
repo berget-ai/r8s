@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import { OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
+import { Namespace, OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
 import { operators } from '@r8s/crds'
 import type { r8sElement } from '@r8s/core'
@@ -541,5 +541,21 @@ describe('openai backend wiring', () => {
     expect(env.find((e: any) => e.name === 'OPENAI_REVERSE_PROXY').value).toBe(
       'https://api.example.com/v1/chat/completions'
     )
+  })
+})
+
+describe('namespace scope', () => {
+  it('inherits a surrounding Namespace via useNamespace()', () => {
+    const result = render(
+      jsx(Namespace.Provider, {
+        value: 'team-a',
+        children: jsx(SecretContext.Provider, {
+          value: openbao,
+          children: jsx(LibreChat, { host: 'app.example.com', mongodb, backup: false } as never),
+        }),
+      })
+    )
+    const dep = result.resources.find((r: any) => r.kind === 'Deployment') as any
+    expect(dep?.metadata?.namespace).toBe('team-a')
   })
 })
