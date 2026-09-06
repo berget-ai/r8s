@@ -46,7 +46,7 @@ describe('README examples', () => {
       expect(result.success).toBe(true)
       expect(result.resourceCount).toBeGreaterThan(0)
 
-      const { passed, errors } = runGuardrails(result.resources as never, [noPlaintextSecrets])
+      const { passed, errors } = runGuardrails(result.resources ?? [], [noPlaintextSecrets])
       if (!passed) console.error(`Guardrail violations in README ${label}:`, errors)
       expect(passed).toBe(true)
     })

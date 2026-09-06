@@ -34,26 +34,35 @@ const ESBUILD_ALIASES: Record<string, string> = {
   '@r8s/crds/clickhouse': path.join(ROOT, 'packages/crds/src/generated/clickhouse.ts'),
   '@r8s/crds/logging': path.join(ROOT, 'packages/crds/src/generated/logging.ts'),
   '@r8s/crds/loki': path.join(ROOT, 'packages/crds/src/generated/loki.ts'),
-  '@r8s/k8s-types': path.join(ROOT, 'packages/k8s-types/src'),
-  '@r8s/element': path.join(ROOT, 'packages/element/src'),
-  '@r8s/grafana': path.join(ROOT, 'packages/grafana/src'),
-  '@r8s/rustfs': path.join(ROOT, 'packages/rustfs/src'),
-  '@r8s/superset': path.join(ROOT, 'packages/superset/src'),
-  '@r8s/wireguard': path.join(ROOT, 'packages/wireguard/src'),
-  '@r8s/n8n': path.join(ROOT, 'packages/n8n/src'),
-  '@r8s/nextcloud': path.join(ROOT, 'packages/nextcloud/src'),
-  '@r8s/outline': path.join(ROOT, 'packages/outline/src'),
-  '@r8s/chromadb': path.join(ROOT, 'packages/chromadb/src'),
-  '@r8s/supabase': path.join(ROOT, 'packages/supabase/src'),
-  '@r8s/odoo': path.join(ROOT, 'packages/odoo/src'),
-  '@r8s/open-webui': path.join(ROOT, 'packages/open-webui/src'),
-  '@r8s/librechat': path.join(ROOT, 'packages/librechat/src'),
-  '@r8s/eurooffice': path.join(ROOT, 'packages/eurooffice/src'),
-  '@r8s/paperclip': path.join(ROOT, 'packages/paperclip/src'),
-  '@r8s/eneo': path.join(ROOT, 'packages/eneo/src'),
-  '@r8s/matrix': path.join(ROOT, 'packages/matrix/src'),
-  '@r8s/harbor': path.join(ROOT, 'packages/harbor/src'),
-  '@r8s/umami': path.join(ROOT, 'packages/umami/src'),
+}
+
+/**
+ * App packages an example may import: package name → its entry file (tsc
+ * needs the concrete file for NodeNext resolution; esbuild just gets the
+ * src dir). Single source of truth for both alias maps — adding a package
+ * is one edit, not two.
+ */
+const APP_PACKAGES: Record<string, string> = {
+  'k8s-types': 'index.ts',
+  element: 'index.ts',
+  grafana: 'index.ts',
+  rustfs: 'index.ts',
+  superset: 'index.ts',
+  wireguard: 'index.ts',
+  n8n: 'index.tsx',
+  nextcloud: 'index.tsx',
+  outline: 'index.tsx',
+  chromadb: 'index.tsx',
+  supabase: 'index.tsx',
+  odoo: 'index.tsx',
+  'open-webui': 'index.tsx',
+  librechat: 'index.tsx',
+  eurooffice: 'index.tsx',
+  paperclip: 'index.tsx',
+  eneo: 'index.tsx',
+  matrix: 'index.tsx',
+  harbor: 'index.tsx',
+  umami: 'index.tsx',
 }
 
 /** tsc paths variant of the same mapping (file targets, NodeNext resolution) */
@@ -65,26 +74,11 @@ const TSC_PATHS: Record<string, string[]> = {
   '@r8s/recipes/*': [path.join(ROOT, 'packages/recipes/src/*')],
   '@r8s/crds': [path.join(ROOT, 'packages/crds/src/index.ts')],
   '@r8s/crds/*': [path.join(ROOT, 'packages/crds/src/generated/*')],
-  '@r8s/k8s-types': [path.join(ROOT, 'packages/k8s-types/src/index.ts')],
-  '@r8s/element': [path.join(ROOT, 'packages/element/src/index.ts')],
-  '@r8s/grafana': [path.join(ROOT, 'packages/grafana/src/index.ts')],
-  '@r8s/rustfs': [path.join(ROOT, 'packages/rustfs/src/index.ts')],
-  '@r8s/superset': [path.join(ROOT, 'packages/superset/src/index.ts')],
-  '@r8s/wireguard': [path.join(ROOT, 'packages/wireguard/src/index.ts')],
-  '@r8s/n8n': [path.join(ROOT, 'packages/n8n/src/index.tsx')],
-  '@r8s/nextcloud': [path.join(ROOT, 'packages/nextcloud/src/index.tsx')],
-  '@r8s/outline': [path.join(ROOT, 'packages/outline/src/index.tsx')],
-  '@r8s/chromadb': [path.join(ROOT, 'packages/chromadb/src/index.tsx')],
-  '@r8s/supabase': [path.join(ROOT, 'packages/supabase/src/index.tsx')],
-  '@r8s/odoo': [path.join(ROOT, 'packages/odoo/src/index.tsx')],
-  '@r8s/open-webui': [path.join(ROOT, 'packages/open-webui/src/index.tsx')],
-  '@r8s/librechat': [path.join(ROOT, 'packages/librechat/src/index.tsx')],
-  '@r8s/eurooffice': [path.join(ROOT, 'packages/eurooffice/src/index.tsx')],
-  '@r8s/paperclip': [path.join(ROOT, 'packages/paperclip/src/index.tsx')],
-  '@r8s/eneo': [path.join(ROOT, 'packages/eneo/src/index.tsx')],
-  '@r8s/matrix': [path.join(ROOT, 'packages/matrix/src/index.tsx')],
-  '@r8s/harbor': [path.join(ROOT, 'packages/harbor/src/index.tsx')],
-  '@r8s/umami': [path.join(ROOT, 'packages/umami/src/index.tsx')],
+}
+
+for (const [name, entry] of Object.entries(APP_PACKAGES)) {
+  ESBUILD_ALIASES[`@r8s/${name}`] = path.join(ROOT, 'packages', name, 'src')
+  TSC_PATHS[`@r8s/${name}`] = [path.join(ROOT, 'packages', name, 'src', entry)]
 }
 
 /**
