@@ -1380,98 +1380,138 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
   {
     name: 'EuroOffice',
     package: '@r8s/eurooffice',
-    category: 'Collaboration & Productivity',
+    category: 'Productivity & Documents',
     description:
-      'EuroOffice collaborative document suite — Postgres persistence, S3 blob storage, LibreOffice conversions, SMTP delivery and websocket collaboration',
+      'Euro-Office DocumentServer — self-hosted collaborative document editing (facit-aligned): CNPG persistence, JWT-signed API, WOPI/secure-link data volume, preStop document save, optional brand fonts',
     props: [
       {
         name: 'name',
         type: 'string',
         required: false,
-        description: "Resource name (defaults to 'eurooffice')",
+        description: "Resource name (defaults to 'onlyoffice')",
       },
       {
         name: 'namespace',
         type: 'string',
         required: false,
-        description: "Kubernetes namespace (defaults to 'default')",
+        description: 'Kubernetes namespace (inherited from <Platform>/<Namespace> unless set)',
       },
       {
         name: 'version',
         type: 'string',
         required: false,
-        description: "Container image tag (defaults to 'latest' — pin a version in production)",
+        description:
+          "DocumentServer image tag (defaults to 'v9.3.2'). Pinned version REQUIRED — 'latest' is rejected (the ghcr repo also carries CI build tags)",
       },
       {
         name: 'host',
         type: 'string',
         required: true,
-        description: 'Public hostname for the document suite (required)',
+        description: 'Public hostname for the document server (used by Odoo/WOPI integrations)',
       },
       {
         name: 'replicas',
         type: 'number',
         required: false,
         description:
-          'Number of app replicas. With `websockets` enabled (the default) this defaults to **1**: websocket sessions are pinned to the pod that accepted the connection and the workload has no session affinity, so >1 replicas means collaborators on different pods stop seeing each other live. An explicitly set `replicas` is rendered as asked — pair it with a sticky-session (source-IP) ingress strategy for live co-editing. With `websockets: false` the default is 2 (the app is stateless — scale freely).',
+          'Must be exactly 1: the DocumentServer ships embedded Redis + RabbitMQ and keeps its secure-link secret and WOPI keys on the RWO data volume — it does not scale horizontally',
       },
       {
-        name: 'websockets',
-        type: 'boolean',
+        name: 'dataStorage',
+        type: 'string | { size?: string; storageClass?: string } | false',
         required: false,
         description:
-          'Collaborative editing over websockets (default: true). Disable only for single-user or read-only deployments — document presence, cursor sharing and live co-editing all rely on websockets.',
+          "RWO data volume at /var/www/euro-office/Data (secure-link secret + WOPI keys). Defaults to '5Gi'; pass false to manage storage yourself",
       },
       {
-        name: 'objectStorage',
-        type: "{ /** S3 endpoint URL, e.g. https://s3.internal.example.com */ endpoint: string /** Bucket name for document blobs */ bucket: string /** Name of the Secret holding accessKey / secretKey */ credentialsSecret: string /** Region string for the S3 client (defaults to 'us-east-1') */ region?: string }",
-        required: true,
-        description:
-          'S3-compatible object storage for document blobs and attachments (RustFS in the platform). Required — reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
-      },
-      {
-        name: 'smtp',
-        type: '{ /** SMTP server hostname, e.g. smtp.example.com */ host: string /** SMTP port (defaults to 587) */ port?: number /** From address for outgoing mail, e.g. no-reply@example.com */ from?: string }',
+        name: 'customFonts',
+        type: '{ name: string; url: string }[] | false',
         required: false,
         description:
-          'Outgoing SMTP for invitations and notifications. The SMTP password is delivered via secretKeyRef from the `${name}-secrets` bundle (key: smtpPassword) — never plaintext.',
+          'Static TTFs baked into the container at boot (curl init container — variable fonts render under the wrong family name). Defaults to the Berget brand set; false disables',
       },
       {
-        name: 'conversions',
-        type: 'boolean',
+        name: 'jwt',
+        type: '{ path?: string; refreshAfter?: string; rolloutRestartTargets?: { kind?: string; name: string; apiVersion?: string }[] }',
         required: false,
         description:
-          'LibreOffice headless document-conversion workers (same app image, which must include soffice). Adds a `${name}-soffice` Deployment + Service; the app reaches it at SOFFICE_HOST:SOFFICE_PORT. Workers serve the UNO socket (TCP), not HTTP — their probes probe the socket.',
+          'JWT securing the document-server API (Odoo integration) — always enabled, provisioned through the Platform secrets backend with pod restart on rotation',
       },
       {
-        name: 'conversionWorkers',
-        type: 'number',
-        required: false,
-        description:
-          'LibreOffice conversion worker replicas (defaults to 1, only used with conversions)',
-      },
-      {
-        name: 'secretsName',
+        name: 'jwtSecretName',
         type: 'string',
         required: false,
         description:
-          'Name of an existing Secret holding `secretKey` and `smtpPassword`. Required unless a secrets backend (openbao/vault) is configured on the surrounding Platform — the backend then provisions them. Plaintext values are not supported.',
+          'Reference a pre-created JWT Secret (key: JWT_SECRET) instead of backend provisioning',
+      },
+      {
+        name: 'exampleEnabled',
+        type: 'boolean',
+        required: false,
+        description:
+          'Show the /example test UI (EXAMPLE_ENABLED). Defaults to false — enable during bring-up, then turn off',
+      },
+      {
+        name: 'dbName',
+        type: 'string',
+        required: false,
+        description:
+          "CNPG cluster name (also the database and user name). Defaults to 'eurooffice-db' — the production cluster name, deliberately distinct to avoid PVC collisions",
+      },
+      {
+        name: 'dbInstances',
+        type: 'number',
+        required: false,
+        description: 'CNPG instances (defaults to 2)',
+      },
+      {
+        name: 'dbStorage',
+        type: 'string',
+        required: false,
+        description: "CNPG data volume size (defaults to '20Gi')",
+      },
+      {
+        name: 'dbStorageClass',
+        type: 'string',
+        required: false,
+        description: 'CNPG storage class (defaults to cluster default)',
+      },
+      {
+        name: 'backup',
+        type: '{ destinationPath?: string; endpointURL?: string; credentialsSecret?: string; retention?: string; schedule?: string; compression?: string; encryption?: string } | true | false',
+        required: false,
+        description:
+          "CNPG backup passthrough (continuous WAL + scheduled base backups). Defaults to **enabled** via the platform's S3Provider; `false` opts out",
+      },
+      {
+        name: 'postInitSQL',
+        type: 'string[]',
+        required: false,
+        description:
+          'SQL run once on a fresh cluster (CNPG postInitApplicationSQL). v9.3.2 cannot bootstrap an empty database by itself (entrypoint lacks ensure_db_schema) — apply the image createdb.sql here',
       },
       {
         name: 'resources',
-        type: '{ requests?: { cpu?: string; memory?: string } limits?: { cpu?: string; memory?: string } }',
+        type: '{ requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } }',
         required: false,
-        description: 'Requested app resources',
+        description: 'App resources (defaults to facit: 1Gi/500m → 4Gi/2)',
+      },
+      {
+        name: 'endpointAnnotations',
+        type: 'Record<string, string>',
+        required: false,
+        description:
+          'Extra annotations merged onto the Endpoint (proxy-body-size 100m + 600s proxy timeouts are defaults)',
       },
       {
         name: 'tls',
-        type: '{ secretName: string clusterIssuer: string }',
+        type: '{ secretName: string; clusterIssuer: string }',
         required: false,
         description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
       },
     ],
     example:
-      "import { Platform } from '@r8s/recipes'\nimport { EuroOffice } from '@r8s/eurooffice'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <EuroOffice\n      name=\"docs\"\n      host=\"docs.example.com\"\n      objectStorage={{\n        endpoint: 'https://s3.internal.example.com',\n        bucket: 'docs-blobs',\n        credentialsSecret: 'docs-blobs-credentials',\n      }}\n      smtp={{ host: 'smtp.example.com', port: 587, from: 'no-reply@${env:MAIL_DOMAIN}' }}\n    />\n  </Platform>\n)",
+      "import { Platform, S3Provider, MinIO } from '@r8s/recipes'\nimport { EuroOffice } from '@r8s/eurooffice'\n\n// Backups default to on — the S3Provider derives target and credentials\nexport default (\n  <S3Provider provider={<MinIO endpoint=\"https://rustfs:9000\" bucket=\"infra\" credentialsSecret=\"infra-s3-creds\" />}>\n    <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'onlyoffice' }}>\n      <EuroOffice host=\"docs.example.com\" />\n    </Platform>\n  </S3Provider>\n)",
   },
   {
     name: 'Paperclip',
