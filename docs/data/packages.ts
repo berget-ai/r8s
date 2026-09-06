@@ -71713,9 +71713,9 @@ export const packages: Package[] = [
     name: '@r8s/eurooffice',
     title: 'eurooffice',
     description:
-      'EuroOffice collaborative document suite — Postgres persistence, S3 blob storage, LibreOffice conversions, SMTP delivery and websocket collaboration',
+      'Euro-Office DocumentServer — self-hosted collaborative document editing (facit-aligned): CNPG persistence, JWT-signed API, WOPI/secure-link data volume, preStop document save',
     category: 'Productivity & Documents',
-    keywords: ['eurooffice', 'libreoffice', 'documents', 'conversion'],
+    keywords: ['eurooffice', 'documentserver', 'onlyoffice', 'documents', 'collaboration', 'wopi'],
     components: [
       {
         name: 'EuroOffice',

@@ -1,7 +1,7 @@
 {
   "name": "@r8s/eurooffice",
   "version": "0.3.1",
-  "description": "EuroOffice collaborative document suite \u2014 Postgres persistence, S3 blob storage, LibreOffice conversions, SMTP delivery and websocket collaboration",
+  "description": "Euro-Office DocumentServer \u2014 self-hosted collaborative document editing (facit-aligned): CNPG persistence, JWT-signed API, WOPI/secure-link data volume, preStop document save",
   "license": "MIT",
   "author": "Berget AI AB",
   "homepage": "https://r8s.berget.ai",
@@ -13,9 +13,11 @@
   "bugs": "https://github.com/berget-ai/r8s/issues",
   "keywords": [
     "eurooffice",
-    "libreoffice",
+    "documentserver",
+    "onlyoffice",
     "documents",
-    "conversion"
+    "collaboration",
+    "wopi"
   ],
   "r8s": {
     "category": "Productivity & Documents"
@@ -27,7 +29,7 @@
     "test": "vitest run",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
-  "category": "Collaboration & Productivity",
+  "category": "Productivity & Documents",
   "dependencies": {
     "@r8s/core": "^0.3.0",
     "@r8s/crds": "^0.3.0",

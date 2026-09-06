@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx } from '@r8s/core'
-import { SecretContext } from '@r8s/core/defaults'
+import { SecretContext, Namespace } from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
 import { EuroOffice } from '../src/index'
 
@@ -202,6 +202,74 @@ describe('EuroOffice DocumentServer', () => {
     expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
       's3://backups/eurooffice-cnpg'
     )
+  })
+
+  it('passes postInitSQL to the CNPG bootstrap (v9.3.2 cannot create an empty schema itself)', () => {
+    const cluster = resource(
+      renderApp({ postInitSQL: ['CREATE EXTENSION IF NOT EXISTS pg_trgm;'] }),
+      'Cluster'
+    )
+    expect(cluster.spec.bootstrap.initdb.postInitApplicationSQL).toEqual([
+      'CREATE EXTENSION IF NOT EXISTS pg_trgm;',
+    ])
+    // absent prop → no postInitApplicationSQL key at all
+    expect(
+      resource(renderApp(), 'Cluster').spec.bootstrap.initdb.postInitApplicationSQL
+    ).toBeUndefined()
+  })
+
+  it('custom font URLs replace the default set in the init container', () => {
+    const d = resource(
+      renderApp({ customFonts: [{ name: 'Acme.ttf', url: 'https://fonts.example.com/acme.ttf' }] }),
+      'Deployment'
+    )
+    const init = d.spec.template.spec.initContainers.find(
+      (c: { name: string }) => c.name === 'custom-fonts'
+    )
+    expect(init.args[0]).toContain('Acme.ttf')
+    expect(init.args[0]).not.toContain('DMSans-Regular.ttf')
+  })
+
+  it('tls override rewires the Endpoint certificate', () => {
+    const ing = resource(
+      renderApp({ tls: { secretName: 'docs-tls', clusterIssuer: 'letsencrypt-staging' } }),
+      'Ingress'
+    )
+    expect(ing.spec.tls[0].secretName).toBe('docs-tls')
+    expect(ing.metadata.annotations['cert-manager.io/cluster-issuer']).toBe('letsencrypt-staging')
+  })
+
+  it('jwt overrides: path, refreshAfter and restart targets flow into the StaticSecret', () => {
+    const vso = resource(
+      renderApp({
+        jwt: {
+          path: 'custom/jwt-path',
+          refreshAfter: '10m',
+          rolloutRestartTargets: [{ kind: 'Deployment', name: 'other-app' }],
+        },
+      }),
+      'OpenBaoStaticSecret'
+    )
+    expect(vso.spec.path).toBe('custom/jwt-path')
+    expect(vso.spec.refreshAfter).toBe('10m')
+    expect(vso.spec.rolloutRestartTargets).toEqual([{ kind: 'Deployment', name: 'other-app' }])
+  })
+
+  it('explicit namespace prop overrides the ambient <Namespace> scope', () => {
+    const result = render(
+      jsx(Namespace.Provider, {
+        value: 'team-x',
+        children: jsx(SecretContext.Provider, {
+          value: openbao,
+          children: jsx(EuroOffice, {
+            host: 'docs.example.com',
+            namespace: 'docs-ns',
+            backup: false,
+          } as never),
+        }),
+      })
+    )
+    expect(resource(result, 'Deployment').metadata.namespace).toBe('docs-ns')
   })
 
   it('adds the preStop shutdown hook (save documents before shutdown)', () => {
