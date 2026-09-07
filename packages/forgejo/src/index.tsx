@@ -459,7 +459,13 @@ export function Forgejo(props: ForgejoProps) {
                     'forgejo-runner register --instance "$INSTANCE_URL" --token "$REGISTRATION_TOKEN" --name "$RUNNER_NAME" --no-interactive',
                   ],
                   env: [
-                    { name: 'INSTANCE_URL', value: `https://${host}` },
+                    // In-cluster URL: registration and job polling must not
+                    // depend on ingress DNS or hairpinning through the LB —
+                    // the Service exposes port 80 → the container's 3000.
+                    {
+                      name: 'INSTANCE_URL',
+                      value: `http://${name}.${namespace}.svc.cluster.local`,
+                    },
                     {
                       name: 'RUNNER_NAME',
                       valueFrom: { fieldRef: { fieldPath: 'metadata.name' } },
@@ -494,6 +500,13 @@ export function Forgejo(props: ForgejoProps) {
                 {
                   name: 'dind',
                   image: 'docker:27-dind',
+                  // dockerd creates the socket as root; the runner sidecar
+                  // runs as a non-root uid — open the socket once it appears
+                  // (2-min budget) or the runner CrashLoops on permission
+                  command: ['sh', '-c'],
+                  args: [
+                    'dockerd-entrypoint.sh & DOCKERD=$!; for i in $(seq 1 240); do [ -S /var/run/docker.sock ] && break; sleep 0.5; done; chmod 666 /var/run/docker.sock 2>/dev/null || true; wait $DOCKERD',
+                  ],
                   env: [{ name: 'DOCKER_TLS_CERTDIR', value: '' }],
                   securityContext: { privileged: true },
                   volumeMounts: [{ name: 'docker-sock', mountPath: '/var/run' }],

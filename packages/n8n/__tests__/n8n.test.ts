@@ -118,6 +118,15 @@ describe('rendering defaults', () => {
     expect(cluster.spec.storage.size).toBe('30Gi')
   })
 
+  it('renders a 1-instance CNPG cluster with dbInstances: 1 (defaults to 3)', () => {
+    const result = renderN8n({ host: 'n8n.example.com', dbInstances: 1 })
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster.spec.instances).toBe(1)
+    const clusterDefault = renderN8n({ host: 'n8n.example.com' })
+    const clusterAgain = clusterDefault.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(clusterAgain.spec.instances).toBe(3)
+  })
+
   it('renders gateway resources when platform uses gateway routing', () => {
     const result = render(
       jsx(RoutingContext.Provider, {
