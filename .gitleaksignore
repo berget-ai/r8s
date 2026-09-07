@@ -10,7 +10,9 @@ packages/core/src/redact.ts:private-key:21
 # smoke cluster is throwaway kind). History scan fingerprints:
 0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:426
 0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:427
-# (working-tree / --no-git fingerprints)
-scripts/local-smoke.ts:generic-api-key:426
-scripts/local-smoke.ts:generic-api-key:427
+# (working-tree / --no-git fingerprints; worktree line numbers drift with
+# edits above the entry — re-verify with `gitleaks detect --no-git` after
+# changing scripts/local-smoke.ts)
+scripts/local-smoke.ts:generic-api-key:429
+scripts/local-smoke.ts:generic-api-key:430
 
