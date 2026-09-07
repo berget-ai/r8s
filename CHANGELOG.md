@@ -2,6 +2,21 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## 0.3.2
+
+### Added
+
+- **`@r8s/forgejo`** — self-hosted git forge (GitHub-like): repos on an RWO PVC, CNPG persistence with backups on by default via the platform S3Provider, LFS on S3 (PVC fallback without one), Actions runners shipped by default (`forgejo-runner` + docker-in-docker, registered through a token from the secrets backend), SSH via a dedicated LoadBalancer Service. Pinned-version policy: 'latest' rejected.
+- `n8n` gains `dbInstances` (default 3 unchanged) — shrink the CNPG cluster for dev/edge installs.
+- `scripts/local-smoke.ts` — repeatable local kind smoke test: renders packages from source, applies to the cluster, polls readiness + healthz, tears down per package (`npx tsx scripts/local-smoke.ts --all-light`).
+- README code blocks join the CI net — every ```tsx block with an `export default` must compile, render and pass the plaintext-credential guardrails.
+
+### Fixed
+
+- **forgejo runner could not start**: the docker-in-docker sidecar creates the socket as root while the runner runs as a non-root uid — dind now opens the socket once it appears. The runner also registers against the in-cluster Service URL instead of the external host (no ingress DNS / LB hairpin dependency).
+- **eurooffice CLI catalog + package metadata still described the pre-remodel product** — phantom props (websockets/objectStorage/smtp/conversions) and a wrong default name; `r8s explain EuroOffice` now matches the real component.
+- Example harness resolved `@r8s/core/defaults` and the operator packages to dist (mixed source/dist module instances) — now source.
+
 ## 0.3.1
 
 ### Added

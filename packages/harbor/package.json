@@ -1,6 +1,6 @@
 {
   "name": "@r8s/harbor",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Harbor container registry \u2014 chart release via Flux, CNPG persistence, S3 blob storage for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
