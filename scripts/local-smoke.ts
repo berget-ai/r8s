@@ -30,10 +30,14 @@
  *   (hard-coded, never the ambient context, so a production default context
  *   can't receive smoke traffic by accident).
  * - CNPG operator installed in the cluster (for packages that render a
- *   Database — umami, n8n).
+ *   Database — umami, n8n, outline, eneo, open-webui, odoo, paperclip).
+ *   The opstree redis-operator (ot-container-kit chart 0.22.0) is a second
+ *   cluster prerequisite whenever a package renders its Redis CR (outline
+ *   with default `cache: true`; open-webui only with `cache`).
  * - Enough free disk: image pulls go through the Docker-driver VM. Before
  *   each package the script checks free space and aborts the remaining
- *   batch under `--min-free-mb` (default 1536).
+ *   batch under `--min-free-mb` (default 2048 — 2 GiB: big images like
+ *   open-webui / odoo need headroom to pull without wedging the VM).
  *
  * Design notes:
  *
@@ -46,7 +50,16 @@
  *   need a vault/openbao backend) get `skipReason: 'requires secrets
  *   backend'` and are listed as SKIPPED in the output table — never hacked
  *   around. None of the --all-light packages needs a backend: all four
- *   expose pre-created-Secret props.
+ *   expose pre-created-Secret props. The same is true for every batch-2
+ *   package (outline `secretsName`, eneo `secretsName`, open-webui
+ *   `secretsName`, odoo `masterPasswordSecretName`, paperclip
+ *   `secretsName` + `apiKeySecretName`); chromadb and element need none.
+ * - Batch-2 expected rough edges, recorded in the per-entry notes: feature
+ *   CRs whose operators are not installed in kind (outline's opstree
+ *   Redis CR → `cache: false`; paperclip's Instance CR → apply fails with
+ *   "no matches for kind") and packages that pass through Database
+ *   recipe defaults with no sizing knob (eneo, open-webui, odoo get 3
+ *   CNPG instances + a 10Gi db volume whether you like it or not).
  * - Rendering: esbuild bundles a small child module that imports THIS file
  *   (see buildBundle) with @r8s/* alias-mapped to packages/<pkg>/src — the same
  *   alias map as packages/recipes/__tests__/helpers/example-harness.ts. The
@@ -82,6 +95,13 @@ import { RustFS } from '@r8s/rustfs'
 import { Umami } from '@r8s/umami'
 import { Grafana } from '@r8s/grafana'
 import { N8n } from '@r8s/n8n'
+import { Outline } from '@r8s/outline'
+import { Eneo } from '@r8s/eneo'
+import { ChromaDb } from '@r8s/chromadb'
+import { OpenWebui } from '@r8s/open-webui'
+import { Element } from '@r8s/element'
+import { Odoo } from '@r8s/odoo'
+import { Paperclip } from '@r8s/paperclip'
 
 // --- Constants ---------------------------------------------------------------
 
@@ -90,8 +110,12 @@ const ROOT = path.resolve(path.dirname(THIS_FILE), '..')
 /** Hard-coded safety belt: smoke always runs against this context. */
 const KUBE_CONTEXT = 'kind-r8s-local'
 const KIND_CLUSTER = 'r8s-local'
-/** Abort the remaining batch below this much free disk (step-3 rule: 1.5 GiB). */
-const MIN_FREE_BYTES = 1536 * 1024 * 1024
+/**
+ * Abort the remaining batch below this much free disk (2 GiB — image pulls
+ * go through the Docker-driver VM, and a wedged pull is worse than a gap
+ * in the report).
+ */
+const MIN_FREE_BYTES = 2048 * 1024 * 1024
 /** Warn-only advisory reported before the batch starts. */
 const DISK_WARN_BYTES = 2500 * 1024 * 1024
 const READY_TIMEOUT_MS = 5 * 60 * 1000
@@ -247,6 +271,18 @@ export interface Outcome {
  * backup off (no S3 provider in scope), and every backend-provisioned
  * secret swapped for a pre-created one via that package's pre-created or
  * existing-secret prop.
+ *
+ * Bootstrap-secret note: every package here that puts its app inside
+ * <Database> children references `<name>-db-credentials` (key `password`)
+ * via the DatabaseContext, and the rendered CNPG Cluster's
+ * initdb.bootstrap points at the same Secret. On this cluster the CNPG
+ * service account cannot create Secrets (verified with `auth can-i --as=
+ * system:serviceaccount:cnpg-system:cnpg-controller-manager`), so nothing
+ * provisions it in-cluster — CNPG 1.27 does not auto-create a referenced
+ * initdb secret either (probe cluster confirmed). The smoke therefore
+ * pre-creates `<name>-db-credentials` with username+password next to the
+ * package's own secrets, mirroring what a Platform secrets backend would
+ * render (cf. the forgejo local deploy, which works the same way).
  */
 export const PER_PACKAGE: Record<string, SmokeSpec> = {
   rustfs: {
@@ -349,9 +385,242 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
         name: 'n8n-smoke-encryption-key',
         literal: { encryptionKey: 'smoke-only-encryption-key-not-a-real-credential' },
       },
+      // Database-recipe bootstrap secret — CNPG's initdb.secret references
+      // it and the app expands its password env; nothing provisions it
+      // without a secrets backend (see the bootstrap-secret note below).
+      {
+        name: 'n8n-db-credentials',
+        literal: { username: 'n8n', password: 'smoke-only-db-password' },
+      },
     ],
     ready: { kind: 'Deployment', name: 'n8n' },
     healthz: { port: 5678, path: '/healthz' },
+  },
+
+  outline: {
+    package: '@r8s/outline',
+    namespace: 'outline-smoke',
+    // secretsName is the pre-created-Secret prop; keys are validated by the
+    // app at boot — SECRET_KEY/UTILS_SECRET must be 64-hex (dummy hex is
+    // fake, not a real credential). instances (CNPG, default 2) sized down
+    // to 1. cache stays ON (default): outline refuses to boot without
+    // REDIS_URL, and the opstree redis-operator is a cluster prerequisite
+    // (helm install redis-operator ot-container-kit/redis-operator v0.22.0).
+    // Database db credentials are pre-created — see the bootstrap-secret
+    // note below (CNPG's SA cannot create Secrets on this cluster).
+    render: (jsx) =>
+      jsx(Outline, {
+        name: 'outline',
+        namespace: 'outline-smoke',
+        host: 'outline.smoke.test',
+        instances: 1,
+        storage: '1Gi',
+        backup: false,
+        secretsName: 'outline-smoke-secrets',
+      }),
+    secrets: [
+      {
+        name: 'outline-smoke-secrets',
+        literal: {
+          // 64-hex dummies (the app rejects shorter/non-hex at boot)
+          SECRET_KEY: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          UTILS_SECRET: '38b060a751ac96384bd9ceb2d0606d48a63f2d9c2cfeea0864e67e5e24b9e9e4',
+        },
+      },
+      {
+        name: 'outline-db-credentials',
+        literal: { username: 'outline', password: 'smoke-only-db-password' },
+      },
+    ],
+    ready: { kind: 'Deployment', name: 'outline' },
+    // Package probes are tcpSocket-only (WebService probes override) — no
+    // HTTP health path is part of this package's contract.
+    healthz: null,
+  },
+
+  eneo: {
+    package: '@r8s/eneo',
+    namespace: 'eneo-smoke',
+    // secretsName is the pre-created-Secret prop (key appSecret)… +
+    // objectStorage is a REQUIRED prop: the dummy bucket reference points
+    // at a pre-created credentials Secret — the app pod will fail its S3
+    // calls, which is expected smoke noise; readiness only needs the web
+    // process. No instances knob: Database defaults to 3 CNPG replicas.
+    // eneo-db-credentials pre-created — see the bootstrap-secret note.
+    render: (jsx) =>
+      jsx(Eneo, {
+        name: 'eneo',
+        namespace: 'eneo-smoke',
+        host: 'eneo.smoke.test',
+        replicas: 1,
+        dbStorage: '1Gi',
+        backup: false,
+        secretsName: 'eneo-smoke-secrets',
+        objectStorage: {
+          endpoint: 'https://s3.smoke.test',
+          bucket: 'eneo-corpora',
+          credentialsSecret: 'eneo-smoke-s3',
+        },
+      }),
+    secrets: [
+      { name: 'eneo-smoke-secrets', literal: { appSecret: 'smoke-only-app-secret' } },
+      { name: 'eneo-smoke-s3', literal: { accessKey: 'smoke-access', secretKey: 'smoke-secret' } },
+      {
+        name: 'eneo-db-credentials',
+        literal: { username: 'eneo', password: 'smoke-only-db-password' },
+      },
+    ],
+    ready: { kind: 'Deployment', name: 'eneo' },
+    // WebService default probes: httpGet /ready (readiness) + /health
+    // (liveness) on the container port — the pod passing readyReplicas is
+    // the same contract the probe checks.
+    healthz: { port: 3000, path: '/ready' },
+  },
+
+  chromadb: {
+    package: '@r8s/chromadb',
+    namespace: 'chromadb-smoke',
+    // pg stays false (default) → pure data plane: PVC + Deployment +
+    // Service + Endpoint, NO CNPG cluster. auth off → no secrets at all.
+    // Note the raw Deployment pins imagePullPolicy: Always — every run
+    // re-pulls (digest may move; that is the package contract, not a bug).
+    render: (jsx) =>
+      jsx(ChromaDb, {
+        name: 'chromadb',
+        namespace: 'chromadb-smoke',
+        host: 'chromadb.smoke.test',
+        storage: '1Gi',
+      }),
+    secrets: [],
+    ready: { kind: 'Deployment', name: 'chromadb' },
+    healthz: { port: 8000, path: '/api/v2/heartbeat' },
+  },
+
+  'open-webui': {
+    package: '@r8s/open-webui',
+    namespace: 'open-webui-smoke',
+    // secretsName is the pre-created-Secret prop (keys modelApiKey +
+    // secretKey). No storage prop → ephemeral /app/backend/data (PVC writes
+    // tested by other packages). DB cluster is unconditional — Database
+    // defaults apply (10Gi, 3 instances, no sizing knob on this package).
+    // open-webui-db-credentials pre-created — see the bootstrap-secret note.
+    render: (jsx) =>
+      jsx(OpenWebui, {
+        name: 'open-webui',
+        namespace: 'open-webui-smoke',
+        host: 'chat.smoke.test',
+        backup: false,
+        secretsName: 'open-webui-smoke-secrets',
+      }),
+    secrets: [
+      {
+        name: 'open-webui-smoke-secrets',
+        literal: {
+          modelApiKey: 'smoke-only-model-api-key',
+          secretKey: 'smoke-only-webui-secret-key',
+        },
+      },
+      {
+        name: 'open-webui-db-credentials',
+        literal: { username: 'open-webui', password: 'smoke-only-db-password' },
+      },
+    ],
+    ready: { kind: 'Deployment', name: 'open-webui' },
+    // Raw Deployment probes: httpGet /health on 8080 (initialDelay 30s —
+    // first boot runs Alembic migrations against Postgres first).
+    healthz: { port: 8080, path: '/health' },
+  },
+
+  element: {
+    package: '@r8s/element',
+    namespace: 'element-smoke',
+    // Web client only: static nginx pod + config.json — no secrets, no
+    // PVC, no operators. homeserverUrl points at a dummy (the client just
+    // embeds it in config.json). namespace must be passed explicitly: the
+    // package defaults to namespace 'element' and renders it itself.
+    render: (jsx) =>
+      jsx(Element, {
+        name: 'element',
+        namespace: 'element-smoke',
+        host: 'element.smoke.test',
+        homeserverUrl: 'https://matrix.smoke.test',
+      }),
+    secrets: [],
+    ready: { kind: 'Deployment', name: 'element' },
+    // No probes in the rendered Deployment at all; element-web's nginx
+    // serves / on 80 — a 2xx there proves the server is up.
+    healthz: { port: 80, path: '/' },
+  },
+
+  odoo: {
+    package: '@r8s/odoo',
+    namespace: 'odoo-smoke',
+    // masterPasswordSecretName is the pre-created-Secret prop (key
+    // masterPassword). filestore PVC sized down from 20Gi. No instances
+    // knob: Database defaults to 3 CNPG replicas. odoo-db-credentials
+    // pre-created — see the bootstrap-secret note.
+    render: (jsx) =>
+      jsx(Odoo, {
+        name: 'odoo',
+        namespace: 'odoo-smoke',
+        host: 'odoo.smoke.test',
+        filestore: '1Gi',
+        backup: false,
+        masterPasswordSecretName: 'odoo-smoke-master-password',
+      }),
+    secrets: [
+      {
+        name: 'odoo-smoke-master-password',
+        literal: { masterPassword: 'smoke-only-master-password' },
+      },
+      {
+        name: 'odoo-db-credentials',
+        literal: { username: 'odoo', password: 'smoke-only-db-password' },
+      },
+    ],
+    ready: { kind: 'Deployment', name: 'odoo' },
+    healthz: { port: 8069, path: '/web/health' },
+  },
+
+  paperclip: {
+    package: '@r8s/paperclip',
+    namespace: 'paperclip-smoke',
+    // Renders an Instance CR (paperclip.inc/v1alpha1) that a
+    // paperclip-operator chart (v0.19.0, declared via the operators list —
+    // NOT applied by this script) is supposed to own. Without that
+    // operator in kind the CRD itself is absent, so `kubectl apply` is
+    // expected to fail with "no matches for kind"; recorded as FAIL with
+    // that precise reason. secretsName (key better-auth-secret) +
+    // apiKeySecretName (key api-key) are the pre-created-Secret props;
+    // pullSecrets=[] drops the default private-repo pull secret.
+    render: (jsx) =>
+      jsx(Paperclip, {
+        name: 'paperclip',
+        namespace: 'paperclip-smoke',
+        host: 'paperclip.smoke.test',
+        dbInstances: 1,
+        dbStorage: '1Gi',
+        storage: { size: '1Gi' },
+        backup: false,
+        appBackup: false,
+        heartbeat: false,
+        modelCatalog: false,
+        pullSecrets: [],
+        secretsName: 'paperclip-smoke-secrets',
+        apiKeySecretName: 'paperclip-smoke-api-key',
+      }),
+    secrets: [
+      {
+        name: 'paperclip-smoke-secrets',
+        literal: { 'better-auth-secret': 'smoke-only-better-auth-secret' },
+      },
+      { name: 'paperclip-smoke-api-key', literal: { 'api-key': 'smoke-only-api-key' } },
+    ],
+    // Operator-owned StatefulSet — absent unless paperclip-operator runs.
+    ready: { kind: 'StatefulSet', name: 'paperclip' },
+    // Probes are operator-chart-owned ("probes: type auto") — this repo
+    // does not render a concrete path/port to probe.
+    healthz: null,
   },
 }
 
