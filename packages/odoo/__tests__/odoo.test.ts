@@ -350,3 +350,23 @@ describe('namespace scope', () => {
     expect(dep?.metadata?.namespace).toBe('team-a')
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('references the CNPG-generated <name>-app secret without a secrets backend', () => {
+    const result = render(
+      jsx(Odoo, {
+        backup: false,
+        host: 'erp.example.com',
+        masterPasswordSecretName: 'odoo-master-password',
+      } as never)
+    )
+    const app = result.resources.find((r: any) => r.kind === 'Deployment') as any
+    const env = app.spec.template.spec.containers[0].env
+    const password = env.find((e: any) => e.name === 'PASSWORD')
+    expect(password.valueFrom.secretKeyRef).toEqual({ name: 'odoo-app', key: 'password' })
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

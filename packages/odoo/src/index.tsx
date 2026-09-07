@@ -8,7 +8,7 @@ import type {
   Service,
   VolumeMount,
 } from '@r8s/k8s-types'
-import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
+import { Database, Endpoint, databaseCredentialsRef, type DatabaseProps } from '@r8s/recipes'
 
 export interface OdooProps {
   /** Resource name (defaults to 'odoo') */
@@ -189,7 +189,10 @@ export function Odoo(props: OdooProps) {
   // The entrypoint dials $HOST directly — use the CNPG rw service FQDN so the
   // app reaches the Postgres cluster regardless of pod DNS search config.
   const dbHost = `${name}-rw.${namespace}.svc.cluster.local`
-  const dbCredentialsName = `${name}-db-credentials`
+  // DB-password Secret per the central credentials contract: the backend
+  // provisions `<name>-db-credentials`; without a backend CNPG generates
+  // `<name>-app` (CloudNativePG does not create referenced initdb secrets).
+  const dbCredentialsRef = databaseCredentialsRef(name, secretProvider)
   const masterSecretName = masterPasswordSecretName ?? `${name}-master-password`
   const configMapName = `${name}-config`
   const filestoreClaim = `${name}-filestore`
@@ -282,7 +285,7 @@ export function Odoo(props: OdooProps) {
     },
     {
       name: 'PASSWORD',
-      valueFrom: { secretKeyRef: { name: dbCredentialsName, key: 'password' } },
+      valueFrom: { secretKeyRef: { name: dbCredentialsRef.name, key: dbCredentialsRef.key } },
     },
     { name: 'HOST', value: dbHost },
     { name: 'PORT', value: '5432' },
@@ -334,7 +337,7 @@ export function Odoo(props: OdooProps) {
   // <Database> is the parent wrapper so the CNPG operator and the Cluster
   // piggyback on the r8s Database recipe; the raw Deployment references the
   // connection info by convention (host `${name}-rw.<ns>.svc.cluster.local`,
-  // credentials secret `${name}-db-credentials` key `password`).
+  // db-password secret resolved via databaseCredentialsRef).
   const configMount: VolumeMountWithSubPath = {
     name: 'config',
     mountPath: '/etc/odoo/odoo.conf',

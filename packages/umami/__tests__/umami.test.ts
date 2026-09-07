@@ -161,3 +161,23 @@ describe('Umami', () => {
     expect(runGuardrails(result.resources as never, [noPlaintextSecrets]).passed).toBe(true)
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('still references the CNPG-generated <db>-app secret (the contract unchanged)', () => {
+    const result = render(
+      jsx(Umami, {
+        backup: false,
+        host: 'umami.example.com',
+        appSecretRef: 'umami-secrets',
+      } as never)
+    )
+    const app = result.resources.find((r: any) => r.kind === 'Deployment') as any
+    const env = app.spec.template.spec.containers[0].env
+    const dbUrl = env.find((e: any) => e.name === 'DATABASE_URL')
+    expect(dbUrl.valueFrom.secretKeyRef).toEqual({ name: 'umami-db-app', key: 'fqdn-uri' })
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

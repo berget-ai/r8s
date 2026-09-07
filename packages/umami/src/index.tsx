@@ -7,6 +7,7 @@ import {
   StaticSecret,
   canProvisionSecrets,
   secretsRequiredError,
+  databaseCredentialsRef,
   type DatabaseProps,
 } from '@r8s/recipes'
 
@@ -195,6 +196,9 @@ export function Umami(props: UmamiProps) {
   }
 
   // --- Database (CNPG; CNPG-managed credentials incl. fqdn-uri) -----------------
+  // credentialsMode 'cnpg' → the contract resolves the CNPG-generated
+  // `<dbName>-app` secret (see databaseCredentialsRef) regardless of backend.
+  const dbCredentialsRef = databaseCredentialsRef(dbName, secretProvider, 'cnpg')
   resources_.push(
     jsx(Database, {
       name: dbName,
@@ -237,7 +241,7 @@ export function Umami(props: UmamiProps) {
       },
       secrets: {
         // CNPG-generated `<db>-app` carries fqdn-uri — use it directly
-        DATABASE_URL: { secret: `${dbName}-app`, key: 'fqdn-uri' },
+        DATABASE_URL: { secret: dbCredentialsRef.name, key: 'fqdn-uri' },
         APP_SECRET: { secret: appSecretsName, key: 'app-secret' },
         ...(sso
           ? {

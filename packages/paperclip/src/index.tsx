@@ -7,6 +7,7 @@ import {
   canProvisionSecrets,
   secretsRequiredError,
   useOperators,
+  databaseCredentialsRef,
   type DatabaseProps,
 } from '@r8s/recipes'
 
@@ -241,6 +242,9 @@ export function Paperclip(props: PaperclipProps) {
   }
 
   // --- External database (CNPG-managed credentials: `<db>-app` fqdn-uri) ----
+  // credentialsMode 'cnpg' → the central contract resolves the CNPG-generated
+  // `<dbName>-app` Secret (see databaseCredentialsRef) regardless of backend.
+  const dbCredentialsRef = databaseCredentialsRef(dbName, secretProvider, 'cnpg')
   resources_.push(
     jsx(Database, {
       name: dbName,
@@ -319,7 +323,8 @@ export function Paperclip(props: PaperclipProps) {
         },
         database: {
           mode: 'external',
-          externalURLSecretRef: { name: `${dbName}-app`, key: 'fqdn-uri' },
+          // The CNPG-generated bundle keys the URI as `fqdn-uri`
+          externalURLSecretRef: { name: dbCredentialsRef.name, key: 'fqdn-uri' },
         },
         adapters: { apiKeysSecretRef: { name: apiKeyName } },
         storage: {

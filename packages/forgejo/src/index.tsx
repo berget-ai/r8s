@@ -8,6 +8,7 @@ import {
   canProvisionSecrets,
   secretsRequiredError,
   useS3,
+  databaseCredentialsRef,
   type DatabaseProps,
 } from '@r8s/recipes'
 
@@ -266,6 +267,10 @@ export function Forgejo(props: ForgejoProps) {
   // --- Env-to-ini wiring -------------------------------------------------------
   // Every credential is delivered via secretKeyRef — no plaintext in the
   // manifest. FORGEJO__section__KEY maps onto app.ini at boot.
+  // DB-password Secret per the central credentials contract: the backend
+  // provisions `<dbName>-db-credentials`; without a backend CNPG generates
+  // `<dbName>-app` (CloudNativePG does not create referenced initdb secrets).
+  const dbCredentialsRef = databaseCredentialsRef(dbName, secretProvider)
   const sshEnabled = ssh !== false
   const sshCfg = ssh === false ? {} : ssh
   const env: Record<string, string> = {
@@ -301,7 +306,7 @@ export function Forgejo(props: ForgejoProps) {
   }
 
   const secrets: Record<string, { secret: string; key: string }> = {
-    FORGEJO__database__PASSWD: { secret: `${dbName}-db-credentials`, key: 'password' },
+    FORGEJO__database__PASSWD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
     FORGEJO__security__SECRET_KEY: { secret: credentialsName, key: 'SECRET_KEY' },
     FORGEJO__security__INTERNAL_TOKEN: { secret: credentialsName, key: 'INTERNAL_TOKEN' },
     ...(lfsEnabled

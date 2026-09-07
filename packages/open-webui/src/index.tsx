@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import { OperatorContext, SecretContext, useNamespace } from '@r8s/core/defaults'
-import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
+import { Database, Endpoint, databaseCredentialsRef, type DatabaseProps } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
 import { declareIfMissing } from '@r8s/operator-redis'
@@ -206,7 +206,10 @@ export function OpenWebui(props: OpenWebuiProps) {
   }
 
   const dbHost = `${name}-rw`
-  const dbCredentialsName = `${name}-db-credentials`
+  // DB-password Secret per the central credentials contract: the backend
+  // provisions `<name>-db-credentials`; without a backend CNPG generates
+  // `<name>-app` (CloudNativePG does not create referenced initdb secrets).
+  const dbCredentialsRef = databaseCredentialsRef(name, secretProvider)
   const appSecretsName = secretsName ?? `${name}-secrets`
 
   // --- Secret provisioning -------------------------------------------------
@@ -303,7 +306,7 @@ export function OpenWebui(props: OpenWebuiProps) {
   // vars in the container env array, so Kubernetes dependent-variable
   // expansion resolves the $(VAR) templates below at runtime.
   const secretRefs: Record<string, SecretRef | string> = {
-    PGPASSWORD: { secret: dbCredentialsName, key: 'password' },
+    PGPASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
     OPENAI_API_KEY: { secret: appSecretsName, key: 'modelApiKey' },
     WEBUI_SECRET_KEY: { secret: appSecretsName, key: 'secretKey' },
     ...(sso ? { OAUTH_CLIENT_SECRET: sso.clientSecretRef } : {}),
@@ -398,9 +401,10 @@ export function OpenWebui(props: OpenWebuiProps) {
   }
 
   // Database parent wraps the app so the CNPG cluster, its credentials
-  // secret (${name}-db-credentials) and connection conventions stay
-  // consistent with the r8s Database recipe. The raw Deployment sets
-  // DATABASE_URL statically (the WebService auto-PG block does not apply).
+  // secret (resolved via databaseCredentialsRef) and connection
+  // conventions stay consistent with the r8s Database recipe. The raw
+  // Deployment sets DATABASE_URL statically (the WebService auto-PG block
+  // does not apply).
   resources_.push(
     jsx(Database, {
       backup: backup ?? true,

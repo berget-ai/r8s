@@ -8,6 +8,7 @@ import {
   useOperators,
   canProvisionSecrets,
   secretsRequiredError,
+  databaseCredentialsRef,
   type DatabaseProps,
 } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
@@ -167,7 +168,10 @@ export function N8n(props: N8nProps) {
   const namespace = useNamespace(namespaceProp)
   const resources_: ReturnType<typeof jsx>[] = []
 
-  const dbCredentialsName = `${name}-db-credentials`
+  // DB-password Secret per the central credentials contract: the backend
+  // provisions `<name>-db-credentials`; without a backend CNPG generates
+  // `<name>-app` (CloudNativePG does not create referenced initdb secrets).
+  const dbCredentialsRef = databaseCredentialsRef(name, secretProvider)
   const encryptionSecretName = encryptionKeySecretName ?? `${name}-encryption-key`
 
   const encryptionKeyDestKey = encryptionSecret?.key ?? 'encryptionKey'
@@ -272,7 +276,7 @@ export function N8n(props: N8nProps) {
   }
 
   const sharedSecrets = {
-    DB_POSTGRESDB_PASSWORD: { secret: dbCredentialsName, key: 'password' },
+    DB_POSTGRESDB_PASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
     N8N_ENCRYPTION_KEY: { secret: encryptionSecretName, key: encryptionKeyDestKey },
   }
 
@@ -298,8 +302,9 @@ export function N8n(props: N8nProps) {
     )
   }
 
-  // Database wraps the editor so credentials stay consistent with the
-  // r8s Database recipe (CNPG dedicated cluster provisions the secret).
+  // Database wraps the editor so credentials stay consistent with the r8s
+  // Database recipe (the dedicated cluster's bootstrap secret is resolved
+  // via databaseCredentialsRef).
   resources_.push(
     jsx(Database, {
       name,

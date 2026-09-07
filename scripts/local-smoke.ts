@@ -276,16 +276,16 @@ export interface Outcome {
  * existing-secret prop.
  *
  * Bootstrap-secret note: every package here that puts its app inside
- * <Database> children references `<name>-db-credentials` (key `password`)
- * via the DatabaseContext, and the rendered CNPG Cluster's
- * initdb.bootstrap points at the same Secret. On this cluster the CNPG
- * service account cannot create Secrets (verified with `auth can-i --as=
- * system:serviceaccount:cnpg-system:cnpg-controller-manager`), so nothing
- * provisions it in-cluster — CNPG 1.27 does not auto-create a referenced
- * initdb secret either (probe cluster confirmed). The smoke therefore
- * pre-creates `<name>-db-credentials` with username+password next to the
- * package's own secrets, mirroring what a Platform secrets backend would
- * render (cf. the forgejo local deploy, which works the same way).
+ * <Database> children references its DB-password Secret via the central
+ * credentials contract (databaseCredentialsRef). Without a secrets backend
+ * the contract resolves the CNPG-generated `<name>-app` Secret: the
+ * rendered Cluster omits bootstrap.initdb.secret and the CNPG operator
+ * creates the credentials in-cluster — nothing to pre-create. (CloudNativePG
+ * 1.27 does not auto-create a referenced initdb secret, so the smoke
+ * previously had to pre-create `<name>-db-credentials` by hand; those
+ * entries were dead weight and are gone.) App-contract secrets (encryption
+ * keys, JWT bundles, admin passwords, S3 credentials) are pre-created as
+ * before.
  */
 export const PER_PACKAGE: Record<string, SmokeSpec> = {
   rustfs: {
@@ -367,8 +367,8 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     namespace: 'n8n-smoke',
     // encryptionKeySecretName is the pre-created-Secret prop for the
     // encryption key (key 'encryptionKey'); without it the package demands a
-    // vault/openbao backend. DB bootstrap credentials are generated
-    // in-cluster by CNPG into `<name>-db-credentials`.
+    // vault/openbao backend. DB credentials are CNPG-generated
+    // (`<name>-app`, no initdb.secret reference — nothing to pre-create).
     // Requires the CNPG operator in the cluster.
     render: (jsx) =>
       jsx(N8n, {
@@ -388,13 +388,6 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
         name: 'n8n-smoke-encryption-key',
         literal: { encryptionKey: 'smoke-only-encryption-key-not-a-real-credential' },
       },
-      // Database-recipe bootstrap secret — CNPG's initdb.secret references
-      // it and the app expands its password env; nothing provisions it
-      // without a secrets backend (see the bootstrap-secret note below).
-      {
-        name: 'n8n-db-credentials',
-        literal: { username: 'n8n', password: 'smoke-only-db-password' },
-      },
     ],
     ready: { kind: 'Deployment', name: 'n8n' },
     healthz: { port: 5678, path: '/healthz' },
@@ -409,8 +402,8 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     // to 1. cache stays ON (default): outline refuses to boot without
     // REDIS_URL, and the opstree redis-operator is a cluster prerequisite
     // (helm install redis-operator ot-container-kit/redis-operator v0.22.0).
-    // Database db credentials are pre-created — see the bootstrap-secret
-    // note below (CNPG's SA cannot create Secrets on this cluster).
+    // DB credentials are CNPG-generated (`<name>-app`, no initdb.secret
+    // reference — nothing to pre-create).
     render: (jsx) =>
       jsx(Outline, {
         name: 'outline',
@@ -430,10 +423,6 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
           UTILS_SECRET: '38b060a751ac96384bd9ceb2d0606d48a63f2d9c2cfeea0864e67e5e24b9e9e4',
         },
       },
-      {
-        name: 'outline-db-credentials',
-        literal: { username: 'outline', password: 'smoke-only-db-password' },
-      },
     ],
     ready: { kind: 'Deployment', name: 'outline' },
     // Package probes are tcpSocket-only (WebService probes override) — no
@@ -449,7 +438,8 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     // at a pre-created credentials Secret — the app pod will fail its S3
     // calls, which is expected smoke noise; readiness only needs the web
     // process. No instances knob: Database defaults to 3 CNPG replicas.
-    // eneo-db-credentials pre-created — see the bootstrap-secret note.
+    // DB credentials are CNPG-generated (`<name>-app`, no initdb.secret
+    // reference — nothing to pre-create).
     render: (jsx) =>
       jsx(Eneo, {
         name: 'eneo',
@@ -468,10 +458,6 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     secrets: [
       { name: 'eneo-smoke-secrets', literal: { appSecret: 'smoke-only-app-secret' } },
       { name: 'eneo-smoke-s3', literal: { accessKey: 'smoke-access', secretKey: 'smoke-secret' } },
-      {
-        name: 'eneo-db-credentials',
-        literal: { username: 'eneo', password: 'smoke-only-db-password' },
-      },
     ],
     ready: { kind: 'Deployment', name: 'eneo' },
     // WebService default probes: httpGet /ready (readiness) + /health
@@ -506,7 +492,8 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     // secretKey). No storage prop → ephemeral /app/backend/data (PVC writes
     // tested by other packages). DB cluster is unconditional — Database
     // defaults apply (10Gi, 3 instances, no sizing knob on this package).
-    // open-webui-db-credentials pre-created — see the bootstrap-secret note.
+    // DB credentials are CNPG-generated (`<name>-app`, no initdb.secret
+    // reference — nothing to pre-create).
     render: (jsx) =>
       jsx(OpenWebui, {
         name: 'open-webui',
@@ -522,10 +509,6 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
           modelApiKey: 'smoke-only-model-api-key',
           secretKey: 'smoke-only-webui-secret-key',
         },
-      },
-      {
-        name: 'open-webui-db-credentials',
-        literal: { username: 'open-webui', password: 'smoke-only-db-password' },
       },
     ],
     ready: { kind: 'Deployment', name: 'open-webui' },
@@ -560,8 +543,9 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     namespace: 'odoo-smoke',
     // masterPasswordSecretName is the pre-created-Secret prop (key
     // masterPassword). filestore PVC sized down from 20Gi. No instances
-    // knob: Database defaults to 3 CNPG replicas. odoo-db-credentials
-    // pre-created — see the bootstrap-secret note.
+    // knob: Database defaults to 3 CNPG replicas. DB credentials are
+    // CNPG-generated (`<name>-app`, no initdb.secret reference — nothing
+    // to pre-create).
     render: (jsx) =>
       jsx(Odoo, {
         name: 'odoo',
@@ -575,10 +559,6 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
       {
         name: 'odoo-smoke-master-password',
         literal: { masterPassword: 'smoke-only-master-password' },
-      },
-      {
-        name: 'odoo-db-credentials',
-        literal: { username: 'odoo', password: 'smoke-only-db-password' },
       },
     ],
     ready: { kind: 'Deployment', name: 'odoo' },

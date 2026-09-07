@@ -374,3 +374,28 @@ describe('facit deltas', () => {
     expect(env.find((e: any) => e.name === 'CUSTOM_KEY').value).toBe('x')
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('references the CNPG-generated <name>-app secret without a secrets backend', () => {
+    const result = render(
+      jsx(Outline, {
+        backup: false,
+        host: 'wiki.example.com',
+        secretsName: 'existing-secrets',
+      } as never)
+    )
+    const app = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'outline'
+    ) as any
+    const env = app.spec.template.spec.containers[0].env
+    const pgPassword = env.find((e: any) => e.name === 'PGPASSWORD')
+    expect(pgPassword.valueFrom.secretKeyRef).toEqual({ name: 'outline-app', key: 'password' })
+
+    // CloudNativePG does not auto-create referenced initdb secrets — the
+    // rendered Cluster must omit initdb.secret so CNPG generates the
+    // credentials Secret itself.
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

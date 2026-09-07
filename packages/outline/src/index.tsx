@@ -8,6 +8,7 @@ import {
   useOperators,
   canProvisionSecrets,
   secretsRequiredError,
+  databaseCredentialsRef,
   type DatabaseProps,
 } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
@@ -186,7 +187,10 @@ export function Outline(props: OutlineProps) {
   const resources_: ReturnType<typeof jsx>[] = []
 
   const dbHost = `${name}-rw`
-  const dbCredentialsName = `${name}-db-credentials`
+  // DB-password Secret per the central credentials contract: the backend
+  // provisions `<name>-db-credentials`; without a backend CNPG generates
+  // `<name>-app` (CloudNativePG does not create referenced initdb secrets).
+  const dbCredentialsRef = databaseCredentialsRef(name, secretProvider)
   const platformSecretsName = secretsName ?? `${name}-app-secrets`
 
   // --- App secrets (SECRET_KEY / UTILS_SECRET) ------------------------------
@@ -350,7 +354,7 @@ export function Outline(props: OutlineProps) {
   const secrets: Record<string, SecretRef | string> = {
     SECRET_KEY: { secret: platformSecretsName, key: 'SECRET_KEY' },
     UTILS_SECRET: { secret: platformSecretsName, key: 'UTILS_SECRET' },
-    PGPASSWORD: { secret: dbCredentialsName, key: 'password' },
+    PGPASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
     ...(objectStorage
       ? {
           AWS_ACCESS_KEY_ID: { secret: objectStorage.credentialsSecret, key: 'accessKey' },

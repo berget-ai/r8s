@@ -5,6 +5,7 @@ import {
   StaticSecret,
   canProvisionSecrets,
   secretsRequiredError,
+  databaseCredentialsRef,
   type DatabaseProps,
 } from '@r8s/recipes'
 
@@ -287,6 +288,10 @@ export function Harbor(props: HarborProps) {
   }
 
   // --- CNPG cluster (CNPG-managed credentials: the chart's existingSecret) -----
+  // credentialsMode 'cnpg' → the central contract resolves the CNPG-generated
+  // `<dbName>-app` Secret (see databaseCredentialsRef) regardless of backend;
+  // the chart reads its keys from that Secret via existingSecret.
+  const dbCredentialsRef = databaseCredentialsRef(dbName, secretProvider, 'cnpg')
   resources_.push(
     jsx(Database, {
       backup: backup ?? true,
@@ -428,7 +433,7 @@ export function Harbor(props: HarborProps) {
               username: 'harbor',
               password: '',
               coreDatabase: 'registry',
-              existingSecret: `${dbName}-app`,
+              existingSecret: dbCredentialsRef.name,
               sslmode: 'disable',
             },
           },

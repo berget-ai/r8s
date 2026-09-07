@@ -412,3 +412,25 @@ describe('secretKeyRef wiring in queue mode', () => {
     expect(dbPassword.value).toBeUndefined()
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('references the CNPG-generated <name>-app secret without a secrets backend', () => {
+    const result = render(
+      jsx(N8n, {
+        backup: false,
+        host: 'n8n.example.com',
+        encryptionKeySecretName: 'existing-encryption',
+      } as never)
+    )
+    const editor = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'n8n'
+    ) as any
+    const env = editor.spec.template.spec.containers[0].env
+    const dbPassword = env.find((e: any) => e.name === 'DB_POSTGRESDB_PASSWORD')
+    expect(dbPassword.valueFrom.secretKeyRef).toEqual({ name: 'n8n-app', key: 'password' })
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

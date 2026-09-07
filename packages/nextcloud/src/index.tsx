@@ -1,7 +1,7 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import type { Deployment, EnvVar, PersistentVolumeClaim, Service } from '@r8s/k8s-types'
 import { OperatorContext, SecretContext, useNamespace } from '@r8s/core/defaults'
-import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
+import { Database, Endpoint, databaseCredentialsRef, type DatabaseProps } from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
 import { declareIfMissing } from '@r8s/operator-redis'
 import type { SecretRef } from '@r8s/recipes'
@@ -175,7 +175,10 @@ export function Nextcloud(props: NextcloudProps) {
   const resources_: ReturnType<typeof jsx>[] = []
 
   const dbHost = `${name}-rw`
-  const dbCredentialsName = `${name}-db-credentials`
+  // DB-password Secret per the central credentials contract: the backend
+  // provisions `<name>-db-credentials`; without a backend CNPG generates
+  // `<name>-app` (CloudNativePG does not create referenced initdb secrets).
+  const dbCredentialsRef = databaseCredentialsRef(name, secretProvider)
   const appSecretsName = secretsName ?? `${name}-app-secrets`
   const htmlClaim = `${name}-html`
   const image = `nextcloud:${version}`
@@ -276,7 +279,7 @@ export function Nextcloud(props: NextcloudProps) {
   // expanded from the AWS_* secret-backed vars. (Nextcloud ignores
   // DATABASE_URL — do not add it back.)
   const secrets: Record<string, SecretRef | string> = {
-    PGPASSWORD: { secret: dbCredentialsName, key: 'password' },
+    PGPASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
     NEXTCLOUD_ADMIN_PASSWORD: { secret: appSecretsName, key: 'adminPassword' },
     ...(objectStorage
       ? {
@@ -329,8 +332,9 @@ export function Nextcloud(props: NextcloudProps) {
   // --- Database (CNPG) + app + endpoint ------------------------------------------
   // <Database> is the parent wrapper so the CNPG operator and the Cluster
   // piggyback on the r8s Database recipe (connect info stays by convention:
-  // host `${name}-rw`, secret `${name}-db-credentials` key `password`). The
-  // app is a raw Deployment because WebService cannot mount volumes.
+  // host `${name}-rw`, db-password secret resolved via
+  // databaseCredentialsRef). The app is a raw Deployment because WebService
+  // cannot mount volumes.
   const app: Deployment = {
     apiVersion: 'apps/v1',
     kind: 'Deployment',
@@ -427,7 +431,10 @@ export function Nextcloud(props: NextcloudProps) {
                       {
                         name: 'PGPASSWORD',
                         valueFrom: {
-                          secretKeyRef: { name: dbCredentialsName, key: 'password' },
+                          secretKeyRef: {
+                            name: dbCredentialsRef.name,
+                            key: dbCredentialsRef.key,
+                          },
                         },
                       },
                       ...(cache ? [{ name: 'REDIS_HOST', value: `${name}-redis` }] : []),

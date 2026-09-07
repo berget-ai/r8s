@@ -190,3 +190,29 @@ describe('Harbor chart release', () => {
     expect(runGuardrails(result.resources as never, [noPlaintextSecrets]).passed).toBe(true)
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('charts the CNPG-generated <db>-app secret (credentialsMode cnpg) without a secrets backend', () => {
+    const result = render(
+      jsx(Harbor, {
+        backup: false,
+        host: 'registry.example.com',
+        s3: {
+          bucket: 'harbor-registry',
+          region: 'berget-cloud',
+          endpoint: 'https://s3.example.com',
+          credentialsSecret: 'harbor-s3-credentials',
+        },
+        adminPasswordSecretRef: 'harbor-admin-secret',
+        secretKeySecretRef: 'harbor-secret',
+      } as never)
+    )
+    const release = result.resources.find((r: any) => r.kind === 'HelmRelease') as any
+    expect(release).toBeDefined()
+    expect(release.spec.values.database.external.existingSecret).toBe('harbor-db-app')
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

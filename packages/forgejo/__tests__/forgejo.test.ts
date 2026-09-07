@@ -387,3 +387,26 @@ describe('Forgejo misc', () => {
     expect(runGuardrails(result.resources as never, [noPlaintextSecrets]).passed).toBe(true)
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('references the CNPG-generated <dbName>-app secret without a secrets backend', () => {
+    const result = render(
+      jsx(Forgejo, {
+        backup: false,
+        host: 'git.example.com',
+        credentialsSecretName: 'forgejo-credentials',
+        actions: false,
+      } as never)
+    )
+    const d = resource(result, 'Deployment', 'forgejo')
+    const refs = secretRefsOf(d)
+    expect(refs['FORGEJO__database__PASSWD']).toEqual({
+      name: 'forgejo-db-app',
+      key: 'password',
+    })
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})
