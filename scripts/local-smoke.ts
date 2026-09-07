@@ -13,6 +13,13 @@
  *
  * Prerequisites:
  *
+ * - A built workspace (`npm run build`). Only the parent CLI half loads the
+ *   package entry points through node_modules (dist); the render child
+ *   re-resolves every @r8s/* import to packages/<pkg>/src via the esbuild
+ *   alias map, so rendering itself is always from source.
+ *   scripts/ sits outside the package tsconfig graph — typecheck it
+ *   standalone under the ESM flavor tsx runs (`tsc --noEmit` with
+ *   module ESNext), strict mode.
  * - A kind cluster named `r8s-local` whose kubeconfig context is loaded
  *   into the merged kubeconfig. The preflight probes
  *   `kubectl --context kind-r8s-local get nodes` and, on failure, runs
@@ -496,8 +503,12 @@ async function teardownNamespace(ns: string): Promise<void> {
   // --wait=false: images stay cached on the node; the API retires the ns in
   // the background while the next package runs.
   const res = await kubectl(['delete', 'namespace', ns, '--wait=false'], { timeoutMs: 15_000 })
-  if (res.code !== 0 && res.code !== 1) {
-    log(`warn: teardown of ${ns} returned ${res.code}: ${firstLine(res.stderr)}`)
+  if (res.code === 0) return
+  // kubectl exits 1 for both "already gone" (nothing to do) and real
+  // API/RBAC failures — confirm presence before warning.
+  const stillThere = await kubectl(['get', 'namespace', ns, '-o', 'name'])
+  if (stillThere.code === 0) {
+    log(`warn: teardown of ${ns} did not complete (exit ${res.code}): ${firstLine(res.stderr)}`)
   }
 }
 
@@ -687,40 +698,46 @@ async function buildBundle(): Promise<string> {
   fs.mkdirSync(outDir, { recursive: true })
   const outFile = path.join(outDir, 'bundle.cjs')
 
-  await esbuild.build({
-    stdin: {
-      contents: [
-        `const { PER_PACKAGE } = require(${JSON.stringify(THIS_FILE)})`,
-        `const { render, jsx } = require('@r8s/core')`,
-        `function renderOne(name) {`,
-        `  const spec = PER_PACKAGE[name]`,
-        `  if (!spec) throw new Error('unknown smoke package: ' + name)`,
-        `  return render(spec.render(jsx))`,
-        `}`,
-        `module.exports = { renderOne }`,
-      ].join('\n'),
-      loader: 'ts',
-      resolveDir: path.dirname(THIS_FILE),
-    },
-    bundle: true,
-    platform: 'node',
-    format: 'cjs',
-    target: 'es2022',
-    write: true,
-    outfile: outFile,
-    external: ['esbuild'],
-    banner: {
-      // Must run before module evaluation: the child-mode guard in this file
-      // checks the env var, and this file's own path can't come from
-      // import.meta inside the cjs bundle (shimmed to {} — .url undefined).
-      js:
-        `process.env.R8S_LOCAL_SMOKE_CHILD = '1';` +
-        `process.env.R8S_LOCAL_SMOKE_SELF = ${JSON.stringify(THIS_FILE)};`,
-    },
-    alias: buildAliasMap(),
-    nodePaths: [path.join(ROOT, 'node_modules')],
-    logLevel: 'silent',
-  })
+  try {
+    await esbuild.build({
+      stdin: {
+        contents: [
+          `const { PER_PACKAGE } = require(${JSON.stringify(THIS_FILE)})`,
+          `const { render, jsx } = require('@r8s/core')`,
+          `function renderOne(name) {`,
+          `  const spec = PER_PACKAGE[name]`,
+          `  if (!spec) throw new Error('unknown smoke package: ' + name)`,
+          `  return render(spec.render(jsx))`,
+          `}`,
+          `module.exports = { renderOne }`,
+        ].join('\n'),
+        loader: 'ts',
+        resolveDir: path.dirname(THIS_FILE),
+      },
+      bundle: true,
+      platform: 'node',
+      format: 'cjs',
+      target: 'es2022',
+      write: true,
+      outfile: outFile,
+      external: ['esbuild'],
+      banner: {
+        // Must run before module evaluation: the child-mode guard in this file
+        // checks the env var, and this file's own path can't come from
+        // import.meta inside the cjs bundle (shimmed to {} — .url undefined).
+        js:
+          `process.env.R8S_LOCAL_SMOKE_CHILD = '1';` +
+          `process.env.R8S_LOCAL_SMOKE_SELF = ${JSON.stringify(THIS_FILE)};`,
+      },
+      alias: buildAliasMap(),
+      nodePaths: [path.join(ROOT, 'node_modules')],
+      logLevel: 'silent',
+    })
+  } catch (err) {
+    // Don't leak the temp dir when bundling rejects.
+    fs.rmSync(outDir, { recursive: true, force: true })
+    throw err
+  }
   return outFile
 }
 
@@ -803,6 +820,20 @@ async function smokeOne(name: string, spec: SmokeSpec): Promise<Outcome> {
     }`
     if (resources.length === 0) {
       outcome.notes = 'render produced 0 resources — nothing to apply'
+      return outcome
+    }
+
+    // Drift guard: PER_PACKAGE render props carry namespace literals of
+    // their own; a copy-paste drift would apply resources to one namespace
+    // while this script polls (and tears down) another. Namespace objects
+    // (metadata.name only) are exempt.
+    const drifted = resources.filter(
+      (r) => (r as { kind?: string }).kind !== 'Namespace' && (r.metadata?.namespace ?? ns) !== ns
+    )
+    if (drifted.length > 0) {
+      outcome.notes = `namespace drift — ${drifted
+        .map((r) => `${r.kind}/${r.metadata?.name ?? r.kind} → ${r.metadata?.namespace}`)
+        .join(', ')} (expected ${ns})`
       return outcome
     }
 
