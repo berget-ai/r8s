@@ -7,6 +7,7 @@ import {
   StaticSecret,
   canProvisionSecrets,
   secretsRequiredError,
+  databaseCredentialsRef,
   type DatabaseProps,
 } from '@r8s/recipes'
 
@@ -258,7 +259,10 @@ export function EuroOffice(props: EuroOfficeProps) {
 
   // --- Database (CNPG) — document metadata, sessions --------------------------
   const dbHost = `${dbName}-rw.${namespace}.svc.cluster.local`
-  const dbCredentialsName = `${dbName}-db-credentials`
+  // DB-password Secret per the central credentials contract: the backend
+  // provisions `<dbName>-db-credentials`; without a backend CNPG generates
+  // `<dbName>-app` (CloudNativePG does not create referenced initdb secrets).
+  const dbCredentialsRef = databaseCredentialsRef(dbName, secretProvider)
 
   // --- Env wiring --------------------------------------------------------------
   // Every credential is delivered via secretKeyRef — no plaintext in the
@@ -276,7 +280,7 @@ export function EuroOffice(props: EuroOfficeProps) {
   }
 
   const secrets = {
-    DB_PWD: { secret: dbCredentialsName, key: 'password' },
+    DB_PWD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
     JWT_SECRET: { secret: jwtSecretResourceName, key: 'JWT_SECRET' },
   }
 

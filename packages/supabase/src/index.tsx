@@ -1,6 +1,12 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
 import { SecretContext, useNamespace } from '@r8s/core/defaults'
-import { Database, WebService, Endpoint, type DatabaseProps } from '@r8s/recipes'
+import {
+  Database,
+  WebService,
+  Endpoint,
+  databaseCredentialsRef,
+  type DatabaseProps,
+} from '@r8s/recipes'
 
 export interface SupabaseProps {
   /** Resource name — base for every derived resource (defaults to 'supabase') */
@@ -165,7 +171,11 @@ export function Supabase(props: SupabaseProps) {
   const resources_: ReturnType<typeof jsx>[] = []
 
   const dbHost = `${name}-rw`
-  const dbCredentialsName = `${name}-db-credentials`
+  // DB-password Secret per the central credentials contract: the backend
+  // provisions `<name>-db-credentials`; without a backend CNPG generates
+  // `<name>-app` (CloudNativePG does not create referenced initdb secrets).
+  // Every Postgres-backed service below references the same resolved Secret.
+  const dbCredentialsRef = databaseCredentialsRef(name, secretProvider)
   const jwtBundleName = jwtSecretsName ?? `${name}-jwt`
   // Static parts only — the password arrives via $(PGPASSWORD), which every
   // service declares through secretKeyRef (WebService resolves secrets
@@ -291,7 +301,7 @@ export function Supabase(props: SupabaseProps) {
               }),
             }}
             secrets={{
-              PGPASSWORD: { secret: dbCredentialsName, key: 'password' },
+              PGPASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
               GOTRUE_JWT_SECRET: { secret: jwtBundleName, key: 'jwtSecret' },
             }}
           />
@@ -314,7 +324,7 @@ export function Supabase(props: SupabaseProps) {
               PGRST_DB_USE_LEGACY_GUCS: 'false',
             }}
             secrets={{
-              PGPASSWORD: { secret: dbCredentialsName, key: 'password' },
+              PGPASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
               PGRST_JWT_SECRET: { secret: jwtBundleName, key: 'jwtSecret' },
             }}
           />
@@ -339,7 +349,7 @@ export function Supabase(props: SupabaseProps) {
               SECURE_CHANNELS: 'true',
             }}
             secrets={{
-              DB_PASSWORD: { secret: dbCredentialsName, key: 'password' },
+              DB_PASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
               API_JWT_SECRET: { secret: jwtBundleName, key: 'jwtSecret' },
             }}
           />
@@ -367,7 +377,7 @@ export function Supabase(props: SupabaseProps) {
                 FILE_SIZE_LIMIT: '50GiB',
               }}
               secrets={{
-                PGPASSWORD: { secret: dbCredentialsName, key: 'password' },
+                PGPASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
                 PGRST_JWT_SECRET: { secret: jwtBundleName, key: 'jwtSecret' },
                 ANON_KEY: { secret: jwtBundleName, key: 'anonKey' },
                 SERVICE_KEY: { secret: jwtBundleName, key: 'serviceRoleKey' },

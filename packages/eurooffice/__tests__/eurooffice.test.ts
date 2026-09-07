@@ -323,3 +323,26 @@ describe('EuroOffice DocumentServer', () => {
     expect(runGuardrails(result.resources as never, [noPlaintextSecrets]).passed).toBe(true)
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('references the CNPG-generated <db>-app secret without a secrets backend', () => {
+    const result = render(
+      jsx(EuroOffice, {
+        backup: false,
+        host: 'docs.example.com',
+        jwtSecretName: 'onlyoffice-jwt',
+      } as never)
+    )
+    const app = result.resources.find((r: any) => r.kind === 'Deployment') as any
+    const env = app.spec.template.spec.containers[0].env
+    const dbPwd = env.find((e: any) => e.name === 'DB_PWD')
+    expect(dbPwd.valueFrom.secretKeyRef).toEqual({
+      name: 'eurooffice-db-app',
+      key: 'password',
+    })
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

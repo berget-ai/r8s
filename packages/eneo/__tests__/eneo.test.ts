@@ -421,3 +421,30 @@ describe('secrets handling', () => {
     expect(passed).toBe(true)
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('references the CNPG-generated <name>-app secret without a secrets backend', () => {
+    const result = render(
+      jsx(Eneo, {
+        backup: false,
+        host: 'eneo.example.com',
+        secretsName: 'eneo-secrets',
+        objectStorage: {
+          endpoint: 'https://s3.example.com',
+          bucket: 'eneo-corpora',
+          credentialsSecret: 'eneo-object-storage',
+        },
+      } as never)
+    )
+    const app = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'eneo'
+    ) as any
+    const env = app.spec.template.spec.containers[0].env
+    const pgPassword = env.find((e: any) => e.name === 'PGPASSWORD')
+    expect(pgPassword.valueFrom.secretKeyRef).toEqual({ name: 'eneo-app', key: 'password' })
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

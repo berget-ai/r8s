@@ -7,7 +7,7 @@ export { Platform, type PlatformProps, type RoutingMode } from './platform'
 export { R8sCluster, type R8sClusterProps } from './r8s-cluster'
 export { Namespace, type NamespaceProps } from './namespace'
 export { App, type AppProps } from './app'
-export { Database, type DatabaseProps } from './database'
+export { Database, type DatabaseProps, databaseCredentialsRef } from './database'
 export { Endpoint, type EndpointProps } from './endpoint'
 export {
   WebService,

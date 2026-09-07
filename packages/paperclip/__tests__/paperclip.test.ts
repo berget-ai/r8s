@@ -230,3 +230,32 @@ const DEFAULT_RESOURCES_MATCH = {
   requests: { memory: '512Mi', cpu: '250m' },
   limits: { memory: '12Gi', cpu: '2' },
 }
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('still references the CNPG-generated <db>-app fqdn-uri (the contract unchanged)', () => {
+    const result = render(
+      jsx(Paperclip, {
+        backup: false,
+        host: 'paperclip.example.com',
+        dbInstances: 1,
+        storage: { size: '1Gi' },
+        appBackup: false,
+        heartbeat: false,
+        modelCatalog: false,
+        pullSecrets: [],
+        secretsName: 'paperclip-secrets',
+        apiKeySecretName: 'paperclip-api-key',
+      } as never)
+    )
+    const inst = result.resources.find((r: any) => r.kind === 'Instance') as any
+    expect(inst).toBeDefined()
+    expect(inst.spec.database).toEqual({
+      mode: 'external',
+      externalURLSecretRef: { name: 'paperclip-db-app', key: 'fqdn-uri' },
+    })
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

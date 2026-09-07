@@ -394,3 +394,28 @@ describe('namespace scope', () => {
     expect(dep?.metadata?.namespace).toBe('team-a')
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract (pg mode)', () => {
+  it('references the CNPG-generated <name>-meta-app secret without a secrets backend', () => {
+    const result = render(
+      jsx(ChromaDb, {
+        backup: false,
+        host: 'vectors.example.com',
+        pg: true,
+      } as never)
+    )
+    const deployment = result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'chromadb'
+    ) as any
+    const env = deployment.spec.template.spec.containers[0].env
+    const password = env.find((e: any) => e.name === 'CHROMA_POSTGRES_PASSWORD')
+    expect(password.valueFrom.secretKeyRef).toEqual({
+      name: 'chromadb-meta-app',
+      key: 'password',
+    })
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

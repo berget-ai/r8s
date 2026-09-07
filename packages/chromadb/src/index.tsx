@@ -1,6 +1,6 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
 import { SecretContext, useNamespace } from '@r8s/core/defaults'
-import { Database, Endpoint, type DatabaseProps } from '@r8s/recipes'
+import { Database, Endpoint, databaseCredentialsRef, type DatabaseProps } from '@r8s/recipes'
 
 export interface ChromaDbProps {
   /** Resource name (defaults to 'chromadb') */
@@ -223,18 +223,22 @@ export function ChromaDb(props: ChromaDbProps) {
 
   if (pg) {
     // Metadata store: CNPG cluster provisioned as `${name}-meta`. Its
-    // connection info follows the Database recipe convention.
-    const dbHost = `${name}-meta-rw`
+    // connection info follows the Database recipe convention — the
+    // DB-password Secret resolves via databaseCredentialsRef (backend
+    // provisions `<name>-meta-db-credentials`; without a backend CNPG
+    // generates `<name>-meta-app` — CloudNativePG does not create
+    // referenced initdb secrets).
+    const metaDb = `${name}-meta`
+    const dbHost = `${metaDb}-rw`
+    const dbPasswordRef = databaseCredentialsRef(metaDb, secretProvider)
     envVars.push(
       { name: 'CHROMA_POSTGRES_HOST', value: dbHost },
       { name: 'CHROMA_POSTGRES_PORT', value: '5432' },
-      { name: 'CHROMA_POSTGRES_DATABASE', value: `${name}-meta` },
-      { name: 'CHROMA_POSTGRES_USER', value: `${name}-meta` },
+      { name: 'CHROMA_POSTGRES_DATABASE', value: metaDb },
+      { name: 'CHROMA_POSTGRES_USER', value: metaDb },
       {
         name: 'CHROMA_POSTGRES_PASSWORD',
-        valueFrom: {
-          secretKeyRef: { name: `${name}-meta-db-credentials`, key: 'password' },
-        },
+        valueFrom: { secretKeyRef: { name: dbPasswordRef.name, key: dbPasswordRef.key } },
       }
     )
   }

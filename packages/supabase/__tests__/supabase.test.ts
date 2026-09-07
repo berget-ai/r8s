@@ -499,3 +499,30 @@ describe('namespace scope', () => {
     expect(dep?.metadata?.namespace).toBe('team-a')
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('references the CNPG-generated <name>-app secret from every Postgres-backed service', () => {
+    const result = render(
+      jsx(Supabase, {
+        backup: false,
+        host: 'backend.example.com',
+        jwtSecretsName: 'supabase-jwt',
+        objectStorage,
+      } as never)
+    )
+    const deploys = result.resources.filter((r: any) => r.kind === 'Deployment') as any[]
+    for (const deploy of deploys) {
+      const env = deploy.spec.template.spec.containers[0].env as any[]
+      const password = env.find((e: any) => e.name === 'PGPASSWORD' || e.name === 'DB_PASSWORD')
+      if (!password) continue
+      expect(password.valueFrom.secretKeyRef).toEqual({
+        name: 'supabase-app',
+        key: 'password',
+      })
+    }
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})

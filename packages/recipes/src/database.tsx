@@ -89,15 +89,79 @@ export interface DatabaseProps {
   postInitSQL?: string[]
   /**
    * Where database credentials come from. Default `'backend'`: when a
-   * secrets backend is configured on the Platform, the credentials secret
-   * is provisioned through it (rotation → pod restarts). `'cnpg'` forces
-   * CNPG-managed bootstrap credentials **even with a backend** — the
-   * operator generates the secret in-cluster (incl. `fqdn-uri`), matching
-   * apps that reference the CNPG-generated secret directly.
+   * provisioning secrets backend is configured on the Platform, the
+   * credentials secret (`<name>-db-credentials`) is provisioned through
+   * it (rotation → pod restarts) and CNPG adopts it via
+   * `bootstrap.initdb.secret` — see `databaseCredentialsRef` for the
+   * exact resolution contract. `'cnpg'` forces CNPG-managed bootstrap
+   * credentials **even with a backend** — the operator generates the
+   * secret in-cluster (incl. `fqdn-uri`), matching apps that reference
+   * the CNPG-generated secret directly.
+   *
+   * Without a backend (or under passive backends that render no
+   * referenceable credentials Secret) the contract is the CNPG-generated
+   * `<name>-app` secret: `bootstrap.initdb.secret` is omitted and the
+   * operator generates the credentials in-cluster. App packages resolve
+   * the password secret through `databaseCredentialsRef` — never hardcode
+   * a `-db-credentials` name.
    */
   credentialsMode?: 'backend' | 'cnpg'
   /** Child components rendered with this database's connection info in context */
   children?: unknown
+}
+
+/**
+ * Resolve the bootstrap credentials Secret for a CNPG `Database` — the
+ * single resolution contract for app packages. Every DB-password
+ * `secretKeyRef` must point at the Secret this helper resolves, never at
+ * a hardcoded name.
+ *
+ * Resolution rule:
+ *
+ * | secrets backend                | credentialsMode | resolved Secret          | provisioned by |
+ * |--------------------------------|-----------------|--------------------------|----------------|
+ * | openbao / vault                | 'backend'       | `<name>-db-credentials`  | the backend (CNPG adopts it via `bootstrap.initdb.secret`; rotation → pod restarts) |
+ * | sealed-secrets                 | 'backend'       | `<name>-db-credentials`  | the `SealedSecret` the Database recipe renders (sealed by the operator) |
+ * | none                           | (any)           | `<name>-app`             | CNPG generates it in-cluster (`bootstrap.initdb.secret` is omitted) |
+ * | openbao / vault / sealed-secrets | 'cnpg'        | `<name>-app`             | CNPG generates it in-cluster |
+ * | kubernetes / manual-secrets (passive) | 'backend' | `<name>-app`           | CNPG generates it in-cluster — nothing provisions a referenceable Secret |
+ *
+ * The name resolution matters because CloudNativePG (≥ 1.20, verified on
+ * 1.27) does **not** auto-create a Secret referenced from
+ * `bootstrap.initdb.secret` — referencing `<name>-db-credentials` without
+ * a backend that provisions it is a guaranteed
+ * `CreateContainerConfigError` on every consuming pod. When the helper
+ * resolves `<name>-app`, the `Database` recipe omits `initdb.secret` so
+ * the operator natively generates the credentials Secret (including the
+ * `fqdn-uri` key).
+ *
+ * `key` is always `'password'` — apps that instead read the operator
+ * bundle (e.g. `fqdn-uri`) use the resolved `name` with their own key.
+ *
+ * @param name Database (CNPG Cluster) resource name
+ * @param secretProvider The `SecretContext` value (null without a Platform secrets backend)
+ * @param credentialsMode The Database's `credentialsMode` (defaults to 'backend')
+ */
+export function databaseCredentialsRef(
+  name: string,
+  secretProvider: { backend: string } | null,
+  credentialsMode: 'backend' | 'cnpg' = 'backend'
+): { name: string; key: string } {
+  // A "provisioning" backend is one whose Database wiring renders a Secret
+  // the bootstrap reference can point at (see createSecretResources): the
+  // openbao/vault static sync and the sealed-secrets SealedSecret. Passive
+  // backends (kubernetes/manual-secrets) render nothing on dedicated
+  // clusters, so CNPG must generate the credentials itself.
+  const backendProvisions =
+    credentialsMode !== 'cnpg' &&
+    secretProvider !== null &&
+    (secretProvider.backend === 'openbao' ||
+      secretProvider.backend === 'vault' ||
+      secretProvider.backend === 'sealed-secrets')
+  return {
+    name: backendProvisions ? `${name}-db-credentials` : `${name}-app`,
+    key: 'password',
+  }
 }
 
 /**
@@ -111,8 +175,11 @@ export interface DatabaseProps {
  * connection info via DatabaseContext automatically.
  *
  * Credentials are managed by the secrets backend configured on the Platform.
- * Without a backend, credentials are CNPG-managed (bootstrap secret is
- * generated automatically in-cluster). Plaintext password props are NOT
+ * Without a backend, credentials are CNPG-managed: `bootstrap.initdb.secret`
+ * is omitted and the operator generates the `<name>-app` credentials Secret
+ * in-cluster — apps resolve the password Secret through
+ * `databaseCredentialsRef(name, secretProvider, credentialsMode)` instead of
+ * hardcoding a name. Plaintext password props are NOT
  * supported — rendered YAML is committed to git and applied to clusters,
  * so a plaintext password there is a credential leak.
  *
@@ -291,7 +358,20 @@ export function Database(props: DatabaseProps) {
   const clusterConfig = useContext(ClusterContext)
   const secretProvider = useContext(SecretContext)
   const sharedOperators = useContext(OperatorContext)
+  // Provisioning destination for backend-provisioned credentials (the name
+  // createSecretResources renders). The bootstrap REF consumers use is the
+  // resolved credentialsRef below — the two names coincide exactly when a
+  // provisioning backend is active.
   const secretName = `${name}-db-credentials`
+
+  // Central credentials contract (see databaseCredentialsRef): the Secret
+  // the bootstrap password lives in and every consumer must reference.
+  // Shared clusters have no CNPG bootstrap generation (CNPG only
+  // provisions for dedicated clusters and createSecretResources throws
+  // without a backend), so the backend always provisions there.
+  const credentialsRef = clusterConfig
+    ? databaseCredentialsRef(name, secretProvider, 'backend')
+    : databaseCredentialsRef(name, secretProvider, credentialsMode)
 
   const resources: ReturnType<typeof jsx>[] = []
 
@@ -302,7 +382,7 @@ export function Database(props: DatabaseProps) {
       port: 5432,
       database: databaseName,
       username: ownerName,
-      passwordSecret: { name: secretName, key: 'password' },
+      passwordSecret: credentialsRef,
       passwordKey: 'password',
       vendor: 'postgres' as const,
     }
@@ -359,9 +439,15 @@ export function Database(props: DatabaseProps) {
           initdb: {
             database: databaseName,
             owner: ownerName,
-            // 'cnpg' credentialsMode: let CNPG default to '<cluster>-app'
-            // (the native credentials secret incl. fqdn-uri references)
-            ...(credentialsMode === 'cnpg' ? {} : { secret: { name: secretName } }),
+            // Reference the provisioned bootstrap secret ONLY when the
+            // contract resolves to it (see databaseCredentialsRef) — CNPG
+            // does not auto-create a referenced Secret, so every other
+            // combination omits initdb.secret and the operator generates
+            // the native credentials secret (`<name>-app`, incl. fqdn-uri
+            // references) in-cluster.
+            ...(credentialsRef.name === secretName
+              ? { secret: { name: credentialsRef.name } }
+              : {}),
             // Roles/extensions the application needs on a fresh cluster —
             // applied once by CNPG after the initial bootstrap.
             ...(postInitSQL && postInitSQL.length > 0
@@ -399,7 +485,7 @@ export function Database(props: DatabaseProps) {
       port: 5432,
       database: databaseName,
       username: ownerName,
-      passwordSecret: { name: secretName, key: 'password' },
+      passwordSecret: credentialsRef,
       passwordKey: 'password',
       vendor: 'postgres' as const,
     }
@@ -439,13 +525,16 @@ export function Database(props: DatabaseProps) {
       }
     }
 
-    // For dedicated clusters with a secrets backend, the backend manages
-    // credentials. For kubernetes/manual-secrets backend, CNPG manages the
-    // bootstrap secret automatically — no plaintext Secret is rendered.
-    // 'cnpg' credentialsMode: the operator generates the bootstrap secret
-    // in-cluster (incl. fqdn-uri) even when a secrets backend is present —
-    // apps referencing the CNPG-generated secret directly (e.g. paperclip's
-    // externalURLSecretRef) work without vault-stored DB credentials.
+    // Backend-provisioned credentials: whenever the active backend renders
+    // a Secret for the bootstrap reference (openbao/vault static sync,
+    // sealed-secrets bundle — the exact set databaseCredentialsRef
+    // resolves to `<name>-db-credentials`), it is created here. Passive
+    // backends render nothing on dedicated clusters and
+    // 'cnpg' credentialsMode skips provisioning entirely — in both cases
+    // the operator generates the bootstrap secret in-cluster (incl.
+    // fqdn-uri); apps referencing the CNPG-generated secret directly
+    // (e.g. paperclip's externalURLSecretRef) work without vault-stored
+    // DB credentials.
     if (secretProvider && credentialsMode === 'backend') {
       resources.push(
         ...createSecretResources(
