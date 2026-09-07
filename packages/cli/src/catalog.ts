@@ -721,6 +721,12 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         description: "Storage request for the CNPG Postgres cluster (defaults to '10Gi')",
       },
       {
+        name: 'dbInstances',
+        type: 'number',
+        required: false,
+        description: 'Number of CNPG instances (defaults to 3 — shrink for dev/edge clusters)',
+      },
+      {
         name: 'encryptionKeySecretName',
         type: 'string',
         required: false,

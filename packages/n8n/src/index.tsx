@@ -52,6 +52,8 @@ export interface N8nProps {
    * S3Provider. Pass `false` to opt out explicitly.
    */
   backup?: DatabaseProps['backup']
+  /** Number of CNPG instances (defaults to 3 — shrink for dev/edge clusters) */
+  dbInstances?: number
   /**
    * Number of trusted proxy hops for client IP / rate limiting
    * (N8N_PROXY_HOPS). Defaults to 1 — trust the ingress one hop.
@@ -146,6 +148,7 @@ export function N8n(props: N8nProps) {
     storage = '10Gi',
     dataStorage,
     backup,
+    dbInstances = 3,
     proxyHops = 1,
     pruning = { maxAgeHours: 168 },
     allowBuiltinNodeFunctions,
@@ -302,6 +305,7 @@ export function N8n(props: N8nProps) {
       name,
       namespace,
       storage,
+      instances: dbInstances,
       backup: backup ?? true,
       children: (
         <WebService

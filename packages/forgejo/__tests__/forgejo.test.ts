@@ -261,6 +261,10 @@ describe('Forgejo Actions runners', () => {
     const init = d.spec.template.spec.initContainers[0]
     expect(init.image).toBe('code.forgejo.org/forgejo/runner:6.3.1')
     expect(init.args[0]).toContain('forgejo-runner register')
+    // registration + job polling ride the in-cluster Service (port 80), not
+    // the external host — no ingress DNS / LB hairpin dependency
+    const instanceUrl = init.env.find((e: { name: string }) => e.name === 'INSTANCE_URL')
+    expect(instanceUrl.value).toBe('http://forgejo.default.svc.cluster.local')
     const runner = d.spec.template.spec.containers.find(
       (c: { name: string }) => c.name === 'runner'
     )
@@ -273,6 +277,8 @@ describe('Forgejo Actions runners', () => {
     expect(runner.image).toBe('code.forgejo.org/forgejo/runner:6.3.1')
     const dind = d.spec.template.spec.containers.find((c: { name: string }) => c.name === 'dind')
     expect(dind.securityContext.privileged).toBe(true)
+    // dind opens the root-owned socket for the non-root runner sidecar
+    expect(dind.args[0]).toContain('chmod 666 /var/run/docker.sock')
     // runner never touches the kube API — no ambient credentials in a privileged pod
     expect(d.spec.template.spec.automountServiceAccountToken).toBe(false)
     // token provisioned through the backend

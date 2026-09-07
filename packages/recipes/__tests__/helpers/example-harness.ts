@@ -20,6 +20,7 @@ export const ROOT = path.resolve(__dirname, '../../../..')
 /** Every @r8s package an example may import, as esbuild alias → source dir */
 const ESBUILD_ALIASES: Record<string, string> = {
   '@r8s/core': path.join(ROOT, 'packages/core/src'),
+  '@r8s/core/defaults': path.join(ROOT, 'packages/core/src/defaults.ts'),
   '@r8s/recipes': path.join(ROOT, 'packages/recipes/src'),
   '@r8s/recipes/auth': path.join(ROOT, 'packages/recipes/src/auth/index.ts'),
   '@r8s/crds': path.join(ROOT, 'packages/crds/src'),
@@ -64,11 +65,29 @@ const APP_PACKAGES: Record<string, string> = {
   harbor: 'index.tsx',
   umami: 'index.tsx',
   forgejo: 'index.tsx',
+  // Operator packages are imported from recipe/app sources (endpoint.tsx,
+  // database.tsx, …) — without these they silently resolve to dist and the
+  // bundle runs mixed source/dist module instances.
+  'operator-cnpg': 'index.tsx',
+  'operator-cert-manager': 'index.tsx',
+  'operator-clickhouse': 'index.tsx',
+  'operator-envoy-gateway': 'index.tsx',
+  'operator-external-dns': 'index.tsx',
+  'operator-keycloak': 'index.tsx',
+  'operator-loki': 'index.tsx',
+  'operator-logging': 'index.tsx',
+  'operator-nginx-ingress': 'index.tsx',
+  'operator-paperclip': 'index.tsx',
+  'operator-prometheus': 'index.tsx',
+  'operator-redis': 'index.tsx',
+  'operator-vault-secrets': 'index.tsx',
+  'operator-velero': 'index.tsx',
 }
 
 /** tsc paths variant of the same mapping (file targets, NodeNext resolution) */
 const TSC_PATHS: Record<string, string[]> = {
   '@r8s/core': [path.join(ROOT, 'packages/core/src/index.ts')],
+  '@r8s/core/defaults': [path.join(ROOT, 'packages/core/src/defaults.ts')],
   '@r8s/core/*': [path.join(ROOT, 'packages/core/src/*')],
   '@r8s/recipes': [path.join(ROOT, 'packages/recipes/src/index.ts')],
   '@r8s/recipes/auth': [path.join(ROOT, 'packages/recipes/src/auth/index.ts')],
