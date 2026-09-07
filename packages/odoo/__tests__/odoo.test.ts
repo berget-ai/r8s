@@ -114,16 +114,20 @@ describe('rendering defaults', () => {
     const result = renderOdoo({ host: 'erp.example.com' })
     const env = findDeployment(result).spec.template.spec.containers[0].env
     const byName = (v: string) => env.find((e: any) => e.name === v)
-    expect(byName('DB_HOST').value).toBe('odoo-rw')
-    expect(byName('DB_PORT').value).toBe('5432')
-    expect(byName('DB_USER').value).toBe('odoo')
+    expect(byName('HOST').value).toBe('odoo-rw.default.svc.cluster.local')
+    expect(byName('PORT').value).toBe('5432')
+    expect(byName('USER').value).toBe('odoo')
     expect(byName('ODOO_DB').value).toBe('odoo')
   })
 
-  it('does not emit the legacy ODOO_* env names or ODOO_WORKERS', () => {
+  it('does not emit legacy DB_* or ODOO_* env names the entrypoint ignores', () => {
     const result = renderOdoo({ host: 'erp.example.com' })
     const env = findDeployment(result).spec.template.spec.containers[0].env
     const names = env.map((e: any) => e.name)
+    expect(names).not.toContain('DB_HOST')
+    expect(names).not.toContain('DB_PORT')
+    expect(names).not.toContain('DB_USER')
+    expect(names).not.toContain('DB_PASSWORD')
     expect(names).not.toContain('ODOO_DB_HOST')
     expect(names).not.toContain('ODOO_DB_PORT')
     expect(names).not.toContain('ODOO_DB_USER')
@@ -293,7 +297,7 @@ describe('secrets handling', () => {
     })
     const env = findDeployment(result).spec.template.spec.containers[0].env
     const masterPassword = env.find((e: any) => e.name === 'MASTER_PASSWORD')
-    const dbPassword = env.find((e: any) => e.name === 'DB_PASSWORD')
+    const dbPassword = env.find((e: any) => e.name === 'PASSWORD')
     expect(masterPassword.valueFrom.secretKeyRef.name).toBe('existing-master')
     expect(masterPassword.valueFrom.secretKeyRef.key).toBe('masterPassword')
     expect(dbPassword.valueFrom.secretKeyRef.name).toBe('odoo-db-credentials')

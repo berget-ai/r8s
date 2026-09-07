@@ -186,7 +186,9 @@ export function Odoo(props: OdooProps) {
   const secretProvider = useContext(SecretContext)
   const resources_: ReturnType<typeof jsx>[] = []
 
-  const dbHost = `${name}-rw`
+  // The entrypoint dials $HOST directly — use the CNPG rw service FQDN so the
+  // app reaches the Postgres cluster regardless of pod DNS search config.
+  const dbHost = `${name}-rw.${namespace}.svc.cluster.local`
   const dbCredentialsName = `${name}-db-credentials`
   const masterSecretName = masterPasswordSecretName ?? `${name}-master-password`
   const configMapName = `${name}-config`
@@ -262,21 +264,29 @@ export function Odoo(props: OdooProps) {
   // <Endpoint>.
 
   // --- Env wiring ---------------------------------------------------------------
-  // Upstream odoo:18 entrypoint env names (DB_HOST/DB_PORT/DB_USER/DB_PASSWORD).
-  // Credentials are declared FIRST via secretKeyRef so plain env values could
-  // reference them with Kubernetes $(VAR) dependent expansion. No plaintext.
+  // Contract of the official odoo:18 docker entrypoint: it reads ONLY
+  // HOST/PORT/USER/PASSWORD (with DB_PORT_5432_TCP_ADDR / DB_PORT_5432_TCP_PORT
+  // and POSTGRES_USER / POSTGRES_PASSWORD as fallbacks) and forwards them to
+  // odoo-bin as --db_host/--db_port/--db_user/--db_password. DB_HOST / DB_USER /
+  // DB_PASSWORD are invisible to it — under those names the container dials the
+  // image's default `db` hostname and never reaches the CNPG cluster (caught by
+  // the local kind smoke run). PORT keeps its explicit 5432 rendering (matches
+  // the entrypoint default). HOST is the CNPG rw service FQDN and USER the
+  // database owner name; credentials are declared FIRST via secretKeyRef so
+  // plain env values could reference them with Kubernetes $(VAR) dependent
+  // expansion. No plaintext.
   const env: EnvVar[] = [
     {
       name: 'MASTER_PASSWORD',
       valueFrom: { secretKeyRef: { name: masterSecretName, key: 'masterPassword' } },
     },
     {
-      name: 'DB_PASSWORD',
+      name: 'PASSWORD',
       valueFrom: { secretKeyRef: { name: dbCredentialsName, key: 'password' } },
     },
-    { name: 'DB_HOST', value: dbHost },
-    { name: 'DB_PORT', value: '5432' },
-    { name: 'DB_USER', value: name },
+    { name: 'HOST', value: dbHost },
+    { name: 'PORT', value: '5432' },
+    { name: 'USER', value: name },
     { name: 'ODOO_DB', value: name },
   ]
 
@@ -323,8 +333,8 @@ export function Odoo(props: OdooProps) {
   // --- Database + Odoo Deployment + Service --------------------------------------
   // <Database> is the parent wrapper so the CNPG operator and the Cluster
   // piggyback on the r8s Database recipe; the raw Deployment references the
-  // connection info by convention (host `${name}-rw`, credentials secret
-  // `${name}-db-credentials` key `password`).
+  // connection info by convention (host `${name}-rw.<ns>.svc.cluster.local`,
+  // credentials secret `${name}-db-credentials` key `password`).
   const configMount: VolumeMountWithSubPath = {
     name: 'config',
     mountPath: '/etc/odoo/odoo.conf',
