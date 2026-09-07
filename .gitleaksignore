@@ -3,3 +3,14 @@
 7fbbc7c0d6119d1d1baa8192e66fde3a83738386:packages/core/src/redact.ts:private-key:21
 # (working-tree / --no-git fingerprint)
 packages/core/src/redact.ts:private-key:21
+
+# false positive: scripts/local-smoke.ts outline entry stores 64-hex DUMMY
+# values for SECRET_KEY/UTILS_SECRET — outline validates both are 64-hex at
+# boot, so the smoke needs hex-shaped fakes (fake, not real credentials; the
+# smoke cluster is throwaway kind). History scan fingerprints:
+0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:426
+0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:427
+# (working-tree / --no-git fingerprints)
+scripts/local-smoke.ts:generic-api-key:426
+scripts/local-smoke.ts:generic-api-key:427
+
