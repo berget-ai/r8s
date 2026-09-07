@@ -8,9 +8,13 @@ All notable changes to r8s are documented here. Versions follow semver; while pr
 
 - **Database credentials contract** — `Database` without a secrets backend (or with `credentialsMode: 'cnpg'`, or under passive backends that render no referenceable credentials Secret) now relies on the CNPG-generated `<cluster>-app` Secret: `bootstrap.initdb.secret` is omitted and the operator creates the bootstrap credentials in-cluster. Previously the default `credentialsMode: 'backend'` unconditionally rendered `bootstrap.initdb.secret` pointing at `<name>-db-credentials` — a Secret nothing creates without a backend, so every app package rendered without a Platform hit `CreateContainerConfigError` (found by the local kind smoke runs; CloudNativePG 1.27 does not auto-create referenced initdb secrets).
 - **`databaseCredentialsRef(name, secretProvider, credentialsMode?)`** — new exported helper in `@r8s/recipes`, the single resolution point for the DB-password Secret. Backend + 'backend' mode → `<name>-db-credentials` (backend-provisioned; openbao/vault/sealed-secrets); no backend or 'cnpg' mode → `<cluster>-app` (CNPG-generated). App packages consume it instead of hardcoding a name.
-- App packages (`n8n`, `outline`, `eneo`, `open-webui`, `odoo`, `umami`, `eurooffice`, `forgejo`, `chromadb` (pg mode), `supabase`, `harbor`, `paperclip`) now resolve their DB-password refs through `databaseCredentialsRef`.
+- App packages (`n8n`, `outline`, `eneo`, `open-webui`, `odoo`, `umami`, `eurooffice`, `forgejo`, `chromadb` (pg mode), `supabase`, `harbor`, `paperclip`, `nextcloud`) now resolve their DB-password refs through `databaseCredentialsRef`.
 - `DatabaseContext.passwordSecret` now always reflects the real bootstrap Secret — fixes a latent bug where `credentialsMode: 'cnpg'` still put `-db-credentials` in the child context while the Cluster actually generated `<cluster>-app`.
 - `scripts/local-smoke.ts` no longer pre-creates `<name>-db-credentials` for no-backend packages — the CNPG-generated `-app` Secret is the contract (app-contract secrets like encryption keys and JWT bundles are still pre-created).
+
+### Migration note
+
+Clusters **already bootstrapped** keep their state: CNPG runs `bootstrap.initdb` only at cluster creation and ignores bootstrap changes on a healthy cluster — deleting the now-omitted `initdb.secret` from the rendered spec does not re-bootstrap or disturb existing data. Deployments upgraded from the old contract keep pointing pods at their existing `-db-credentials` Secret only until their app manifests are re-rendered; after re-render, references move to the CNPG-generated `<cluster>-app` Secret — for existing clusters pre-created with a hand-provisioned `-db-credentials` Secret, either adopt the CNPG-generated credentials (the cluster's `app` Secret holds the actual bootstrap password) or configure a provisioning secrets backend to take ownership before rolling consuming pods.
 
 ## 0.3.2
 

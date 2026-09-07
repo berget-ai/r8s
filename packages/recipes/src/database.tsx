@@ -111,6 +111,24 @@ export interface DatabaseProps {
 }
 
 /**
+ * Does this Platform secrets backend render a Secret that the Database
+ * bootstrap reference can point at (the `<name>-db-credentials`
+ * destination createSecretResources renders)? Single source for the
+ * "provisioning" notion shared by `databaseCredentialsRef` and the
+ * backend switch in `createSecretResources` — keep the two aligned, a
+ * drift silently flips app references between the backend-provisioned
+ * Secret and the CNPG-generated `<name>-app`.
+ */
+function provisionsBootstrapSecret(secretProvider: { backend: string } | null): boolean {
+  return (
+    secretProvider !== null &&
+    (secretProvider.backend === 'openbao' ||
+      secretProvider.backend === 'vault' ||
+      secretProvider.backend === 'sealed-secrets')
+  )
+}
+
+/**
  * Resolve the bootstrap credentials Secret for a CNPG `Database` — the
  * single resolution contract for app packages. Every DB-password
  * `secretKeyRef` must point at the Secret this helper resolves, never at
@@ -125,6 +143,13 @@ export interface DatabaseProps {
  * | none                           | (any)           | `<name>-app`             | CNPG generates it in-cluster (`bootstrap.initdb.secret` is omitted) |
  * | openbao / vault / sealed-secrets | 'cnpg'        | `<name>-app`             | CNPG generates it in-cluster |
  * | kubernetes / manual-secrets (passive) | 'backend' | `<name>-app`           | CNPG generates it in-cluster — nothing provisions a referenceable Secret |
+ *
+ * **Shared clusters** (a surrounding `<Cluster>` recipe instead of a
+ * dedicated CNPG cluster) always resolve `<name>-db-credentials` when a
+ * provisioning backend is in scope: CNPG only generates credentials for
+ * dedicated clusters, so the backend is the only provisioner there — an
+ * explicit `credentialsMode: 'cnpg'` cannot be honored and resolves as
+ * `'backend'` (`createSecretResources` throws without a backend).
  *
  * The name resolution matters because CloudNativePG (≥ 1.20, verified on
  * 1.27) does **not** auto-create a Secret referenced from
@@ -147,17 +172,7 @@ export function databaseCredentialsRef(
   secretProvider: { backend: string } | null,
   credentialsMode: 'backend' | 'cnpg' = 'backend'
 ): { name: string; key: string } {
-  // A "provisioning" backend is one whose Database wiring renders a Secret
-  // the bootstrap reference can point at (see createSecretResources): the
-  // openbao/vault static sync and the sealed-secrets SealedSecret. Passive
-  // backends (kubernetes/manual-secrets) render nothing on dedicated
-  // clusters, so CNPG must generate the credentials itself.
-  const backendProvisions =
-    credentialsMode !== 'cnpg' &&
-    secretProvider !== null &&
-    (secretProvider.backend === 'openbao' ||
-      secretProvider.backend === 'vault' ||
-      secretProvider.backend === 'sealed-secrets')
+  const backendProvisions = credentialsMode !== 'cnpg' && provisionsBootstrapSecret(secretProvider)
   return {
     name: backendProvisions ? `${name}-db-credentials` : `${name}-app`,
     key: 'password',
@@ -600,6 +615,11 @@ function createSecretResources(
   }
 
   switch (secretProvider.backend) {
+    // 'vault'/'openbao' render the static sync and 'sealed-secrets' the
+    // SealedSecret — both into the same `<name>-db-credentials` destination
+    // (secretName). These cases are exactly the set
+    // provisionsBootstrapSecret() recognizes for the credentials contract;
+    // keep them in sync with it.
     case 'vault':
     case 'openbao':
       resources.push(

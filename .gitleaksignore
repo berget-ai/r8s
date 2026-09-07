@@ -14,10 +14,11 @@ packages/core/src/redact.ts:private-key:21
 0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:427
 905037b81c5b84ee7e98bea9dd5a50d4f788b364:scripts/local-smoke.ts:generic-api-key:422
 905037b81c5b84ee7e98bea9dd5a50d4f788b364:scripts/local-smoke.ts:generic-api-key:423
-# (SHA-less / --no-git fingerprints; line numbers drift with edits above the
-# entry — re-verify with `gitleaks detect --no-git` AND the history scan
-# after changing scripts/local-smoke.ts. Keep the old line numbers: history
-# findings for previous commits match the SHA-less positions they sat at.)
+# (SHA-less fingerprints match BOTH the --no-git scan and history findings
+# at those positions — empirically: removing the 429/430 entries re-flagged
+# commit 2e48511's history findings. Keep the historical positions AND add
+# new ones after edits above the entry; re-run `gitleaks detect` (history)
+# and `gitleaks detect --no-git` to verify both stay clean.)
 scripts/local-smoke.ts:generic-api-key:429
 scripts/local-smoke.ts:generic-api-key:430
 scripts/local-smoke.ts:generic-api-key:422

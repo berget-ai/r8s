@@ -87,6 +87,44 @@ describe('databaseCredentialsRef — helper resolution', () => {
   })
 })
 
+describe('contract alignment — helper resolution vs Database rendering', () => {
+  // For every backend the helper and the rendered Cluster must agree:
+  // initdb.secret present ⇔ the helper resolves the provisioned
+  // `-db-credentials` (the name createSecretResources renders). A drift
+  // either flips app packages onto a CNPG Secret the backend does not
+  // control or re-creates the dangling-initdb-reference bug.
+  const backends: Array<{ backend: string; mount?: string; path?: string } | null> = [
+    null,
+    openbao,
+    vault,
+    sealed,
+    kubernetes,
+    manual,
+  ]
+
+  it('initdb.secret is present exactly when the helper resolves -db-credentials', () => {
+    for (const provider of backends) {
+      const element = jsx(Database, {
+        backup: false,
+        name: 'align-db',
+        namespace: 'ns',
+      })
+      const result = render(
+        provider
+          ? jsx(SecretContext.Provider, { value: provider as never, children: element })
+          : element
+      )
+      const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+      const resolved = databaseCredentialsRef('align-db', provider as never)
+      if (resolved.name === 'align-db-db-credentials') {
+        expect(cluster.spec.bootstrap.initdb.secret).toEqual({ name: resolved.name })
+      } else {
+        expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+      }
+    }
+  })
+})
+
 describe('Database credentials rendering — dedicated cluster', () => {
   it('no backend: no initdb.secret and the context resolves <name>-app', () => {
     const result = render(

@@ -429,3 +429,29 @@ describe('namespace scope', () => {
     expect(dep?.metadata?.namespace).toBe('team-a')
   })
 })
+
+describe('no secrets backend — CNPG-generated credentials contract', () => {
+  it('references the CNPG-generated <name>-app secret without a secrets backend', () => {
+    const result = render(
+      jsx(Nextcloud, {
+        backup: false,
+        host: 'cloud.example.com',
+        secretsName: 'existing-secrets',
+      } as never)
+    )
+    const env = findAppDeployment(result).spec.template.spec.containers[0].env
+    const pgPassword = env.find((e: any) => e.name === 'PGPASSWORD')
+    expect(pgPassword.valueFrom.secretKeyRef).toEqual({ name: 'nextcloud-app', key: 'password' })
+
+    // CronJob references the same resolved secret
+    const cronEnv = findCron(result).spec.jobTemplate.spec.template.spec.containers[0].env
+    expect(cronEnv.find((e: any) => e.name === 'PGPASSWORD').valueFrom.secretKeyRef).toEqual({
+      name: 'nextcloud-app',
+      key: 'password',
+    })
+
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster).toBeDefined()
+    expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})
