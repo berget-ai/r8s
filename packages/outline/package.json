@@ -1,6 +1,6 @@
 {
   "name": "@r8s/outline",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Outline wiki \u2014 Postgres persistence, Redis queue, S3 attachments, OIDC SSO via Keycloak",
   "license": "MIT",
   "author": "Berget AI AB",
