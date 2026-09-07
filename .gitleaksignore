@@ -7,12 +7,19 @@ packages/core/src/redact.ts:private-key:21
 # false positive: scripts/local-smoke.ts outline entry stores 64-hex DUMMY
 # values for SECRET_KEY/UTILS_SECRET — outline validates both are 64-hex at
 # boot, so the smoke needs hex-shaped fakes (fake, not real credentials; the
-# smoke cluster is throwaway kind). History scan fingerprints:
+# smoke cluster is throwaway kind). History scan fingerprints (one per commit
+# touching the entry — line numbers drift whenever smoke entries above it
+# change):
 0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:426
 0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:427
-# (working-tree / --no-git fingerprints; worktree line numbers drift with
-# edits above the entry — re-verify with `gitleaks detect --no-git` after
-# changing scripts/local-smoke.ts)
+905037b81c5b84ee7e98bea9dd5a50d4f788b364:scripts/local-smoke.ts:generic-api-key:422
+905037b81c5b84ee7e98bea9dd5a50d4f788b364:scripts/local-smoke.ts:generic-api-key:423
+# (SHA-less / --no-git fingerprints; line numbers drift with edits above the
+# entry — re-verify with `gitleaks detect --no-git` AND the history scan
+# after changing scripts/local-smoke.ts. Keep the old line numbers: history
+# findings for previous commits match the SHA-less positions they sat at.)
 scripts/local-smoke.ts:generic-api-key:429
 scripts/local-smoke.ts:generic-api-key:430
+scripts/local-smoke.ts:generic-api-key:422
+scripts/local-smoke.ts:generic-api-key:423
 
