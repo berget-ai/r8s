@@ -55,11 +55,14 @@
  *   `secretsName`, odoo `masterPasswordSecretName`, paperclip
  *   `secretsName` + `apiKeySecretName`); chromadb and element need none.
  * - Batch-2 expected rough edges, recorded in the per-entry notes: feature
- *   CRs whose operators are not installed in kind (outline's opstree
- *   Redis CR → `cache: false`; paperclip's Instance CR → apply fails with
- *   "no matches for kind") and packages that pass through Database
- *   recipe defaults with no sizing knob (eneo, open-webui, odoo get 3
- *   CNPG instances + a 10Gi db volume whether you like it or not).
+ *   CRs whose operators are not installed in kind (paperclip's Instance
+ *   CR → apply fails with "no matches for kind") and packages that pass
+ *   through Database recipe defaults with no sizing knob (eneo,
+ *   open-webui, odoo get 3 CNPG instances + a 10Gi db volume whether you
+ *   like it or not). outline's Redis CR is NOT one of those rough edges —
+ *   the opstree redis-operator is an installed cluster prerequisite
+ *   (above) and outline must run with cache on: it refuses to boot
+ *   without REDIS_URL.
  * - Rendering: esbuild bundles a small child module that imports THIS file
  *   (see buildBundle) with @r8s/* alias-mapped to packages/<pkg>/src — the same
  *   alias map as packages/recipes/__tests__/helpers/example-harness.ts. The
