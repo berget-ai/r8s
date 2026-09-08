@@ -660,17 +660,23 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
         literal: { adminPassword: 'smoke-only-admin-password' },
       },
     ],
-    // Ready target: the rendered CNPG Cluster `nextcloud` is materialized by
-    // the CNPG operator as a StatefulSet of the same name — pods are the
-    // ordinals `nextcloud-1/2/3` (Database recipe default, 3 instances).
-    // The raw app Deployment also bears the name `nextcloud` (it must mount
-    // the html claim, so the package renders it outside WebService), but the
-    // StatefulSet is the workload whose ready pods actually exist on kind.
-    ready: { kind: 'StatefulSet', name: 'nextcloud' },
+    // Ready target: the CNPG ordinals (`nextcloud-1/2/3`, Database recipe
+    // default, 3 instances) are instance pods owned by the Cluster CR, not
+    // the app. The APP is the Deployment `nextcloud` (replicaset-style pod
+    // names) — the package renders it outside WebService because it must
+    // mount the html claim. (Earlier misdiagnosis: targeting the CNPG
+    // StatefulSet `nextcloud` — wrong workload, wrong pods.)
+    ready: { kind: 'Deployment', name: 'nextcloud' },
     // Raw Deployment probes: httpGet /status.php on 80 — the image serves
     // status.php from t=0 (reports installed:false until first boot
     // completes), so readiness flips before the admin install finishes.
     healthz: { port: 80, path: '/status.php' },
+    // Static skip: the package's html PVC hardcodes accessModes
+    // [ReadWriteMany] (functional requirement — the cron job shares the
+    // claim), and kind's local-path StorageClass is RWO-only, so the claim
+    // can never bind here. Environment limitation, not a package defect.
+    skipReason:
+      'requires an RWX StorageClass — kind local-path is RWO-only (environment limitation, not a package defect)',
   },
 
   superset: {
@@ -730,7 +736,12 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
         literal: { secretKey: 'smoke-only-superset-secret-key' },
       },
     ],
-    ready: { kind: 'Deployment', name: 'superset' },
+    // Ready target: the app Deployment is named from the `name` prop — the
+    // smoke renders 'superset-ui' (env-clobber workaround above), so the
+    // rendered Deployment is 'superset-ui'. A target of 'superset' can
+    // never exist; the loud NotFound in pollReadiness exposed this stale
+    // entry (previously it silently timed out reporting readyReplicas=1).
+    ready: { kind: 'Deployment', name: 'superset-ui' },
     // No probes in the rendered Deployment; apache/superset answers / on
     // 8088 (Service maps 80 → 8088) once gunicorn is listening.
     healthz: { port: 8088, path: '/' },
@@ -948,16 +959,22 @@ async function pollReadiness(
       'jsonpath={.status.readyReplicas}',
     ])
     if (res.code !== 0) {
-      if (!/NotFound|not found/i.test(res.stderr)) {
+      if (/NotFound|not found/i.test(res.stderr)) {
+        // Hard, immediate failure: `kubectl apply` just succeeded, so an
+        // absent object means the ready target itself is wrong — waiting
+        // would only burn the timeout. Never fabricate replica counts for
+        // a workload that does not exist.
         return {
           ok: false,
-          detail: `kubectl get ${resource}/${ready.name} failed — ${firstLine(res.stderr)}`,
+          detail: `workload ${ready.kind}/${ready.name} not found in namespace ${ns}`,
         }
       }
-      // Applied moments ago; wait for the object to appear.
-    } else {
-      lastReady = res.stdout.trim() || '0'
+      return {
+        ok: false,
+        detail: `kubectl get ${resource}/${ready.name} failed — ${firstLine(res.stderr)}`,
+      }
     }
+    lastReady = res.stdout.trim() || '0'
 
     const spec = await kubectl([
       '-n',
