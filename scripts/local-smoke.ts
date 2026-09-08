@@ -30,10 +30,17 @@
  *   (hard-coded, never the ambient context, so a production default context
  *   can't receive smoke traffic by accident).
  * - CNPG operator installed in the cluster (for packages that render a
- *   Database — umami, n8n, outline, eneo, open-webui, odoo, paperclip).
+ *   Database — umami, n8n, outline, eneo, open-webui, odoo, paperclip,
+ *   nextcloud, and superset via the smoke's companion `superset-db`
+ *   render — the package itself has no CNPG stitch).
  *   The opstree redis-operator (ot-container-kit chart 0.22.0) is a second
- *   cluster prerequisite whenever a package renders its Redis CR (outline
- *   with default `cache: true`; open-webui only with `cache`).
+ *   cluster prerequisite whenever a package renders a Redis CR (outline
+ *   with default `cache: true`; nextcloud with default `cache: true`;
+ *   superset via `redis.create: true`; open-webui only with `cache`).
+ * - Batch-3 requires the paperclip-operator (helm chart v0.19.0 from
+ *   oci://ghcr.io/paperclipinc/charts, release namespace paperclip-system)
+ *   to own paperclip's Instance CR; without it the apply fails with
+ *   "no matches for kind" (recorded as FAIL, not skip).
  * - Enough free disk: image pulls go through the Docker-driver VM. Before
  *   each package the script checks free space and aborts the remaining
  *   batch under `--min-free-mb` (default 2048 — 2 GiB: big images like
@@ -63,6 +70,17 @@
  *   the opstree redis-operator is an installed cluster prerequisite
  *   (above) and outline must run with cache on: it refuses to boot
  *   without REDIS_URL.
+ * - Batch-3 contract notes: nextcloud has no dbInstances/dbStorage knob
+ *   (db volume hardcoded 10Gi, 3 CNPG replicas by recipe defaults) but
+ *   objectStorage is optional — omitted, files live on the html PVC.
+ *   superset has NO Database stitch at all (external-Postgres contract) so
+ *   the smoke renders a companion CNPG `superset-db` alongside it; the app
+ *   is only Ready after `superset db upgrade` + `superset init` complete.
+ *   wireguard renders no LB service (ClusterIP default, NodePort opt-in)
+ *   and no probes — net-ops work (wg0 + iptables) verified via the 51821
+ *   web UI. paperclip's operator IS resolvable from the package metadata
+ *   (oci://ghcr.io/paperclipinc/charts) — install it first or expect the
+ *   apply to fail on the missing CRD.
  * - Rendering: esbuild bundles a small child module that imports THIS file
  *   (see buildBundle) with @r8s/* alias-mapped to packages/<pkg>/src — the same
  *   alias map as packages/recipes/__tests__/helpers/example-harness.ts. The
@@ -105,6 +123,13 @@ import { OpenWebui } from '@r8s/open-webui'
 import { Element } from '@r8s/element'
 import { Odoo } from '@r8s/odoo'
 import { Paperclip } from '@r8s/paperclip'
+import { Nextcloud } from '@r8s/nextcloud'
+import { Superset } from '@r8s/superset'
+import { WireGuard } from '@r8s/wireguard'
+// Value import: the superset smoke renders a companion CNPG cluster — the
+// package itself does NOT stitch a Database (see the superset entry).
+import { Database } from '@r8s/recipes'
+import { Fragment } from '@r8s/core'
 
 // --- Constants ---------------------------------------------------------------
 
@@ -604,6 +629,144 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     // Probes are operator-chart-owned ("probes: type auto") — this repo
     // does not render a concrete path/port to probe.
     healthz: null,
+  },
+
+  nextcloud: {
+    package: '@r8s/nextcloud',
+    namespace: 'nextcloud-smoke',
+    // objectStorage is OPTIONAL: omitted → files live on the /var/www/html
+    // PVC (sized down from 10Gi) and no S3 credentials secret is needed.
+    // secretsName (key `adminPassword`) is the pre-created-Secret prop for
+    // the admin bootstrap password: without it the component THROWS at
+    // render time (no secrets backend in this smoke), so this entry would
+    // be a guaranteed skip without it. No dbInstances/dbStorage knob —
+    // Database recipe defaults apply (3 CNPG replicas) and the package
+    // hardcodes the db data volume at 10Gi. cache stays ON (default):
+    // opstree redis-operator is a cluster prerequisite, and Redis
+    // Replication (×3, tiny) is what Nextcloud file locking wants.
+    // Requires the CNPG operator in the cluster.
+    render: (jsx) =>
+      jsx(Nextcloud, {
+        name: 'nextcloud',
+        namespace: 'nextcloud-smoke',
+        host: 'nextcloud.smoke.test',
+        storage: '2Gi',
+        backup: false,
+        secretsName: 'nextcloud-smoke-secrets',
+      }),
+    secrets: [
+      {
+        name: 'nextcloud-smoke-secrets',
+        literal: { adminPassword: 'smoke-only-admin-password' },
+      },
+    ],
+    // Ready target: the rendered CNPG Cluster `nextcloud` is materialized by
+    // the CNPG operator as a StatefulSet of the same name — pods are the
+    // ordinals `nextcloud-1/2/3` (Database recipe default, 3 instances).
+    // The raw app Deployment also bears the name `nextcloud` (it must mount
+    // the html claim, so the package renders it outside WebService), but the
+    // StatefulSet is the workload whose ready pods actually exist on kind.
+    ready: { kind: 'StatefulSet', name: 'nextcloud' },
+    // Raw Deployment probes: httpGet /status.php on 80 — the image serves
+    // status.php from t=0 (reports installed:false until first boot
+    // completes), so readiness flips before the admin install finishes.
+    healthz: { port: 80, path: '/status.php' },
+  },
+
+  superset: {
+    package: '@r8s/superset',
+    namespace: 'superset-smoke',
+    // Contract finding: Superset does NOT render a Database —
+    // database.* points at an EXTERNAL Postgres and redis.create:true
+    // renders an OT-Redis Cluster (redis-operator = cluster prerequisite).
+    // The smoke renders a companion CNPG Database next to the app:
+    // name 'superset-db' → bootstrap db/owner 'superset-db', CNPG-generated
+    // credentials Secret `superset-db-app` (key `password`) — nothing to
+    // pre-create for the DB. admin.existingSecret (key `secretKey`) is the
+    // package's only pre-created-Secret prop. The app pod serves / on 8088
+    // only after `superset db upgrade` + `superset init` finish against
+    // that Postgres — expect minutes, not seconds.
+    //
+    // ENV-CLOBBER FINDING (found by batch-3 run 1): with the default
+    // instance name 'superset' the rendered Service injects K8s
+    // service-link env `SUPERSET_PORT=tcp://<ip>:80` into the pod, over the
+    // image's SUPERSET_PORT=8088; run-server.sh then binds
+    // "0.0.0.0:tcp://..." and gunicorn dies instantly with
+    // `Error: 'tcp' is not a valid port number.` — deterministic on any
+    // cluster (enableServiceLinks defaults on) and unfixable via props.
+    // The smoke renders as 'superset-ui' so the injected prefix becomes
+    // SUPERSET_UI_PORT (unused by the app). Package upstream fix: set
+    // SUPERSET_PORT explicitly in its env, or rename the Service.
+    render: (jsx) =>
+      jsx(Fragment, {
+        children: [
+          jsx(Database, {
+            name: 'superset-db',
+            namespace: 'superset-smoke',
+            instances: 1,
+            storage: '1Gi',
+            backup: false,
+          }),
+          jsx(Superset, {
+            name: 'superset-ui',
+            namespace: 'superset-smoke',
+            host: 'superset.smoke.test',
+            database: {
+              host: 'superset-db-rw',
+              database: 'superset-db',
+              user: 'superset-db',
+              passwordSecret: 'superset-db-app',
+              passwordKey: 'password',
+            },
+            redis: { create: true },
+            admin: { existingSecret: 'superset-smoke-admin' },
+            replicas: 1,
+          }),
+        ],
+      }),
+    secrets: [
+      {
+        name: 'superset-smoke-admin',
+        literal: { secretKey: 'smoke-only-superset-secret-key' },
+      },
+    ],
+    ready: { kind: 'Deployment', name: 'superset' },
+    // No probes in the rendered Deployment; apache/superset answers / on
+    // 8088 (Service maps 80 → 8088) once gunicorn is listening.
+    healthz: { port: 8088, path: '/' },
+  },
+
+  wireguard: {
+    package: '@r8s/wireguard',
+    namespace: 'wireguard-smoke',
+    // passwordSecret (key `password`) is the pre-created-Secret prop; the
+    // package wires it as wg-easy PASSWORD_HASH, i.e. a bcrypt hash —
+    // the literal below is a real hash of the throwaway value
+    // 'smoke-only-password' (htpasswd -bnBC 10), never a real credential.
+    // NET_ADMIN + SYS_MODULE caps (privileged-pod contract) are the kind -
+    // tolerated case. Contract-notes vs. expectation: the package renders
+    // NO LoadBalancer service — ClusterIP by default, NodePort only with
+    // the `nodePort` opt-in (nothing sits Pending on kind); no host prop →
+    // no Ingress; the app image is `:latest` (package default, not pinned).
+    render: (jsx) =>
+      jsx(WireGuard, {
+        name: 'wireguard',
+        namespace: 'wireguard-smoke',
+        storage: '1Gi',
+        passwordSecret: 'wireguard-smoke-password',
+      }),
+    secrets: [
+      {
+        name: 'wireguard-smoke-password',
+        literal: {
+          password: '$2y$10$FWqhvS3f8l5ogPWcMFFhaeC.4MoiIT44JaX0eUYjy1AsrH0SV57lu',
+        },
+      },
+    ],
+    ready: { kind: 'Deployment', name: 'wireguard' },
+    // No probes in the rendered Deployment; the wg-easy web UI answers /
+    // on 51821 (login page) once the wg0 + iptables setup succeeded.
+    healthz: { port: 51821, path: '/' },
   },
 }
 
