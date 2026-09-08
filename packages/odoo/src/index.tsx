@@ -362,12 +362,24 @@ export function Odoo(props: OdooProps) {
               // database, but odoo's /web/health returns 500 until the base
               // modules are installed — without these args the Deployment
               // never goes Ready (caught by the local kind smoke run).
-              // `-i base` is idempotent on subsequent boots; demo data is
-              // explicitly off — this package targets production installs.
+              // Note: odoo re-runs base's update path on every boot (module
+              // install is recorded in ir_module_module), which is cheap for
+              // base but not free — a one-shot initContainer is a planned
+              // follow-up if boot cost grows. Demo data is explicitly off —
+              // this package targets production installs.
               args: ['-d', name, '-i', 'base', '--without-demo=all'],
               ports: [{ name: 'http', containerPort: APP_PORT }],
               env,
               resources,
+              // First boot installs base modules before odoo serves; give the
+              // startup probe ~10 min before liveness kicks in (same budget
+              // as eurooffice/forgejo) so slow clusters don't get the pod
+              // killed mid-init.
+              startupProbe: {
+                httpGet: { path: HEALTH_PATH, port: APP_PORT },
+                periodSeconds: 10,
+                failureThreshold: 60,
+              },
               livenessProbe: {
                 httpGet: { path: HEALTH_PATH, port: APP_PORT },
                 initialDelaySeconds: 60,
