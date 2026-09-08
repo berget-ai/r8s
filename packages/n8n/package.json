@@ -1,6 +1,6 @@
 {
   "name": "@r8s/n8n",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "n8n workflow automation \u2014 editor, Postgres persistence, Redis queue mode, webhook endpoints",
   "license": "MIT",
   "author": "Berget AI AB",

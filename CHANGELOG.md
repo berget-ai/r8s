@@ -2,6 +2,21 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## 0.3.3
+
+### Changed
+
+- **Database credentials contract — rendering without a Platform now works.** `Database` with default `credentialsMode: 'backend'` and NO secrets backend rendered an `initdb.secret` reference that nothing creates — every app package hit `CreateContainerConfigError` (found by the local kind smoke runs). New resolution helper `databaseCredentialsRef()`: backend + 'backend' mode → `<name>-db-credentials` (backend-provisioned, CNPG adopts it); no backend, 'cnpg' mode or passive backends → `<cluster>-app` (CNPG generates it, `initdb.secret` omitted). `DatabaseContext.passwordSecret` now always reflects the real bootstrap secret (fixes a latent 'cnpg'-mode bug). 14 app packages consume the helper instead of hardcoding.
+
+### Fixed
+
+- **odoo never reached its database**: the package rendered `DB_HOST`/`DB_USER`/`DB_PASSWORD` but the official odoo:18 entrypoint reads `HOST`/`USER`/`PASSWORD` — odoo dialed the default hostname `db` (caught by the local kind smoke run).
+- **odoo never went Ready on first boot**: `/web/health` returns 500 until the base modules are installed — the container now boots with `-d <name> -i base --without-demo=all` (idempotent) and a startupProbe gives the module install a 10-minute budget.
+
+### Added
+
+- `scripts/local-smoke.ts` covers 11 packages — renders from source, applies to a local kind cluster, polls readiness + healthz, tears down per package; 9 packages validated end-to-end so far.
+
 ## Unreleased
 
 ### Changed

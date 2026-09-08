@@ -1,6 +1,6 @@
 {
   "name": "@r8s/nextcloud",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Nextcloud file cloud \u2014 Postgres file index, Redis cache, S3-compatible primary storage, cron background jobs",
   "license": "MIT",
   "author": "Berget AI AB",
