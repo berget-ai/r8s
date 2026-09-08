@@ -7,24 +7,8 @@ All notable changes to r8s are documented here. Versions follow semver; while pr
 ### Changed
 
 - **Database credentials contract — rendering without a Platform now works.** `Database` with default `credentialsMode: 'backend'` and NO secrets backend rendered an `initdb.secret` reference that nothing creates — every app package hit `CreateContainerConfigError` (found by the local kind smoke runs). New resolution helper `databaseCredentialsRef()`: backend + 'backend' mode → `<name>-db-credentials` (backend-provisioned, CNPG adopts it); no backend, 'cnpg' mode or passive backends → `<cluster>-app` (CNPG generates it, `initdb.secret` omitted). `DatabaseContext.passwordSecret` now always reflects the real bootstrap secret (fixes a latent 'cnpg'-mode bug). 14 app packages consume the helper instead of hardcoding.
-
-### Fixed
-
-- **odoo never reached its database**: the package rendered `DB_HOST`/`DB_USER`/`DB_PASSWORD` but the official odoo:18 entrypoint reads `HOST`/`USER`/`PASSWORD` — odoo dialed the default hostname `db` (caught by the local kind smoke run).
-- **odoo never went Ready on first boot**: `/web/health` returns 500 until the base modules are installed — the container now boots with `-d <name> -i base --without-demo=all` (idempotent) and a startupProbe gives the module install a 10-minute budget.
-
-### Added
-
-- `scripts/local-smoke.ts` covers 11 packages — renders from source, applies to a local kind cluster, polls readiness + healthz, tears down per package; 9 packages validated end-to-end so far.
-
-## Unreleased
-
-### Changed
-
-- **Database credentials contract** — `Database` without a secrets backend (or with `credentialsMode: 'cnpg'`, or under passive backends that render no referenceable credentials Secret) now relies on the CNPG-generated `<cluster>-app` Secret: `bootstrap.initdb.secret` is omitted and the operator creates the bootstrap credentials in-cluster. Previously the default `credentialsMode: 'backend'` unconditionally rendered `bootstrap.initdb.secret` pointing at `<name>-db-credentials` — a Secret nothing creates without a backend, so every app package rendered without a Platform hit `CreateContainerConfigError` (found by the local kind smoke runs; CloudNativePG 1.27 does not auto-create referenced initdb secrets).
 - **`databaseCredentialsRef(name, secretProvider, credentialsMode?)`** — new exported helper in `@r8s/recipes`, the single resolution point for the DB-password Secret. Backend + 'backend' mode → `<name>-db-credentials` (backend-provisioned; openbao/vault/sealed-secrets); no backend or 'cnpg' mode → `<cluster>-app` (CNPG-generated). App packages consume it instead of hardcoding a name.
 - App packages (`n8n`, `outline`, `eneo`, `open-webui`, `odoo`, `umami`, `eurooffice`, `forgejo`, `chromadb` (pg mode), `supabase`, `harbor`, `paperclip`, `nextcloud`) now resolve their DB-password refs through `databaseCredentialsRef`.
-- `DatabaseContext.passwordSecret` now always reflects the real bootstrap Secret — fixes a latent bug where `credentialsMode: 'cnpg'` still put `-db-credentials` in the child context while the Cluster actually generated `<cluster>-app`.
 - `scripts/local-smoke.ts` no longer pre-creates `<name>-db-credentials` for no-backend packages — the CNPG-generated `-app` Secret is the contract (app-contract secrets like encryption keys and JWT bundles are still pre-created).
 
 ### Migration note
@@ -33,7 +17,12 @@ Clusters **already bootstrapped** keep their state: CNPG runs `bootstrap.initdb`
 
 ### Fixed
 
-- **odoo never went Ready on a fresh install** — CNPG's initdb creates the (empty) database, but `/web/health` returns 500 until the base modules are installed. The container now boots with `args: ['-d', <name>, '-i', 'base', '--without-demo=all']` (unattended first-boot init; demo data explicitly off — this package targets production installs) and a startupProbe with the eurooffice/forgejo budget (~10 min, 10s period) so slow first boots aren't killed mid-init. Rolling an upgrade re-runs base's update path on existing databases once (cheap for `base`; a one-shot initContainer is a planned refinement).
+- **odoo never reached its database**: the package rendered `DB_HOST`/`DB_USER`/`DB_PASSWORD` but the official odoo:18 entrypoint reads `HOST`/`USER`/`PASSWORD` — odoo dialed the default hostname `db` (caught by the local kind smoke run).
+- **odoo never went Ready on first boot**: `/web/health` returns 500 until the base modules are installed — the container now boots with `-d <name> -i base --without-demo=all` (idempotent) and a startupProbe gives the module install a 10-minute budget. Rolling an upgrade re-runs base's update path on existing databases once (cheap for `base`; a one-shot initContainer is a planned refinement).
+
+### Added
+
+- `scripts/local-smoke.ts` covers 11 packages — renders from source, applies to a local kind cluster, polls readiness + healthz, tears down per package; 9 packages validated end-to-end so far.
 
 ## 0.3.2
 
