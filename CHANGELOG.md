@@ -16,6 +16,10 @@ All notable changes to r8s are documented here. Versions follow semver; while pr
 
 Clusters **already bootstrapped** keep their state: CNPG runs `bootstrap.initdb` only at cluster creation and ignores bootstrap changes on a healthy cluster — deleting the now-omitted `initdb.secret` from the rendered spec does not re-bootstrap or disturb existing data. Deployments upgraded from the old contract keep pointing pods at their existing `-db-credentials` Secret only until their app manifests are re-rendered; after re-render, references move to the CNPG-generated `<cluster>-app` Secret. Note that `<cluster>-app` only carries a *usable* password for clusters that were bootstrapped without `initdb.secret`: for a cluster bootstrapped against a hand-provisioned `-db-credentials` Secret, CNPG creates `<cluster>-app` with a fresh random password on the next reconcile that is **not** synced into the owner role. For such clusters, before rolling consuming pods either restore/keep a provisioning secrets backend that owns `-db-credentials`, or align the credentials manually (`ALTER ROLE <owner>` to the password in the freshly generated `<cluster>-app`).
 
+### Fixed
+
+- **odoo never went Ready on a fresh install** — CNPG's initdb creates the (empty) database, but `/web/health` returns 500 until the base modules are installed. The container now boots with `args: ['-d', <name>, '-i', 'base', '--without-demo=all']` (unattended first-boot init; demo data explicitly off — this package targets production installs) and a startupProbe with the eurooffice/forgejo budget (~10 min, 10s period) so slow first boots aren't killed mid-init. Rolling an upgrade re-runs base's update path on existing databases once (cheap for `base`; a one-shot initContainer is a planned refinement).
+
 ## 0.3.2
 
 ### Added

@@ -98,6 +98,22 @@ describe('rendering defaults', () => {
     expect(container.readinessProbe.initialDelaySeconds).toBe(30)
   })
 
+  it('initializes the database unattended (-d <name> -i base, demo data off)', () => {
+    const result = renderOdoo({ host: 'erp.example.com' })
+    const container = findDeployment(result).spec.template.spec.containers[0]
+    // CNPG's initdb creates the empty database; without these args odoo's
+    // /web/health returns 500 and the Deployment never goes Ready
+    expect(container.args).toEqual(['-d', 'odoo', '-i', 'base', '--without-demo=all'])
+    // first boot installs base modules before odoo serves — the startup
+    // budget (~10 min, eurooffice/forgejo parity) keeps liveness from
+    // killing the pod mid-init
+    expect(container.startupProbe).toEqual({
+      httpGet: { path: '/web/health', port: 8069 },
+      periodSeconds: 10,
+      failureThreshold: 60,
+    })
+  })
+
   it('exposes only the http port 8069 (no gevent 8072 declaration)', () => {
     const result = renderOdoo({ host: 'erp.example.com' })
     const deployment = findDeployment(result)
