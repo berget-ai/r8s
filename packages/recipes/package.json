@@ -1,6 +1,6 @@
 {
   "name": "@r8s/recipes",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Pre-built Kubernetes component recipes for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
