@@ -1,6 +1,14 @@
 import { jsx, Fragment, useContext } from '@r8s/core'
 import { SecretContext, useNamespace } from '@r8s/core/defaults'
-import { Database, WebService, Endpoint, type DatabaseProps } from '@r8s/recipes'
+import {
+  Database,
+  WebService,
+  Endpoint,
+  resolveObjectStorage,
+  useS3,
+  type BucketProps,
+  type DatabaseProps,
+} from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
 
 export interface EneoProps {
@@ -16,20 +24,29 @@ export interface EneoProps {
   replicas?: number
   /**
    * S3-compatible object storage for document corpora (RustFS in the
-   * platform). Required. Reference a bucket whose credentials live in a
-   * Secret provisioned by the secrets backend (keys: accessKey, secretKey)
-   * — never plaintext.
+   * platform). Resolution order: this prop → a `<Bucket name="…" />`
+   * descriptor → derived from the surrounding `<S3Provider>` (omit it
+   * entirely there — corpora storage and database backups then share one
+   * declared source).
+   *
+   * Storage-API-style consumers take a BUCKET NAME, not a prefixed path:
+   * a descriptor's `bucket` override selects the bucket, its `name` is
+   * only the logical scope (prefix). The bucket's credentials must live
+   * in a Secret provisioned by the secrets backend (keys: accessKey,
+   * secretKey) — never plaintext.
    */
-  objectStorage: {
-    /** S3 endpoint URL, e.g. https://s3.internal.example.com */
-    endpoint: string
-    /** Bucket holding document corpora */
-    bucket: string
-    /** Name of the Secret holding accessKey / secretKey */
-    credentialsSecret: string
-    /** Region string for the S3 client (defaults to 'us-east-1') */
-    region?: string
-  }
+  objectStorage?:
+    | {
+        /** S3 endpoint URL, e.g. https://s3.internal.example.com */
+        endpoint: string
+        /** Bucket holding document corpora */
+        bucket: string
+        /** Name of the Secret holding accessKey / secretKey */
+        credentialsSecret: string
+        /** Region string for the S3 client (defaults to 'us-east-1') */
+        region?: string
+      }
+    | { type: unknown; props: BucketProps }
   /**
    * OIDC SSO client — register Eneo as a client in Keycloak (the Auth
    * recipe) and reference the client secret through the backend.
@@ -100,13 +117,20 @@ export interface EneoProps {
  * - CNPG Postgres cluster (conversations, workspaces, document metadata;
  *   size via `dbStorage`)
  * - Eneo Deployment + Service + Endpoint (DATABASE_URL auto-wired)
- * - S3/RustFS bucket reference for document corpora (required) — corpora
- *   do not use local volumes; a local corpus PVC is a v1.1 item
+ * - S3/RustFS bucket reference for document corpora (derived from the
+ *   platform's S3Provider) — corpora do not use local volumes; a local
+ *   corpus PVC is a v1.1 item
  * - App secrets (appSecret, plus smtpPassword when `smtp` is set)
  *   provisioned by the Platform secrets backend (openbao / vault), or
  *   referenced from an existing Secret
  * - Optional SMTP delivery; password via the `${name}-secrets` bundle
  * - OIDC SSO against the Keycloak `Auth` recipe
+ *
+ * Under an `<S3Provider>` both the database backups and the document
+ * corpora's object storage derive from it — `objectStorage` can be omitted
+ * entirely. Pass it only to target a different bucket than the provider's,
+ * either as a plain object or as `<Bucket name="…" bucket="…" />` (the
+ * descriptor's `bucket` selects the bucket; `name` is the logical scope).
  *
  * The namespace is inherited from the surrounding `<Platform>` (via the
  * Namespace context) unless set explicitly.
@@ -119,19 +143,12 @@ export interface EneoProps {
  * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { Eneo } from '@r8s/eneo'
  *
- * // Backups default to on — the S3Provider derives target and credentials
+ * // Backups default to on, objectStorage derives — the S3Provider
+ * // supplies both targets and credentials
  * export default (
  *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
  *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *       <Eneo
- *         name="eneo"
- *         host="eneo.example.com"
- *         objectStorage={{
- *           endpoint: 'https://s3.internal.example.com',
- *           bucket: 'eneo-corpora',
- *           credentialsSecret: 'eneo-object-storage',
- *         }}
- *       />
+ *       <Eneo name="eneo" host="eneo.example.com" />
  *     </Platform>
  *   </S3Provider>
  * )
@@ -216,6 +233,19 @@ export function Eneo(props: EneoProps) {
     )
   }
 
+  // --- Object storage (document corpora) — derived from the S3Provider ------
+  // Same resolution contract as Database's backup decision (#115): an
+  // explicit object wins, a <Bucket/> descriptor points the corpora at
+  // another store, and omission under an <S3Provider> derives everything.
+  const s3 = useS3()
+  const store = resolveObjectStorage(
+    'Eneo',
+    name,
+    'document corpora are stored in an S3 bucket',
+    objectStorage,
+    s3
+  )
+
   // --- Env wiring --------------------------------------------------------------
   // Every credential is referenced with $(VAR) expansion or secretKeyRef —
   // no plaintext in the manifest. The WebService declares secret-backed
@@ -224,9 +254,9 @@ export function Eneo(props: EneoProps) {
   const env: Record<string, string> = {
     PORT: '3000',
     BASE_URL: `https://${host}`,
-    S3_ENDPOINT: objectStorage.endpoint,
-    S3_BUCKET: objectStorage.bucket,
-    AWS_REGION: objectStorage.region ?? 'us-east-1',
+    S3_ENDPOINT: store.endpoint,
+    S3_BUCKET: store.bucket,
+    AWS_REGION: store.region ?? 'us-east-1',
     ...(sso
       ? {
           OIDC_ISSUER: sso.issuer,
@@ -255,8 +285,8 @@ export function Eneo(props: EneoProps) {
     ...(smtp
       ? { SMTP_PASSWORD: { secret: platformSecretsName, key: 'smtpPassword' as const } }
       : {}),
-    AWS_ACCESS_KEY_ID: { secret: objectStorage.credentialsSecret, key: 'accessKey' },
-    AWS_SECRET_ACCESS_KEY: { secret: objectStorage.credentialsSecret, key: 'secretKey' },
+    AWS_ACCESS_KEY_ID: { secret: store.credentialsSecret, key: 'accessKey' },
+    AWS_SECRET_ACCESS_KEY: { secret: store.credentialsSecret, key: 'secretKey' },
     ...(sso ? { OIDC_CLIENT_SECRET: sso.clientSecretRef } : {}),
   }
 

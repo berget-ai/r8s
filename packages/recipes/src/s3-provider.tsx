@@ -179,8 +179,11 @@ export function Bucket(props: BucketProps) {
   // Descriptors are VALUES — the renderer only reaches this body if someone
   // renders <Bucket /> directly. Fail loudly instead of recursing.
   throw new Error(
-    'Bucket is a descriptor, not a renderable component — pass it to consumers:' +
-      ` <Database backup={<Bucket name="${props?.name ?? '…'}" />} />`
+    'Bucket is a descriptor, not a renderable component — it is a value you\n' +
+      `pass into a consumer's bucket/backup prop.\n` +
+      `\n` +
+      `Fix: pass it to consumers instead of rendering it:\n` +
+      `  <Database name="…" backup={<Bucket name="${props?.name ?? '…'}" />} />`
   )
 }
 
@@ -225,9 +228,23 @@ export function resolveBucket(
   }
   if (!effective.endpoint || !effective.bucket || !effective.credentialsSecret) {
     throw new Error(
-      `Bucket "${name}" cannot resolve its store config:\n` +
+      `Bucket "${name}" cannot resolve its store config.\n` +
+        `Missing: ${[
+          !effective.endpoint && 'endpoint',
+          !effective.bucket && 'bucket',
+          !effective.credentialsSecret && 'credentialsSecret',
+        ]
+          .filter(Boolean)
+          .join(', ')}\n` +
         `\n` +
-        `Wrap the consumer in an <S3Provider> (endpoint/credentials derive from it)\n` +
+        `The descriptor has no full store config of its own and there is no\n` +
+        `<S3Provider> in scope to derive endpoint/credentials from.\n` +
+        `\n` +
+        `Fix: wrap the consumer in an <S3Provider> — endpoint/credentials derive from it:\n` +
+        `  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
+        `    <Database name="…" backup={<Bucket name="${name}" />} />\n` +
+        `  </S3Provider>\n` +
+        `\n` +
         `or give the descriptor the full config:\n` +
         `  <Bucket name="${name}" bucket="…" endpoint="https://…" credentialsSecret="…" />`
     )

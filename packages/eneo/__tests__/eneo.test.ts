@@ -3,6 +3,7 @@ import { render, jsx } from '@r8s/core'
 import { Namespace, OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
 import { operators } from '@r8s/crds'
+import { S3Provider, Bucket } from '@r8s/recipes'
 import type { r8sElement } from '@r8s/core'
 
 // Eneo recipe tests:
@@ -10,6 +11,8 @@ import type { r8sElement } from '@r8s/core'
 //   2. Rendering: defaults, all props, gateway/ingress adaptation, dbStorage
 //   3. Namespace inheritance from the Platform context
 //   4. Security: no plaintext credentials in rendered output
+//   5. objectStorage resolution: explicit wins → <Bucket/> descriptor →
+//      derived from the S3Provider → actionable throw without either
 import { Eneo } from '../src/index'
 
 const openbao = { backend: 'openbao', mount: 'kv', path: 'test' }
@@ -446,5 +449,107 @@ describe('no secrets backend — CNPG-generated credentials contract', () => {
     const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
     expect(cluster).toBeDefined()
     expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})
+
+describe('objectStorage — derives from the S3Provider', () => {
+  const s3Config = {
+    endpoint: 'https://rustfs:9000',
+    bucket: 'infra',
+    credentialsSecret: 'infra-s3-creds',
+  }
+
+  const findApp = (result: ReturnType<typeof render>) =>
+    result.resources.find((r: any) => r.kind === 'Deployment' && r.metadata.name === 'eneo') as any
+  const s3Env = (result: ReturnType<typeof render>) =>
+    findApp(result).spec.template.spec.containers[0].env as any[]
+  const envOf = (env: any[], name: string) => env.find((e: any) => e.name === name)
+
+  /** Eneo under an S3Provider only (secrets referenced explicitly). */
+  function renderEneoUnderS3Provider(
+    props: Record<string, unknown>,
+    provider = s3Config
+  ): ReturnType<typeof render> {
+    return render(
+      jsx(S3Provider as never, {
+        provider,
+        children: jsx(Eneo, {
+          backup: false,
+          host: 'eneo.example.com',
+          secretsName: 'eneo-secrets',
+          ...props,
+        } as never),
+      })
+    )
+  }
+
+  it('omitted under an S3Provider: the app derives endpoint/bucket/credentials', () => {
+    const result = renderEneoUnderS3Provider({})
+    const env = s3Env(result)
+    expect(envOf(env, 'S3_ENDPOINT').value).toBe(s3Config.endpoint)
+    expect(envOf(env, 'S3_BUCKET').value).toBe(s3Config.bucket)
+    const accessKey = envOf(env, 'AWS_ACCESS_KEY_ID')
+    expect(accessKey.value).toBeUndefined()
+    expect(accessKey.valueFrom.secretKeyRef).toEqual({
+      name: s3Config.credentialsSecret,
+      key: 'accessKey',
+    })
+  })
+
+  it('omitted under an S3Provider: backups default on and derive too', () => {
+    const result = render(
+      jsx(S3Provider as never, {
+        provider: s3Config,
+        children: jsx(Eneo, {
+          host: 'eneo.example.com',
+          secretsName: 'eneo-secrets',
+        } as never),
+      })
+    )
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster.spec.backup.barmanObjectStore.endpointURL).toBe(s3Config.endpoint)
+    expect(result.resources.filter((r: any) => r.kind === 'ScheduledBackup')).toHaveLength(1)
+  })
+
+  it('explicit object wins over the surrounding provider', () => {
+    const result = renderEneoUnderS3Provider({ objectStorage })
+    const env = s3Env(result)
+    expect(envOf(env, 'S3_ENDPOINT').value).toBe(objectStorage.endpoint)
+    expect(envOf(env, 'S3_BUCKET').value).toBe(objectStorage.bucket)
+    expect(envOf(env, 'AWS_ACCESS_KEY_ID').valueFrom.secretKeyRef.name).toBe(
+      objectStorage.credentialsSecret
+    )
+  })
+
+  it('<Bucket/> descriptor: provider config is used (name is the scope, bucket comes from the provider)', () => {
+    const result = renderEneoUnderS3Provider({
+      objectStorage: jsx(Bucket as never, { name: 'eneo' } as never),
+    })
+    const env = s3Env(result)
+    expect(envOf(env, 'S3_BUCKET').value).toBe(s3Config.bucket)
+    expect(envOf(env, 'S3_ENDPOINT').value).toBe(s3Config.endpoint)
+  })
+
+  it('<Bucket/> descriptor: the bucket override selects a different bucket', () => {
+    const result = renderEneoUnderS3Provider({
+      objectStorage: jsx(Bucket as never, { name: 'eneo', bucket: 'corpora' } as never),
+    })
+    expect(envOf(s3Env(result), 'S3_BUCKET').value).toBe('corpora')
+  })
+
+  it('omitted without a provider throws the actionable guidance (what/why/how)', () => {
+    // secretsName satisfies the instance-secrets decision so the storage
+    // guidance is what surfaces
+    expect(() =>
+      render(
+        jsx(Eneo, {
+          backup: false,
+          host: 'eneo.example.com',
+          secretsName: 'eneo-secrets',
+        })
+      )
+    ).toThrow(
+      /Eneo "eneo" needs object storage[\s\S]*no <S3Provider> in scope[\s\S]*no objectStorage prop[\s\S]*Fix:[\s\S]*<S3Provider[\s\S]*or pass a <Bucket> descriptor[\s\S]*objectStorage=\{<Bucket name="…"/
+    )
   })
 })

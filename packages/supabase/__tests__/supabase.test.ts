@@ -3,12 +3,15 @@ import { render, jsx } from '@r8s/core'
 import { Namespace, OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
 import { operators } from '@r8s/crds'
+import { S3Provider, Bucket } from '@r8s/recipes'
 import type { r8sElement } from '@r8s/core'
 
 // Supabase recipe tests:
 //   1. Operator declarations (cnpg via Database, deduped via OperatorContext)
 //   2. Rendering: defaults (>=5 service deployments), all props, gateway/ingress adaptation
 //   3. Security: no plaintext credentials in rendered output
+//   4. objectStorage resolution: explicit wins → <Bucket/> descriptor →
+//      derived from the S3Provider → actionable throw without either
 import { Supabase } from '../src/index'
 
 const openbao = { backend: 'openbao', mount: 'kv', path: 'test' }
@@ -524,5 +527,116 @@ describe('no secrets backend — CNPG-generated credentials contract', () => {
     const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
     expect(cluster).toBeDefined()
     expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})
+
+describe('objectStorage — derives from the S3Provider', () => {
+  const s3Config = {
+    endpoint: 'https://rustfs:9000',
+    bucket: 'infra',
+    credentialsSecret: 'infra-s3-creds',
+  }
+
+  const findStorage = (result: ReturnType<typeof render>) =>
+    result.resources.find(
+      (r: any) => r.kind === 'Deployment' && r.metadata.name === 'supabase-storage-api'
+    ) as any
+  const s3Env = (result: ReturnType<typeof render>) =>
+    findStorage(result)?.spec.template.spec.containers[0].env as any[] | undefined
+  const envOf = (env: any[] | undefined, name: string) => env?.find((e: any) => e.name === name)
+
+  /** Supabase under an S3Provider only (jwt bundle referenced explicitly). */
+  function renderSupabaseUnderS3Provider(
+    props: Record<string, unknown>,
+    provider = s3Config
+  ): ReturnType<typeof render> {
+    return render(
+      jsx(S3Provider as never, {
+        provider,
+        children: jsx(Supabase, {
+          backup: false,
+          host: 'backend.example.com',
+          jwtSecretsName: 'supabase-jwt',
+          ...props,
+        } as never),
+      })
+    )
+  }
+
+  it('omitted under an S3Provider: the Storage API derives endpoint/bucket/credentials', () => {
+    const result = renderSupabaseUnderS3Provider({})
+    const env = s3Env(result)
+    expect(envOf(env, 'STORAGE_BACKEND').value).toBe('s3')
+    expect(envOf(env, 'GLOBAL_S3_ENDPOINT').value).toBe(s3Config.endpoint)
+    expect(envOf(env, 'GLOBAL_S3_BUCKET').value).toBe(s3Config.bucket)
+    const accessKey = envOf(env, 'GLOBAL_S3_ACCESS_KEY')
+    expect(accessKey.value).toBeUndefined()
+    expect(accessKey.valueFrom.secretKeyRef).toEqual({
+      name: s3Config.credentialsSecret,
+      key: 'accessKey',
+    })
+  })
+
+  it('omitted under an S3Provider: backups default on and derive as well', () => {
+    const result = render(
+      jsx(S3Provider as never, {
+        provider: s3Config,
+        children: jsx(Supabase, {
+          host: 'backend.example.com',
+          jwtSecretsName: 'supabase-jwt',
+        } as never),
+      })
+    )
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster.spec.backup.barmanObjectStore.endpointURL).toBe(s3Config.endpoint)
+    expect(cluster.spec.backup.barmanObjectStore.destinationPath).toBe(
+      `s3://${s3Config.bucket}/supabase-cnpg`
+    )
+    expect(result.resources.filter((r: any) => r.kind === 'ScheduledBackup')).toHaveLength(1)
+  })
+
+  it('explicit object wins over the surrounding provider', () => {
+    const result = renderSupabaseUnderS3Provider({ objectStorage })
+    const env = s3Env(result)
+    expect(envOf(env, 'GLOBAL_S3_ENDPOINT').value).toBe(objectStorage.endpoint)
+    expect(envOf(env, 'GLOBAL_S3_BUCKET').value).toBe(objectStorage.bucket)
+    expect(envOf(env, 'GLOBAL_S3_ACCESS_KEY').valueFrom.secretKeyRef.name).toBe(
+      objectStorage.credentialsSecret
+    )
+  })
+
+  it('<Bucket/> descriptor: provider config is used (name is the scope, bucket comes from the provider)', () => {
+    const result = renderSupabaseUnderS3Provider({
+      objectStorage: jsx(Bucket as never, { name: 'backend-uploads' } as never),
+    })
+    const env = s3Env(result)
+    expect(envOf(env, 'GLOBAL_S3_BUCKET').value).toBe(s3Config.bucket)
+    expect(envOf(env, 'GLOBAL_S3_ENDPOINT').value).toBe(s3Config.endpoint)
+    expect(envOf(env, 'GLOBAL_S3_ACCESS_KEY').valueFrom.secretKeyRef.name).toBe(
+      s3Config.credentialsSecret
+    )
+  })
+
+  it('<Bucket/> descriptor: the bucket override selects a different bucket', () => {
+    const result = renderSupabaseUnderS3Provider({
+      objectStorage: jsx(Bucket as never, { name: 'backend-uploads', bucket: 'uploads' } as never),
+    })
+    expect(envOf(s3Env(result), 'GLOBAL_S3_BUCKET').value).toBe('uploads')
+  })
+
+  it('omitted without a provider throws the actionable guidance (what/why/how)', () => {
+    // jwtSecretsName satisfies the instance-secrets decision so the storage
+    // guidance is what surfaces
+    expect(() =>
+      render(
+        jsx(Supabase, {
+          backup: false,
+          host: 'backend.example.com',
+          jwtSecretsName: 'supabase-jwt',
+        })
+      )
+    ).toThrow(
+      /Supabase "supabase" needs object storage[\s\S]*no <S3Provider> in scope[\s\S]*no objectStorage prop[\s\S]*Fix:[\s\S]*<S3Provider[\s\S]*or pass a <Bucket> descriptor[\s\S]*objectStorage=\{<Bucket name="…"/
+    )
   })
 })

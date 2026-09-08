@@ -959,7 +959,7 @@ export function Matrix(props: MatrixProps) {
         `working backups slowly fills its PVC.\n` +
         `\n` +
         `There is no <S3Provider> in scope, so backups cannot be defaulted on.\n` +
-        `Point the backups at the platform S3 store:\n` +
+        `Fix: point the backups at the platform S3 store:\n` +
         `  <S3Provider …>\n` +
         `    <Matrix name="${name}" database={{ backup: <Bucket name="matrix_backup" /> }} />\n` +
         `\n` +
@@ -1012,7 +1012,7 @@ export function Matrix(props: MatrixProps) {
       throw new Error(
         `Matrix "${name}": backup needs an S3 target.\n` +
           `\n` +
-          `Add an <S3Provider> so backup destinations (and credentials) derive from it:\n` +
+          `Fix: add an <S3Provider> so backup destinations (and credentials) derive from it:\n` +
           `  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
           `     <Matrix name="${name}" database={{ backup: <Bucket name="matrix_backup" /> }} />\n` +
           `\n` +

@@ -3,6 +3,7 @@ import { render, jsx } from '@r8s/core'
 import { Namespace, OperatorContext, SecretContext, RoutingContext } from '@r8s/core/defaults'
 import { runGuardrails, noPlaintextSecrets, validateResource } from '@r8s/core'
 import { operators } from '@r8s/crds'
+import { S3Provider, Bucket } from '@r8s/recipes'
 import type { r8sElement } from '@r8s/core'
 
 // Nextcloud recipe tests:
@@ -10,16 +11,40 @@ import type { r8sElement } from '@r8s/core'
 //   2. Rendering: defaults, all props, gateway/ingress adaptation, cron
 //   3. Persistence: /var/www/html claim shared by app + cron
 //   4. Security: no plaintext credentials in rendered output
+//   5. objectStorage resolution: explicit wins → <Bucket/> descriptor →
+//      derived from the S3Provider → actionable throw without either
 import { Nextcloud } from '../src/index'
 
 const openbao = { backend: 'openbao', mount: 'kv', path: 'test' }
+
+const s3Config = {
+  endpoint: 'https://rustfs:9000',
+  bucket: 'infra',
+  credentialsSecret: 'infra-s3-creds',
+}
+
+/** Render Nextcloud under an S3Provider (storage + backups both derive). */
+function renderNextcloudUnderS3Provider(
+  props: Record<string, unknown>,
+  provider = s3Config
+): ReturnType<typeof render> {
+  return render(
+    jsx(S3Provider as never, {
+      provider,
+      children: jsx(SecretContext.Provider, {
+        value: openbao as never,
+        children: jsx(Nextcloud, props as never),
+      }),
+    })
+  )
+}
 
 /** Render Nextcloud inside a Platform-like secrets backend (OpenBao). */
 function renderNextcloud(props: Record<string, unknown>): ReturnType<typeof render> {
   return render(
     jsx(SecretContext.Provider, {
       value: openbao as never,
-      children: jsx(Nextcloud, { backup: false, ...(props ?? {}) } as never),
+      children: jsx(Nextcloud, { backup: false, objectStorage, ...(props ?? {}) } as never),
     })
   )
 }
@@ -28,7 +53,7 @@ function renderNextcloud(props: Record<string, unknown>): ReturnType<typeof rend
 function elementWithContext(ops: any[], props: Record<string, unknown>): r8sElement {
   return jsx(OperatorContext.Provider, {
     value: ops,
-    children: jsx(Nextcloud, { backup: false, ...(props ?? {}) } as never),
+    children: jsx(Nextcloud, { backup: false, objectStorage, ...(props ?? {}) } as never),
   })
 }
 
@@ -194,7 +219,11 @@ describe('rendering defaults', () => {
         value: { mode: 'gateway', gatewayClassName: 'eg' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Nextcloud, { backup: false, host: 'cloud.example.com' }),
+          children: jsx(Nextcloud, {
+            backup: false,
+            host: 'cloud.example.com',
+            objectStorage,
+          }),
         }),
       })
     )
@@ -208,7 +237,11 @@ describe('rendering defaults', () => {
         value: { mode: 'ingress' },
         children: jsx(SecretContext.Provider, {
           value: openbao as never,
-          children: jsx(Nextcloud, { backup: false, host: 'cloud.example.com' }),
+          children: jsx(Nextcloud, {
+            backup: false,
+            host: 'cloud.example.com',
+            objectStorage,
+          }),
         }),
       })
     )
@@ -333,7 +366,11 @@ describe('secrets handling', () => {
     const result = render(
       jsx(SecretContext.Provider, {
         value: { backend: 'vault', mount: 'kv', path: 'apps' },
-        children: jsx(Nextcloud, { backup: false, host: 'cloud.example.com' }),
+        children: jsx(Nextcloud, {
+          backup: false,
+          host: 'cloud.example.com',
+          objectStorage,
+        }),
       })
     )
     const kinds = result.resources.map((r) => r.kind)
@@ -353,6 +390,7 @@ describe('secrets handling', () => {
           backup: false,
           host: 'cloud.example.com',
           secretsName: 'existing-secrets',
+          objectStorage,
         })
       )
     ).not.toThrow()
@@ -421,7 +459,11 @@ describe('namespace scope', () => {
         value: 'team-a',
         children: jsx(SecretContext.Provider, {
           value: openbao,
-          children: jsx(Nextcloud, { host: 'app.example.com', backup: false } as never),
+          children: jsx(Nextcloud, {
+            host: 'app.example.com',
+            backup: false,
+            objectStorage,
+          } as never),
         }),
       })
     )
@@ -437,6 +479,7 @@ describe('no secrets backend — CNPG-generated credentials contract', () => {
         backup: false,
         host: 'cloud.example.com',
         secretsName: 'existing-secrets',
+        objectStorage,
       } as never)
     )
     const env = findAppDeployment(result).spec.template.spec.containers[0].env
@@ -453,5 +496,90 @@ describe('no secrets backend — CNPG-generated credentials contract', () => {
     const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
     expect(cluster).toBeDefined()
     expect(cluster.spec.bootstrap.initdb.secret).toBeUndefined()
+  })
+})
+
+describe('objectStorage — derives from the S3Provider', () => {
+  const s3Env = (result: ReturnType<typeof render>) =>
+    findAppDeployment(result).spec.template.spec.containers[0].env as any[]
+  const envOf = (env: any[], name: string) => env.find((e: any) => e.name === name)
+
+  it('omitted under an S3Provider: scheme-less host + SSL derive from the provider URL', () => {
+    const result = renderNextcloudUnderS3Provider({ host: 'cloud.example.com' })
+    const env = s3Env(result)
+    expect(envOf(env, 'OBJECTSTORE_S3_HOST').value).toBe('rustfs:9000')
+    expect(envOf(env, 'OBJECTSTORE_S3_BUCKET').value).toBe(s3Config.bucket)
+    expect(envOf(env, 'OBJECTSTORE_S3_SSL').value).toBe('true')
+    expect(envOf(env, 'OBJECTSTORE_S3_PORT')).toBeUndefined()
+    const accessKey = envOf(env, 'AWS_ACCESS_KEY_ID')
+    expect(accessKey.value).toBeUndefined()
+    expect(accessKey.valueFrom.secretKeyRef).toEqual({
+      name: s3Config.credentialsSecret,
+      key: 'accessKey',
+    })
+  })
+
+  it('omitted under an S3Provider: a plain-http provider URL flips the SSL default', () => {
+    const result = renderNextcloudUnderS3Provider(
+      { host: 'cloud.example.com' },
+      { ...s3Config, endpoint: 'http://rustfs-insecure:9000' }
+    )
+    expect(envOf(s3Env(result), 'OBJECTSTORE_S3_HOST').value).toBe('rustfs-insecure:9000')
+    expect(envOf(s3Env(result), 'OBJECTSTORE_S3_SSL').value).toBe('false')
+  })
+
+  it('omitted under an S3Provider: backups default on and derive too', () => {
+    const result = renderNextcloudUnderS3Provider({ host: 'cloud.example.com' })
+    const cluster = result.resources.find((r: any) => r.kind === 'Cluster') as any
+    expect(cluster.spec.backup.barmanObjectStore.endpointURL).toBe(s3Config.endpoint)
+    expect(result.resources.filter((r) => r.kind === 'ScheduledBackup')).toHaveLength(1)
+  })
+
+  it('explicit object wins over the provider and keeps its documented shape', () => {
+    const result = renderNextcloudUnderS3Provider({
+      host: 'cloud.example.com',
+      objectStorage: { ...objectStorage, port: 9000, ssl: false },
+    })
+    const env = s3Env(result)
+    expect(envOf(env, 'OBJECTSTORE_S3_HOST').value).toBe('s3.internal.example.com')
+    expect(envOf(env, 'OBJECTSTORE_S3_PORT').value).toBe('9000')
+    expect(envOf(env, 'OBJECTSTORE_S3_SSL').value).toBe('false')
+    expect(envOf(env, 'AWS_ACCESS_KEY_ID').valueFrom.secretKeyRef.name).toBe(
+      objectStorage.credentialsSecret
+    )
+  })
+
+  it('<Bucket/> descriptor: provider config is used and normalized (name is the scope)', () => {
+    const result = renderNextcloudUnderS3Provider({
+      host: 'cloud.example.com',
+      objectStorage: jsx(Bucket as never, { name: 'cloud' } as never),
+    })
+    const env = s3Env(result)
+    expect(envOf(env, 'OBJECTSTORE_S3_HOST').value).toBe('rustfs:9000')
+    expect(envOf(env, 'OBJECTSTORE_S3_BUCKET').value).toBe(s3Config.bucket)
+  })
+
+  it('<Bucket/> descriptor: the bucket override selects a different bucket', () => {
+    const result = renderNextcloudUnderS3Provider({
+      host: 'cloud.example.com',
+      objectStorage: jsx(Bucket as never, { name: 'cloud', bucket: 'files' } as never),
+    })
+    expect(envOf(s3Env(result), 'OBJECTSTORE_S3_BUCKET').value).toBe('files')
+  })
+
+  it('omitted without a provider throws the actionable guidance (what/why/how)', () => {
+    // secretsName satisfies the instance-secrets decision so the storage
+    // guidance is what surfaces
+    expect(() =>
+      render(
+        jsx(Nextcloud, {
+          backup: false,
+          host: 'cloud.example.com',
+          secretsName: 'existing-secrets',
+        })
+      )
+    ).toThrow(
+      /Nextcloud "nextcloud" needs object storage[\s\S]*no <S3Provider> in scope[\s\S]*no objectStorage prop[\s\S]*Fix:[\s\S]*<S3Provider[\s\S]*or pass a <Bucket> descriptor[\s\S]*objectStorage=\{<Bucket name="…"/
+    )
   })
 })

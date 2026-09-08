@@ -5,6 +5,9 @@ import {
   WebService,
   Endpoint,
   databaseCredentialsRef,
+  resolveObjectStorage,
+  useS3,
+  type BucketProps,
   type DatabaseProps,
 } from '@r8s/recipes'
 
@@ -21,23 +24,32 @@ export interface SupabaseProps {
   storage?: string
   /**
    * Render the Storage API service (defaults to true). Set false to run a
-   * minimal auth + REST-only Supabase. The S3 objectStorage prop is always
-   * required so a bucket is declared for the platform.
+   * minimal auth + REST-only Supabase. The Storage API still declares its
+   * object-storage decision (see below) whenever the component renders.
    */
   storageApi?: boolean
   /**
-   * S3-compatible object storage for the Storage API (RustFS in the platform).
-   * Reference a bucket whose credentials live in a Secret provisioned by
-   * the secrets backend (keys: accessKey, secretKey) — never plaintext.
+   * S3-compatible object storage for the Storage API (RustFS in the
+   * platform). Resolution order: this prop → a `<Bucket name="…" />` descriptor →
+   * derived from the surrounding `<S3Provider>` (omit it entirely there —
+   * backups and storage then share one declared source).
+   *
+   * Storage-API-style consumers take a BUCKET NAME, not a prefixed path:
+   * a descriptor's `bucket` override selects the bucket, its `name` is
+   * only the logical scope (prefix). The bucket's credentials must live
+   * in a Secret provisioned by the secrets backend (keys: accessKey,
+   * secretKey) — never plaintext.
    */
-  objectStorage: {
-    /** S3 endpoint URL, e.g. https://s3.internal.example.com */
-    endpoint: string
-    /** Bucket for uploads and stored files */
-    bucket: string
-    /** Name of the Secret holding accessKey / secretKey */
-    credentialsSecret: string
-  }
+  objectStorage?:
+    | {
+        /** S3 endpoint URL, e.g. https://s3.internal.example.com */
+        endpoint: string
+        /** Bucket for uploads and stored files */
+        bucket: string
+        /** Name of the Secret holding accessKey / secretKey */
+        credentialsSecret: string
+      }
+    | { type: unknown; props: BucketProps }
   /**
    * S3 region reported to the Storage API (GLOBAL_S3_REGION, defaults to
    * 'us-east-1'). For S3-compatible stores like RustFS any consistent
@@ -104,44 +116,35 @@ export interface SupabaseProps {
  * the `${name}-jwt` bundle is provisioned for you. Without a backend you
  * must point `jwtSecretsName` at a pre-created Secret.
  *
+ * Under an `<S3Provider>` both the database backups and the Storage API's
+ * object storage derive from it — `objectStorage` can be omitted entirely.
+ * Pass it only to target a different bucket than the provider's, either as
+ * a plain object or as `<Bucket name="…" bucket="…" />` (the descriptor's
+ * `bucket` selects the bucket; `name` is the logical scope).
+ *
  * @example
  * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { Supabase } from '@r8s/supabase'
  *
- * // Backups default to on — the S3Provider derives target and credentials
+ * // Backups default to on, objectStorage derives — the S3Provider
+ * // supplies both targets and credentials
  * export default (
  *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
  *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *       <Supabase
- *         name="backend"
- *         host="backend.example.com"
- *         objectStorage={{
- *           endpoint: 'https://s3.internal.example.com',
- *           bucket: 'backend-uploads',
- *           credentialsSecret: 'backend-object-store-credentials',
- *         }}
- *       />
+ *       <Supabase name="backend" host="backend.example.com" />
  *     </Platform>
  *   </S3Provider>
  * )
  *
  * @example
  * // Reference a pre-created JWT bundle instead of provisioning one —
- * // still under an S3Provider so database backups stay on
+ * // still under an S3Provider so backups and storage stay derived
  * import { S3Provider, MinIO } from '@r8s/recipes'
  * import { Supabase } from '@r8s/supabase'
  *
  * export default (
  *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
- *     <Supabase
- *       host="backend.example.com"
- *       jwtSecretsName="backend-jwt"
- *       objectStorage={{
- *         endpoint: 'https://s3.internal.example.com',
- *         bucket: 'backend-uploads',
- *         credentialsSecret: 'backend-object-store-credentials',
- *       }}
- *     />
+ *     <Supabase host="backend.example.com" jwtSecretsName="backend-jwt" />
  *   </S3Provider>
  * )
  */
@@ -225,7 +228,7 @@ export function Supabase(props: SupabaseProps) {
           `Fix: configure a secrets backend on the Platform holding the bundle ` +
           `at path <mount-path>/${name}/jwt:\n` +
           `  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n` +
-          `    <Supabase name="${name}" host="${host}" objectStorage={{ endpoint: '...', bucket: '...', credentialsSecret: '...' }} />\n` +
+          `    <Supabase name="${name}" host="${host}" />\n` +
           `  </Platform>\n` +
           `\n` +
           `Or reference a pre-created Secret (keys: jwtSecret, anonKey, serviceRoleKey, referrerURLs):\n` +
@@ -258,6 +261,19 @@ export function Supabase(props: SupabaseProps) {
           })
     )
   }
+
+  // --- Object storage — derived from the S3Provider like backups -------------
+  // Same resolution contract as Database's backup decision (#115): an
+  // explicit object wins, a <Bucket/> descriptor points the Storage API at
+  // another store, and omission under an <S3Provider> derives everything.
+  const s3 = useS3()
+  const store = resolveObjectStorage(
+    'Supabase',
+    name,
+    'the Storage API writes uploads and stored files to its bucket',
+    objectStorage,
+    s3
+  )
 
   // --- Database (CNPG) — the Postgres core -----------------------------------
   // Wraps every Postgres-backed service so credentials stay consistent with
@@ -369,8 +385,8 @@ export function Supabase(props: SupabaseProps) {
                 PORT: '5000',
                 DATABASE_URL: dbUri,
                 STORAGE_BACKEND: 's3',
-                GLOBAL_S3_BUCKET: objectStorage.bucket,
-                GLOBAL_S3_ENDPOINT: objectStorage.endpoint,
+                GLOBAL_S3_BUCKET: store.bucket,
+                GLOBAL_S3_ENDPOINT: store.endpoint,
                 GLOBAL_S3_REGION: region,
                 GLOBAL_S3_FORCE_PATH_STYLE: 'true',
                 IMGPROXY_URL: `http://${name}-imgproxy:8080`,
@@ -382,11 +398,11 @@ export function Supabase(props: SupabaseProps) {
                 ANON_KEY: { secret: jwtBundleName, key: 'anonKey' },
                 SERVICE_KEY: { secret: jwtBundleName, key: 'serviceRoleKey' },
                 GLOBAL_S3_ACCESS_KEY: {
-                  secret: objectStorage.credentialsSecret,
+                  secret: store.credentialsSecret,
                   key: 'accessKey',
                 },
                 GLOBAL_S3_SECRET_KEY: {
-                  secret: objectStorage.credentialsSecret,
+                  secret: store.credentialsSecret,
                   key: 'secretKey',
                 },
               }}

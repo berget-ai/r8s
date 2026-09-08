@@ -1,7 +1,8 @@
 import { Platform, S3Provider, MinIO } from '@r8s/recipes'
 import { Outline } from '@r8s/outline'
 
-// Backups default to on — the S3Provider derives target and credentials
+// Backups and objectStorage both default to on — the S3Provider derives
+// targets and credentials
 export default (
   <S3Provider
     provider={
@@ -12,11 +13,6 @@ export default (
       <Outline
         name="wiki"
         host="wiki.example.com"
-        objectStorage={{
-          endpoint: 'https://s3.internal.example.com',
-          bucket: 'wiki-attachments',
-          credentialsSecret: 'wiki-attachments-credentials',
-        }}
         sso={{
           issuer: 'https://keycloak.example.com/realms/platform',
           clientId: 'outline',

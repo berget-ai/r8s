@@ -71,7 +71,19 @@ const fixtures: Fixture[] = [
   {
     name: 'Outline',
     component: Outline,
-    props: { host: 'wiki.example.com', backup: false },
+    // objectStorage is a required decision (like backup): explicit object
+    // since this matrix exercises endpoint × secrets-backend wiring, not
+    // the S3Provider derivation (see s3-provider.test.tsx + each package's
+    // own suite for the derived cases).
+    props: {
+      host: 'wiki.example.com',
+      backup: false,
+      objectStorage: {
+        endpoint: 'https://s3.example.com',
+        bucket: 'wiki-attachments',
+        credentialsSecret: 'wiki-attachments-credentials',
+      },
+    },
     expectedHosts: ['wiki.example.com'],
   },
   {
@@ -104,7 +116,16 @@ const fixtures: Fixture[] = [
   {
     name: 'Nextcloud',
     component: Nextcloud,
-    props: { port: 80, host: 'cloud.example.com', backup: false },
+    props: {
+      port: 80,
+      host: 'cloud.example.com',
+      backup: false,
+      objectStorage: {
+        endpoint: 's3.example.com',
+        bucket: 'cloud-files',
+        credentialsSecret: 'cloud-files-credentials',
+      },
+    },
     expectedHosts: ['cloud.example.com'],
   },
   {
