@@ -1,7 +1,8 @@
 import { Platform, S3Provider, MinIO } from '@r8s/recipes'
 import { Eneo } from '@r8s/eneo'
 
-// Backups default to on — the S3Provider derives target and credentials
+// Backups and objectStorage both default to on — the S3Provider derives
+// targets and credentials
 export default (
   <S3Provider
     provider={
@@ -9,15 +10,7 @@ export default (
     }
   >
     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
-      <Eneo
-        name="eneo"
-        host="eneo.example.com"
-        objectStorage={{
-          endpoint: 'https://s3.internal.example.com',
-          bucket: 'eneo-corpora',
-          credentialsSecret: 'eneo-object-storage',
-        }}
-      />
+      <Eneo name="eneo" host="eneo.example.com" />
     </Platform>
   </S3Provider>
 )

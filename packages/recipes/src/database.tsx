@@ -311,7 +311,7 @@ export function Database(props: DatabaseProps) {
           `working backups slowly fills its PVC.\n` +
           `\n` +
           `There is no <S3Provider> in scope, so backups cannot be defaulted on.\n` +
-          `Add one in scope (inside a <Platform> or stand-alone) and backups\n` +
+          `Fix: add one in scope (inside a <Platform> or stand-alone) and backups\n` +
           `enable automatically:\n` +
           `  import { Database, S3Provider, MinIO } from '@r8s/recipes'\n` +
           `  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
@@ -357,10 +357,11 @@ export function Database(props: DatabaseProps) {
     throw new Error(
       `Database "${name}" has backup configured without an S3 target.\n` +
         `\n` +
-        `Add an <S3Provider> to the Platform — endpoint, bucket and credentials are derived from it:\n` +
+        `Fix: add an <S3Provider> to the Platform — endpoint, bucket and credentials are derived from it:\n` +
         `  <Platform>\n` +
         `    <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
         `      <Database name="${name}" backup />\n` +
+        `    </S3Provider>\n` +
         `  </Platform>\n` +
         `\n` +
         `or pass the target explicitly:\n` +
@@ -428,8 +429,9 @@ export function Database(props: DatabaseProps) {
         throw new Error(
           `Database "${name}" has backup configured without backup credentials.\n` +
             `\n` +
-            `Add an <S3Provider> to the Platform — backup endpoint, bucket and credentials are derived from it.\n` +
+            `The backup has an S3 target but no credentials Secret to authenticate with.\n` +
             `\n` +
+            `Fix: add an <S3Provider> to the Platform — backup endpoint, bucket and credentials are derived from it.\n` +
             `\n` +
             `Set an existing Secret holding keys 'access-key-id' and 'secret-access-key':\n` +
             `  backup={{ ..., credentialsSecret: 'my-backup-creds' }}\n` +

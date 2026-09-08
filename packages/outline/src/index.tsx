@@ -9,6 +9,9 @@ import {
   canProvisionSecrets,
   secretsRequiredError,
   databaseCredentialsRef,
+  resolveObjectStorage,
+  useS3,
+  type BucketProps,
   type DatabaseProps,
 } from '@r8s/recipes'
 import type { SecretRef } from '@r8s/recipes'
@@ -60,19 +63,28 @@ export interface OutlineProps {
   }
   /**
    * S3-compatible object storage for attachments (RustFS in the platform).
-   * Reference a bucket whose credentials live in a Secret provisioned by
-   * the secrets backend (keys: accessKey, secretKey) — never plaintext.
+   * Resolution order: this prop → a `<Bucket name="…" />` descriptor →
+   * derived from the surrounding `<S3Provider>` (omit it entirely there —
+   * attachments and database backups then share one declared source).
+   *
+   * Storage-API-style consumers take a BUCKET NAME, not a prefixed path:
+   * a descriptor's `bucket` override selects the bucket, its `name` is
+   * only the logical scope (prefix). The bucket's credentials must live
+   * in a Secret provisioned by the secrets backend (keys: accessKey,
+   * secretKey) — never plaintext.
    */
-  objectStorage?: {
-    /** S3 endpoint URL, e.g. https://s3.internal.example.com */
-    endpoint: string
-    /** Bucket name for attachments */
-    bucket: string
-    /** Name of the Secret holding accessKey / secretKey */
-    credentialsSecret: string
-    /** Region string for Outline's S3 client (defaults to 'us-east-1') */
-    region?: string
-  }
+  objectStorage?:
+    | {
+        /** S3 endpoint URL, e.g. https://s3.internal.example.com */
+        endpoint: string
+        /** Bucket name for attachments */
+        bucket: string
+        /** Name of the Secret holding accessKey / secretKey */
+        credentialsSecret: string
+        /** Region string for Outline's S3 client (defaults to 'us-east-1') */
+        region?: string
+      }
+    | { type: unknown; props: BucketProps }
   /**
    * OIDC SSO client — register Outline as a client in Keycloak (the
    * Auth recipe). With a secrets backend, client id/secret are taken
@@ -131,22 +143,24 @@ export interface OutlineProps {
  *   backend (openbao / vault), or referenced from an existing Secret
  * - OIDC SSO against the Keycloak `Auth` recipe
  *
+ * Under an `<S3Provider>` both the database backups and the attachments'
+ * object storage derive from it — `objectStorage` can be omitted entirely.
+ * Pass it only to target a different bucket than the provider's, either as
+ * a plain object or as `<Bucket name="…" bucket="…" />` (the descriptor's
+ * `bucket` selects the bucket; `name` is the logical scope).
+ *
  * @example
  * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { Outline } from '@r8s/outline'
  *
- * // Backups default to on — the S3Provider derives target and credentials
+ * // Backups default to on, objectStorage derives — the S3Provider
+ * // supplies both targets and credentials
  * export default (
  *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
  *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
  *       <Outline
  *         name="wiki"
  *         host="wiki.example.com"
- *         objectStorage={{
- *           endpoint: 'https://s3.internal.example.com',
- *           bucket: 'wiki-attachments',
- *           credentialsSecret: 'wiki-attachments-credentials',
- *         }}
  *         sso={{
  *           issuer: 'https://keycloak.example.com/realms/platform',
  *           clientId: 'outline',
@@ -236,6 +250,19 @@ export function Outline(props: OutlineProps) {
     resources_.push(...declareIfMissing(sharedOperators))
   }
 
+  // --- Object storage (attachments) — derived from the S3Provider ------------
+  // Same resolution contract as Database's backup decision (#115): an
+  // explicit object wins, a <Bucket/> descriptor points attachments at
+  // another store, and omission under an <S3Provider> derives everything.
+  const s3 = useS3()
+  const store = resolveObjectStorage(
+    'Outline',
+    name,
+    'attachments are stored in an S3 bucket',
+    objectStorage,
+    s3
+  )
+
   // Redis — caching + websockets. Standalone is the facit shape: durable via
   // a 1Gi PVC, observable via the exporter sidecar, sized 100m/256Mi→250m/512Mi.
   // (A Replication topology exists for durable queues; Outline's cache can
@@ -319,17 +346,13 @@ export function Outline(props: OutlineProps) {
     ENABLE_UPDATES: 'false',
     LOG_LEVEL: 'info',
     ...(cache ? { REDIS_URL: `redis://${name}-redis:6379` } : {}),
-    ...(objectStorage
-      ? {
-          FILE_STORAGE: 's3',
-          AWS_REGION: objectStorage.region ?? 'us-east-1',
-          // Facit semantics: this is the ENDPOINT only, not endpoint/bucket
-          AWS_S3_UPLOAD_BUCKET_URL: objectStorage.endpoint,
-          AWS_S3_UPLOAD_BUCKET_NAME: objectStorage.bucket,
-          AWS_S3_FORCE_PATH_STYLE: 'true',
-          AWS_S3_ACL: 'private',
-        }
-      : {}),
+    FILE_STORAGE: 's3',
+    AWS_REGION: store.region ?? 'us-east-1',
+    // Facit semantics: this is the ENDPOINT only, not endpoint/bucket
+    AWS_S3_UPLOAD_BUCKET_URL: store.endpoint,
+    AWS_S3_UPLOAD_BUCKET_NAME: store.bucket,
+    AWS_S3_FORCE_PATH_STYLE: 'true',
+    AWS_S3_ACL: 'private',
     ...(sso
       ? {
           OIDC_DISPLAY_NAME: sso.displayName ?? 'SSO',
@@ -355,12 +378,8 @@ export function Outline(props: OutlineProps) {
     SECRET_KEY: { secret: platformSecretsName, key: 'SECRET_KEY' },
     UTILS_SECRET: { secret: platformSecretsName, key: 'UTILS_SECRET' },
     PGPASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
-    ...(objectStorage
-      ? {
-          AWS_ACCESS_KEY_ID: { secret: objectStorage.credentialsSecret, key: 'accessKey' },
-          AWS_SECRET_ACCESS_KEY: { secret: objectStorage.credentialsSecret, key: 'secretKey' },
-        }
-      : {}),
+    AWS_ACCESS_KEY_ID: { secret: store.credentialsSecret, key: 'accessKey' },
+    AWS_SECRET_ACCESS_KEY: { secret: store.credentialsSecret, key: 'secretKey' },
     ...(sso
       ? {
           OIDC_CLIENT_SECRET: sso.clientSecretRef ?? {

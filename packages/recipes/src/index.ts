@@ -81,6 +81,15 @@ export {
   resolveBucket,
 } from './s3-provider'
 
+// App-package accessor for the platform's object store — the
+// objectStorage resolution contract shared by supabase/outline/eneo/
+// nextcloud (declare-once on the S3Provider, consumers derive).
+export {
+  resolveObjectStorage,
+  type ObjectStorageStore,
+  type ObjectStorageBucketDescriptor,
+} from './object-storage'
+
 // Composition helpers — loose building blocks for packages
 export { useOperators } from './use-operators'
 export { secretsRequiredError, type SecretsRequiredOptions } from './errors'

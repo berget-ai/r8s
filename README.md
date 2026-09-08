@@ -67,15 +67,8 @@ export default (
           <EndpointProvider provider={<EnvoyGateway tls={{ clusterIssuer: 'letsencrypt' }} />}>
             <Namespace name="apps">
               <App name="web" image="myorg/web:v2" host="app.example.com" />
-              <Supabase
-                name="supabase"
-                host="db.example.com"
-                objectStorage={{
-                  endpoint: 'https://s3.example.com',
-                  bucket: 'supabase-files',
-                  credentialsSecret: 'supabase-s3-creds',
-                }}
-              />
+              { /* Supabase: backups, storage, credentials all derive from the S3Provider above */ }
+              <Supabase name="supabase" host="db.example.com" />
             </Namespace>
           </EndpointProvider>
         </DnsProvider>

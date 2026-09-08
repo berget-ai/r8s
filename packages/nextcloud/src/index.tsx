@@ -1,7 +1,16 @@
 import { jsx, Fragment, useContext, declareOperator } from '@r8s/core'
 import type { Deployment, EnvVar, PersistentVolumeClaim, Service } from '@r8s/k8s-types'
 import { OperatorContext, SecretContext, useNamespace } from '@r8s/core/defaults'
-import { Database, Endpoint, databaseCredentialsRef, type DatabaseProps } from '@r8s/recipes'
+import {
+  Database,
+  Endpoint,
+  databaseCredentialsRef,
+  isBucketElement,
+  resolveObjectStorage,
+  useS3,
+  type BucketProps,
+  type DatabaseProps,
+} from '@r8s/recipes'
 import { RedisReplicationComponent } from '@r8s/crds/redis'
 import { declareIfMissing } from '@r8s/operator-redis'
 import type { SecretRef } from '@r8s/recipes'
@@ -16,10 +25,11 @@ export interface NextcloudProps {
   /** Public hostname for the web UI and WebDAV (required) */
   host: string
   /**
-   * Number of replicas. Safe to scale beyond 1 when `objectStorage` is
-   * configured (file blobs live in S3) and `cache` is enabled — Nextcloud
-   * becomes effectively stateless. Requires a StorageClass with
-   * ReadWriteMany support for the /var/www/html claim.
+   * Number of replicas. Safe to scale beyond 1 when file blobs live in S3
+   * (always — `objectStorage` is a required decision, derived from the
+   * platform's S3Provider) and `cache` is enabled — Nextcloud becomes
+   * effectively stateless. Requires a StorageClass with ReadWriteMany
+   * support for the /var/www/html claim.
    */
   replicas?: number
   /** Provision a Redis replication set for file locking and caching (default: true) */
@@ -37,24 +47,37 @@ export interface NextcloudProps {
   storageClassName?: string
   /**
    * S3-compatible object storage used as primary storage for files
-   * (RustFS in the platform). Reference a bucket whose credentials live
+   * (RustFS in the platform). Resolution order: this prop → a
+   * `<Bucket name="…" />` descriptor → derived from the surrounding
+   * `<S3Provider>` (omit it entirely there — file storage and database
+   * backups then share one declared source).
+   *
+   * Storage-API-style consumers take a BUCKET NAME, not a prefixed path:
+   * a descriptor's `bucket` override selects the bucket, its `name` is
+   * only the logical scope (prefix). The bucket's credentials must live
    * in a Secret provisioned by the secrets backend (keys: accessKey,
    * secretKey) — never plaintext.
+   *
+   * The explicit prop takes an S3 host WITHOUT protocol/scheme (Nextcloud's
+   * OBJECTSTORE_S3_HOST convention); derived values are normalized from
+   * the provider's full URL.
    */
-  objectStorage?: {
-    /** S3 host WITHOUT protocol/scheme, e.g. s3.internal.example.com */
-    endpoint: string
-    /** Bucket used for user files */
-    bucket: string
-    /** Name of the Secret holding accessKey / secretKey */
-    credentialsSecret: string
-    /** Region string for the S3 client (defaults to 'us-east-1') */
-    region?: string
-    /** TCP port of the S3 endpoint (defaults to the provider default, typically 443) */
-    port?: number
-    /** Use TLS against the S3 endpoint (default: true) */
-    ssl?: boolean
-  }
+  objectStorage?:
+    | {
+        /** S3 host WITHOUT protocol/scheme, e.g. s3.internal.example.com */
+        endpoint: string
+        /** Bucket used for user files */
+        bucket: string
+        /** Name of the Secret holding accessKey / secretKey */
+        credentialsSecret: string
+        /** Region string for the S3 client (defaults to 'us-east-1') */
+        region?: string
+        /** TCP port of the S3 endpoint (defaults to the provider default, typically 443) */
+        port?: number
+        /** Use TLS against the S3 endpoint (default: true) */
+        ssl?: boolean
+      }
+    | { type: unknown; props: BucketProps }
   /**
    * Name of an existing Secret holding the Nextcloud app secrets
    * (key: adminPassword). Required unless a secrets backend
@@ -106,45 +129,35 @@ const STATUS_PATH = '/status.php'
  * needs the /var/www/html claim volume-mounted; the CronJob shares the
  * same claim so background jobs operate on the live data tree.
  *
+ * Under an `<S3Provider>` both the database backups and the primary file
+ * storage derive from it — `objectStorage` can be omitted entirely. Pass
+ * it only to target a different bucket than the provider's, either as a
+ * plain object or as `<Bucket name="…" bucket="…" />` (the descriptor's
+ * `bucket` selects the bucket; `name` is the logical scope).
+ *
  * @example
  * import { Platform, S3Provider, MinIO } from '@r8s/recipes'
  * import { Nextcloud } from '@r8s/nextcloud'
  *
- * // Backups default to on — the S3Provider derives target and credentials
+ * // Backups default to on, objectStorage derives — the S3Provider
+ * // supplies both targets and credentials
  * export default (
  *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
  *     <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>
- *       <Nextcloud
- *         name="cloud"
- *         host="cloud.example.com"
- *         objectStorage={{
- *           endpoint: 's3.internal.example.com',
- *           bucket: 'cloud-files',
- *           credentialsSecret: 'cloud-files-credentials',
- *         }}
- *       />
+ *       <Nextcloud name="cloud" host="cloud.example.com" />
  *     </Platform>
  *   </S3Provider>
  * )
  *
  * @example
  * // Explicit secret references instead of a Platform secrets backend —
- * // still under an S3Provider so database backups stay on
+ * // still under an S3Provider so backups and file storage stay derived
  * import { S3Provider, MinIO } from '@r8s/recipes'
  * import { Nextcloud } from '@r8s/nextcloud'
  *
  * export default (
  *   <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>
- *     <Nextcloud
- *       name="cloud"
- *       host="${env:CLOUD_HOST}"
- *       secretsName="cloud-app-secrets"
- *       objectStorage={{
- *         endpoint: '${env:S3_ENDPOINT}',
- *         bucket: 'cloud-files',
- *         credentialsSecret: 'cloud-files-credentials',
- *       }}
- *     />
+ *     <Nextcloud name="cloud" host="${env:CLOUD_HOST}" secretsName="cloud-app-secrets" />
  *   </S3Provider>
  * )
  */
@@ -271,6 +284,35 @@ export function Nextcloud(props: NextcloudProps) {
   }
   resources_.push(jsx('PersistentVolumeClaim', htmlPvc))
 
+  // --- Object storage (primary file storage) — derived from the S3Provider --
+  // Same resolution contract as Database's backup decision (#115): an
+  // explicit object wins, a <Bucket/> descriptor points file storage at
+  // another store, and omission under an <S3Provider> derives everything.
+  const s3 = useS3()
+  const store = resolveObjectStorage(
+    'Nextcloud',
+    name,
+    'user files use S3 as their primary storage',
+    objectStorage,
+    s3
+  )
+  // OBJECTSTORE_S3_HOST is scheme-less (MinIO convention) while providers
+  // and <Bucket/> descriptors publish a full URL. Values derived from the
+  // provider are normalized: scheme stripped, SSL default taken from it.
+  // An explicit prop keeps its documented host shape (ssl defaults true).
+  const derived = objectStorage === undefined || isBucketElement(objectStorage)
+  const scheme = derived ? store.endpoint.match(/^(https?):\/\//) : null
+  const explicitStore = objectStorage && !isBucketElement(objectStorage) ? objectStorage : undefined
+  const fileStore = {
+    host: scheme ? store.endpoint.replace(/^https?:\/\//, '') : store.endpoint,
+    bucket: store.bucket,
+    credentialsSecret: store.credentialsSecret,
+    // Region: explicit prop wins, otherwise the provider's (both resolve
+    // through the store; the consumption default stays 'us-east-1').
+    region: explicitStore ? explicitStore.region : store.region,
+    port: explicitStore?.port,
+    ssl: explicitStore?.ssl ?? (scheme ? scheme[1] === 'https' : true),
+  }
   // --- Env wiring --------------------------------------------------------------
   // Every credential is referenced with $(VAR) expansion or secretKeyRef —
   // no plaintext in the manifest. Secret-backed vars are declared BEFORE
@@ -281,12 +323,8 @@ export function Nextcloud(props: NextcloudProps) {
   const secrets: Record<string, SecretRef | string> = {
     PGPASSWORD: { secret: dbCredentialsRef.name, key: dbCredentialsRef.key },
     NEXTCLOUD_ADMIN_PASSWORD: { secret: appSecretsName, key: 'adminPassword' },
-    ...(objectStorage
-      ? {
-          AWS_ACCESS_KEY_ID: { secret: objectStorage.credentialsSecret, key: 'accessKey' },
-          AWS_SECRET_ACCESS_KEY: { secret: objectStorage.credentialsSecret, key: 'secretKey' },
-        }
-      : {}),
+    AWS_ACCESS_KEY_ID: { secret: fileStore.credentialsSecret, key: 'accessKey' },
+    AWS_SECRET_ACCESS_KEY: { secret: fileStore.credentialsSecret, key: 'secretKey' },
   }
 
   const env: Record<string, string> = {
@@ -301,21 +339,17 @@ export function Nextcloud(props: NextcloudProps) {
     OVERWRITEPROTOCOL: 'https',
     OVERWRITECLIURL: `https://${host}`,
     ...(cache ? { REDIS_HOST: `${name}-redis`, REDIS_HOST_PORT: '6379' } : {}),
-    ...(objectStorage
-      ? {
-          OBJECTSTORE_S3_HOST: objectStorage.endpoint,
-          OBJECTSTORE_S3_BUCKET: objectStorage.bucket,
-          OBJECTSTORE_S3_REGION: objectStorage.region ?? 'us-east-1',
-          OBJECTSTORE_S3_SSL: (objectStorage.ssl ?? true) ? 'true' : 'false',
-          ...(objectStorage.port !== undefined && {
-            OBJECTSTORE_S3_PORT: String(objectStorage.port),
-          }),
-          OBJECTSTORE_S3_USEPATH_STYLE: 'true',
-          OBJECTSTORE_S3_AUTOCREATE: 'true',
-          OBJECTSTORE_S3_KEY: '$(AWS_ACCESS_KEY_ID)',
-          OBJECTSTORE_S3_SECRET: '$(AWS_SECRET_ACCESS_KEY)',
-        }
-      : {}),
+    OBJECTSTORE_S3_HOST: fileStore.host,
+    OBJECTSTORE_S3_BUCKET: fileStore.bucket,
+    OBJECTSTORE_S3_REGION: fileStore.region ?? 'us-east-1',
+    OBJECTSTORE_S3_SSL: fileStore.ssl ? 'true' : 'false',
+    ...(fileStore.port !== undefined && {
+      OBJECTSTORE_S3_PORT: String(fileStore.port),
+    }),
+    OBJECTSTORE_S3_USEPATH_STYLE: 'true',
+    OBJECTSTORE_S3_AUTOCREATE: 'true',
+    OBJECTSTORE_S3_KEY: '$(AWS_ACCESS_KEY_ID)',
+    OBJECTSTORE_S3_SECRET: '$(AWS_SECRET_ACCESS_KEY)',
   }
 
   const envVars: EnvVar[] = Object.entries(secrets).map(([envName, ref]) => ({

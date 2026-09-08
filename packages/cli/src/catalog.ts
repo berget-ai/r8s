@@ -785,7 +785,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         type: 'number',
         required: false,
         description:
-          'Number of replicas. Safe to scale beyond 1 when `objectStorage` is configured (file blobs live in S3) and `cache` is enabled — Nextcloud becomes effectively stateless. Requires a StorageClass with ReadWriteMany support for the /var/www/html claim.',
+          'Number of replicas. Safe to scale beyond 1 when file blobs live in S3 (always — `objectStorage` is a required decision derived from the S3Provider) and `cache` is enabled — Nextcloud becomes effectively stateless. Requires a StorageClass with ReadWriteMany support for the /var/www/html claim.',
       },
       {
         name: 'cache',
@@ -810,10 +810,10 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
       },
       {
         name: 'objectStorage',
-        type: "{ /** S3 host WITHOUT protocol/scheme, e.g. s3.internal.example.com */ endpoint: string /** Bucket used for user files */ bucket: string /** Name of the Secret holding accessKey / secretKey */ credentialsSecret: string /** Region string for the S3 client (defaults to 'us-east-1') */ region?: string /** TCP port of the S3 endpoint (defaults to the provider default, typically 443) */ port?: number /** Use TLS against the S3 endpoint (default: true) */ ssl?: boolean }",
+        type: '{ endpoint: string; bucket: string; credentialsSecret: string; region?: string; port?: number; ssl?: boolean } | BucketElement',
         required: false,
         description:
-          'S3-compatible object storage used as primary storage for files (RustFS in the platform). Reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
+          'S3-compatible object storage used as primary storage for files (RustFS in the platform). Resolution order: this prop → a <Bucket name="…"/> descriptor → derived from the surrounding <S3Provider> (omit it entirely there). The descriptor\'s `bucket` override selects the bucket, its `name` is only the logical scope. Credentials live in a Secret (keys: accessKey, secretKey) — never plaintext.',
       },
       {
         name: 'secretsName',
@@ -836,7 +836,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
       },
     ],
     example:
-      "import { Platform } from '@r8s/recipes'\nimport { Nextcloud } from '@r8s/nextcloud'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Nextcloud\n      name=\"cloud\"\n      host=\"cloud.example.com\"\n      objectStorage={{\n        endpoint: 's3.internal.example.com',\n        bucket: 'cloud-files',\n        credentialsSecret: 'cloud-files-credentials',\n      }}\n    />\n  </Platform>\n)",
+      'import { Platform, S3Provider, MinIO } from \'@r8s/recipes\'\nimport { Nextcloud } from \'@r8s/nextcloud\'\n\n// Backups and objectStorage both default to on — the S3Provider derives targets and credentials\nexport default (\n  <S3Provider\n    provider={\n      <MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />\n    }\n  >\n    <Platform secrets={{ backend: \'openbao\', mount: \'kv\', path: \'apps\' }}>\n      <Nextcloud name="cloud" host="cloud.example.com" />\n    </Platform>\n  </S3Provider>\n)',
   },
   {
     name: 'Outline',
@@ -884,10 +884,10 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
       },
       {
         name: 'objectStorage',
-        type: "{ /** S3 endpoint URL, e.g. https://s3.internal.example.com */ endpoint: string /** Bucket name for attachments */ bucket: string /** Name of the Secret holding accessKey / secretKey */ credentialsSecret: string /** Region string for Outline's S3 client (defaults to 'us-east-1') */ region?: string }",
+        type: '{ endpoint: string; bucket: string; credentialsSecret: string; region?: string } | BucketElement',
         required: false,
         description:
-          'S3-compatible object storage for attachments (RustFS in the platform). Reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
+          'S3-compatible object storage for attachments (RustFS in the platform). Resolution order: this prop → a <Bucket name="…"/> descriptor → derived from the surrounding <S3Provider> (omit it entirely there). The descriptor\'s `bucket` override selects the bucket, its `name` is only the logical scope. Credentials live in a Secret (keys: accessKey, secretKey) — never plaintext.',
       },
       {
         name: 'sso',
@@ -917,7 +917,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
       },
     ],
     example:
-      "import { Platform } from '@r8s/recipes'\nimport { Outline } from '@r8s/outline'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Outline\n      name=\"wiki\"\n      host=\"wiki.example.com\"\n      objectStorage={{\n        endpoint: 'https://s3.internal.example.com',\n        bucket: 'wiki-attachments',\n        credentialsSecret: 'wiki-attachments-credentials',\n      }}\n      sso={{\n        issuer: 'https://keycloak.example.com/realms/platform',\n        clientId: 'outline',\n        clientSecretRef: { secret: 'outline-sso', key: 'clientSecret' },\n      }}\n    />\n  </Platform>\n)",
+      "import { Platform, S3Provider, MinIO } from '@r8s/recipes'\nimport { Outline } from '@r8s/outline'\n\n// Backups and objectStorage both default to on — the S3Provider derives targets and credentials\nexport default (\n  <S3Provider\n    provider={\n      <MinIO endpoint=\"https://rustfs:9000\" bucket=\"infra\" credentialsSecret=\"infra-s3-creds\" />\n    }\n  >\n    <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n      <Outline\n        name=\"wiki\"\n        host=\"wiki.example.com\"\n        sso={{\n          issuer: 'https://keycloak.example.com/realms/platform',\n          clientId: 'outline',\n          clientSecretRef: { secret: 'outline-sso', key: 'clientSecret' },\n        }}\n      />\n    </Platform>\n  </S3Provider>\n)",
   },
   {
     name: 'ChromaDb',
@@ -1066,14 +1066,14 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         type: 'boolean',
         required: false,
         description:
-          'Render the Storage API service (defaults to true). Set false to run a minimal auth + REST-only Supabase. The S3 objectStorage prop is always required so a bucket is declared for the platform.',
+          'Render the Storage API service (defaults to true). Set false to run a minimal auth + REST-only Supabase.',
       },
       {
         name: 'objectStorage',
-        type: '{ /** S3 endpoint URL, e.g. https://s3.internal.example.com */ endpoint: string /** Bucket for uploads and stored files */ bucket: string /** Name of the Secret holding accessKey / secretKey */ credentialsSecret: string }',
-        required: true,
+        type: '{ endpoint: string; bucket: string; credentialsSecret: string } | BucketElement',
+        required: false,
         description:
-          'S3-compatible object storage for the Storage API (RustFS in the platform). Reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
+          'S3-compatible object storage for the Storage API (RustFS in the platform). Resolution order: this prop → a <Bucket name="…"/> descriptor → derived from the surrounding <S3Provider> (omit it entirely there). The descriptor\'s `bucket` override selects the bucket, its `name` is only the logical scope. Credentials live in a Secret (keys: accessKey, secretKey) — never plaintext.',
       },
       {
         name: 'region',
@@ -1110,7 +1110,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
       },
     ],
     example:
-      "import { Platform } from '@r8s/recipes'\nimport { Supabase } from '@r8s/supabase'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Supabase\n      name=\"backend\"\n      host=\"backend.example.com\"\n      objectStorage={{\n        endpoint: 'https://s3.internal.example.com',\n        bucket: 'backend-uploads',\n        credentialsSecret: 'backend-object-store-credentials',\n      }}\n    />\n  </Platform>\n)",
+      'import { Platform, S3Provider, MinIO } from \'@r8s/recipes\'\nimport { Supabase } from \'@r8s/supabase\'\n\n// Backups and objectStorage both default to on — the S3Provider derives targets and credentials\nexport default (\n  <S3Provider\n    provider={\n      <MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />\n    }\n  >\n    <Platform secrets={{ backend: \'openbao\', mount: \'kv\', path: \'apps\' }}>\n      <Supabase name="backend" host="backend.example.com" />\n    </Platform>\n  </S3Provider>\n)',
   },
   {
     name: 'Odoo',
@@ -1774,10 +1774,10 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
       },
       {
         name: 'objectStorage',
-        type: "{ /** S3 endpoint URL, e.g. https://s3.internal.example.com */ endpoint: string /** Bucket holding document corpora */ bucket: string /** Name of the Secret holding accessKey / secretKey */ credentialsSecret: string /** Region string for the S3 client (defaults to 'us-east-1') */ region?: string }",
-        required: true,
+        type: '{ endpoint: string; bucket: string; credentialsSecret: string; region?: string } | BucketElement',
+        required: false,
         description:
-          'S3-compatible object storage for document corpora (RustFS in the platform). Required. Reference a bucket whose credentials live in a Secret provisioned by the secrets backend (keys: accessKey, secretKey) — never plaintext.',
+          'S3-compatible object storage for document corpora (RustFS in the platform). Resolution order: this prop → a <Bucket name="…"/> descriptor → derived from the surrounding <S3Provider> (omit it entirely there). The descriptor\'s `bucket` override selects the bucket, its `name` is only the logical scope. Credentials live in a Secret (keys: accessKey, secretKey) — never plaintext.',
       },
       {
         name: 'sso',
@@ -1821,7 +1821,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
       },
     ],
     example:
-      "import { Platform } from '@r8s/recipes'\nimport { Eneo } from '@r8s/eneo'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'kv', path: 'apps' }}>\n    <Eneo\n      name=\"eneo\"\n      host=\"eneo.example.com\"\n      objectStorage={{\n        endpoint: 'https://s3.internal.example.com',\n        bucket: 'eneo-corpora',\n        credentialsSecret: 'eneo-object-storage',\n      }}\n    />\n  </Platform>\n)",
+      'import { Platform, S3Provider, MinIO } from \'@r8s/recipes\'\nimport { Eneo } from \'@r8s/eneo\'\n\n// Backups and objectStorage both default to on — the S3Provider derives targets and credentials\nexport default (\n  <S3Provider\n    provider={\n      <MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />\n    }\n  >\n    <Platform secrets={{ backend: \'openbao\', mount: \'kv\', path: \'apps\' }}>\n      <Eneo name="eneo" host="eneo.example.com" />\n    </Platform>\n  </S3Provider>\n)',
   },
   {
     name: 'Matrix',
