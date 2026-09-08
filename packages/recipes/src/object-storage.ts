@@ -7,11 +7,17 @@
 
 import { isBucketElement, resolveBucket, type BucketProps, type S3Config } from './s3-provider'
 
-/** The store triple every S3-consuming app package needs. */
+/**
+ * The store config every S3-consuming app package needs. `region` is
+ * carried through when the provider declares one (e.g. <AwsS3
+ * region="…">) so derived consumers sign against the same region;
+ * consumers without a store region default to 'us-east-1'.
+ */
 export interface ObjectStorageStore {
   endpoint: string
   bucket: string
   credentialsSecret: string
+  region?: string
 }
 
 /** A `<Bucket name="…" />` descriptor element (plain-struct shape). */
@@ -19,6 +25,16 @@ export interface ObjectStorageBucketDescriptor {
   type: unknown
   props: BucketProps
 }
+
+/**
+ * Key-name contracts against a SHARED credentials Secret: app packages
+ * read `accessKey`/`secretKey`, CNPG barman backup credentials read
+ * `access-key-id`/`secret-access-key`. When backups and app object
+ * storage both derive from one provider Secret, it must carry all four
+ * keys — the guidance below names both conventions.
+ */
+export const OBJECT_STORAGE_KEY_CONVENTIONS =
+  'app packages read the keys accessKey/secretKey, CNPG backup credentials read access-key-id/secret-access-key'
 
 /**
  * The "omitted and nothing to derive from" guidance. Names the component
@@ -45,23 +61,50 @@ export function objectStorageRequiredError(component: string, name: string, what
   )
 }
 
+/** Guard for a hand-built config object (JS callers bypass the types). */
+function requireCompleteStore(
+  component: string,
+  name: string,
+  store: Partial<ObjectStorageStore>
+): void {
+  const missing = [
+    !store.endpoint && 'endpoint',
+    !store.bucket && 'bucket',
+    !store.credentialsSecret && 'credentialsSecret',
+  ].filter(Boolean)
+  if (missing.length > 0) {
+    throw new Error(
+      `${component} "${name}": the objectStorage config object is missing: ` +
+        `${missing.join(', ')}.\n` +
+        `\n` +
+        `Fix: pass the full config object:\n` +
+        `  <${component} name="${name}" objectStorage={{ endpoint: 'https://…', bucket: '…', credentialsSecret: 'object-store-credentials' }} />\n` +
+        `\n` +
+        `or omit the prop entirely under an <S3Provider> — endpoint, bucket and\n` +
+        `credentials derive from it.`
+    )
+  }
+}
+
 /**
  * Resolve an app package's `objectStorage` prop — resolution order:
  *
- * 1. Explicit config object → wins (unchanged behavior).
+ * 1. Explicit config object → wins (unchanged behavior). Hand-built or
+ *    partial objects are validated so a JS caller cannot render a broken
+ *    secretKeyRef.
  * 2. `<Bucket name="…" />` descriptor → resolved against the surrounding
  *    provider. Storage-API-style consumers take a BUCKET NAME, not a
  *    prefixed path: the descriptor's `bucket` override selects the bucket
  *    and its `name` is only the logical scope (prefix) — it never reaches
  *    the consumer's bucket config.
- * 3. Omitted + `<S3Provider>` in scope → endpoint/bucket/credentials all
- *    derive from the provider.
+ * 3. Omitted + `<S3Provider>` in scope → endpoint/bucket/credentials
+ *    (and the provider's region, when declared) derive from the provider.
  * 4. Omitted + no provider → throw with actionable guidance (both fixes).
  *
- * A derived store missing `credentialsSecret` (provider without one) is
- * special-cased like Database's backup-credentials guidance: the missing
- * piece is named with its fixes, instead of rendering a broken
- * secretKeyRef against a Secret that does not exist.
+ * A provider without `credentialsSecret` is special-cased like Database's
+ * backup-credentials guidance: the missing piece is named with its fixes,
+ * instead of rendering a broken secretKeyRef against a Secret that does
+ * not exist.
  *
  * @param component Component name for the error message (e.g. 'Supabase')
  * @param name Instance name for the error message
@@ -76,7 +119,9 @@ export function resolveObjectStorage<T extends ObjectStorageStore>(
   value: T | ObjectStorageBucketDescriptor | undefined,
   s3: S3Config | null
 ): T {
-  // 1. Explicit object → wins (unchanged behavior)
+  // 1. Explicit object → wins (unchanged behavior), but must be complete —
+  //    a partial object (untyped JS callers) would render `secretKeyRef:
+  //    { name: undefined }` unless caught here.
   if (value !== undefined && value !== null && !isBucketElement(value)) {
     if (typeof value === 'object' && 'type' in (value as Record<string, unknown>)) {
       throw new Error(
@@ -84,6 +129,8 @@ export function resolveObjectStorage<T extends ObjectStorageStore>(
           `descriptor or a config object — got another component`
       )
     }
+    const store = value as Partial<ObjectStorageStore>
+    requireCompleteStore(component, name, store)
     return value
   }
 
@@ -98,17 +145,20 @@ export function resolveObjectStorage<T extends ObjectStorageStore>(
       endpoint: resolved.s3.endpoint,
       bucket: resolved.s3.bucket,
       credentialsSecret: resolved.s3.credentialsSecret,
+      ...(resolved.s3.region !== undefined && { region: resolved.s3.region }),
     } as T
   }
 
-  // 3. Omitted + S3Provider in scope → derive everything
+  // 3. Omitted + S3Provider in scope → derive everything (region included
+  //    when the provider declares one — keep every consumer signing
+  //    against the same region).
   if (s3) {
     if (!s3.credentialsSecret) {
       throw new Error(
         `${component} "${name}": the <S3Provider> has no credentialsSecret — ` +
-          `${what.replace(/^the /, 'the ')}.\n` +
+          `${what}.\n` +
           `\n` +
-          `Fix: give the provider a credentials Secret (keys accessKey, secretKey):\n` +
+          `Fix: give the provider a credentials Secret (${OBJECT_STORAGE_KEY_CONVENTIONS}):\n` +
           `  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
           `\n` +
           `or pass the Secret explicitly:\n` +
@@ -119,6 +169,7 @@ export function resolveObjectStorage<T extends ObjectStorageStore>(
       endpoint: s3.endpoint,
       bucket: s3.bucket,
       credentialsSecret: s3.credentialsSecret,
+      ...(s3.region !== undefined && { region: s3.region }),
     } as T
   }
 

@@ -242,7 +242,7 @@ export function resolveBucket(
         `\n` +
         `Fix: wrap the consumer in an <S3Provider> — endpoint/credentials derive from it:\n` +
         `  <S3Provider provider={<MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />}>\n` +
-        `    <Database name="…" backup={<Bucket name="${name}" />} />\n` +
+        `    <Database name="…" backup={<Bucket name="${name}" />} />  (or the consumer's bucket/objectStorage prop)\n` +
         `  </S3Provider>\n` +
         `\n` +
         `or give the descriptor the full config:\n` +

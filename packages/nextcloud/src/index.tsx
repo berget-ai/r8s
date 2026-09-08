@@ -307,11 +307,12 @@ export function Nextcloud(props: NextcloudProps) {
     host: scheme ? store.endpoint.replace(/^https?:\/\//, '') : store.endpoint,
     bucket: store.bucket,
     credentialsSecret: store.credentialsSecret,
-    region: explicitStore?.region,
+    // Region: explicit prop wins, otherwise the provider's (both resolve
+    // through the store; the consumption default stays 'us-east-1').
+    region: explicitStore ? explicitStore.region : store.region,
     port: explicitStore?.port,
     ssl: explicitStore?.ssl ?? (scheme ? scheme[1] === 'https' : true),
   }
-
   // --- Env wiring --------------------------------------------------------------
   // Every credential is referenced with $(VAR) expansion or secretKeyRef —
   // no plaintext in the manifest. Secret-backed vars are declared BEFORE

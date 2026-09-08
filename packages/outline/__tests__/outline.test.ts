@@ -25,7 +25,7 @@ const s3Config = {
 /** Render Outline under an S3Provider (storage + backups both derive). */
 function renderOutlineUnderS3Provider(
   props: Record<string, unknown>,
-  provider = s3Config
+  provider: Record<string, unknown> = s3Config
 ): ReturnType<typeof render> {
   return render(
     jsx(S3Provider as never, {
@@ -461,6 +461,14 @@ describe('objectStorage — derives from the S3Provider', () => {
       name: s3Config.credentialsSecret,
       key: 'accessKey',
     })
+  })
+
+  it('omitted under an S3Provider: the provider region is carried through (no us-east-1 fallback)', () => {
+    const result = renderOutlineUnderS3Provider(
+      { host: 'wiki.example.com' },
+      { ...s3Config, region: 'eu-north-1' }
+    )
+    expect(s3Env(result)('AWS_REGION').value).toBe('eu-north-1')
   })
 
   it('omitted under an S3Provider: backups default on and derive too', () => {

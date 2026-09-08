@@ -26,7 +26,7 @@ const s3Config = {
 /** Render Nextcloud under an S3Provider (storage + backups both derive). */
 function renderNextcloudUnderS3Provider(
   props: Record<string, unknown>,
-  provider = s3Config
+  provider: Record<string, unknown> = s3Config
 ): ReturnType<typeof render> {
   return render(
     jsx(S3Provider as never, {
@@ -526,6 +526,14 @@ describe('objectStorage — derives from the S3Provider', () => {
     )
     expect(envOf(s3Env(result), 'OBJECTSTORE_S3_HOST').value).toBe('rustfs-insecure:9000')
     expect(envOf(s3Env(result), 'OBJECTSTORE_S3_SSL').value).toBe('false')
+  })
+
+  it('omitted under an S3Provider: the provider region is carried through (no us-east-1 fallback)', () => {
+    const result = renderNextcloudUnderS3Provider(
+      { host: 'cloud.example.com' },
+      { ...s3Config, region: 'eu-north-1' }
+    )
+    expect(envOf(s3Env(result), 'OBJECTSTORE_S3_REGION').value).toBe('eu-north-1')
   })
 
   it('omitted under an S3Provider: backups default on and derive too', () => {
