@@ -736,7 +736,12 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
         literal: { secretKey: 'smoke-only-superset-secret-key' },
       },
     ],
-    ready: { kind: 'Deployment', name: 'superset' },
+    // Ready target: the app Deployment is named from the `name` prop — the
+    // smoke renders 'superset-ui' (env-clobber workaround above), so the
+    // rendered Deployment is 'superset-ui'. A target of 'superset' can
+    // never exist; the loud NotFound in pollReadiness exposed this stale
+    // entry (previously it silently timed out reporting readyReplicas=1).
+    ready: { kind: 'Deployment', name: 'superset-ui' },
     // No probes in the rendered Deployment; apache/superset answers / on
     // 8088 (Service maps 80 → 8088) once gunicorn is listening.
     healthz: { port: 8088, path: '/' },
