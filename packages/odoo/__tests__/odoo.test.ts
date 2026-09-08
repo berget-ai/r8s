@@ -98,6 +98,14 @@ describe('rendering defaults', () => {
     expect(container.readinessProbe.initialDelaySeconds).toBe(30)
   })
 
+  it('initializes the database unattended (-d <name> -i base, demo data off)', () => {
+    const result = renderOdoo({ host: 'erp.example.com' })
+    const container = findDeployment(result).spec.template.spec.containers[0]
+    // CNPG's initdb creates the empty database; without these args odoo's
+    // /web/health returns 500 and the Deployment never goes Ready
+    expect(container.args).toEqual(['-d', 'odoo', '-i', 'base', '--without-demo=all'])
+  })
+
   it('exposes only the http port 8069 (no gevent 8072 declaration)', () => {
     const result = renderOdoo({ host: 'erp.example.com' })
     const deployment = findDeployment(result)

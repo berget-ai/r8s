@@ -358,6 +358,13 @@ export function Odoo(props: OdooProps) {
             {
               name: 'odoo',
               image: `odoo:${version}`,
+              // Unattended first boot: CNPG's initdb creates the (empty)
+              // database, but odoo's /web/health returns 500 until the base
+              // modules are installed — without these args the Deployment
+              // never goes Ready (caught by the local kind smoke run).
+              // `-i base` is idempotent on subsequent boots; demo data is
+              // explicitly off — this package targets production installs.
+              args: ['-d', name, '-i', 'base', '--without-demo=all'],
               ports: [{ name: 'http', containerPort: APP_PORT }],
               env,
               resources,
