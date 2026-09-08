@@ -23,4 +23,8 @@ scripts/local-smoke.ts:generic-api-key:429
 scripts/local-smoke.ts:generic-api-key:430
 scripts/local-smoke.ts:generic-api-key:422
 scripts/local-smoke.ts:generic-api-key:423
+# (moved 429/430 → 447/448: batch-3 entries inserted 25 lines above the
+# outline entry, commit ef73dcf)
+scripts/local-smoke.ts:generic-api-key:447
+scripts/local-smoke.ts:generic-api-key:448
 
