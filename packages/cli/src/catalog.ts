@@ -1889,7 +1889,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         required: false,
         default: "'20Gi'",
         description:
-          "Synapse media-repository storage: a dedicated PVC (<name>-synapse-media) mounted at /data/media_store. Media is the large-growing data of a Matrix server and must not share the small keys volume. homeserver.yaml pins media_store_path to /data/media_store (synapse's /media_store default PermissionErrors on read-only root fs). false = you manage /data/media_store yourself.",
+          "Synapse media-repository storage: a dedicated PVC (<name>-synapse-media) mounted at /data/media_store. Media is the large-growing data of a Matrix server and must not share the small keys volume. homeserver.yaml pins media_store_path to /data/media_store (synapse's CWD-relative media_store default lands on the container's root fs, image WORKDIR /synapse, and EACCESes as UID 991). false = you manage /data/media_store yourself.",
       },
       {
         name: 'rtc',

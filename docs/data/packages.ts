@@ -72403,7 +72403,7 @@ export const packages: Package[] = [
             required: false,
             default: "'20Gi'",
             description:
-              "Synapse media-repository storage. Media is the large-growing data of a Matrix server (uploads, avatars, thumbnails) — it must NOT share the small keys volume, so it gets a dedicated PVC (`${name}-synapse-media`) mounted at /data/media_store. homeserver.yaml always pins `media_store_path: /data/media_store` — synapse's own default (/media_store, off the container root fs) PermissionErrors on read-only root filesystems. - string — PVC size (default '20Gi') - { size?, storageClass? } — full control - false — render nothing; you manage /data/media_store yourself (e.g. a mutating policy injects your own volume)",
+              "Synapse media-repository storage. Media is the large-growing data of a Matrix server (uploads, avatars, thumbnails) — it must NOT share the small keys volume, so it gets a dedicated PVC (`${name}-synapse-media`) mounted at /data/media_store. homeserver.yaml always pins `media_store_path: /data/media_store` — synapse's own CWD-relative `media_store` default lands on the container's root fs (image WORKDIR /synapse) and EACCESes as UID 991 at first boot. - string — PVC size (default '20Gi') - { size?, storageClass? } — full control - false — render nothing; you manage /data/media_store yourself (e.g. a mutating policy injects your own volume)",
           },
           {
             name: 'rtc',

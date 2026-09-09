@@ -170,8 +170,8 @@ export interface MatrixProps {
    * small keys volume, so it gets a dedicated PVC
    * (`${name}-synapse-media`) mounted at /data/media_store. homeserver.yaml
    * always pins `media_store_path: /data/media_store` — synapse's own
-   * default (/media_store, off the container root fs) PermissionErrors on
-   * read-only root filesystems.
+   * CWD-relative `media_store` default lands on the container's root fs
+   * (image WORKDIR /synapse) and EACCESes as UID 991 at first boot.
    * - string — PVC size (default '20Gi')
    * - { size?, storageClass? } — full control
    * - false — render nothing; you manage /data/media_store yourself
@@ -273,8 +273,9 @@ function buildSynapseConfig(opts: {
     pid_file: '/data/homeserver.pid',
     // Media always lives under /data — on the dedicated media PVC when
     // rendered (mediaStorage default), else on whatever the user manages at
-    // /data. Synapse's own default (/media_store, off the container root fs)
-    // PermissionErrors on read-only root filesystems (dogfood smoke round 2).
+    // /data. Synapse's CWD-relative `media_store` default lands on the
+    // container's root fs (image WORKDIR /synapse) and EACCESes as UID 991
+    // at boot (dogfood smoke round 2: PermissionError '/media_store').
     media_store_path: '/data/media_store',
     listeners: [
       {
@@ -570,6 +571,35 @@ function matrixDatabaseResources(opts: {
   }
 
   return resources
+}
+
+/** Single resolution point for the forgejo-style storage props
+ *  (`keysStorage`, `mediaStorage`): shorthand string = size, object =
+ *  size/storageClass overrides, per-volume default as size fallback. Both
+ *  claims render as one RWO PVC. */
+function storageClaimPvc(opts: {
+  claimName: string
+  namespace: string
+  storage: string | { size?: string; storageClass?: string } | false
+  /** PVC size fallback when the prop is an override object without a size */
+  defaultSize: string
+}): ReturnType<typeof jsx> {
+  const { claimName, namespace, storage, defaultSize } = opts
+  // typeof === 'object' excludes the boolean `false` variant (the caller has
+  // already guarded it — a `false` prop renders no PVC at all); the string
+  // shorthand IS the size
+  const size = typeof storage === 'object' ? (storage.size ?? defaultSize) : storage
+  const storageClass = typeof storage === 'object' ? storage.storageClass : undefined
+  return jsx('PersistentVolumeClaim', {
+    apiVersion: 'v1',
+    kind: 'PersistentVolumeClaim',
+    metadata: { name: claimName, namespace },
+    spec: {
+      accessModes: ['ReadWriteOnce'],
+      ...(storageClass ? { storageClassName: storageClass } : {}),
+      resources: { requests: { storage: size } },
+    },
+  })
 }
 
 function synapseDeployment(opts: {
@@ -1220,18 +1250,12 @@ export function Matrix(props: MatrixProps) {
   // across restarts; the Deployment already rolls Recreate.
   const keysClaimName = keysStorage ? `${name}-synapse-keys` : (undefined as string | undefined)
   if (keysStorage) {
-    const size = typeof keysStorage === 'string' ? keysStorage : (keysStorage.size ?? '1Gi')
-    const storageClass = typeof keysStorage === 'object' ? keysStorage.storageClass : undefined
     resources.push(
-      jsx('PersistentVolumeClaim', {
-        apiVersion: 'v1',
-        kind: 'PersistentVolumeClaim',
-        metadata: { name: keysClaimName!, namespace },
-        spec: {
-          accessModes: ['ReadWriteOnce'],
-          ...(storageClass ? { storageClassName: storageClass } : {}),
-          resources: { requests: { storage: size } },
-        },
+      storageClaimPvc({
+        claimName: keysClaimName!,
+        namespace,
+        storage: keysStorage,
+        defaultSize: '1Gi',
       })
     )
   }
@@ -1244,18 +1268,12 @@ export function Matrix(props: MatrixProps) {
   // = bring your own /data/media_store (mirrors keysStorage: false).
   const mediaClaimName = mediaStorage ? `${name}-synapse-media` : (undefined as string | undefined)
   if (mediaStorage) {
-    const size = typeof mediaStorage === 'string' ? mediaStorage : (mediaStorage.size ?? '20Gi')
-    const storageClass = typeof mediaStorage === 'object' ? mediaStorage.storageClass : undefined
     resources.push(
-      jsx('PersistentVolumeClaim', {
-        apiVersion: 'v1',
-        kind: 'PersistentVolumeClaim',
-        metadata: { name: mediaClaimName!, namespace },
-        spec: {
-          accessModes: ['ReadWriteOnce'],
-          ...(storageClass ? { storageClassName: storageClass } : {}),
-          resources: { requests: { storage: size } },
-        },
+      storageClaimPvc({
+        claimName: mediaClaimName!,
+        namespace,
+        storage: mediaStorage,
+        defaultSize: '20Gi',
       })
     )
   }

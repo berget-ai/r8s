@@ -135,9 +135,10 @@ describe('Matrix — resource rendering', () => {
     expect(mount.readOnly).toBeFalsy()
     const volume = dep.spec.template.spec.volumes.find((v: any) => v.name === 'media')
     expect(volume.persistentVolumeClaim.claimName).toBe('matrix-synapse-media')
-    // homeserver.yaml must pin the path — synapse's own default (/media_store,
-    // off the container root fs) PermissionErrors on read-only root
-    // filesystems (caught one step after the #136 signing-key fix)
+    // homeserver.yaml must pin the path — synapse's CWD-relative
+    // `media_store` default lands on the container's root fs (image WORKDIR
+    // /synapse) and EACCESes as UID 991 at boot (caught one step after the
+    // #136 signing-key fix)
     const cm = find(result, 'ConfigMap', 'matrix-synapse-config') as any
     expect(cm.data['homeserver.yaml']).toContain('media_store_path: /data/media_store')
   })
