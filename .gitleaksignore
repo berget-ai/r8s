@@ -27,4 +27,10 @@ scripts/local-smoke.ts:generic-api-key:423
 # outline entry, commit ef73dcf)
 scripts/local-smoke.ts:generic-api-key:447
 scripts/local-smoke.ts:generic-api-key:448
+# (moved 447/448 → 455/456: eurooffice import + readyTimeoutMs in the
+# SmokeSpec interface inserted 8 lines above the outline entry; also adds
+# eurooffice's own 64-hex dummy at 820, per that entry's comment)
+scripts/local-smoke.ts:generic-api-key:455
+scripts/local-smoke.ts:generic-api-key:456
+scripts/local-smoke.ts:generic-api-key:820
 

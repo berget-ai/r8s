@@ -126,6 +126,7 @@ import { Paperclip } from '@r8s/paperclip'
 import { Nextcloud } from '@r8s/nextcloud'
 import { Superset } from '@r8s/superset'
 import { WireGuard } from '@r8s/wireguard'
+import { EuroOffice } from '@r8s/eurooffice'
 // Value import: the superset smoke renders a companion CNPG cluster — the
 // package itself does NOT stitch a Database (see the superset entry).
 import { Database } from '@r8s/recipes'
@@ -274,10 +275,17 @@ export interface SmokeSpec {
   render: (jsx: typeof import('@r8s/core').jsx) => unknown
   /** Pre-created Opaque Secrets (the forgejo `credentialsSecretName` pattern) */
   secrets: SecretSpec[]
-  /** Workload polled for readiness (5 min budget) */
+  /** Workload polled for readiness (5 min budget, or readyTimeoutMs) */
   ready: ReadySpec
   /** Optional HTTP health probe through a port-forward; null → N/A */
   healthz: HealthzSpec | null
+  /**
+   * Per-entry readiness budget override (ms). Default is READY_TIMEOUT_MS
+   * (5 min) — slow-boot packages set a generous value: eurooffice pulls a
+   * ~2-3 GB image and tolerates a ~10-minute first boot (schema migration
+   * behind its 600s startup probe).
+   */
+  readyTimeoutMs?: number
   /** Static skip, e.g. 'requires secrets backend' for backend-bound packages */
   skipReason?: string
 }
@@ -779,6 +787,51 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     // on 51821 (login page) once the wg0 + iptables setup succeeded.
     healthz: { port: 51821, path: '/' },
   },
+
+  eurooffice: {
+    package: '@r8s/eurooffice',
+    namespace: 'eurooffice-smoke',
+    // jwtSecretName is the pre-created-Secret prop (key JWT_SECRET) — the
+    // package demands a secrets backend otherwise, since the JWT signs
+    // every document-server API call (Odoo/WOPI integration). DB
+    // credentials are CNPG-generated (`<name>-app`, no initdb.secret
+    // reference — nothing to pre-create). backup:false (no S3 provider in
+    // scope), dbInstances/dbStorage sized for the laptop cluster.
+    // customFonts:false skips the 4 brand-font downloads (faster boot,
+    // fewer moving parts). The image is ~2-3 GB and the first boot runs
+    // schema migration behind a 600s startup probe — hence the generous
+    // readyTimeoutMs. Requires the CNPG operator in the cluster.
+    render: (jsx) =>
+      jsx(EuroOffice, {
+        namespace: 'eurooffice-smoke',
+        host: 'docs.example.com',
+        backup: false,
+        dbInstances: 1,
+        dbStorage: '1Gi',
+        jwtSecretName: 'eurooffice-jwt',
+        customFonts: false,
+      }),
+    secrets: [
+      {
+        name: 'eurooffice-jwt',
+        literal: {
+          // 64-hex dummy (the JWT secret signs the document-server API;
+          // fake, not a real credential)
+          JWT_SECRET: '189d0e63a2e0867d8701adce634d6967942b020df489e4c7cc778c0821106325',
+        },
+      },
+    ],
+    // Default app name — the DocumentServer Deployment + Service are
+    // named from the `name` prop (default 'onlyoffice'); single replica.
+    ready: { kind: 'Deployment', name: 'onlyoffice' },
+    // Probes are httpGet /healthcheck on the container port 80 (startup
+    // budget 60 × 10s for the ~10-min first boot) — the same path through
+    // a port-forward proves the server answers.
+    healthz: { port: 80, path: '/healthcheck' },
+    // Image pull (~2-3 GB) first-boot schema migration alone can eat the
+    // default 5-min budget — 12 min keeps the door open for both.
+    readyTimeoutMs: 12 * 60 * 1000,
+  },
 }
 
 // --- kubectl helpers ---------------------------------------------------------
@@ -942,10 +995,11 @@ async function teardownNamespace(ns: string): Promise<void> {
 
 async function pollReadiness(
   ns: string,
-  ready: ReadySpec
+  ready: ReadySpec,
+  budgetMs: number = READY_TIMEOUT_MS
 ): Promise<{ ok: true } | { ok: false; detail: string }> {
   const resource = ready.kind === 'Deployment' ? 'deploy' : 'statefulset'
-  const deadline = Date.now() + READY_TIMEOUT_MS
+  const deadline = Date.now() + budgetMs
   let lastReady = '0'
   let replicas = '1'
 
@@ -989,7 +1043,7 @@ async function pollReadiness(
     if (lastReady !== '0' && lastReady === replicas) return { ok: true }
 
     if (Date.now() > deadline) {
-      return { ok: false, detail: await readyTimeoutDiagnostics(ns, ready, replicas) }
+      return { ok: false, detail: await readyTimeoutDiagnostics(ns, ready, replicas, budgetMs) }
     }
     await sleep(READY_POLL_MS)
   }
@@ -999,9 +1053,12 @@ async function pollReadiness(
 async function readyTimeoutDiagnostics(
   ns: string,
   ready: ReadySpec,
-  replicas: string
+  replicas: string,
+  budgetMs: number
 ): Promise<string> {
-  const parts: string[] = [`${ready.kind} ${ready.name}: readyReplicas=${replicas} after 5m`]
+  const budget =
+    budgetMs % 60_000 === 0 ? `${budgetMs / 60_000}m` : `${Math.round(budgetMs / 1000)}s`
+  const parts: string[] = [`${ready.kind} ${ready.name}: readyReplicas=${replicas} after ${budget}`]
   const pods = await kubectl(['-n', ns, 'get', 'pods', '-o', 'wide'])
   if (pods.code === 0 && pods.stdout.trim()) {
     parts.push(pods.stdout.trim().split('\n').slice(0, 8).join('\n'))
@@ -1272,7 +1329,7 @@ async function smokeOne(name: string, spec: SmokeSpec): Promise<Outcome> {
     await preCreateSecrets(ns, spec.secrets)
     await applyResources(ns, resources)
 
-    const readiness = await pollReadiness(ns, spec.ready)
+    const readiness = await pollReadiness(ns, spec.ready, spec.readyTimeoutMs)
     if (!readiness.ok) {
       outcome.ready = 'timeout'
       outcome.notes = truncate(readiness.detail, 300)
