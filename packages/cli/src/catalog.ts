@@ -1881,7 +1881,15 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         required: false,
         default: "'1Gi'",
         description:
-          'Synapse signing-key/data storage: a persistent PVC (<name>-synapse-keys) mounted writable at /data. The signing key is the server identity — it must survive restarts; synapse also writes its pid file and media store there. false = you manage /data yourself.',
+          'Synapse signing-key/data storage: a persistent PVC (<name>-synapse-keys) mounted writable at /data. The signing key is the server identity — it must survive restarts; the pid file rides along. Media has its own dedicated volume (mediaStorage). false = you manage /data yourself.',
+      },
+      {
+        name: 'mediaStorage',
+        type: 'string | { size?: string storageClass?: string } | false',
+        required: false,
+        default: "'20Gi'",
+        description:
+          "Synapse media-repository storage: a dedicated PVC (<name>-synapse-media) mounted at /data/media_store. Media is the large-growing data of a Matrix server and must not share the small keys volume. homeserver.yaml pins media_store_path to /data/media_store (synapse's CWD-relative media_store default lands on the container's root fs, image WORKDIR /synapse, and EACCESes as UID 991). false = you manage /data/media_store yourself.",
       },
       {
         name: 'rtc',

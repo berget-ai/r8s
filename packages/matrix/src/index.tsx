@@ -155,8 +155,8 @@ export interface MatrixProps {
    * identity — it must survive pod restarts (a fresh key silently
    * de-federates rooms and invalidates every existing session), so synapse
    * gets a persistent PVC (`${name}-synapse-keys`) mounted writable at
-   * /data. Synapse also writes its pid file and, by default, its media
-   * store there — size accordingly.
+   * /data. Synapse also writes its pid file there; media does NOT ride
+   * along — it has its own dedicated volume (see `mediaStorage`).
    * - string — PVC size (default '1Gi')
    * - { size?, storageClass? } — full control
    * - false — render nothing; you manage /data yourself (e.g. a mutating
@@ -164,6 +164,21 @@ export interface MatrixProps {
    * @default '1Gi'
    */
   keysStorage?: string | { size?: string; storageClass?: string } | false
+  /**
+   * Synapse media-repository storage. Media is the large-growing data of a
+   * Matrix server (uploads, avatars, thumbnails) — it must NOT share the
+   * small keys volume, so it gets a dedicated PVC
+   * (`${name}-synapse-media`) mounted at /data/media_store. homeserver.yaml
+   * always pins `media_store_path: /data/media_store` — synapse's own
+   * CWD-relative `media_store` default lands on the container's root fs
+   * (image WORKDIR /synapse) and EACCESes as UID 991 at first boot.
+   * - string — PVC size (default '20Gi')
+   * - { size?, storageClass? } — full control
+   * - false — render nothing; you manage /data/media_store yourself
+   *   (e.g. a mutating policy injects your own volume)
+   * @default '20Gi'
+   */
+  mediaStorage?: string | { size?: string; storageClass?: string } | false
   /** MatrixRTC / LiveKit SFU (Element Call backend) */
   rtc?: MatrixRTCProps
   /**
@@ -214,7 +229,8 @@ export interface MatrixProps {
  *
  * Renders the whole suite with production HA defaults: two CNPG databases
  * (optional barman backups), a persistent keys volume for the Synapse
- * signing key (server identity — must survive restarts), 60s node-failure
+ * signing key (server identity — must survive restarts) plus a dedicated
+ * media-store PVC (media is the large-growing data), 60s node-failure
  * tolerations + topology spread (learned from a real node-blip incident),
  * SSRF-hardened URL previews, and pinned component versions.
  *
@@ -255,6 +271,12 @@ function buildSynapseConfig(opts: {
     server_name: server,
     public_baseurl: `https://${synapseHost}/`,
     pid_file: '/data/homeserver.pid',
+    // Media always lives under /data — on the dedicated media PVC when
+    // rendered (mediaStorage default), else on whatever the user manages at
+    // /data. Synapse's CWD-relative `media_store` default lands on the
+    // container's root fs (image WORKDIR /synapse) and EACCESes as UID 991
+    // at boot (dogfood smoke round 2: PermissionError '/media_store').
+    media_store_path: '/data/media_store',
     listeners: [
       {
         port: 8008,
@@ -316,8 +338,17 @@ function buildMasConfig(name: string, sso?: MatrixSSOProps): Record<string, unkn
             { name: 'compat' },
             { name: 'graphql' },
           ],
-          port: 8080,
-          host: '0.0.0.0',
+          // MAS 1.24.0 requires per-listener socket binds — the pre-1.24
+          // top-level port/host fields no longer parse ("missing field
+          // `binds` for key default.http.listeners.0", dogfood smoke round
+          // 2). Verified against the pinned release's schema
+          // (crates/config/src/sections/http.rs @ v1.24.0): ListenerConfig
+          // only defaults proxy_protocol/tls/prefix — `binds` is required,
+          // and each entry is the untagged BindConfig enum (Listen { host?,
+          // port } | Address { address: host:port } | Unix | FileDescriptor).
+          // The Listen variant below reproduces the exact socket the old
+          // host/port fields produced.
+          binds: [{ host: '0.0.0.0', port: 8080 }],
         },
       ],
     },
@@ -542,6 +573,37 @@ function matrixDatabaseResources(opts: {
   return resources
 }
 
+/** Single resolution point for the forgejo-style storage props
+ *  (`keysStorage`, `mediaStorage`): shorthand string = size, object =
+ *  size/storageClass overrides, per-volume default as size fallback. Both
+ *  claims render as one RWO PVC. `| false` (render nothing) is the prop's
+ *  opt-out and is filtered by the caller's truthiness guard — not accepted
+ *  here. */
+function storageClaimPvc(opts: {
+  claimName: string
+  namespace: string
+  storage: string | { size?: string; storageClass?: string }
+  /** PVC size fallback when the prop is an override object without a size */
+  defaultSize: string
+}): ReturnType<typeof jsx> {
+  const { claimName, namespace, storage, defaultSize } = opts
+  // typeof === 'object' selects the override-object variant (boolean false
+  // is type-excluded — the caller's guard filtered it); the string
+  // shorthand IS the size
+  const size = typeof storage === 'object' ? (storage.size ?? defaultSize) : storage
+  const storageClass = typeof storage === 'object' ? storage.storageClass : undefined
+  return jsx('PersistentVolumeClaim', {
+    apiVersion: 'v1',
+    kind: 'PersistentVolumeClaim',
+    metadata: { name: claimName, namespace },
+    spec: {
+      accessModes: ['ReadWriteOnce'],
+      ...(storageClass ? { storageClassName: storageClass } : {}),
+      resources: { requests: { storage: size } },
+    },
+  })
+}
+
 function synapseDeployment(opts: {
   name: string
   namespace: string
@@ -549,8 +611,10 @@ function synapseDeployment(opts: {
   synapseVersion: string
   /** `${name}-synapse-keys` PVC claim when the keys volume is rendered (default) */
   keysClaimName: string | undefined
+  /** `${name}-synapse-media` PVC claim when the media volume is rendered (default) */
+  mediaClaimName: string | undefined
 }): ReturnType<typeof jsx> {
-  const { name, namespace, appservices, synapseVersion, keysClaimName } = opts
+  const { name, namespace, appservices, synapseVersion, keysClaimName, mediaClaimName } = opts
   const synapseEnv: EnvVar[] = [{ name: 'SYNAPSE_CONFIG_PATH', value: '/data/homeserver.yaml' }]
 
   return jsx('Deployment', {
@@ -584,6 +648,11 @@ function synapseDeployment(opts: {
               // matrix-stack 26.9.0 regression)
               volumeMounts: [
                 ...(keysClaimName ? [{ name: 'keys', mountPath: '/data' }] : []),
+                // Dedicated media PVC layered on top of the keys volume —
+                // media is the large-growing data of a Matrix server and
+                // must not fill the small keys PVC (matches
+                // `media_store_path` in the rendered homeserver.yaml)
+                ...(mediaClaimName ? [{ name: 'media', mountPath: '/data/media_store' }] : []),
                 {
                   name: 'config',
                   mountPath: '/data/homeserver.yaml',
@@ -620,6 +689,9 @@ function synapseDeployment(opts: {
             { name: 'db-credentials', secret: { secretName: `${name}-synapse-db-app` } },
             ...(keysClaimName
               ? [{ name: 'keys', persistentVolumeClaim: { claimName: keysClaimName } }]
+              : []),
+            ...(mediaClaimName
+              ? [{ name: 'media', persistentVolumeClaim: { claimName: mediaClaimName } }]
               : []),
             { name: 'config', configMap: { name: `${name}-synapse-config` } },
             { name: 'tmp', emptyDir: { sizeLimit: '1Gi' } },
@@ -955,6 +1027,7 @@ export function Matrix(props: MatrixProps) {
     sso,
     database = {},
     keysStorage = '1Gi',
+    mediaStorage = '20Gi',
     rtc = {},
     appservices = [],
     version = {},
@@ -1179,18 +1252,30 @@ export function Matrix(props: MatrixProps) {
   // across restarts; the Deployment already rolls Recreate.
   const keysClaimName = keysStorage ? `${name}-synapse-keys` : (undefined as string | undefined)
   if (keysStorage) {
-    const size = typeof keysStorage === 'string' ? keysStorage : (keysStorage.size ?? '1Gi')
-    const storageClass = typeof keysStorage === 'object' ? keysStorage.storageClass : undefined
     resources.push(
-      jsx('PersistentVolumeClaim', {
-        apiVersion: 'v1',
-        kind: 'PersistentVolumeClaim',
-        metadata: { name: keysClaimName!, namespace },
-        spec: {
-          accessModes: ['ReadWriteOnce'],
-          ...(storageClass ? { storageClassName: storageClass } : {}),
-          resources: { requests: { storage: size } },
-        },
+      storageClaimPvc({
+        claimName: keysClaimName!,
+        namespace,
+        storage: keysStorage,
+        defaultSize: '1Gi',
+      })
+    )
+  }
+
+  // --- Synapse media PVC -------------------------------------------------------
+  // Media is the large-growing data of a Matrix server (uploads, avatars,
+  // thumbnails) — it gets its own PVC, never the small keys volume. The
+  // claimName rides into the Deployment at /data/media_store, matching the
+  // `media_store_path` pinned in homeserver.yaml above. mediaStorage: false
+  // = bring your own /data/media_store (mirrors keysStorage: false).
+  const mediaClaimName = mediaStorage ? `${name}-synapse-media` : (undefined as string | undefined)
+  if (mediaStorage) {
+    resources.push(
+      storageClaimPvc({
+        claimName: mediaClaimName!,
+        namespace,
+        storage: mediaStorage,
+        defaultSize: '20Gi',
       })
     )
   }
@@ -1278,6 +1363,7 @@ export function Matrix(props: MatrixProps) {
       appservices,
       synapseVersion: version.synapse ?? 'v1.99.0',
       keysClaimName,
+      mediaClaimName,
     })
   )
 

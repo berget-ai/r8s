@@ -119,6 +119,49 @@ describe('Matrix — resource rendering', () => {
     expect(c.volumeMounts.map((m: any) => m.name)).not.toContain('keys')
   })
 
+  it('renders a dedicated media PVC mounted at /data/media_store and pins media_store_path', () => {
+    const result = renderMatrix()
+    const pvc = find(result, 'PersistentVolumeClaim', 'matrix-synapse-media') as any
+    // Media is the large-growing data of a Matrix server (uploads, avatars,
+    // thumbnails) — it gets its OWN volume, never the 1Gi keys PVC
+    expect(pvc).toBeDefined()
+    expect(pvc.spec.accessModes).toContain('ReadWriteOnce')
+    expect(pvc.spec.resources.requests.storage).toBe('20Gi')
+    const dep = find(result, 'Deployment', 'matrix-synapse') as any
+    const container = dep.spec.template.spec.containers[0]
+    const mount = container.volumeMounts.find((m: any) => m.name === 'media')
+    expect(mount.mountPath).toBe('/data/media_store')
+    // writable — uploads, thumbnails and avatars land here
+    expect(mount.readOnly).toBeFalsy()
+    const volume = dep.spec.template.spec.volumes.find((v: any) => v.name === 'media')
+    expect(volume.persistentVolumeClaim.claimName).toBe('matrix-synapse-media')
+    // homeserver.yaml must pin the path — synapse's CWD-relative
+    // `media_store` default lands on the container's root fs (image WORKDIR
+    // /synapse) and EACCESes as UID 991 at boot (caught one step after the
+    // #136 signing-key fix)
+    const cm = find(result, 'ConfigMap', 'matrix-synapse-config') as any
+    expect(cm.data['homeserver.yaml']).toContain('media_store_path: /data/media_store')
+  })
+
+  it('mediaStorage overrides PVC size + storageClass', () => {
+    const result = renderMatrix({ mediaStorage: { size: '100Gi', storageClass: 'NVMe' } })
+    const pvc = find(result, 'PersistentVolumeClaim', 'matrix-synapse-media') as any
+    expect(pvc.spec.resources.requests.storage).toBe('100Gi')
+    expect(pvc.spec.storageClassName).toBe('NVMe')
+  })
+
+  it('mediaStorage: false renders no media volume but keeps the media_store_path pin', () => {
+    const result = renderMatrix({ mediaStorage: false })
+    expect(find(result, 'PersistentVolumeClaim', 'matrix-synapse-media')).toBeUndefined()
+    const dep = find(result, 'Deployment', 'matrix-synapse') as any
+    expect(dep.spec.template.spec.volumes.map((v: any) => v.name)).not.toContain('media')
+    const c = dep.spec.template.spec.containers[0]
+    expect(c.volumeMounts.map((m: any) => m.name)).not.toContain('media')
+    // bring-your-own volumes must still mount at the pinned path
+    const cm = find(result, 'ConfigMap', 'matrix-synapse-config') as any
+    expect(cm.data['homeserver.yaml']).toContain('media_store_path: /data/media_store')
+  })
+
   it('renders MAS with the pinned image and the current listener resource names', () => {
     const result = renderMatrix()
     const mas = find(result, 'Deployment', 'matrix-mas') as any
@@ -134,6 +177,24 @@ describe('Matrix — resource rendering', () => {
     expect(yaml).toContain('name: compat')
     expect(yaml).not.toContain('oauthapi')
     expect(yaml).not.toContain('compatapi')
+  })
+
+  it('emits MAS 1.24.0 listener binds (top-level host/port no longer parse)', () => {
+    const result = renderMatrix()
+    const cm = find(result, 'ConfigMap', 'matrix-mas-config') as any
+    const yaml = cm.data['config.yaml']
+    // Schema per crates/config/src/sections/http.rs @ v1.24.0: ListenerConfig
+    // requires per-socket `binds` ("missing field `binds` for key
+    // default.http.listeners.0"). Shape: the BindConfig enum's Listen
+    // variant { host, port } — same 0.0.0.0:8080 socket the pre-1.24
+    // top-level fields produced (binds entries render two indents deeper)
+    expect(yaml).toContain('binds:\n        -\n          host: 0.0.0.0\n          port: 8080')
+    // the obsolete top-level listener fields must be gone
+    expect(yaml).not.toContain('\n      port: 8080')
+    expect(yaml).not.toContain('\n      host: 0.0.0.0')
+    // resources (names) ride along unchanged
+    expect(yaml).toContain('name: discovery')
+    expect(yaml).toContain('name: graphql')
   })
 
   it('pulls the admin console from oci.element.io (ghcr no longer serves anonymous pulls)', () => {
