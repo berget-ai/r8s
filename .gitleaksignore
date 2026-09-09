@@ -36,4 +36,11 @@ scripts/local-smoke.ts:generic-api-key:820
 # (eurooffice JWT dummy moved 820 → 835: skipReason + contract-comment
 # block inserted above it — PR #135; same 64-hex fake, position only)
 scripts/local-smoke.ts:generic-api-key:835
+# (moved 455/456 → 456/457 and 835 → 836: the "the app rejects
+# shorter/non-hex at boot" explanatory comment added above the outline
+# literal in 93e9de2 shifted the outline SECRET_KEY/UTILS_SECRET dummies and
+# the eurooffice JWT dummy down one line; same 64-hex smoke dummies, position
+# only)
+scripts/local-smoke.ts:generic-api-key:457
+scripts/local-smoke.ts:generic-api-key:836
 
