@@ -37,7 +37,7 @@ describe('EuroOffice DocumentServer', () => {
     expect(c.ports[0].containerPort).toBe(80)
     expect(d.spec.template.spec.startupProbe ?? c.startupProbe).toBeDefined()
     expect(c.startupProbe.httpGet.path).toBe('/healthcheck')
-    expect(c.startupProbe.failureThreshold).toBe(60)
+    expect(c.startupProbe.failureThreshold).toBe(120)
     expect(c.startupProbe.periodSeconds).toBe(10)
     expect(c.readinessProbe.httpGet.path).toBe('/healthcheck')
     expect(c.readinessProbe.periodSeconds).toBe(15)
@@ -45,6 +45,15 @@ describe('EuroOffice DocumentServer', () => {
     expect(c.livenessProbe.periodSeconds).toBe(30)
     expect(c.resources.requests).toEqual({ memory: '1Gi', cpu: '500m' })
     expect(c.resources.limits).toEqual({ memory: '4Gi', cpu: '2' })
+  })
+
+  it('gives the startup probe a 20-minute budget (120 × 10s) — first-boot migrations must not be killed', () => {
+    const c = resource(renderApp(), 'Deployment').spec.template.spec.containers[0]
+    // The entrypoint (schema migrations + font setup) is not resumable: a
+    // startup-probe kill mid-migration leaves a half-migrated database and
+    // boot #2 skips the pipeline, wedging /healthcheck at 502 forever.
+    expect(c.startupProbe.failureThreshold).toBe(120)
+    expect(c.startupProbe.periodSeconds).toBe(10)
   })
 
   it('is single-replica Recreate with the data PVC mounted at the WOPI path', () => {

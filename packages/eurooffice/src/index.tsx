@@ -129,7 +129,7 @@ const DEFAULT_FONT_URLS = [
  *
  * Composes:
  * - DocumentServer Deployment + Service (port 80, `/healthcheck` probes,
- *   startup probe tolerating the ~10-minute first boot: schema + fonts)
+ *   startup probe with a 20-minute budget for first boot: schema + fonts)
  * - CNPG Postgres cluster (default 2 instances, facit-tuned parameters)
  * - RWO data volume for the secure-link secret + WOPI keys
  * - JWT secret provisioned through the Platform secrets backend (or a
@@ -369,8 +369,12 @@ export function EuroOffice(props: EuroOfficeProps) {
         },
       },
       probes: {
-        // First boot runs schema migration + font refresh — up to ~10 min
-        startup: { path: '/healthcheck', periodSeconds: 10, failureThreshold: 60 },
+        // First boot runs schema migration + font refresh as ONE
+        // non-resumable entrypoint pipeline (boot #2 skips it) — killing the
+        // container midway wedges the install. The ~10-minute figure (60×10s)
+        // was facit-observed on a beefier node; a slow/shared node needs more.
+        // 120 × 10s = 20 min so migrations are never killed mid-run.
+        startup: { path: '/healthcheck', periodSeconds: 10, failureThreshold: 120 },
         readiness: { path: '/healthcheck', periodSeconds: 15, failureThreshold: 3 },
         liveness: { path: '/healthcheck', periodSeconds: 30, failureThreshold: 3 },
       },
