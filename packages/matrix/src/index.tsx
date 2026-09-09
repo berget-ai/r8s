@@ -150,6 +150,20 @@ export interface MatrixProps {
   sso?: MatrixSSOProps
   /** Per-database sizing + backup for synapse-db and mas-db */
   database?: MatrixDatabaseProps
+  /**
+   * Synapse signing-key/data storage. The signing key IS the server's
+   * identity — it must survive pod restarts (a fresh key silently
+   * de-federates rooms and invalidates every existing session), so synapse
+   * gets a persistent PVC (`${name}-synapse-keys`) mounted writable at
+   * /data. Synapse also writes its pid file and, by default, its media
+   * store there — size accordingly.
+   * - string — PVC size (default '1Gi')
+   * - { size?, storageClass? } — full control
+   * - false — render nothing; you manage /data yourself (e.g. a mutating
+   *   policy injects your own volume)
+   * @default '1Gi'
+   */
+  keysStorage?: string | { size?: string; storageClass?: string } | false
   /** MatrixRTC / LiveKit SFU (Element Call backend) */
   rtc?: MatrixRTCProps
   /**
@@ -171,9 +185,14 @@ export interface MatrixProps {
   )[]
   /**
    * Version pinning per component (production: pin these — the defaults are
-   * already pinned for known upstream regressions):
+   * already pinned for known upstream regressions, and 'latest' is rejected
+   * for mas/admin):
    * web: v1.12.15 (MSC4143 Authorization header fix),
-   * sfu: v1.10.1 (IPv6 ICE URL fix)
+   * sfu: v1.10.1 (IPv6 ICE URL fix),
+   * mas: 1.24.0 (the floating 'latest' drifted from the config schema —
+   *   listener resources renamed oauthapi/compatapi → oauth/compat),
+   * admin: 0.1.13 (served from oci.element.io — the ghcr repo does not
+   *   serve anonymous pulls)
    */
   version?: {
     synapse?: string
@@ -194,9 +213,10 @@ export interface MatrixProps {
  * @category Collaboration & Productivity
  *
  * Renders the whole suite with production HA defaults: two CNPG databases
- * (optional barman backups), 60s node-failure tolerations + topology spread
- * (learned from a real node-blip incident), SSRF-hardened URL previews, and
- * pinned component versions.
+ * (optional barman backups), a persistent keys volume for the Synapse
+ * signing key (server identity — must survive restarts), 60s node-failure
+ * tolerations + topology spread (learned from a real node-blip incident),
+ * SSRF-hardened URL previews, and pinned component versions.
  *
  * Secrets arrive via the Platform secrets backend (openbao/vault) or the
  * `clientSecretRef`/`credentialsSecret` escape hatches — never inline.
@@ -286,10 +306,14 @@ function buildMasConfig(name: string, sso?: MatrixSSOProps): Record<string, unkn
       listeners: [
         {
           name: 'web',
+          // Resource names per the pinned MAS image's config schema
+          // (crates/config/src/sections/http.rs — variants are lowercased):
+          // the pre-rename names oauthapi/compatapi CrashLoop any current
+          // image with "unknown variant ... expected one of 'oauth', 'compat'"
           resources: [
             { name: 'discovery' },
-            { name: 'oauthapi' },
-            { name: 'compatapi' },
+            { name: 'oauth' },
+            { name: 'compat' },
             { name: 'graphql' },
           ],
           port: 8080,
@@ -523,8 +547,10 @@ function synapseDeployment(opts: {
   namespace: string
   appservices: NonNullable<MatrixProps['appservices']>
   synapseVersion: string
+  /** `${name}-synapse-keys` PVC claim when the keys volume is rendered (default) */
+  keysClaimName: string | undefined
 }): ReturnType<typeof jsx> {
-  const { name, namespace, appservices, synapseVersion } = opts
+  const { name, namespace, appservices, synapseVersion, keysClaimName } = opts
   const synapseEnv: EnvVar[] = [{ name: 'SYNAPSE_CONFIG_PATH', value: '/data/homeserver.yaml' }]
 
   return jsx('Deployment', {
@@ -548,10 +574,16 @@ function synapseDeployment(opts: {
               imagePullPolicy: 'IfNotPresent',
               ports: [{ containerPort: 8008, name: 'client' }],
               env: synapseEnv,
+              // /data must be writable — synapse generates its signing key
+              // (the server identity) there on first boot and writes the
+              // pid file + media store alongside. The homeserver.yaml
+              // subPath file mount layers ON TOP of the PVC mount, keeping
+              // the config immutable while the keys stay persistent.
               // /tmp must be writable — readOnlyRootFilesystem + Twisted
               // tempfile buffering breaks media uploads otherwise (upstream
               // matrix-stack 26.9.0 regression)
               volumeMounts: [
+                ...(keysClaimName ? [{ name: 'keys', mountPath: '/data' }] : []),
                 {
                   name: 'config',
                   mountPath: '/data/homeserver.yaml',
@@ -584,9 +616,12 @@ function synapseDeployment(opts: {
             },
           ],
           volumes: [
-            { name: 'config', configMap: { name: `${name}-synapse-config` } },
             // CNPG generates the database credentials Secret (<cluster>-app)
             { name: 'db-credentials', secret: { secretName: `${name}-synapse-db-app` } },
+            ...(keysClaimName
+              ? [{ name: 'keys', persistentVolumeClaim: { claimName: keysClaimName } }]
+              : []),
+            { name: 'config', configMap: { name: `${name}-synapse-config` } },
             { name: 'tmp', emptyDir: { sizeLimit: '1Gi' } },
             ...appservices.map((a) => ({
               name: `appservice-${a.name}`,
@@ -726,7 +761,11 @@ function adminDeployment(opts: {
           containers: [
             {
               name: 'admin',
-              image: `ghcr.io/element-hq/element-admin:${adminVersion}`,
+              // ghcr.io/element-hq/element-admin does not serve anonymous
+              // pulls (registry: not found / 403 → ImagePullBackOff, caught
+              // by the kind smoke run). Element publishes the image on its
+              // public registry — the same image ess-helm ships by default.
+              image: `oci.element.io/element-admin:${adminVersion}`,
               imagePullPolicy: 'IfNotPresent',
               ports: [{ containerPort: 8080, name: 'http' }],
               livenessProbe: { httpGet: { path: '/', port: 8080 }, periodSeconds: 30 },
@@ -915,6 +954,7 @@ export function Matrix(props: MatrixProps) {
     serverName,
     sso,
     database = {},
+    keysStorage = '1Gi',
     rtc = {},
     appservices = [],
     version = {},
@@ -924,6 +964,35 @@ export function Matrix(props: MatrixProps) {
   const namespace = useNamespace(namespaceProp)
   const secretProvider = useContext(SecretContext)
   const sharedOperators = useContext(OperatorContext)
+
+  // Pinned-version policy (house pattern: forgejo/eurooffice) — both
+  // rejections come straight out of the kind smoke run:
+  // - floating `mas: 'latest'` drifted from the config builder and
+  //   CrashLooped the suite (listener resources were renamed upstream)
+  // - floating `admin: 'latest'` pointed at a ghcr repo that no longer
+  //   serves anonymous pulls at all (403 → ImagePullBackOff)
+  if (version.mas === 'latest') {
+    throw new Error(
+      `Matrix "${name}": version.mas must be a pinned tag — 'latest' is rejected.\n` +
+        `\n` +
+        `MAS is the identity provider for every account — a floating tag can\n` +
+        `drift from the config schema and CrashLoop the whole suite (upstream\n` +
+        `renamed its listener resources; oauthapi/compatapi → oauth/compat).\n` +
+        `\n` +
+        `Fix: <Matrix version={{ mas: '1.24.0' }} ... /> (or drop the override — 1.24.0 is the pinned default)`
+    )
+  }
+  if (version.admin === 'latest') {
+    throw new Error(
+      `Matrix "${name}": version.admin must be a pinned tag — 'latest' is rejected.\n` +
+        `\n` +
+        `The admin console image no longer resolves at\n` +
+        `ghcr.io/element-hq/element-admin:latest — anonymous pulls are refused\n` +
+        `(ImagePullBackOff on every deploy).\n` +
+        `\n` +
+        `Fix: <Matrix version={{ admin: '0.1.13' }} ... /> (or drop the override — 0.1.13 is the pinned default)`
+    )
+  }
 
   const baseDomain = domain
   const server = serverName ?? baseDomain
@@ -1101,6 +1170,31 @@ export function Matrix(props: MatrixProps) {
     })
   )
 
+  // --- Synapse keys PVC -------------------------------------------------------
+  // The signing key IS the server identity: a fresh key on every pod start
+  // de-federates rooms and invalidates every session. The first boot needs
+  // /data writable for synapse to GENERATE the key (PermissionError was the
+  // fresh-boot blocker in the kind smoke run — the deployment previously
+  // mounted only the read-only config file). One RWO PVC keeps the key
+  // across restarts; the Deployment already rolls Recreate.
+  const keysClaimName = keysStorage ? `${name}-synapse-keys` : (undefined as string | undefined)
+  if (keysStorage) {
+    const size = typeof keysStorage === 'string' ? keysStorage : (keysStorage.size ?? '1Gi')
+    const storageClass = typeof keysStorage === 'object' ? keysStorage.storageClass : undefined
+    resources.push(
+      jsx('PersistentVolumeClaim', {
+        apiVersion: 'v1',
+        kind: 'PersistentVolumeClaim',
+        metadata: { name: keysClaimName!, namespace },
+        spec: {
+          accessModes: ['ReadWriteOnce'],
+          ...(storageClass ? { storageClassName: storageClass } : {}),
+          resources: { requests: { storage: size } },
+        },
+      })
+    )
+  }
+
   // --- Config Maps -----------------------------------------------------------
   const synapseConfig = buildSynapseConfig({
     name,
@@ -1183,6 +1277,7 @@ export function Matrix(props: MatrixProps) {
       namespace,
       appservices,
       synapseVersion: version.synapse ?? 'v1.99.0',
+      keysClaimName,
     })
   )
 
@@ -1191,7 +1286,10 @@ export function Matrix(props: MatrixProps) {
       name,
       namespace,
       replicas,
-      masVersion: version.mas ?? 'latest',
+      // MAS config-schema drift fixed the hard way: the floating 'latest'
+      // renamed its listener resources and CrashLooped (smoke run). Pin to
+      // a current stable release; 'latest' is rejected above.
+      masVersion: version.mas ?? '1.24.0',
       keycloakSecretName,
     })
   )
@@ -1210,7 +1308,9 @@ export function Matrix(props: MatrixProps) {
       name,
       namespace,
       replicas,
-      adminVersion: version.admin ?? 'latest',
+      // Pinned to the current ESS release (ess-helm elementAdmin.image.tag
+      // 0.1.13) served from oci.element.io — 'latest' is rejected above.
+      adminVersion: version.admin ?? '0.1.13',
     })
   )
 

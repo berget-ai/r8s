@@ -127,6 +127,7 @@ import { Nextcloud } from '@r8s/nextcloud'
 import { Superset } from '@r8s/superset'
 import { WireGuard } from '@r8s/wireguard'
 import { EuroOffice } from '@r8s/eurooffice'
+import { Matrix } from '@r8s/matrix'
 // Value import: the superset smoke renders a companion CNPG cluster — the
 // package itself does NOT stitch a Database (see the superset entry).
 import { Database } from '@r8s/recipes'
@@ -853,6 +854,52 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     // line is the entire re-attempt.
     skipReason:
       'DocumentServer first-boot pipeline stalls on the shared kind node (45-min measured stall, 0 restarts, native arm64 — no emulation; production facit boots ~10 min on real nodes). Needs investigation outside the smoke harness.',
+  },
+
+  matrix: {
+    package: '@r8s/matrix',
+    namespace: 'matrix-smoke',
+    // The heaviest entry in the table: the full Element Server Suite — TWO
+    // CNPG clusters (matrix-synapse-db + matrix-mas-db) behind the synapse,
+    // mas, web and admin Deployments, four ClusterIP Services and four
+    // Endpoints (plain nginx Ingresses — no Platform, no RTC host). The
+    // runner's evidence step must report ALL pod states, not just the ready
+    // target. Matrix renders NO Redis component (no cache dependency —
+    // verified in the package source).
+    render: (jsx) =>
+      jsx(Matrix, {
+        name: 'matrix',
+        namespace: 'matrix-smoke',
+        domain: 'example.com',
+        // sso.clientSecretRef is a PLAIN STRING — the pre-created Secret's
+        // name; the key is hardcoded 'clientSecret' in buildMasEnv. Without
+        // it (and without a secrets backend) the component throws at render.
+        sso: {
+          issuer: 'https://keycloak.example.com/realms/x',
+          clientId: 'matrix',
+          clientSecretRef: 'matrix-sso',
+        },
+        // database.replicas drives BOTH CNPG clusters (default 2 → 1: four
+        // postgres pods would swamp the 4-CPU kind VM). backup is a required
+        // decision without an S3 provider — explicit `false` opt-out.
+        // database.storage stays at the 20Gi default (sparse on local-path);
+        // the stateless layer (mas/web/admin) stays at the 2-replica default.
+        database: { backup: false, replicas: 1 },
+        // LiveKit needs a real IP for ICE (LoadBalancer + use_external_ip) —
+        // untestable in kind; rtc off drops the SFU Deployment + Service.
+        rtc: { enabled: false },
+      }),
+    secrets: [{ name: 'matrix-sso', literal: { clientSecret: 'dummy-sso-secret' } }],
+    // Synapse Deployment is named `${name}-synapse` (single replica,
+    // Recreate) — its own probes are httpGet /health on container port 8008,
+    // the same path through a port-forward here. DB credentials are
+    // CNPG-generated (`matrix-synapse-db-app` / `matrix-mas-db-app`) —
+    // nothing to pre-create; requires the CNPG operator in the cluster.
+    ready: { kind: 'Deployment', name: 'matrix-synapse' },
+    healthz: { port: 8008, path: '/health' },
+    // four fresh image pulls (synapse/mas/web/admin) gated behind two CNPG
+    // bootstraps — the default 5-min budget is tight on a cold node.
+    readyTimeoutMs: 8 * 60 * 1000,
   },
 }
 
