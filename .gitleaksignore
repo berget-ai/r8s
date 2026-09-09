@@ -33,4 +33,7 @@ scripts/local-smoke.ts:generic-api-key:448
 scripts/local-smoke.ts:generic-api-key:455
 scripts/local-smoke.ts:generic-api-key:456
 scripts/local-smoke.ts:generic-api-key:820
+# (eurooffice JWT dummy moved 820 → 835: skipReason + contract-comment
+# block inserted above it — PR #135; same 64-hex fake, position only)
+scripts/local-smoke.ts:generic-api-key:835
 
