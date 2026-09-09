@@ -80,6 +80,73 @@ describe('Matrix — resource rendering', () => {
     expect(dep.spec.template.spec.volumes.map((v: any) => v.name)).toContain('db-credentials')
   })
 
+  it('renders a persistent keys PVC mounted writable at /data (signing key = server identity)', () => {
+    const result = renderMatrix()
+    const pvc = find(result, 'PersistentVolumeClaim', 'matrix-synapse-keys') as any
+    // Persistent — a fresh signing key on every boot de-federates rooms and
+    // invalidates sessions; fresh boot must be able to GENERATE the key too
+    // (the previous read-only-config-only deployment PermissionErrored here)
+    expect(pvc).toBeDefined()
+    expect(pvc.spec.accessModes).toContain('ReadWriteOnce')
+    expect(pvc.spec.resources.requests.storage).toBe('1Gi')
+    const dep = find(result, 'Deployment', 'matrix-synapse') as any
+    const container = dep.spec.template.spec.containers[0]
+    const mount = container.volumeMounts.find((m: any) => m.name === 'keys')
+    expect(mount.mountPath).toBe('/data')
+    // writable — synapse generates <server_name>.signing.key there
+    expect(mount.readOnly).toBeFalsy()
+    const volume = dep.spec.template.spec.volumes.find((v: any) => v.name === 'keys')
+    expect(volume.persistentVolumeClaim.claimName).toBe('matrix-synapse-keys')
+    // the config still rides the subPath file mount on TOP of the PVC
+    const configMount = container.volumeMounts.find((m: any) => m.name === 'config')
+    expect(configMount.mountPath).toBe('/data/homeserver.yaml')
+    expect(configMount.readOnly).toBe(true)
+  })
+
+  it('keysStorage overrides PVC size + storageClass', () => {
+    const result = renderMatrix({ keysStorage: { size: '5Gi', storageClass: 'fast' } })
+    const pvc = find(result, 'PersistentVolumeClaim', 'matrix-synapse-keys') as any
+    expect(pvc.spec.resources.requests.storage).toBe('5Gi')
+    expect(pvc.spec.storageClassName).toBe('fast')
+  })
+
+  it('keysStorage: false renders no keys volume (bring your own /data)', () => {
+    const result = renderMatrix({ keysStorage: false })
+    expect(find(result, 'PersistentVolumeClaim', 'matrix-synapse-keys')).toBeUndefined()
+    const dep = find(result, 'Deployment', 'matrix-synapse') as any
+    const c = dep.spec.template.spec.containers[0]
+    expect(dep.spec.template.spec.volumes.map((v: any) => v.name)).not.toContain('keys')
+    expect(c.volumeMounts.map((m: any) => m.name)).not.toContain('keys')
+  })
+
+  it('renders MAS with the pinned image and the current listener resource names', () => {
+    const result = renderMatrix()
+    const mas = find(result, 'Deployment', 'matrix-mas') as any
+    // Floating 'latest' drifted from the config schema (CrashLoop: unknown
+    // variant) — the default must be a real, current release
+    expect(mas.spec.template.spec.containers[0].image).toBe(
+      'ghcr.io/element-hq/matrix-authentication-service:1.24.0'
+    )
+    const cm = find(result, 'ConfigMap', 'matrix-mas-config') as any
+    const yaml = cm.data['config.yaml']
+    // renamed upstream: oauthapi/compatapi → oauth/compat
+    expect(yaml).toContain('name: oauth')
+    expect(yaml).toContain('name: compat')
+    expect(yaml).not.toContain('oauthapi')
+    expect(yaml).not.toContain('compatapi')
+  })
+
+  it('pulls the admin console from oci.element.io (ghcr no longer serves anonymous pulls)', () => {
+    const result = renderMatrix()
+    const admin = find(result, 'Deployment', 'matrix-admin') as any
+    expect(admin.spec.template.spec.containers[0].image).toBe('oci.element.io/element-admin:0.1.13')
+  })
+
+  it('rejects floating latest for mas and admin (pinned-version policy)', () => {
+    expect(() => renderMatrix({ version: { mas: 'latest' } })).toThrow(/pinned tag/)
+    expect(() => renderMatrix({ version: { admin: 'latest' } })).toThrow(/pinned tag/)
+  })
+
   it('renders appservice registrations as Secrets (tokens must never ride a ConfigMap)', () => {
     const result = renderMatrix({
       appservices: [{ name: 'hookshot', registration: { id: 'hookshot', as_token: 'x' } }],
@@ -211,10 +278,16 @@ describe('Matrix — resource rendering', () => {
     expect(sfu.spec.template.spec.containers[0].image).toContain('v1.10.1')
   })
 
-  it('propagates custom versions', () => {
-    const result = renderMatrix({ version: { web: 'v1.13.0', sfu: 'v1.11.0' } })
+  it('propagates custom versions (including mas + admin overrides)', () => {
+    const result = renderMatrix({
+      version: { web: 'v1.13.0', sfu: 'v1.11.0', mas: '1.23.0', admin: '0.1.12' },
+    })
     const web = find(result, 'Deployment', 'matrix-web') as any
     expect(web.spec.template.spec.containers[0].image).toContain('v1.13.0')
+    const mas = find(result, 'Deployment', 'matrix-mas') as any
+    expect(mas.spec.template.spec.containers[0].image).toContain(':1.23.0')
+    const admin = find(result, 'Deployment', 'matrix-admin') as any
+    expect(admin.spec.template.spec.containers[0].image).toBe('oci.element.io/element-admin:0.1.12')
   })
 
   it('inherits namespace from the Platform context', () => {

@@ -1876,6 +1876,14 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
           'Per-database sizing for the two CNPG clusters (synapse-db, mas-db). Backup is explicit opt-in: barman object store with 30d retention + ScheduledBackup.',
       },
       {
+        name: 'keysStorage',
+        type: 'string | { size?: string storageClass?: string } | false',
+        required: false,
+        default: "'1Gi'",
+        description:
+          'Synapse signing-key/data storage: a persistent PVC (<name>-synapse-keys) mounted writable at /data. The signing key is the server identity — it must survive restarts; synapse also writes its pid file and media store there. false = you manage /data yourself.',
+      },
+      {
         name: 'rtc',
         type: '{ enabled?: boolean manualIP?: string turnPort?: number stunServers?: string[] sfuVersion?: string }',
         required: false,
@@ -1894,7 +1902,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         type: '{ synapse?: string mas?: string web?: string admin?: string sfu?: string }',
         required: false,
         description:
-          'Per-component image tags. Defaults are pinned for known upstream regressions (web v1.12.15 / sfu v1.10.1) — override only with intent.',
+          "Per-component image tags. Defaults are pinned for known upstream regressions (web v1.12.15 / sfu v1.10.1 / mas 1.24.0 / admin 0.1.13 from oci.element.io — the ghcr repo no longer serves anonymous pulls); floating 'latest' is rejected for mas and admin.",
       },
       {
         name: 'urlPreview',
