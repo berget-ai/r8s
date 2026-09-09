@@ -282,8 +282,8 @@ export interface SmokeSpec {
   /**
    * Per-entry readiness budget override (ms). Default is READY_TIMEOUT_MS
    * (5 min) — slow-boot packages set a generous value: eurooffice pulls a
-   * ~2-3 GB image and tolerates a ~10-minute first boot (schema migration
-   * behind its 600s startup probe).
+   * ~2-3 GB image and tolerates a ~20-minute first boot (schema migration
+   * behind its 1200s startup probe — migrations must not be killed mid-run).
    */
   readyTimeoutMs?: number
   /** Static skip, e.g. 'requires secrets backend' for backend-bound packages */
@@ -799,8 +799,8 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     // scope), dbInstances/dbStorage sized for the laptop cluster.
     // customFonts:false skips the 4 brand-font downloads (faster boot,
     // fewer moving parts). The image is ~2-3 GB and the first boot runs
-    // schema migration behind a 600s startup probe — hence the generous
-    // readyTimeoutMs. Requires the CNPG operator in the cluster.
+    // schema migration behind a 1200s (20-min) startup probe — hence the
+    // generous readyTimeoutMs. Requires the CNPG operator in the cluster.
     render: (jsx) =>
       jsx(EuroOffice, {
         namespace: 'eurooffice-smoke',
@@ -825,12 +825,15 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     // named from the `name` prop (default 'onlyoffice'); single replica.
     ready: { kind: 'Deployment', name: 'onlyoffice' },
     // Probes are httpGet /healthcheck on the container port 80 (startup
-    // budget 60 × 10s for the ~10-min first boot) — the same path through
+    // budget 120 × 10s = 20 min for the first boot: schema migration +
+    // fonts) — the same path through
     // a port-forward proves the server answers.
     healthz: { port: 80, path: '/healthcheck' },
-    // Image pull (~2-3 GB) first-boot schema migration alone can eat the
-    // default 5-min budget — 12 min keeps the door open for both.
-    readyTimeoutMs: 12 * 60 * 1000,
+    // Image pull (~2-3 GB) on top of a first boot bounded by the 1200s
+    // (20-min) startup probe — default 5 min dies fast, and the smoke
+    // budget must exceed the probe budget or it would abandon a pod that
+    // still goes Ready — 25 min keeps the door open for both.
+    readyTimeoutMs: 25 * 60 * 1000,
   },
 }
 
