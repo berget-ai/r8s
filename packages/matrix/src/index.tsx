@@ -576,17 +576,19 @@ function matrixDatabaseResources(opts: {
 /** Single resolution point for the forgejo-style storage props
  *  (`keysStorage`, `mediaStorage`): shorthand string = size, object =
  *  size/storageClass overrides, per-volume default as size fallback. Both
- *  claims render as one RWO PVC. */
+ *  claims render as one RWO PVC. `| false` (render nothing) is the prop's
+ *  opt-out and is filtered by the caller's truthiness guard — not accepted
+ *  here. */
 function storageClaimPvc(opts: {
   claimName: string
   namespace: string
-  storage: string | { size?: string; storageClass?: string } | false
+  storage: string | { size?: string; storageClass?: string }
   /** PVC size fallback when the prop is an override object without a size */
   defaultSize: string
 }): ReturnType<typeof jsx> {
   const { claimName, namespace, storage, defaultSize } = opts
-  // typeof === 'object' excludes the boolean `false` variant (the caller has
-  // already guarded it — a `false` prop renders no PVC at all); the string
+  // typeof === 'object' selects the override-object variant (boolean false
+  // is type-excluded — the caller's guard filtered it); the string
   // shorthand IS the size
   const size = typeof storage === 'object' ? (storage.size ?? defaultSize) : storage
   const storageClass = typeof storage === 'object' ? storage.storageClass : undefined
