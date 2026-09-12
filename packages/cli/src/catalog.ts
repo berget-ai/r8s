@@ -1679,7 +1679,8 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         name: 'version',
         type: 'string',
         required: false,
-        description: "Container image tag (defaults to 'latest' — pin a version in production)",
+        description:
+          "Container image tag (defaults to '2026.831.1' — the official upstream release; pin a version in production)",
       },
       {
         name: 'host',

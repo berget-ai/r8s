@@ -17,18 +17,19 @@ export interface PaperclipProps {
   /** Kubernetes namespace (inherited from <Platform> unless set) */
   namespace?: string
   /**
-   * App image tag (defaults to 'sso-oidc' — the Berget fork branch build
-   * for SSO/OIDC work; a named moving tag, Always-pulled on purpose).
+   * App image tag (defaults to '2026.831.1' — the official upstream
+   * release from github.com/paperclipai/paperclip; Always-pulled on
+   * purpose).
    */
   version?: string
-  /** Image repository (defaults to the Berget fork) */
+  /** Image repository (defaults to the official public image) */
   repository?: string
   /** Public hostname for the web app and API (required) */
   host: string
   /**
-   * Manual image pull secrets for the private ghcr image (defaults to
-   * ['ghcr-pull-secret'] — a fine-grained PAT read:packages Secret that
-   * is deliberately managed OUTSIDE Flux: rotate it by delete+recreate)
+   * Image pull secrets for private mirrors/forks of the image (defaults
+   * to [] — the official public image needs none; set this when pointing
+   * `repository` at a private registry)
    */
   pullSecrets?: string[]
   /**
@@ -134,9 +135,9 @@ const DEFAULT_ADAPTER_MODELS =
  *   secrets backend with rotation restart of the StatefulSet
  * - the `paperclip.inc/v1alpha1` `Instance` CR with facit spec
  *
- * The image is private: `pullSecrets` defaults to `['ghcr-pull-secret']`
- * — a fine-grained PAT (read:packages) Secret managed manually outside
- * Flux (rotate by delete+recreate).
+ * The default image is the official public upstream
+ * `ghcr.io/paperclipai/paperclip` — anonymous pulls work, no pull secrets
+ * needed. `pullSecrets` remains a prop for private mirrors/forks.
  *
  * @example
  * import { Platform } from '@r8s/recipes'
@@ -152,10 +153,10 @@ export function Paperclip(props: PaperclipProps) {
   const {
     name = 'paperclip',
     namespace: namespaceProp,
-    version = 'sso-oidc',
-    repository = 'ghcr.io/berget-ai/paperclip',
+    version = '2026.831.1',
+    repository = 'ghcr.io/paperclipai/paperclip',
     host,
-    pullSecrets = ['ghcr-pull-secret'],
+    pullSecrets = [],
     operatorVersion = '0.19.0',
     dbName = 'paperclip-db',
     dbInstances = 2,

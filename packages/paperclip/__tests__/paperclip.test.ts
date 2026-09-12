@@ -45,10 +45,10 @@ describe('Paperclip operator Instance', () => {
     expect(inst.apiVersion).toBe('paperclip.inc/v1alpha1')
     expect(inst.metadata.name).toBe('paperclip')
     expect(inst.spec.image).toEqual({
-      repository: 'ghcr.io/berget-ai/paperclip',
-      tag: 'sso-oidc',
+      repository: 'ghcr.io/paperclipai/paperclip',
+      tag: '2026.831.1',
       pullPolicy: 'Always',
-      pullSecrets: [{ name: 'ghcr-pull-secret' }],
+      pullSecrets: [],
     })
     expect(inst.spec.deployment).toEqual({
       mode: 'authenticated',
