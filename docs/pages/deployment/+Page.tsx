@@ -255,7 +255,19 @@ export default function Page() {
             <div className="space-y-4">
               <h3 className="text-xl">1. Bootstrap Flux</h3>
               <p className="text-cloud/70">
-                If you haven't already, bootstrap FluxCD. See{' '}
+                If you haven't already, bootstrap FluxCD. Note that{' '}
+                <code>flux bootstrap github</code> reads the token from stdin — when your{' '}
+                <code>gh</code> credentials live in the keyring, export a token and pass{' '}
+                <code>--token-auth</code> or stdin hits EOF:
+              </p>
+              <CodeBlock
+                code={`GITHUB_TOKEN=\$(gh auth token) flux bootstrap github \\
+  --owner <org> --repo <name> --branch main \\
+  --token-auth --path clusters/<env>`}
+                language="bash"
+              />
+              <p className="text-cloud/70">
+                See{' '}
                 <a
                   href="https://fluxcd.io/flux/installation/bootstrap/github/"
                   className="text-moss hover:text-lichen"
