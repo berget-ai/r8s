@@ -21,14 +21,17 @@
  *   standalone under the ESM flavor tsx runs (`tsc --noEmit` with
  *   module ESNext), strict mode.
  * - A kind cluster named `r8s-local` whose kubeconfig context is loaded
- *   into the merged kubeconfig. The preflight probes
- *   `kubectl --context kind-r8s-local get nodes` and, on failure, runs
+ *   into the merged kubeconfig (default context: `kind-r8s-local`; point
+ *   R8S_SMOKE_CONTEXT plus a matching KUBECONFIG at another cluster to
+ *   smoke there). The preflight probes
+ *   `kubectl --context $R8S_SMOKE_CONTEXT get nodes` and, for the default
+ *   kind context, on failure runs
  *   `kind export kubeconfig --name r8s-local` once before giving up (a
  *   colima/Docker VM restart drops the context from the merge).
  *
- *   Every kubectl call in this script carries `--context kind-r8s-local`
- *   (hard-coded, never the ambient context, so a production default context
- *   can't receive smoke traffic by accident).
+ *   Every kubectl call in this script carries
+ *   `--context $R8S_SMOKE_CONTEXT` (never the ambient context, so a
+ *   production default context can't receive smoke traffic by accident).
  * - CNPG operator installed in the cluster (for packages that render a
  *   Database — umami, n8n, outline, eneo, open-webui, odoo, paperclip,
  *   nextcloud, and superset via the smoke's companion `superset-db`
@@ -99,7 +102,8 @@
  *   and deletion finishes in the background while the next package runs.
  *
  * Debugging a failed run: set R8S_SMOKE_KEEP_NAMESPACES=1 to skip teardown,
- * then poke around `kubectl --context kind-r8s-local -n <pkg>-smoke ...`.
+ * then poke around `kubectl --context $R8S_SMOKE_CONTEXT -n <pkg>-smoke ...`
+ * (R8S_SMOKE_CONTEXT defaults to kind-r8s-local).
  */
 
 import { execFile, spawn, type ChildProcess } from 'node:child_process'
@@ -137,8 +141,13 @@ import { Fragment } from '@r8s/core'
 
 const THIS_FILE = process.env.R8S_LOCAL_SMOKE_SELF ?? fileURLToPath(import.meta.url)
 const ROOT = path.resolve(path.dirname(THIS_FILE), '..')
-/** Hard-coded safety belt: smoke always runs against this context. */
-const KUBE_CONTEXT = 'kind-r8s-local'
+/**
+ * Safety belt: smoke targets an explicit context, never the ambient default.
+ * Override with R8S_SMOKE_CONTEXT for another cluster (pair it with the
+ * matching KUBECONFIG; script-spawned kubectl children inherit the env).
+ * Default stays the local kind cluster.
+ */
+const KUBE_CONTEXT = process.env.R8S_SMOKE_CONTEXT ?? 'kind-r8s-local'
 const KIND_CLUSTER = 'r8s-local'
 /**
  * Abort the remaining batch below this much free disk (2 GiB — image pulls

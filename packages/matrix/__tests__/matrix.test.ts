@@ -80,6 +80,76 @@ describe('Matrix — resource rendering', () => {
     expect(dep.spec.template.spec.volumes.map((v: any) => v.name)).toContain('db-credentials')
   })
 
+  it('renders homeserver.yaml as a template with the DB-password placeholder (no password_file DSN)', () => {
+    // Round 3 dogfood: synapse passes database.args verbatim to
+    // psycopg2.connect(), which rejects password_file ("invalid dsn:
+    // invalid connection option \"password_file\"") — the password must be
+    // substituted into the config instead
+    const result = renderMatrix()
+    const cm = find(result, 'ConfigMap', 'matrix-synapse-config') as any
+    const tpl = cm.data['homeserver.yaml.tpl']
+    expect(tpl).toContain('password: __DB_PASSWORD__')
+    expect(tpl).not.toContain('password_file')
+    // the rest of the DSN args ride along unchanged
+    expect(tpl).toContain('host: matrix-synapse-db-rw')
+    expect(tpl).toContain('database: synapse')
+    expect(tpl).toContain('user: synapse')
+  })
+
+  it('renders the render-config init container + SYNAPSE_CONFIG_PATH pointing at the rendered config', () => {
+    const result = renderMatrix()
+    const dep = find(result, 'Deployment', 'matrix-synapse') as any
+    const podSpec = dep.spec.template.spec
+
+    // init container substitutes the password from the mounted CNPG secret
+    const init = podSpec.initContainers.find((c: any) => c.name === 'render-config')
+    expect(init).toBeDefined()
+    expect(init.image).toContain('matrixdotorg/synapse:')
+    const script = init.command[init.command.indexOf('-c') + 1]
+    expect(script).toContain('__DB_PASSWORD__')
+    expect(script).toContain('/template/homeserver.yaml.tpl')
+    expect(script).toContain('/config/homeserver.yaml')
+    const initMounts = Object.fromEntries(init.volumeMounts.map((m: any) => [m.name, m.mountPath]))
+    expect(initMounts['config-template']).toBe('/template')
+    expect(initMounts['db-credentials']).toBe('/secrets/db')
+    expect(initMounts['config']).toBe('/config')
+
+    // output volume: the template rides the old ConfigMap, the rendered
+    // config lands on a fresh emptyDir (no more direct ConfigMap mount)
+    const volumes = Object.fromEntries(podSpec.volumes.map((v: any) => [v.name, v]))
+    expect(volumes['config'].emptyDir).toBeDefined()
+    expect(volumes['config'].configMap).toBeUndefined()
+    expect(volumes['config-template'].configMap.name).toBe('matrix-synapse-config')
+
+    // synapse container reads the rendered config via SYNAPSE_CONFIG_PATH
+    const container = podSpec.containers[0]
+    const env = Object.fromEntries(container.env.map((e: any) => [e.name, e.value]))
+    expect(env['SYNAPSE_CONFIG_PATH']).toBe('/config/homeserver.yaml')
+    const mainMounts = Object.fromEntries(
+      container.volumeMounts.map((m: any) => [m.name, m.mountPath])
+    )
+    expect(mainMounts['config']).toBe('/config')
+    // the raw DB secret no longer reaches the main container — the password
+    // is baked into the rendered config by the init container
+    expect(mainMounts['db-credentials']).toBeUndefined()
+    // and the old direct config mount into /data is gone
+    expect(container.volumeMounts.map((m: any) => m.mountPath)).not.toContain(
+      '/data/homeserver.yaml'
+    )
+  })
+
+  it('sets MAS http.public_base to the account host (1.24.0 schema requires it)', () => {
+    // Round 3 dogfood: MAS 1.24.0 rejects the config without it
+    // ("missing field `public_base` for key \"default.http\"")
+    const result = renderMatrix()
+    let cm = find(result, 'ConfigMap', 'matrix-mas-config') as any
+    expect(cm.data['config.yaml']).toContain("public_base: 'https://matrix-account.example.com'")
+
+    const overridden = renderMatrix({ hosts: { account: 'id.example.com' } })
+    cm = find(overridden, 'ConfigMap', 'matrix-mas-config') as any
+    expect(cm.data['config.yaml']).toContain("public_base: 'https://id.example.com'")
+  })
+
   it('renders a persistent keys PVC mounted writable at /data (signing key = server identity)', () => {
     const result = renderMatrix()
     const pvc = find(result, 'PersistentVolumeClaim', 'matrix-synapse-keys') as any
@@ -97,9 +167,10 @@ describe('Matrix — resource rendering', () => {
     expect(mount.readOnly).toBeFalsy()
     const volume = dep.spec.template.spec.volumes.find((v: any) => v.name === 'keys')
     expect(volume.persistentVolumeClaim.claimName).toBe('matrix-synapse-keys')
-    // the config still rides the subPath file mount on TOP of the PVC
+    // the config no longer rides a subPath file mount on the PVC — synapse
+    // reads the init-container-rendered config from the config emptyDir
     const configMount = container.volumeMounts.find((m: any) => m.name === 'config')
-    expect(configMount.mountPath).toBe('/data/homeserver.yaml')
+    expect(configMount.mountPath).toBe('/config')
     expect(configMount.readOnly).toBe(true)
   })
 
@@ -140,7 +211,7 @@ describe('Matrix — resource rendering', () => {
     // /synapse) and EACCESes as UID 991 at boot (caught one step after the
     // #136 signing-key fix)
     const cm = find(result, 'ConfigMap', 'matrix-synapse-config') as any
-    expect(cm.data['homeserver.yaml']).toContain('media_store_path: /data/media_store')
+    expect(cm.data['homeserver.yaml.tpl']).toContain('media_store_path: /data/media_store')
   })
 
   it('mediaStorage overrides PVC size + storageClass', () => {
@@ -159,7 +230,7 @@ describe('Matrix — resource rendering', () => {
     expect(c.volumeMounts.map((m: any) => m.name)).not.toContain('media')
     // bring-your-own volumes must still mount at the pinned path
     const cm = find(result, 'ConfigMap', 'matrix-synapse-config') as any
-    expect(cm.data['homeserver.yaml']).toContain('media_store_path: /data/media_store')
+    expect(cm.data['homeserver.yaml.tpl']).toContain('media_store_path: /data/media_store')
   })
 
   it('renders MAS with the pinned image and the current listener resource names', () => {
@@ -327,8 +398,8 @@ describe('Matrix — resource rendering', () => {
   it('includes the SSRF-hardened URL preview blacklist by default', () => {
     const result = renderMatrix()
     const cm = find(result, 'ConfigMap', 'matrix-synapse-config') as any
-    expect(cm.data['homeserver.yaml']).toContain('url_preview_ip_range_blacklist')
-    expect(cm.data['homeserver.yaml']).toContain('10.0.0.0/8')
+    expect(cm.data['homeserver.yaml.tpl']).toContain('url_preview_ip_range_blacklist')
+    expect(cm.data['homeserver.yaml.tpl']).toContain('10.0.0.0/8')
   })
 
   it('uses pinned component versions (web v1.12.15, sfu v1.10.1)', () => {

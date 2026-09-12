@@ -297,7 +297,14 @@ function buildSynapseConfig(opts: {
         port: 5432,
         database: 'synapse',
         user: 'synapse',
-        password_file: '/secrets/db/password',
+        // Placeholder, substituted by the render-config init container with
+        // the CNPG secret's password (dogfood smoke round 3: synapse passes
+        // database.args VERBATIM to psycopg2.connect(), which rejects
+        // `password_file` — "invalid dsn: invalid connection option
+        // \"password_file\""). A file-based secret is impossible in the DSN,
+        // so the password lands in the rendered config instead: the
+        // ConfigMap below is a TEMPLATE and never carries a real secret.
+        password: '__DB_PASSWORD__',
         sslmode: 'prefer',
       },
     },
@@ -319,12 +326,21 @@ function buildSynapseConfig(opts: {
   }
 }
 
-function buildMasConfig(name: string, sso?: MatrixSSOProps): Record<string, unknown> {
+function buildMasConfig(
+  name: string,
+  accountHost: string,
+  sso?: MatrixSSOProps
+): Record<string, unknown> {
   return {
     database: {
       uri: `postgresql://mas:$(MASPASSWORD)@${name}-mas-db-rw:5432/mas?sslmode=prefer`,
     },
     http: {
+      // MAS 1.24.0 requires http.public_base (dogfood smoke round 3:
+      // "missing field `public_base` for key \"default.http\"") — it is the
+      // service's external URL from which issuer metadata and redirect URIs
+      // derive. The package routes MAS at the account host.
+      public_base: `https://${accountHost}`,
       listeners: [
         {
           name: 'web',
@@ -615,7 +631,17 @@ function synapseDeployment(opts: {
   mediaClaimName: string | undefined
 }): ReturnType<typeof jsx> {
   const { name, namespace, appservices, synapseVersion, keysClaimName, mediaClaimName } = opts
-  const synapseEnv: EnvVar[] = [{ name: 'SYNAPSE_CONFIG_PATH', value: '/data/homeserver.yaml' }]
+  const synapseEnv: EnvVar[] = [{ name: 'SYNAPSE_CONFIG_PATH', value: '/config/homeserver.yaml' }]
+  // The rendered homeserver.yaml carries the DB password, so the ConfigMap
+  // only ships a TEMPLATE (`homeserver.yaml.tpl` with __DB_PASSWORD__) and a
+  // render-config init container substitutes the password from the mounted
+  // CNPG secret into an emptyDir. Python (bundled in the synapse image) and
+  // plain str.replace — no sed regex escaping, safe against special chars.
+  const renderConfigCommand = [
+    'python3',
+    '-c',
+    "import pathlib; t=pathlib.Path('/template/homeserver.yaml.tpl').read_text(); p=pathlib.Path('/secrets/db/password').read_text().strip(); pathlib.Path('/config/homeserver.yaml').write_text(t.replace('__DB_PASSWORD__', p))",
+  ]
 
   return jsx('Deployment', {
     apiVersion: 'apps/v1',
@@ -631,6 +657,21 @@ function synapseDeployment(opts: {
           tolerations: HA_TOLERATIONS,
           topologySpreadConstraints: haTopologySpread(`${name}-synapse`),
           securityContext: { fsGroup: 991, fsGroupChangePolicy: 'OnRootMismatch' },
+          initContainers: [
+            {
+              name: 'render-config',
+              // Same image as synapse — it bundles python3 (the image's own
+              // entrypoint /start.py also honors SYNAPSE_CONFIG_PATH).
+              image: `matrixdotorg/synapse:${synapseVersion}`,
+              imagePullPolicy: 'IfNotPresent',
+              command: renderConfigCommand,
+              volumeMounts: [
+                { name: 'config-template', mountPath: '/template', readOnly: true },
+                { name: 'db-credentials', mountPath: '/secrets/db', readOnly: true },
+                { name: 'config', mountPath: '/config' },
+              ],
+            },
+          ],
           containers: [
             {
               name: 'synapse',
@@ -640,9 +681,11 @@ function synapseDeployment(opts: {
               env: synapseEnv,
               // /data must be writable — synapse generates its signing key
               // (the server identity) there on first boot and writes the
-              // pid file + media store alongside. The homeserver.yaml
-              // subPath file mount layers ON TOP of the PVC mount, keeping
-              // the config immutable while the keys stay persistent.
+              // pid file + media store alongside. The final homeserver.yaml
+              // lives on the `config` emptyDir at /config (rendered by the
+              // init container from the template + DB secret) and is pointed
+              // at via SYNAPSE_CONFIG_PATH, so no config rides the /data
+              // PVC mount anymore.
               // /tmp must be writable — readOnlyRootFilesystem + Twisted
               // tempfile buffering breaks media uploads otherwise (upstream
               // matrix-stack 26.9.0 regression)
@@ -653,13 +696,7 @@ function synapseDeployment(opts: {
                 // must not fill the small keys PVC (matches
                 // `media_store_path` in the rendered homeserver.yaml)
                 ...(mediaClaimName ? [{ name: 'media', mountPath: '/data/media_store' }] : []),
-                {
-                  name: 'config',
-                  mountPath: '/data/homeserver.yaml',
-                  subPath: 'homeserver.yaml',
-                  readOnly: true,
-                },
-                { name: 'db-credentials', mountPath: '/secrets/db', readOnly: true },
+                { name: 'config', mountPath: '/config', readOnly: true },
                 { name: 'tmp', mountPath: '/tmp' },
                 ...appservices.map((a) => ({
                   name: `appservice-${a.name}`,
@@ -685,7 +722,10 @@ function synapseDeployment(opts: {
             },
           ],
           volumes: [
-            // CNPG generates the database credentials Secret (<cluster>-app)
+            // CNPG generates the database credentials Secret (<cluster>-app);
+            // only the render-config init container reads it — the main
+            // synapse container never sees the raw secret (the password is
+            // baked into the rendered config instead).
             { name: 'db-credentials', secret: { secretName: `${name}-synapse-db-app` } },
             ...(keysClaimName
               ? [{ name: 'keys', persistentVolumeClaim: { claimName: keysClaimName } }]
@@ -693,7 +733,9 @@ function synapseDeployment(opts: {
             ...(mediaClaimName
               ? [{ name: 'media', persistentVolumeClaim: { claimName: mediaClaimName } }]
               : []),
-            { name: 'config', configMap: { name: `${name}-synapse-config` } },
+            // Final rendered config (init-container output) + its template
+            { name: 'config', emptyDir: {} },
+            { name: 'config-template', configMap: { name: `${name}-synapse-config` } },
             { name: 'tmp', emptyDir: { sizeLimit: '1Gi' } },
             ...appservices.map((a) => ({
               name: `appservice-${a.name}`,
@@ -1295,13 +1337,19 @@ export function Matrix(props: MatrixProps) {
       apiVersion: 'v1',
       kind: 'ConfigMap',
       metadata: { name: `${name}-synapse-config`, namespace },
+      // TEMPLATE, not the final config: database.args.password carries the
+      // __DB_PASSWORD__ placeholder, substituted by the synapse Deployment's
+      // render-config init container with the CNPG secret's value. A real
+      // password must never land in this ConfigMap.
       data: {
-        'homeserver.yaml': '# Generated by @r8s/matrix\n' + toYaml(synapseConfig),
+        'homeserver.yaml.tpl':
+          '# Generated by @r8s/matrix — template (render-config substitutes __DB_PASSWORD__)\n' +
+          toYaml(synapseConfig),
       },
     })
   )
 
-  const masConfig = buildMasConfig(name, sso)
+  const masConfig = buildMasConfig(name, host.account, sso)
 
   resources.push(
     jsx('ConfigMap', {
