@@ -1,0 +1,35 @@
+{
+  "$comment": "Runtime validation record — updated by scripts/local-smoke.ts on every PASS. kind = local kind cluster, rke2 = the dogfood RKE2 cluster. Dates are ISO yyyy-mm-dd.",
+  "packages": {
+    "forgejo": { "kind": "2026-09-06" },
+    "rustfs": { "kind": "2026-09-06" },
+    "umami": { "kind": "2026-09-06", "rke2": "2026-09-09" },
+    "grafana": { "kind": "2026-09-06" },
+    "outline": { "kind": "2026-09-07" },
+    "chromadb": { "kind": "2026-09-07" },
+    "element": { "kind": "2026-09-07" },
+    "n8n": { "kind": "2026-09-07" },
+    "odoo": { "kind": "2026-09-09" },
+    "superset": { "rke2": "2026-09-09" },
+    "wireguard": { "rke2": "2026-09-09" }
+  },
+  "recipes": {
+    "database": {
+      "kind": "2026-09-06",
+      "rke2": "2026-09-09",
+      "$comment": "recipe exercised at runtime via umami (kind + rke2), n8n/outline/odoo (kind), superset-db (rke2)"
+    },
+    "namespace": {
+      "kind": "2026-09-06",
+      "$comment": "recipe exercised at runtime via forgejo (gitops render)"
+    },
+    "s3-provider": {
+      "kind": "2026-09-06",
+      "$comment": "recipe exercised at runtime via forgejo LFS"
+    },
+    "static-secret": {
+      "kind": "2026-09-06",
+      "$comment": "recipe exercised at runtime via forgejo JWT (eurooffice renders the same path)"
+    }
+  }
+}

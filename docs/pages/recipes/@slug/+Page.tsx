@@ -48,6 +48,30 @@ export default function Page() {
         <code className="text-moss font-mono text-sm">{recipe.component.name}</code>
       </div>
 
+      {/* Runtime validation (live data from docs/validation.json) */}
+      {(recipe.validation?.kind || recipe.validation?.rke2) && (
+        <div className="space-y-2">
+          <span className="text-xs text-moss uppercase tracking-wider font-medium">
+            Runtime validation
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {(['kind', 'rke2'] as const)
+              .filter((platform) => recipe.validation?.[platform])
+              .map((platform) => (
+                <span
+                  key={platform}
+                  className="text-xs px-3 py-1 rounded-full bg-moss/20 text-moss border border-moss/30"
+                >
+                  ✅ {platform} {recipe.validation?.[platform]}
+                </span>
+              ))}
+          </div>
+          {recipe.validation?.$comment && (
+            <p className="text-xs text-cloud/40">{recipe.validation.$comment}</p>
+          )}
+        </div>
+      )}
+
       {/* Examples */}
       {recipe.component.examples.length > 0 && (
         <div className="space-y-8">

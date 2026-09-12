@@ -43,6 +43,29 @@ export default function Page() {
         <p className="text-sm font-mono text-cloud/60">{pkg.name}</p>
       </div>
 
+      {/* Runtime validation (live data from docs/validation.json) */}
+      <div className="space-y-2">
+        <span className="text-xs text-moss uppercase tracking-wider font-medium">
+          Runtime validation
+        </span>
+        {pkg.validation ? (
+          <div className="flex flex-wrap gap-2">
+            {(['kind', 'rke2'] as const)
+              .filter((platform) => pkg.validation?.[platform])
+              .map((platform) => (
+                <span
+                  key={platform}
+                  className="text-xs px-3 py-1 rounded-full bg-moss/20 text-moss border border-moss/30"
+                >
+                  ✅ {platform} {pkg.validation?.[platform]}
+                </span>
+              ))}
+          </div>
+        ) : (
+          <p className="text-sm text-cloud/40">Not yet runtime-validated</p>
+        )}
+      </div>
+
       {/* Keywords + Provider Interfaces */}
       <div className="flex flex-wrap gap-2">
         {pkg.keywords.map((keyword) => (

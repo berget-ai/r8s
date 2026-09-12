@@ -21,6 +21,35 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
 const DOCS_DATA = path.join(ROOT, 'docs', 'data')
 
+/** Hand-maintained runtime-validation record (see scripts/local-smoke.ts). */
+const VALIDATION_RECORD_PATH = path.join(ROOT, 'docs', 'validation.json')
+
+/**
+ * Read docs/validation.json. A missing or unreadable record is a warning,
+ * not a hard failure — validation fields emit as null and the docs build
+ * still passes.
+ */
+function readValidationRecord(): {
+  packages: Record<string, ValidationStatus>
+  recipes: Record<string, ValidationStatus>
+} {
+  try {
+    const record = JSON.parse(fs.readFileSync(VALIDATION_RECORD_PATH, 'utf-8')) as {
+      packages?: Record<string, ValidationStatus>
+      recipes?: Record<string, ValidationStatus>
+    }
+    return {
+      packages: record.packages ?? {},
+      recipes: record.recipes ?? {},
+    }
+  } catch (err) {
+    console.warn(
+      `warn: ${VALIDATION_RECORD_PATH} unreadable (${err instanceof Error ? err.message : String(err)}) — validation fields emit as null`
+    )
+    return { packages: {}, recipes: {} }
+  }
+}
+
 // ─── Code formatting & rendering ────────────────────────────────────────────
 
 /** Format TSX code with prettier */
@@ -195,6 +224,21 @@ interface PackageDoc {
   components: ComponentDoc[]
   /** Provider interfaces this package implements (e.g., 'secret', 'dns', 'endpoint', 'cert') */
   providerInterfaces?: string[]
+  /** Runtime validation stamps from docs/validation.json (null = none) */
+  validation?: ValidationStatus | null
+}
+
+/**
+ * Platform validation record entry from docs/validation.json — the
+ * hand-maintained record scripts/local-smoke.ts stamps on every PASS
+ * (`kind` = local kind cluster, `rke2` = the dogfood RKE2 cluster; values
+ * are ISO yyyy-mm-dd dates). `$comment` documents provenance, e.g. a
+ * recipe's 'recipe exercised at runtime via <package>' note.
+ */
+interface ValidationStatus {
+  kind?: string
+  rke2?: string
+  $comment?: string
 }
 
 // ─── TypeScript extraction ───────────────────────────────────────────────────
@@ -1021,6 +1065,13 @@ async function writePackages(packages: PackageDoc[]) {
     '  keywords: string[];',
     '  components: ComponentDoc[];',
     '  providerInterfaces?: string[];',
+    '  validation: ValidationStatus | null;',
+    '}',
+    '',
+    'export interface ValidationStatus {',
+    '  kind?: string;',
+    '  rke2?: string;',
+    '  $comment?: string;',
     '}',
     '',
     'export const packages: Package[] = [',
@@ -1041,6 +1092,7 @@ async function writePackages(packages: PackageDoc[]) {
         `    providerInterfaces: [${pkg.providerInterfaces.map((i) => `"${i}"`).join(', ')}],`
       )
     }
+    lines.push(`    validation: ${pkg.validation ? JSON.stringify(pkg.validation) : 'null'},`)
     lines.push('    components: [')
     for (const comp of pkg.components) {
       lines.push('      {')
@@ -1107,6 +1159,13 @@ async function writeRecipes(recipes: PackageDoc[]) {
     '  category: string;',
     '  keywords: string[];',
     '  component: ComponentDoc;',
+    '  validation: ValidationStatus | null;',
+    '}',
+    '',
+    'export interface ValidationStatus {',
+    '  kind?: string;',
+    '  rke2?: string;',
+    '  $comment?: string;',
     '}',
     '',
     'export const recipes: Recipe[] = [',
@@ -1120,6 +1179,7 @@ async function writeRecipes(recipes: PackageDoc[]) {
     lines.push(`    description: "${escapeStr(recipe.description)}",`)
     lines.push(`    category: "${escapeStr(recipe.category)}",`)
     lines.push(`    keywords: [${recipe.keywords.map((k) => `"${k}"`).join(', ')}],`)
+    lines.push(`    validation: ${recipe.validation ? JSON.stringify(recipe.validation) : 'null'},`)
     lines.push('    component: {')
     lines.push(`      name: "${comp.name}",`)
     lines.push(`      description: "${escapeStr(comp.description)}",`)
@@ -1151,10 +1211,20 @@ async function writeRecipes(recipes: PackageDoc[]) {
 async function main() {
   console.log('🚀 Generating docs from source code...\n')
 
+  const validation = readValidationRecord()
+
   const pkgs = await generatePackages()
+  // Attach runtime-validation stamps (docs/validation.json) by slug —
+  // packages without an entry render as validation: null.
+  for (const pkg of pkgs) {
+    pkg.validation = validation.packages[pkg.slug] ?? null
+  }
   await writePackages(pkgs)
 
   const recipes = await generateRecipes()
+  for (const recipe of recipes) {
+    recipe.validation = validation.recipes[recipe.slug] ?? null
+  }
   await writeRecipes(recipes)
 
   console.log('\n✅ Done!')

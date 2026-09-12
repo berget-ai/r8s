@@ -23,6 +23,13 @@ export interface Recipe {
   category: string
   keywords: string[]
   component: ComponentDoc
+  validation: ValidationStatus | null
+}
+
+export interface ValidationStatus {
+  kind?: string
+  rke2?: string
+  $comment?: string
 }
 
 export const recipes: Recipe[] = [
@@ -32,6 +39,7 @@ export const recipes: Recipe[] = [
     description: 'Simple application — Deployment + Service + Endpoint.',
     category: 'Complete Solution',
     keywords: [],
+    validation: null,
     component: {
       name: 'App',
       description: 'Simple application — Deployment + Service + Endpoint.',
@@ -150,6 +158,7 @@ export const recipes: Recipe[] = [
     description: 'Identity and access management — Keycloak with database, TLS, and routing.',
     category: 'Security & Identity',
     keywords: [],
+    validation: null,
     component: {
       name: 'Auth',
       description: 'Identity and access management — Keycloak with database, TLS, and routing.',
@@ -222,6 +231,7 @@ export const recipes: Recipe[] = [
     description: 'Backup — scheduled cluster backups with Velero.',
     category: 'Security & Identity',
     keywords: [],
+    validation: null,
     component: {
       name: 'Backup',
       description: 'Backup — scheduled cluster backups with Velero.',
@@ -291,6 +301,7 @@ export const recipes: Recipe[] = [
     description: '',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'CertManager',
       description:
@@ -325,6 +336,7 @@ export const recipes: Recipe[] = [
       'CertProvider — cluster-level certificate management. Sets up cert-manager for TLS certificates. All Endpoint/App children automatically get TLS certificates when tls prop is set.',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'CertProvider',
       description:
@@ -360,6 +372,7 @@ export const recipes: Recipe[] = [
       'Continuous + scheduled backup configuration for a dedicated CNPG cluster. Renders `spec.backup.barmanObjectStore` on the Cluster plus a ScheduledBackup resource. With an <S3Provider> in scope, backups are on by default — this prop only needs setting for an explicit target or to opt out (`false`).',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'DatabaseBackup',
       description:
@@ -420,6 +433,12 @@ export const recipes: Recipe[] = [
     description: 'CloudNativePG PostgreSQL database.',
     category: 'Data & Analytics',
     keywords: [],
+    validation: {
+      kind: '2026-09-06',
+      rke2: '2026-09-09',
+      $comment:
+        'recipe exercised at runtime via umami (kind + rke2), n8n/outline/odoo (kind), superset-db (rke2)',
+    },
     component: {
       name: 'Database',
       description: 'CloudNativePG PostgreSQL database.',
@@ -538,6 +557,7 @@ export const recipes: Recipe[] = [
       'DnsProvider — cluster-level DNS configuration. Sets up ExternalDNS with the specified provider and credentials. All Endpoint/App children automatically create DNS records.',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'DnsProvider',
       description:
@@ -574,6 +594,7 @@ export const recipes: Recipe[] = [
       'EndpointProvider — cluster-level routing configuration. Sets whether endpoints use nginx Ingress or Envoy Gateway (Gateway API). All Endpoint/App children read this context.',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'EndpointProvider',
       description:
@@ -613,6 +634,7 @@ export const recipes: Recipe[] = [
     description: 'Endpoint — cluster-adaptive routing for a service.',
     category: 'Networking',
     keywords: [],
+    validation: null,
     component: {
       name: 'Endpoint',
       description: 'Endpoint — cluster-adaptive routing for a service.',
@@ -687,6 +709,7 @@ export const recipes: Recipe[] = [
     description: 'Application monitoring — Prometheus ServiceMonitor for your app.',
     category: 'Observability',
     keywords: [],
+    validation: null,
     component: {
       name: 'Monitoring',
       description: 'Application monitoring — Prometheus ServiceMonitor for your app.',
@@ -759,6 +782,10 @@ export const recipes: Recipe[] = [
       'Namespace scope — composable cluster partitioning. Everything below inherits the namespace: <App>, <Database>, <WebService>, <Endpoint>, <Auth>, <StaticSecret> and every app package read it through useNamespace(). Nest to partition a cluster — the innermost scope wins, explicit `namespace` props on a component still override the scope:',
     category: 'Cluster Foundation',
     keywords: [],
+    validation: {
+      kind: '2026-09-06',
+      $comment: 'recipe exercised at runtime via forgejo (gitops render)',
+    },
     component: {
       name: 'Namespace',
       description:
@@ -798,6 +825,7 @@ export const recipes: Recipe[] = [
     description: 'Platform — cluster-level configuration wrapper.',
     category: 'Cluster Configuration',
     keywords: [],
+    validation: null,
     component: {
       name: 'Platform',
       description: 'Platform — cluster-level configuration wrapper.',
@@ -889,6 +917,7 @@ export const recipes: Recipe[] = [
     description: 'R8sCluster — opinionated cluster foundation with all recommended operators.',
     category: 'Complete Solution',
     keywords: [],
+    validation: null,
     component: {
       name: 'R8sCluster',
       description: 'R8sCluster — opinionated cluster foundation with all recommended operators.',
@@ -961,6 +990,7 @@ export const recipes: Recipe[] = [
     description: '',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'MinIO',
       description: 'MinIO / RustFS convenience config — path style on, region default.',
@@ -979,6 +1009,7 @@ export const recipes: Recipe[] = [
     description: '',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'AwsS3',
       description:
@@ -999,6 +1030,7 @@ export const recipes: Recipe[] = [
       "S3Provider — publishes the platform's object store on context. Consumers resolve their own destinations from useS3(); <Bucket> scopes them; explicit per-consumer values always win.",
     category: 'Recipes',
     keywords: [],
+    validation: { kind: '2026-09-06', $comment: 'recipe exercised at runtime via forgejo LFS' },
     component: {
       name: 'S3Provider',
       description:
@@ -1023,6 +1055,7 @@ export const recipes: Recipe[] = [
       'Bucket — a declarative pointer at an S3 destination to pass into consumers\' backup/bucket props: <Database name="api-db" backup={<Bucket name="matrix_backup" />} /> Endpoint/credentials resolve from the surrounding S3Provider unless the descriptor overrides them, so the call site shows exactly where data goes without repeating store config. Consumers append their own conventional suffix (`-cnpg`, `velero`, …).',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'Bucket',
       description:
@@ -1068,6 +1101,7 @@ export const recipes: Recipe[] = [
     description: '',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'ManualSecrets',
       description:
@@ -1083,6 +1117,7 @@ export const recipes: Recipe[] = [
       'SecretProvider — cluster-level secrets backend. All Database, Auth, and other secret-consuming children use this backend. Automatically declares the required operator (VSO for vault/openbao).',
     category: 'Recipes',
     keywords: [],
+    validation: null,
     component: {
       name: 'SecretProvider',
       description:
@@ -1123,6 +1158,10 @@ export const recipes: Recipe[] = [
       "StaticSecret — provision a Kubernetes Secret from Vault/OpenBao, with rotation semantics that actually reach the workloads. Wraps VaultStaticSecret / OpenBaoStaticSecret with the platform's conventions baked in: - snake_case source keys templated to env-case destination keys (excludeRaw: only the declared keys land in the Secret) - destination create + overwrite (idempotent sync) - hourly refresh by default, inheriting the provider's refreshAfter - explicit, per-bundle restart semantics (app creds restart pods; backup creds read at use time never restart) Requires an active secrets backend (openbao or vault) — passive backends (manual-secrets, sealed-secrets) cannot provision: reference a pre-created Secret instead.",
     category: 'Recipes',
     keywords: [],
+    validation: {
+      kind: '2026-09-06',
+      $comment: 'recipe exercised at runtime via forgejo JWT (eurooffice renders the same path)',
+    },
     component: {
       name: 'StaticSecret',
       description:
@@ -1208,6 +1247,7 @@ export const recipes: Recipe[] = [
     description: 'Simple web service (backend or frontend).',
     category: 'Workloads',
     keywords: [],
+    validation: null,
     component: {
       name: 'WebService',
       description: 'Simple web service (backend or frontend).',

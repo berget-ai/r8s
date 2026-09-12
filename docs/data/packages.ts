@@ -28,6 +28,13 @@ export interface Package {
   keywords: string[]
   components: ComponentDoc[]
   providerInterfaces?: string[]
+  validation: ValidationStatus | null
+}
+
+export interface ValidationStatus {
+  kind?: string
+  rke2?: string
+  $comment?: string
 }
 
 export const packages: Package[] = [
@@ -41,6 +48,7 @@ export const packages: Package[] = [
     operatorVersion: '1.18.0',
     keywords: ['cert-manager'],
     providerInterfaces: ['cert'],
+    validation: null,
     components: [
       {
         name: 'Certificate',
@@ -1362,6 +1370,7 @@ export const packages: Package[] = [
     operator: 'clickhouse-operator',
     operatorVersion: '0.25.0',
     keywords: ['clickhouse'],
+    validation: null,
     components: [
       {
         name: 'ClickHouseInstallation',
@@ -3238,6 +3247,7 @@ export const packages: Package[] = [
     operatorVersion: '1.21.1',
     keywords: ['externaldns'],
     providerInterfaces: ['dns'],
+    validation: null,
     components: [
       {
         name: 'DNSEndpoint',
@@ -3320,6 +3330,7 @@ export const packages: Package[] = [
     operatorVersion: '1.7.0',
     keywords: ['gateway'],
     providerInterfaces: ['endpoint'],
+    validation: null,
     components: [
       {
         name: 'EnvoyProxy',
@@ -5156,6 +5167,7 @@ export const packages: Package[] = [
     operatorVersion: '24.0.0',
     keywords: ['keycloak'],
     providerInterfaces: ['secret'],
+    validation: null,
     components: [
       {
         name: 'Keycloak',
@@ -7291,6 +7303,7 @@ export const packages: Package[] = [
     operator: 'logging-operator',
     operatorVersion: '4.2.3',
     keywords: ['logging'],
+    validation: null,
     components: [
       {
         name: 'Flow',
@@ -18512,6 +18525,7 @@ export const packages: Package[] = [
     operator: 'loki',
     operatorVersion: '5.47.0',
     keywords: ['loki'],
+    validation: null,
     components: [
       {
         name: 'LokiStack',
@@ -20221,6 +20235,7 @@ export const packages: Package[] = [
     operator: 'prometheus',
     operatorVersion: '58.4.0',
     keywords: ['monitoring'],
+    validation: null,
     components: [
       {
         name: 'Alertmanager',
@@ -55799,6 +55814,7 @@ export const packages: Package[] = [
     operator: 'cnpg',
     operatorVersion: '1.27.0',
     keywords: ['postgresql'],
+    validation: null,
     components: [
       {
         name: 'Cluster',
@@ -62469,6 +62485,7 @@ export const packages: Package[] = [
     operator: 'redis-operator',
     operatorVersion: '0.22.0',
     keywords: ['redis'],
+    validation: null,
     components: [
       {
         name: 'RedisCluster',
@@ -69794,6 +69811,7 @@ export const packages: Package[] = [
     operator: 'velero',
     operatorVersion: '1.13.0',
     keywords: ['velero'],
+    validation: null,
     components: [
       {
         name: 'Backup',
@@ -70408,6 +70426,7 @@ export const packages: Package[] = [
     description: 'Element Matrix chat client components for r8s',
     category: 'Networking',
     keywords: ['element', 'matrix', 'chat', 'messaging'],
+    validation: { kind: '2026-09-07' },
     components: [
       {
         name: 'Element',
@@ -70457,6 +70476,7 @@ export const packages: Package[] = [
     description: 'Grafana observability dashboard components for r8s',
     category: 'Observability',
     keywords: ['grafana', 'dashboards', 'monitoring', 'observability', 'metrics'],
+    validation: { kind: '2026-09-06' },
     components: [
       {
         name: 'Grafana',
@@ -70519,6 +70539,7 @@ export const packages: Package[] = [
     description: 'RustFS S3-compatible object storage components for r8s',
     category: 'Data & Analytics',
     keywords: ['rustfs', 's3', 'object-storage', 'storage'],
+    validation: { kind: '2026-09-06' },
     components: [
       {
         name: 'RustFS',
@@ -70582,6 +70603,7 @@ export const packages: Package[] = [
     description: 'Apache Superset analytics and visualization platform components for r8s',
     category: 'Data & Analytics',
     keywords: ['superset', 'bi', 'analytics', 'dashboards', 'data'],
+    validation: { rke2: '2026-09-09' },
     components: [
       {
         name: 'Superset',
@@ -70663,6 +70685,7 @@ export const packages: Package[] = [
     description: 'WireGuard VPN server (wg-easy) components for r8s',
     category: 'Networking',
     keywords: ['wireguard', 'vpn', 'networking', 'wg-easy'],
+    validation: { rke2: '2026-09-09' },
     components: [
       {
         name: 'WireGuard',
@@ -70737,6 +70760,7 @@ export const packages: Package[] = [
       'n8n workflow automation — editor, Postgres persistence, Redis queue mode, webhook endpoints',
     category: 'Automation',
     keywords: ['n8n', 'automation', 'workflows', 'integrations'],
+    validation: { kind: '2026-09-07' },
     components: [
       {
         name: 'N8n',
@@ -70883,6 +70907,7 @@ export const packages: Package[] = [
       'Nextcloud file cloud — Postgres file index, Redis cache, S3-compatible primary storage, cron background jobs',
     category: 'File & Collaboration',
     keywords: ['nextcloud', 'files', 'collaboration', 'calendar'],
+    validation: null,
     components: [
       {
         name: 'Nextcloud',
@@ -70993,6 +71018,7 @@ export const packages: Package[] = [
       'Outline wiki — Postgres persistence, Redis queue, S3 attachments, OIDC SSO via Keycloak',
     category: 'Knowledge & Documentation',
     keywords: ['outline', 'wiki', 'documentation', 'knowledge'],
+    validation: { kind: '2026-09-07' },
     components: [
       {
         name: 'Outline',
@@ -71124,6 +71150,7 @@ export const packages: Package[] = [
       'ChromaDB vector database — persistent storage, optional Postgres metadata backend, token auth, CPU autoscaling',
     category: 'AI & Embeddings',
     keywords: ['chromadb', 'vector-database', 'embeddings', 'rag'],
+    validation: { kind: '2026-09-07' },
     components: [
       {
         name: 'ChromaDb',
@@ -71251,6 +71278,7 @@ export const packages: Package[] = [
       'Supabase backend platform — Postgres core with GoTrue auth, PostgREST, Realtime, Storage API (S3/RustFS) and ImgProxy. This is Supabase, NOT Apache Superset.',
     category: 'Backend Platforms',
     keywords: ['supabase', 'postgres', 'auth', 'realtime', 'storage'],
+    validation: null,
     components: [
       {
         name: 'Supabase',
@@ -71360,6 +71388,7 @@ export const packages: Package[] = [
       'Odoo ERP — Postgres persistence, filestore PVC, worker tuning, master password via secrets backend',
     category: 'Business Applications',
     keywords: ['odoo', 'erp', 'crm', 'business'],
+    validation: { kind: '2026-09-09' },
     components: [
       {
         name: 'Odoo',
@@ -71454,6 +71483,7 @@ export const packages: Package[] = [
       'Open WebUI — chat frontend for OpenAI-compatible backends, Postgres persistence, uploads/RAG storage, OIDC SSO, optional Redis cache',
     category: 'AI & Chat',
     keywords: ['open-webui', 'chat', 'llm', 'ai'],
+    validation: null,
     components: [
       {
         name: 'OpenWebui',
@@ -71569,6 +71599,7 @@ export const packages: Package[] = [
       'LibreChat multi-model AI chat — MongoDB (provisioned externally), Redis sessions, optional Meilisearch, OIDC SSO',
     category: 'AI & Chat',
     keywords: ['librechat', 'chat', 'llm', 'rag'],
+    validation: null,
     components: [
       {
         name: 'LibreChat',
@@ -71722,6 +71753,7 @@ export const packages: Package[] = [
       'Euro-Office DocumentServer — self-hosted collaborative document editing (facit-aligned): CNPG persistence, JWT-signed API, WOPI/secure-link data volume, preStop document save',
     category: 'Productivity & Documents',
     keywords: ['eurooffice', 'documentserver', 'onlyoffice', 'documents', 'collaboration', 'wopi'],
+    validation: null,
     components: [
       {
         name: 'EuroOffice',
@@ -71871,6 +71903,7 @@ export const packages: Package[] = [
     description: "Paperclip — Berget's agent platform (tasks, documents, agent orchestration)",
     category: 'Agent Platforms',
     keywords: ['paperclip', 'agents', 'documents', 'automation'],
+    validation: null,
     components: [
       {
         name: 'Paperclip',
@@ -72053,6 +72086,7 @@ export const packages: Package[] = [
       'Eneo — open AI platform from Sundsvall municipality (agent workspaces, assistants, document AI)',
     category: 'Agent Platforms',
     keywords: ['eneo', 'documents', 'corpora', 'knowledge'],
+    validation: null,
     components: [
       {
         name: 'Eneo',
@@ -72162,6 +72196,7 @@ export const packages: Package[] = [
       'Matrix (Element Server Suite) — Synapse homeserver, MAS auth with Keycloak OIDC, Element Web/Admin, MatrixRTC/LiveKit SFU with HA defaults',
     category: 'Collaboration & Productivity',
     keywords: ['matrix', 'element', 'synapse', 'chat', 'rtc', 'oidc'],
+    validation: null,
     components: [
       {
         name: 'MatrixSSO',
@@ -72557,6 +72592,7 @@ export const packages: Package[] = [
       'Forgejo git forge — repos, PRs, Actions runners (forgejo-runner + dind), LFS on S3, CNPG persistence, SSH via LoadBalancer',
     category: 'Developer Tools',
     keywords: ['forgejo', 'git', 'ci', 'actions', 'lfs'],
+    validation: { kind: '2026-09-06' },
     components: [
       {
         name: 'ForgejoActions',
