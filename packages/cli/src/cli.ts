@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { resolve, join } from 'path'
 import { renderToYaml } from './renderer'
 import { sanitizeErrorMessage } from '@r8s/core'
@@ -158,7 +158,28 @@ async function operatorPackages(): Promise<OperatorPackageInfo[]> {
     .filter((info) => info.slug !== 'cnpg') // cnpg flows through @r8s/recipes
 }
 
-async function initProject(
+/**
+ * Dependency range for scaffolded @r8s/* packages, derived from the CLI's
+ * own package.json — a single source of truth bumping with releases (the
+ * CLI ships inside the npm package, so the file is always a directory up
+ * from the compiled dist/). Falls back to a hand-bumped literal only if
+ * that read fails.
+ */
+function scaffoldDependencyRange(): string {
+  const fallback = '^0.3.3' // bump with releases
+  try {
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'))
+    return typeof pkg.version === 'string' ? `^${pkg.version}` : fallback
+  } catch {
+    return fallback
+  }
+}
+
+/**
+ * Scaffold a new r8s project at <projectName>. Exported for tests —
+ * import works without side effects (see the main() guard at the bottom).
+ */
+export async function initProject(
   projectName: string,
   template: string,
   strategy: 'github-actions' | 'flux-controller' = 'github-actions',
@@ -190,9 +211,10 @@ async function initProject(
   mkdirSync(join(projectDir, 'k8s'), { recursive: true })
 
   // Create package.json
+  const depRange = scaffoldDependencyRange()
   const dependencies: Record<string, string> = {
-    '@r8s/core': '^0.1.0',
-    '@r8s/recipes': '^0.1.0',
+    '@r8s/core': depRange,
+    '@r8s/recipes': depRange,
   }
 
   // Add operator packages — real package names + mirrored versions
@@ -215,12 +237,12 @@ async function initProject(
 
   const packageJson = {
     name: projectName,
-    version: '0.1.0',
+    version: depRange.slice(1), // same source of truth as the @r8s/* pins
     private: true,
     scripts,
     dependencies,
     devDependencies: {
-      '@r8s/cli': '^0.1.0',
+      '@r8s/cli': depRange,
       typescript: '^5.3.0',
     },
   }
@@ -265,22 +287,23 @@ async function initProject(
   writeFileSync(join(projectDir, 'k8s', 'r8s.tsx'), r8sContent, 'utf-8')
 
   // Create .gitignore
-  const gitignore =
-    strategy === 'github-actions'
-      ? `node_modules/
+  //
+  // Raw *.yaml stays ignored EXCEPT where rendered output or GitOps
+  // manifests live. Negations must be directory-scoped globs (`!flux/**`,
+  // not `!flux/`): git re-includes files, not directory contents, so a
+  // bare dir negation leaves every *.yaml inside still ignored — the
+  // scaffold's own Flux manifests and CI workflow were silently
+  // un-addable that way. The three exceptions match the three flows:
+  // k8s/ (github-actions + local render output), flux/ (flux-controller
+  // manifests), clusters/<env>/ (flux bootstrap GitOps layout).
+  const gitignore = `node_modules/
 dist/
-# Ignore rendered manifests except in k8s directory
 *.yaml
-!k8s/*.yaml
-!.github/
-`
-      : `node_modules/
-dist/
-# Keep .tsx files, Flux renders them in-cluster
-*.yaml
-!k8s/*.yaml
-!.github/
-!flux/
+# rendered output + GitOps layouts stay trackable
+!k8s/**/*.yaml
+!flux/**/*.yaml
+!clusters/**/*.yaml
+!.github/**/*.yaml
 `
 
   writeFileSync(join(projectDir, '.gitignore'), gitignore, 'utf-8')
@@ -311,8 +334,10 @@ dist/
     console.log(`  cd ${projectName}`)
     console.log(`  npm install`)
     console.log(`  git init && git add . && git commit -m "init"`)
-    console.log(`  # Push to a Git repository`)
-    console.log(`  # Configure FluxCD to point to your repo`)
+    console.log(`  # Push to a Git repository, then bootstrap Flux (needs a token):`)
+    console.log(
+      `  # GITHUB_TOKEN=$(gh auth token) flux bootstrap github --owner <org> --repo <name> --token-auth --path clusters/<env>`
+    )
     console.log(`\nFluxCD will render .tsx files in-cluster.`)
     console.log(`See flux/ directory for example manifests.`)
   }
@@ -505,6 +530,18 @@ stringData:
 
 ## Setup
 
+### 0. Bootstrap Flux (first time)
+
+\`flux bootstrap github\` reads the token from stdin. When your \`gh\`
+credentials live in the keyring there is no token on stdin — the command
+hangs or fails with EOF. Export a token and use \`--token-auth\`:
+
+\`\`\`bash
+GITHUB_TOKEN=\$(gh auth token) flux bootstrap github \\
+  --owner <org> --repo ${projectName} --branch main \\
+  --token-auth --path clusters/<env>
+\`\`\`
+
 ### 1. Configure FluxCD
 
 Apply the manifests in this directory:
@@ -645,7 +682,16 @@ This project uses **FluxCD with r8s-controller** to render TSX → YAML in-clust
 
 ## Setup
 
-See \`flux/README.md\` for detailed setup instructions.
+Bootstrap Flux once per cluster (it reads the token from stdin — when your
+\`gh\` credentials live in the keyring, export one and pass \`--token-auth\`):
+
+\`\`\`bash
+GITHUB_TOKEN=\$(gh auth token) flux bootstrap github \\
+  --owner <org> --repo <name> --branch main \\
+  --token-auth --path clusters/<env>
+\`\`\`
+
+Then see \`flux/README.md\` for the r8s-controller setup.
 
 ## Learn More
 
@@ -1116,4 +1162,11 @@ async function main(): Promise<void> {
   }
 }
 
-main()
+/**
+ * Only execute when this module is the entrypoint (node dist/cli.js).
+ * Guards keep the module importable under ESM/test runners (where
+ * require/module may be absent) without launching the CLI.
+ */
+if (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) {
+  main()
+}

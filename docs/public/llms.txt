@@ -252,6 +252,8 @@ Platform provides contexts (namespace, routing, DNS, secrets) that all children 
 - **Secrets**: `Database`/`Auth`/`Grafana`/`RustFS` create their credential Secrets by default, or accept `existingSecret` when you manage them externally.
 - **`${env:FOO}`** strings in output are literal — they're expanded by the target system (e.g. Keycloak), not by r8s.
 - **Operators** are declared in render output but not installed automatically. Use `--include-operators` to get their manifests, or install them separately.
+- **CLI entrypoint**: @r8s/cli's `main` (`dist/index.js`) is the library export — executing it does nothing and exits 0. The binary is `dist/cli.js`; run it as `npx r8s <command>`.
+- **Flux bootstrap auth**: `flux bootstrap github` reads the token from stdin — with `gh` credentials in the keyring, export one first: `GITHUB_TOKEN=$(gh auth token) flux bootstrap github --owner <org> --repo <name> --token-auth --path clusters/<env>`
 
 ## Where to go next
 
