@@ -29,6 +29,10 @@ export default function Page() {
     description: pkg.description,
   })
 
+  // docs/validation.json flows in via the generated data (attached at build
+  // time; the smoke re-stamps the record on every PASS).
+  const hasStamps = Boolean(pkg.validation?.kind || pkg.validation?.rke2)
+
   return (
     <div className="space-y-12">
       {/* Header */}
@@ -43,12 +47,12 @@ export default function Page() {
         <p className="text-sm font-mono text-cloud/60">{pkg.name}</p>
       </div>
 
-      {/* Runtime validation (live data from docs/validation.json) */}
+      {/* Runtime validation (docs/validation.json → generated data) */}
       <div className="space-y-2">
         <span className="text-xs text-moss uppercase tracking-wider font-medium">
           Runtime validation
         </span>
-        {pkg.validation ? (
+        {hasStamps && (
           <div className="flex flex-wrap gap-2">
             {(['kind', 'rke2'] as const)
               .filter((platform) => pkg.validation?.[platform])
@@ -61,8 +65,10 @@ export default function Page() {
                 </span>
               ))}
           </div>
-        ) : (
-          <p className="text-sm text-cloud/40">Not yet runtime-validated</p>
+        )}
+        {!hasStamps && <p className="text-sm text-cloud/40">Not yet runtime-validated</p>}
+        {pkg.validation?.$comment && (
+          <p className="text-xs text-cloud/40">{pkg.validation.$comment}</p>
         )}
       </div>
 

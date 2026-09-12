@@ -753,7 +753,11 @@ async function generatePackages(): Promise<PackageDoc[]> {
 
   // Also scan app packages (element, grafana, rustfs, superset, wireguard,
   // plus the app-store recipes: n8n, nextcloud, outline, chromadb, supabase,
-  // odoo, open-webui, librechat, eurooffice, paperclip, eneo, matrix)
+  // odoo, open-webui, librechat, eurooffice, paperclip, eneo, matrix, umami).
+  // NOTE: every PER_PACKAGE smoke target must appear here — the smoke stamps
+  // docs/validation.json by smoke name and the generator joins on slug; a
+  // smoke-only name would create an orphan record entry that renders nowhere
+  // (guard: the orphan-record warning below + generate-docs.test.ts).
   const appPackages = [
     'element',
     'grafana',
@@ -772,6 +776,7 @@ async function generatePackages(): Promise<PackageDoc[]> {
     'paperclip',
     'eneo',
     'matrix',
+    'umami',
     'forgejo',
   ]
   for (const dir of appPackages) {
@@ -1219,11 +1224,31 @@ async function main() {
   for (const pkg of pkgs) {
     pkg.validation = validation.packages[pkg.slug] ?? null
   }
+  // Orphan-record guard: a record key matching no generated slug renders
+  // nowhere — the smoke would keep stamping dead data. Warn loudly so the
+  // record and the docs stay in sync (the smoke stamps by smoke name, the
+  // generator joins on slug).
+  const pkgSlugs = new Set(pkgs.map((p) => p.slug))
+  for (const key of Object.keys(validation.packages)) {
+    if (!pkgSlugs.has(key)) {
+      console.warn(
+        `warn: docs/validation.json package "${key}" matches no generated package slug — entry renders nowhere in the docs`
+      )
+    }
+  }
   await writePackages(pkgs)
 
   const recipes = await generateRecipes()
   for (const recipe of recipes) {
     recipe.validation = validation.recipes[recipe.slug] ?? null
+  }
+  const recipeSlugs = new Set(recipes.map((r) => r.slug))
+  for (const key of Object.keys(validation.recipes)) {
+    if (!recipeSlugs.has(key)) {
+      console.warn(
+        `warn: docs/validation.json recipe "${key}" matches no generated recipe slug — entry renders nowhere in the docs`
+      )
+    }
   }
   await writeRecipes(recipes)
 

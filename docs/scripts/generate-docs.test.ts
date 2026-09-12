@@ -69,4 +69,37 @@ describe('Generated docs data', () => {
       expect(content).toMatch(/slug: ["']app["']/)
     })
   })
+
+  describe('validation.json', () => {
+    const record = JSON.parse(
+      fs.readFileSync(path.join(ROOT, 'docs', 'validation.json'), 'utf-8')
+    ) as {
+      packages?: Record<string, unknown>
+      recipes?: Record<string, unknown>
+    }
+
+    // Slug lines sit at 4-space indent in the generated files (same
+    // convention as the duplicate-slug tests above)
+    function readSlugs(dataFile: string): string[] {
+      const content = fs.readFileSync(path.join(ROOT, 'docs', 'data', dataFile), 'utf-8')
+      return [...content.matchAll(/^ {4}slug: ["']([^"']+)["']/gm)].map((m) => m[1])
+    }
+
+    it('should map every package record key to a generated package slug', () => {
+      const slugs = readSlugs('packages.ts')
+      for (const key of Object.keys(record.packages ?? {})) {
+        // An orphan key renders nowhere in the docs while the smoke keeps
+        // stamping it (see the generator's orphan-record warning) — e.g. a
+        // smoke target missing from the generator's appPackages list.
+        expect(slugs, `docs/validation.json package "${key}"`).toContain(key)
+      }
+    })
+
+    it('should map every recipe record key to a generated recipe slug', () => {
+      const slugs = readSlugs('recipes.ts')
+      for (const key of Object.keys(record.recipes ?? {})) {
+        expect(slugs, `docs/validation.json recipe "${key}"`).toContain(key)
+      }
+    })
+  })
 })
