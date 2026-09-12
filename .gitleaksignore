@@ -43,4 +43,11 @@ scripts/local-smoke.ts:generic-api-key:835
 # only)
 scripts/local-smoke.ts:generic-api-key:457
 scripts/local-smoke.ts:generic-api-key:836
+# (moved 457 → 465/466 and 836 → 845: the R8S_SMOKE_CONTEXT parameterization
+# of the smoke harness — doc-comment + KUBE_CONTEXT env override — inserted
+# 8–9 lines above the outline and eurooffice entries, branch
+# fix/matrix-dsn-public-base; same 64-hex smoke dummies, position only)
+scripts/local-smoke.ts:generic-api-key:465
+scripts/local-smoke.ts:generic-api-key:466
+scripts/local-smoke.ts:generic-api-key:845
 

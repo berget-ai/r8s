@@ -47,6 +47,14 @@ const KNOWN_PLACEHOLDER_VALUES = /\b(supersecret|staging-password|admin-password
 
 /** Sealed-secret ciphertext slots — intentionally left for the user to fill with kubeseal. */
 const SEALED_PLACEHOLDER_ASSIGNMENT = /\b(password|passwd)\s*[:=]\s*['"]REPLACE_WITH_/
+/**
+ * Template substitution slots — double-underscore-wrapped markers that a
+ * render step fills at deploy/boot time (e.g. @r8s/matrix ships
+ * homeserver.yaml as a template; the pod's init container substitutes
+ * `__DB_PASSWORD__` from a mounted secret). The committed value is a slot,
+ * not a credential.
+ */
+const TEMPLATE_SLOT_ASSIGNMENT = /\b(password|passwd)\s*[:=]\s*['"]__\w+__['"]/
 /** Lines that are comments or doc prose never count as live values. */
 function isCommentLine(line: string, ext: string): boolean {
   const trimmed = line.trim()
@@ -84,7 +92,11 @@ function findSecrets(): string[] {
 
         const quotedValues = [...line.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])
         const location = `${relPath}:${i + 1}`
-        if (SUSPICIOUS_ASSIGNMENT.test(line) && !SEALED_PLACEHOLDER_ASSIGNMENT.test(line)) {
+        if (
+          SUSPICIOUS_ASSIGNMENT.test(line) &&
+          !SEALED_PLACEHOLDER_ASSIGNMENT.test(line) &&
+          !TEMPLATE_SLOT_ASSIGNMENT.test(line)
+        ) {
           // Key-name mappings (StaticSecret / transformation templates) are
           // NOT credential assignments: SECRET_KEY: 'secret_key' maps a
           // destination ENV_CASE name to the source field name — identical

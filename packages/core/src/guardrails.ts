@@ -203,7 +203,8 @@ function looksLikeReference(value: string): boolean {
 }
 
 /** "Fill in via GitOps"-style placeholder values — not live credentials. */
-const PLACEHOLDER_VALUE_RE = /^(replace|provide|change|todo|fixme|your[_-]|xxx+|<|\.\.\.|\*+)/i
+const PLACEHOLDER_VALUE_RE =
+  /^(replace|provide|change|todo|fixme|your[_-]|xxx+|<|\.\.\.|\*+|__\w+__)/i
 
 /**
  * Credential-looking `key: value` / `key=value` / `export key=value` lines

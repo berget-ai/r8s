@@ -417,6 +417,10 @@ describe('Guardrails', () => {
               'password_file: /secrets/db/password',
               'token_secret_name: matrix-tokens',
               'livekit_api_secret: $(LIVEKIT_API_SECRET)',
+              // double-underscore substitution slot (rendered from a
+              // template at pod boot — e.g. @r8s/matrix's homeserver.yaml
+              // template) — a slot marker, never a live credential
+              'password: __DB_PASSWORD__',
             ].join('\n'),
             appToken: 'PROVIDED_VIA_GITOPS',
           },
