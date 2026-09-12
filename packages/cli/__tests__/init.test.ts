@@ -2,13 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initProject } from '../src/cli'
 
 // The CLI's own version — the single source of truth for scaffolded pins.
-// (import.meta.url, not __dirname: vitest's __dirname shim points at the
-// package root, not this file's directory)
+// Resolved via import.meta.url so the path holds under any test runner.
 const cliVersion = JSON.parse(
   readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf-8')
 ).version as string

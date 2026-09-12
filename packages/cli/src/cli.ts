@@ -171,6 +171,8 @@ function scaffoldDependencyRange(): string {
     const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'))
     return typeof pkg.version === 'string' ? `^${pkg.version}` : fallback
   } catch {
+    // Loud over silent: a masked read failure would quietly scaffold stale pins.
+    console.warn(`@r8s/cli: could not read own package.json version — falling back to ${fallback}`)
     return fallback
   }
 }
