@@ -29,7 +29,9 @@ export interface PaperclipProps {
   /**
    * Image pull secrets for private mirrors/forks of the image (defaults
    * to [] — the official public image needs none; set this when pointing
-   * `repository` at a private registry)
+   * `repository` at a private registry). Migrating clusters that managed
+   * a manual `ghcr-pull-secret` PAT Secret should delete it after the
+   * rollout — it's no longer referenced and becomes orphaned.
    */
   pullSecrets?: string[]
   /**
