@@ -1679,13 +1679,28 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         name: 'version',
         type: 'string',
         required: false,
-        description: "Container image tag (defaults to 'latest' — pin a version in production)",
+        description:
+          "Container image tag (defaults to '2026.831.1' — the official upstream release; pin a version in production)",
       },
       {
         name: 'host',
         type: 'string',
         required: true,
         description: 'Public hostname for the web app and API (required)',
+      },
+      {
+        name: 'repository',
+        type: 'string',
+        required: false,
+        description:
+          "Image repository (defaults to 'ghcr.io/paperclipai/paperclip' — the official public image; override to point at a private mirror/fork)",
+      },
+      {
+        name: 'pullSecrets',
+        type: 'string[]',
+        required: false,
+        description:
+          'Image pull secrets for private mirrors/forks (defaults to [] — only needed when a custom repository requires credentials)',
       },
       {
         name: 'replicas',
