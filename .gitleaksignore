@@ -50,4 +50,10 @@ scripts/local-smoke.ts:generic-api-key:836
 scripts/local-smoke.ts:generic-api-key:465
 scripts/local-smoke.ts:generic-api-key:466
 scripts/local-smoke.ts:generic-api-key:845
+# (moved 465/466 → 473/474 and 845 → 853: the R8S_SMOKE_PLATFORM validation-
+# record header note — 8 lines inserted above the PER_PACKAGE table, PR #141;
+# same 64-hex smoke dummies, position only)
+scripts/local-smoke.ts:generic-api-key:473
+scripts/local-smoke.ts:generic-api-key:474
+scripts/local-smoke.ts:generic-api-key:853
 

@@ -32,6 +32,14 @@
  *   Every kubectl call in this script carries
  *   `--context $R8S_SMOKE_CONTEXT` (never the ambient context, so a
  *   production default context can't receive smoke traffic by accident).
+ * - On every PASS the script stamps docs/validation.json — the runtime
+ *   validation record rendered by the docs package pages — with today's
+ *   ISO date under `packages.<name>.<platform>`. The platform key derives
+ *   from the smoke context (a context containing 'kind' → 'kind',
+ *   anything else → 'rke2'; explicit override: R8S_SMOKE_PLATFORM). The
+ *   record write is atomic (temp file + rename) and failure-tolerant: a
+ *   failed update warns and never fails a passing smoke. Recipe entries
+ *   in the record are hand-maintained, not auto-updated.
  * - CNPG operator installed in the cluster (for packages that render a
  *   Database — umami, n8n, outline, eneo, open-webui, odoo, paperclip,
  *   nextcloud, and superset via the smoke's companion `superset-db`
@@ -1347,6 +1355,61 @@ function fmtBytes(bytes: number): string {
   return `${Math.round(bytes / (1024 * 1024))} MiB`
 }
 
+// --- validation record -------------------------------------------------------
+
+/**
+ * docs/validation.json — the hand-maintained runtime-validation record the
+ * docs generator attaches to package data (rendered as the "Runtime
+ * validation" line on package detail pages). On every PASS this smoke
+ * stamps `packages.<name>.<platform>` with today's ISO date, so the docs
+ * carry live validation state instead of hand-written JSDoc.
+ */
+const VALIDATION_RECORD_PATH = path.join(ROOT, 'docs', 'validation.json')
+
+/**
+ * Which platform key the smoke result belongs to: the kind driver always
+ * prefixes its context names (kind-r8s-local …), so a context containing
+ * 'kind' maps to 'kind'; anything else is the dogfood RKE2 cluster.
+ * R8S_SMOKE_PLATFORM overrides explicitly.
+ */
+export function validationPlatform(): 'kind' | 'rke2' {
+  const explicit = process.env.R8S_SMOKE_PLATFORM?.trim().toLowerCase()
+  if (explicit === 'kind' || explicit === 'rke2') return explicit
+  return KUBE_CONTEXT.toLowerCase().includes('kind') ? 'kind' : 'rke2'
+}
+
+/**
+ * Stamp a passing package into docs/validation.json. Atomic write (temp
+ * file + rename in the same directory). Failure-tolerant BY DESIGN: the
+ * smoke already proved the package works, so a broken record write must
+ * not fail it — warn and let the run stand.
+ */
+export function updateValidationRecord(packageName: string): boolean {
+  try {
+    const record = JSON.parse(fs.readFileSync(VALIDATION_RECORD_PATH, 'utf8')) as {
+      packages?: Record<string, Record<string, string>>
+    }
+    if (!record.packages) record.packages = {}
+    if (!record.packages[packageName]) record.packages[packageName] = {}
+    const platform = validationPlatform()
+    record.packages[packageName][platform] = new Date().toISOString().slice(0, 10)
+
+    const tmp = `${VALIDATION_RECORD_PATH}.tmp-${process.pid}`
+    fs.writeFileSync(tmp, `${JSON.stringify(record, null, 2)}\n`)
+    fs.renameSync(tmp, VALIDATION_RECORD_PATH)
+    log(
+      `validation record: packages.${packageName}.${platform} = ${record.packages[packageName][platform]}`
+    )
+    return true
+  } catch (err) {
+    log(
+      `warn: could not update docs/validation.json for ${packageName} (the PASS stands) — ` +
+        `${err instanceof Error ? err.message : String(err)}`
+    )
+    return false
+  }
+}
+
 // --- CLI ---------------------------------------------------------------------
 
 const liveProcesses = new Set<ChildProcess>()
@@ -1542,6 +1605,7 @@ async function main(): Promise<void> {
     log(`\n=== ${name} → ${spec.namespace} ===`)
     const outcome = await smokeOne(name, spec)
     rows.push({ name, outcome })
+    if (outcome.status === 'pass') updateValidationRecord(name)
     if (outcome.status === 'fail') {
       failures++
       log(`--- ${name}: FAIL — ${outcome.notes}`)

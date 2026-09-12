@@ -29,6 +29,11 @@ export default function Page() {
     description: recipe.description,
   })
 
+  // docs/validation.json flows in via the generated data (attached at build
+  // time; recipes are hand-maintained in the record — "exercised at runtime
+  // via <package>" provenance lives in $comment).
+  const hasStamps = Boolean(recipe.validation?.kind || recipe.validation?.rke2)
+
   return (
     <div className="space-y-12">
       {/* Header */}
@@ -46,6 +51,31 @@ export default function Page() {
       <div className="flex items-center gap-3">
         <span className="text-cloud/40 text-sm">Component:</span>
         <code className="text-moss font-mono text-sm">{recipe.component.name}</code>
+      </div>
+
+      {/* Runtime validation (docs/validation.json → generated data) */}
+      <div className="space-y-2">
+        <span className="text-xs text-moss uppercase tracking-wider font-medium">
+          Runtime validation
+        </span>
+        {hasStamps && (
+          <div className="flex flex-wrap gap-2">
+            {(['kind', 'rke2'] as const)
+              .filter((platform) => recipe.validation?.[platform])
+              .map((platform) => (
+                <span
+                  key={platform}
+                  className="text-xs px-3 py-1 rounded-full bg-moss/20 text-moss border border-moss/30"
+                >
+                  ✅ {platform} {recipe.validation?.[platform]}
+                </span>
+              ))}
+          </div>
+        )}
+        {!hasStamps && <p className="text-sm text-cloud/40">Not yet runtime-validated</p>}
+        {recipe.validation?.$comment && (
+          <p className="text-xs text-cloud/40">{recipe.validation.$comment}</p>
+        )}
       </div>
 
       {/* Examples */}

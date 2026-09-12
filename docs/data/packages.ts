@@ -28,6 +28,13 @@ export interface Package {
   keywords: string[]
   components: ComponentDoc[]
   providerInterfaces?: string[]
+  validation: ValidationStatus | null
+}
+
+export interface ValidationStatus {
+  kind?: string
+  rke2?: string
+  $comment?: string
 }
 
 export const packages: Package[] = [
@@ -41,6 +48,7 @@ export const packages: Package[] = [
     operatorVersion: '1.18.0',
     keywords: ['cert-manager'],
     providerInterfaces: ['cert'],
+    validation: null,
     components: [
       {
         name: 'Certificate',
@@ -1362,6 +1370,7 @@ export const packages: Package[] = [
     operator: 'clickhouse-operator',
     operatorVersion: '0.25.0',
     keywords: ['clickhouse'],
+    validation: null,
     components: [
       {
         name: 'ClickHouseInstallation',
@@ -3238,6 +3247,7 @@ export const packages: Package[] = [
     operatorVersion: '1.21.1',
     keywords: ['externaldns'],
     providerInterfaces: ['dns'],
+    validation: null,
     components: [
       {
         name: 'DNSEndpoint',
@@ -3320,6 +3330,7 @@ export const packages: Package[] = [
     operatorVersion: '1.7.0',
     keywords: ['gateway'],
     providerInterfaces: ['endpoint'],
+    validation: null,
     components: [
       {
         name: 'EnvoyProxy',
@@ -5156,6 +5167,7 @@ export const packages: Package[] = [
     operatorVersion: '24.0.0',
     keywords: ['keycloak'],
     providerInterfaces: ['secret'],
+    validation: null,
     components: [
       {
         name: 'Keycloak',
@@ -7291,6 +7303,7 @@ export const packages: Package[] = [
     operator: 'logging-operator',
     operatorVersion: '4.2.3',
     keywords: ['logging'],
+    validation: null,
     components: [
       {
         name: 'Flow',
@@ -18512,6 +18525,7 @@ export const packages: Package[] = [
     operator: 'loki',
     operatorVersion: '5.47.0',
     keywords: ['loki'],
+    validation: null,
     components: [
       {
         name: 'LokiStack',
@@ -20221,6 +20235,7 @@ export const packages: Package[] = [
     operator: 'prometheus',
     operatorVersion: '58.4.0',
     keywords: ['monitoring'],
+    validation: null,
     components: [
       {
         name: 'Alertmanager',
@@ -55799,6 +55814,7 @@ export const packages: Package[] = [
     operator: 'cnpg',
     operatorVersion: '1.27.0',
     keywords: ['postgresql'],
+    validation: null,
     components: [
       {
         name: 'Cluster',
@@ -62469,6 +62485,7 @@ export const packages: Package[] = [
     operator: 'redis-operator',
     operatorVersion: '0.22.0',
     keywords: ['redis'],
+    validation: null,
     components: [
       {
         name: 'RedisCluster',
@@ -69794,6 +69811,7 @@ export const packages: Package[] = [
     operator: 'velero',
     operatorVersion: '1.13.0',
     keywords: ['velero'],
+    validation: null,
     components: [
       {
         name: 'Backup',
@@ -70408,6 +70426,7 @@ export const packages: Package[] = [
     description: 'Element Matrix chat client components for r8s',
     category: 'Networking',
     keywords: ['element', 'matrix', 'chat', 'messaging'],
+    validation: { kind: '2026-09-07' },
     components: [
       {
         name: 'Element',
@@ -70457,6 +70476,7 @@ export const packages: Package[] = [
     description: 'Grafana observability dashboard components for r8s',
     category: 'Observability',
     keywords: ['grafana', 'dashboards', 'monitoring', 'observability', 'metrics'],
+    validation: { kind: '2026-09-06' },
     components: [
       {
         name: 'Grafana',
@@ -70519,6 +70539,7 @@ export const packages: Package[] = [
     description: 'RustFS S3-compatible object storage components for r8s',
     category: 'Data & Analytics',
     keywords: ['rustfs', 's3', 'object-storage', 'storage'],
+    validation: { kind: '2026-09-06' },
     components: [
       {
         name: 'RustFS',
@@ -70582,6 +70603,7 @@ export const packages: Package[] = [
     description: 'Apache Superset analytics and visualization platform components for r8s',
     category: 'Data & Analytics',
     keywords: ['superset', 'bi', 'analytics', 'dashboards', 'data'],
+    validation: { rke2: '2026-09-09' },
     components: [
       {
         name: 'Superset',
@@ -70663,6 +70685,7 @@ export const packages: Package[] = [
     description: 'WireGuard VPN server (wg-easy) components for r8s',
     category: 'Networking',
     keywords: ['wireguard', 'vpn', 'networking', 'wg-easy'],
+    validation: { rke2: '2026-09-09' },
     components: [
       {
         name: 'WireGuard',
@@ -70737,6 +70760,7 @@ export const packages: Package[] = [
       'n8n workflow automation — editor, Postgres persistence, Redis queue mode, webhook endpoints',
     category: 'Automation',
     keywords: ['n8n', 'automation', 'workflows', 'integrations'],
+    validation: { kind: '2026-09-07' },
     components: [
       {
         name: 'N8n',
@@ -70883,6 +70907,7 @@ export const packages: Package[] = [
       'Nextcloud file cloud — Postgres file index, Redis cache, S3-compatible primary storage, cron background jobs',
     category: 'File & Collaboration',
     keywords: ['nextcloud', 'files', 'collaboration', 'calendar'],
+    validation: null,
     components: [
       {
         name: 'Nextcloud',
@@ -70993,6 +71018,7 @@ export const packages: Package[] = [
       'Outline wiki — Postgres persistence, Redis queue, S3 attachments, OIDC SSO via Keycloak',
     category: 'Knowledge & Documentation',
     keywords: ['outline', 'wiki', 'documentation', 'knowledge'],
+    validation: { kind: '2026-09-07' },
     components: [
       {
         name: 'Outline',
@@ -71124,6 +71150,7 @@ export const packages: Package[] = [
       'ChromaDB vector database — persistent storage, optional Postgres metadata backend, token auth, CPU autoscaling',
     category: 'AI & Embeddings',
     keywords: ['chromadb', 'vector-database', 'embeddings', 'rag'],
+    validation: { kind: '2026-09-07' },
     components: [
       {
         name: 'ChromaDb',
@@ -71251,6 +71278,7 @@ export const packages: Package[] = [
       'Supabase backend platform — Postgres core with GoTrue auth, PostgREST, Realtime, Storage API (S3/RustFS) and ImgProxy. This is Supabase, NOT Apache Superset.',
     category: 'Backend Platforms',
     keywords: ['supabase', 'postgres', 'auth', 'realtime', 'storage'],
+    validation: null,
     components: [
       {
         name: 'Supabase',
@@ -71360,6 +71388,7 @@ export const packages: Package[] = [
       'Odoo ERP — Postgres persistence, filestore PVC, worker tuning, master password via secrets backend',
     category: 'Business Applications',
     keywords: ['odoo', 'erp', 'crm', 'business'],
+    validation: { kind: '2026-09-09' },
     components: [
       {
         name: 'Odoo',
@@ -71454,6 +71483,7 @@ export const packages: Package[] = [
       'Open WebUI — chat frontend for OpenAI-compatible backends, Postgres persistence, uploads/RAG storage, OIDC SSO, optional Redis cache',
     category: 'AI & Chat',
     keywords: ['open-webui', 'chat', 'llm', 'ai'],
+    validation: null,
     components: [
       {
         name: 'OpenWebui',
@@ -71569,6 +71599,7 @@ export const packages: Package[] = [
       'LibreChat multi-model AI chat — MongoDB (provisioned externally), Redis sessions, optional Meilisearch, OIDC SSO',
     category: 'AI & Chat',
     keywords: ['librechat', 'chat', 'llm', 'rag'],
+    validation: null,
     components: [
       {
         name: 'LibreChat',
@@ -71722,6 +71753,7 @@ export const packages: Package[] = [
       'Euro-Office DocumentServer — self-hosted collaborative document editing (facit-aligned): CNPG persistence, JWT-signed API, WOPI/secure-link data volume, preStop document save',
     category: 'Productivity & Documents',
     keywords: ['eurooffice', 'documentserver', 'onlyoffice', 'documents', 'collaboration', 'wopi'],
+    validation: null,
     components: [
       {
         name: 'EuroOffice',
@@ -71871,6 +71903,7 @@ export const packages: Package[] = [
     description: "Paperclip — Berget's agent platform (tasks, documents, agent orchestration)",
     category: 'Agent Platforms',
     keywords: ['paperclip', 'agents', 'documents', 'automation'],
+    validation: null,
     components: [
       {
         name: 'Paperclip',
@@ -72053,6 +72086,7 @@ export const packages: Package[] = [
       'Eneo — open AI platform from Sundsvall municipality (agent workspaces, assistants, document AI)',
     category: 'Agent Platforms',
     keywords: ['eneo', 'documents', 'corpora', 'knowledge'],
+    validation: null,
     components: [
       {
         name: 'Eneo',
@@ -72162,6 +72196,7 @@ export const packages: Package[] = [
       'Matrix (Element Server Suite) — Synapse homeserver, MAS auth with Keycloak OIDC, Element Web/Admin, MatrixRTC/LiveKit SFU with HA defaults',
     category: 'Collaboration & Productivity',
     keywords: ['matrix', 'element', 'synapse', 'chat', 'rtc', 'oidc'],
+    validation: null,
     components: [
       {
         name: 'MatrixSSO',
@@ -72550,6 +72585,125 @@ export const packages: Package[] = [
     ],
   },
   {
+    slug: 'umami',
+    name: '@r8s/umami',
+    title: 'umami',
+    description: 'Umami web analytics — Postgres persistence, CNPG backups, Keycloak OIDC for r8s',
+    category: 'Data & Analytics',
+    keywords: ['umami'],
+    validation: { kind: '2026-09-06', rke2: '2026-09-09' },
+    components: [
+      {
+        name: 'Umami',
+        description: 'Umami — privacy-focused web analytics, facit-aligned.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description: "Resource name (defaults to 'umami')",
+          },
+          {
+            name: 'namespace',
+            type: 'string',
+            required: false,
+            description: 'Kubernetes namespace (inherited from <Platform> unless set)',
+          },
+          {
+            name: 'version',
+            type: 'string',
+            required: false,
+            description:
+              "Umami image tag. PINNED by default ('postgresql-v2.17.0') — facit floated on `postgresql-latest` and schema migrations are forward-only, so a surprise major upgrade breaks the install. Pass `version` explicitly to upgrade; `latest` is rejected.",
+          },
+          {
+            name: 'host',
+            type: 'string',
+            required: true,
+            description: "Public hostname (required), e.g. 'umami.berget.ai'",
+          },
+          {
+            name: 'sso',
+            type: '{ discoveryUrl: string, clientId: string, path?: string, clientSecretRef?: string, scope?: string }',
+            required: false,
+            description:
+              'OpenID Connect SSO (Keycloak). The discovery URL may point at any realm — facit uses the Keycloak master realm. Client credentials (keys `client-id` / `client-secret` — hyphenated per the Keycloak convention) are provisioned through the Platform secrets backend unless `clientSecretRef` references a pre-created Secret.',
+          },
+          {
+            name: 'appSecretRef',
+            type: 'string',
+            required: false,
+            description:
+              'Reference a pre-created app-secret bundle (key: app-secret) instead of backend provisioning',
+          },
+          {
+            name: 'dbName',
+            type: 'string',
+            required: false,
+            description: 'CNPG cluster name (defaults to `<name>-db`)',
+          },
+          {
+            name: 'dbInstances',
+            type: 'number',
+            required: false,
+            description: 'Number of CNPG instances (defaults to 2)',
+          },
+          {
+            name: 'dbStorage',
+            type: 'string',
+            required: false,
+            description: "CNPG data volume size (defaults to '20Gi')",
+          },
+          {
+            name: 'dbStorageClass',
+            type: 'string',
+            required: false,
+            description: 'CNPG storage class (defaults to cluster default)',
+          },
+          {
+            name: 'backup',
+            type: "DatabaseProps['backup']",
+            required: false,
+            description:
+              "CNPG backup configuration passed through to the Database recipe. Defaults to **enabled** — target and credentials derive from the platform's S3Provider. Pass `false` to opt out explicitly. Facit targets Scaleway S3 (https://s3.nl-ams.scw.cloud) — the endpoint is therefore a required part of the prop, not a constant.",
+          },
+          {
+            name: 'replicas',
+            type: 'number',
+            required: false,
+            description:
+              'Number of app replicas (defaults to 1 — umami is not horizontally scaled in facit)',
+          },
+          {
+            name: 'resources',
+            type: '{ requests?: { cpu?: string, memory?: string }, limits?: { cpu?: string, memory?: string } }',
+            required: false,
+            description: 'App resources (defaults to facit: 256Mi/100m → 512Mi/500m)',
+          },
+          {
+            name: 'endpointAnnotations',
+            type: 'Record',
+            required: false,
+            description:
+              'Extra Endpoint annotations merged over the default. NOTE: `nginx.ingress.kubernetes.io/configuration-snippet` is disabled by the ingress-nginx admin on this cluster — the package never emits it.',
+          },
+          {
+            name: 'tls',
+            type: '{ secretName: string, clusterIssuer: string }',
+            required: false,
+            description: 'TLS configuration (defaults to letsencrypt-prod cluster issuer)',
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform } from '@r8s/recipes'\nimport { Umami } from '@r8s/umami'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'umami' }}>\n    <Umami\n      host=\"umami.example.com\"\n      sso={{\n        discoveryUrl: 'https://keycloak.example.com/realms/master/.well-known/openid-configuration',\n        clientId: 'umami',\n      }}\n      backup={{\n        destinationPath: 's3://backups/umami-cnpg',\n        endpointURL: 'https://s3.nl-ams.scw.cloud',\n        credentialsSecret: 'scaleway-s3-secret',\n      }}\n    />\n  </Platform>\n)\n",
+            yaml: "apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: umami-secrets\n  namespace: default\nspec:\n  mount: secret\n  type: kv-v2\n  path: umami/umami/app\n  refreshAfter: 1h\n  rolloutRestartTargets:\n    - kind: Deployment\n      name: umami\n  destination:\n    create: true\n    name: umami-secrets\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        app-secret:\n          text: '{{ .Secrets.app-secret }}'\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: umami-keycloak-oidc\n  namespace: default\nspec:\n  mount: secret\n  type: kv-v2\n  path: umami/umami/keycloak-oidc\n  refreshAfter: 1h\n  rolloutRestartTargets:\n    - kind: Deployment\n      name: umami\n  destination:\n    create: true\n    name: umami-keycloak-oidc\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        client-id:\n          text: '{{ .Secrets.client-id }}'\n        client-secret:\n          text: '{{ .Secrets.client-secret }}'\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: umami-db\n  namespace: default\nspec:\n  instances: 2\n  storage:\n    size: 20Gi\n  bootstrap:\n    initdb:\n      database: umami-db\n      owner: umami-db\n  monitoring:\n    enablePodMonitor: true\n  postgresql:\n    parameters:\n      shared_buffers: 256MB\n      max_connections: '100'\n      work_mem: 8MB\n      maintenance_work_mem: 128MB\n      effective_cache_size: 768MB\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://backups/umami-cnpg\n      endpointURL: https://s3.nl-ams.scw.cloud\n      s3Credentials:\n        accessKeyId:\n          name: scaleway-s3-secret\n          key: access-key-id\n        secretAccessKey:\n          name: scaleway-s3-secret\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: umami-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: umami-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: umami\n  namespace: default\n  labels:\n    app: umami\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: umami\n  template:\n    metadata:\n      labels:\n        app: umami\n    spec:\n      containers:\n        - name: app\n          image: ghcr.io/umami-software/umami:postgresql-v2.17.0\n          imagePullPolicy: IfNotPresent\n          ports:\n            - containerPort: 3000\n          env:\n            - name: DATABASE_URL\n              valueFrom:\n                secretKeyRef:\n                  name: umami-db-app\n                  key: fqdn-uri\n            - name: APP_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: umami-secrets\n                  key: app-secret\n            - name: OAUTH_CLIENT_ID\n              valueFrom:\n                secretKeyRef:\n                  name: umami-keycloak-oidc\n                  key: client-id\n            - name: OAUTH_CLIENT_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: umami-keycloak-oidc\n                  key: client-secret\n            - name: OAUTH_DISCOVERY_URL\n              value: https://keycloak.example.com/realms/master/.well-known/openid-configuration\n            - name: OAUTH_REDIRECT_URL\n              value: https://umami.example.com/api/auth/callback/openid\n            - name: OAUTH_SCOPE\n              value: openid email profile\n            - name: OAUTH_USERNAME_CLAIM\n              value: preferred_username\n            - name: OAUTH_EMAIL_CLAIM\n              value: email\n            - name: OAUTH_NAME_CLAIM\n              value: name\n          resources:\n            requests:\n              memory: 256Mi\n              cpu: 100m\n            limits:\n              memory: 512Mi\n              cpu: 500m\n          livenessProbe:\n            httpGet:\n              path: /api/heartbeat\n              port: 3000\n            initialDelaySeconds: 60\n            periodSeconds: 30\n          readinessProbe:\n            httpGet:\n              path: /api/heartbeat\n              port: 3000\n            initialDelaySeconds: 30\n            periodSeconds: 10\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: umami\n  namespace: default\nspec:\n  type: ClusterIP\n  selector:\n    app: umami\n  ports:\n    - name: http\n      port: 3000\n      targetPort: 3000\n    - name: http-80\n      port: 80\n      targetPort: 3000\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: umami-endpoint\n  namespace: default\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt-prod\nspec:\n  ingressClassName: nginx\n  rules:\n    - host: umami.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: umami\n                port:\n                  number: 80\n  tls:\n    - hosts:\n        - umami.example.com\n      secretName: umami-tls\n",
+          },
+        ],
+      },
+    ],
+  },
+  {
     slug: 'forgejo',
     name: '@r8s/forgejo',
     title: 'forgejo',
@@ -72557,6 +72711,7 @@ export const packages: Package[] = [
       'Forgejo git forge — repos, PRs, Actions runners (forgejo-runner + dind), LFS on S3, CNPG persistence, SSH via LoadBalancer',
     category: 'Developer Tools',
     keywords: ['forgejo', 'git', 'ci', 'actions', 'lfs'],
+    validation: { kind: '2026-09-06' },
     components: [
       {
         name: 'ForgejoActions',
