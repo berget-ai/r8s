@@ -94,6 +94,11 @@ describe('Matrix — resource rendering', () => {
     expect(tpl).toContain('host: matrix-synapse-db-rw')
     expect(tpl).toContain('database: synapse')
     expect(tpl).toContain('user: synapse')
+    // the signing key must stay on the /data PVC — synapse's default
+    // resolves relative to the config file's directory, which is now the
+    // read-only /config emptyDir (EACCES crash loop + ephemeral identity)
+    expect(tpl).toContain('signing_key_path: /data/example.com.signing.key')
+    expect(find(result, 'PersistentVolumeClaim', 'matrix-synapse-keys')).toBeDefined()
   })
 
   it('renders the render-config init container + SYNAPSE_CONFIG_PATH pointing at the rendered config', () => {
@@ -109,6 +114,9 @@ describe('Matrix — resource rendering', () => {
     expect(script).toContain('__DB_PASSWORD__')
     expect(script).toContain('/template/homeserver.yaml.tpl')
     expect(script).toContain('/config/homeserver.yaml')
+    // the substituted value is single-quote-wrapped with YAML '' escaping —
+    // passwords with YAML-special characters must not corrupt the config
+    expect(script).toContain('p.replace("\'", "\'\'")')
     const initMounts = Object.fromEntries(init.volumeMounts.map((m: any) => [m.name, m.mountPath]))
     expect(initMounts['config-template']).toBe('/template')
     expect(initMounts['db-credentials']).toBe('/secrets/db')

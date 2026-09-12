@@ -271,6 +271,17 @@ function buildSynapseConfig(opts: {
     server_name: server,
     public_baseurl: `https://${synapseHost}/`,
     pid_file: '/data/homeserver.pid',
+    // The signing key IS the server identity — pin it to the keys PVC
+    // explicitly. Synapse's default resolves relative to the config file's
+    // directory (synapse/config/_base.py: config_dir_path = dirname of the
+    // config file; synapse/config/key.py: signing_key_path default =
+    // join(config_dir, server_name + '.signing.key')) — since the rendered
+    // config moved to the /config emptyDir, the default would point the
+    // identity key at that read-only mount (EACCES crash loop on first
+    // boot, and an ephemeral key = silent de-federation even if writable).
+    // Same filename the /data default produced while the config lived on
+    // the PVC, so existing clusters keep their key.
+    signing_key_path: `/data/${server}.signing.key`,
     // Media always lives under /data — on the dedicated media PVC when
     // rendered (mediaStorage default), else on whatever the user manages at
     // /data. Synapse's CWD-relative `media_store` default lands on the
@@ -637,10 +648,13 @@ function synapseDeployment(opts: {
   // render-config init container substitutes the password from the mounted
   // CNPG secret into an emptyDir. Python (bundled in the synapse image) and
   // plain str.replace — no sed regex escaping, safe against special chars.
+  // The substituted value is wrapped in single quotes with YAML escaping
+  // ('' for a literal quote) so passwords with YAML-special characters
+  // (spaces, #, :, quotes) cannot corrupt the rendered config.
   const renderConfigCommand = [
     'python3',
     '-c',
-    "import pathlib; t=pathlib.Path('/template/homeserver.yaml.tpl').read_text(); p=pathlib.Path('/secrets/db/password').read_text().strip(); pathlib.Path('/config/homeserver.yaml').write_text(t.replace('__DB_PASSWORD__', p))",
+    "import pathlib; t=pathlib.Path('/template/homeserver.yaml.tpl').read_text(); p=pathlib.Path('/secrets/db/password').read_text().strip(); pathlib.Path('/config/homeserver.yaml').write_text(t.replace('__DB_PASSWORD__', \"'\" + p.replace(\"'\", \"''\") + \"'\"))",
   ]
 
   return jsx('Deployment', {
