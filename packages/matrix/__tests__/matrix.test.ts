@@ -355,6 +355,21 @@ describe('Matrix — resource rendering', () => {
     expect(yaml).toContain('name: graphql')
   })
 
+  it('renders the MAS top-level matrix.homeserver section (1.24.0 schema requires it)', () => {
+    // Round 6 dogfood: MAS 1.24.0 rejects the config pre-run with
+    // "Error: missing field `matrix`" — the schema (crates/config/src/
+    // sections/homeserver.rs @ v1.24.0) REQUIRES matrix.homeserver: the
+    // synapse server_name users' IDs are built from, resolved by the
+    // component as `serverName ?? domain`.
+    const result = renderMatrix()
+    const cm = find(result, 'ConfigMap', 'matrix-mas-config') as any
+    expect(cm.data['config.yaml.tpl']).toContain('matrix:\n  homeserver: example.com')
+
+    const renamed = renderMatrix({ serverName: 'chat.example.com' })
+    const renamedCm = find(renamed, 'ConfigMap', 'matrix-mas-config') as any
+    expect(renamedCm.data['config.yaml.tpl']).toContain('matrix:\n  homeserver: chat.example.com')
+  })
+
   it('pulls the admin console from oci.element.io (ghcr no longer serves anonymous pulls)', () => {
     const result = renderMatrix()
     const admin = find(result, 'Deployment', 'matrix-admin') as any

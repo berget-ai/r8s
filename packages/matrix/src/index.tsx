@@ -350,9 +350,20 @@ function buildSynapseConfig(opts: {
 function buildMasConfig(
   name: string,
   accountHost: string,
+  serverName: string,
   sso?: MatrixSSOProps
 ): Record<string, unknown> {
   return {
+    // MAS 1.24.0 requires a top-level `matrix` section naming the homeserver
+    // (dogfood smoke round 6: "Error: missing field `matrix`" — the next
+    // schema gap after secrets). Schema per
+    // crates/config/src/sections/homeserver.rs @ v1.24.0: MatrixConfig
+    // REQUIRES `homeserver` — the synapse server_name users' IDs are built
+    // from (@user:serverName), resolved by the component as
+    // `serverName ?? domain`.
+    matrix: {
+      homeserver: serverName,
+    },
     database: {
       // Split connection fields (crates/config/src/sections/database.rs
       // @ v1.24.0) instead of a `uri` — they must stay mutually exclusive
@@ -1481,7 +1492,7 @@ export function Matrix(props: MatrixProps) {
     })
   )
 
-  const masConfig = buildMasConfig(name, host.account, sso)
+  const masConfig = buildMasConfig(name, host.account, server, sso)
 
   resources.push(
     jsx('ConfigMap', {
