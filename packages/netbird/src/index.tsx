@@ -70,9 +70,12 @@ export interface NetbirdProps {
    * Group sync with the Auth recipe: give the realm's `netbird` client
    * <Client groupsClaim> so Keycloak puts group memberships in the JWT
    * `groups` claim — Netbird auto-creates groups from it (map Netbird
-   * policies to those groups). The manager client (client_credentials,
-   * e.g. `netbird-manager`) is what netbird management uses to read
-   * groups/users from the Keycloak API. See the compose example below.
+   * policies to those groups). Netbird's Keycloak group/user reads
+   * authenticate via client_credentials — grant the netbird client's
+   * service account the realm-management view-users/view-groups roles
+   * (a dedicated `netbird-manager` client is the upstream pattern for
+   * splitting those reads onto separate credentials). See the compose
+   * example below.
    */
   idp: NetbirdIdpProps
   /**
@@ -216,8 +219,12 @@ function secretEnv(name: string, secretName: string, key: string) {
  *
  * // groupsClaim puts Keycloak group memberships in the JWT `groups`
  * // claim — Netbird auto-creates groups from it (map Netbird policies
- * // to those groups). The manager client (client_credentials) is what
- * // netbird management uses to read groups/users from the Keycloak API.
+ * // to those groups). Netbird's group/user reads authenticate via
+ * // client_credentials — grant the netbird client's service account
+ * // realm-management view-users/view-groups; `netbird-manager` is the
+ * // upstream pattern for splitting those reads onto separate
+ * // credentials. localhost:53000 is the netbird CLI/desktop PKCE
+ * // redirect; the auth host gets TLS so the https issuer is reachable.
  * export default (
  *   <S3Provider
  *     provider={
@@ -225,14 +232,18 @@ function secretEnv(name: string, secretName: string, key: string) {
  *     }
  *   >
  *     <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'apps' }}>
- *       <Auth name="auth" host="auth.example.com">
+ *       <Auth
+ *         name="auth"
+ *         host="auth.example.com"
+ *         tls={{ secretName: 'auth-tls', clusterIssuer: 'letsencrypt-prod' }}
+ *       >
  *         <Realms>
  *           <Realm id="netbird" displayName="Netbird">
  *             <Clients>
  *               <Client
  *                 id="netbird"
  *                 type="confidential"
- *                 redirectUris={['https://netbird.example.com/*']}
+ *                 redirectUris={['https://netbird.example.com/*', 'http://localhost:53000']}
  *                 groupsClaim
  *               />
  *               <Client id="netbird-manager" type="confidential" />
@@ -300,7 +311,9 @@ export function Netbird(props: NetbirdProps) {
         `Fix: idp={{ realm: 'netbird', host: 'auth.example.com', clientId: 'netbird' }}`
     )
   }
-  const issuer = idp.issuer ?? `https://${idp.host}/realms/${idp.realm}`
+  const issuer =
+    idp.issuer ??
+    `https://${idp.host!.replace(/\/+$/, '')}/realms/${idp.realm!.replace(/^\/+|\/+$/g, '')}`
 
   // --- Pinned-version policy ---------------------------------------------------
   if (chartVersion === 'latest') {

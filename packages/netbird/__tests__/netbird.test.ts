@@ -408,6 +408,16 @@ describe('Netbird idp — realm/host shorthand (Auth recipe composition)', () =>
     expect(values.management.env.NETBIRD_DOMAIN).toBe('netbird.example.com')
   })
 
+  it('trims stray slashes in the derived host/realm', () => {
+    const values = resource(
+      renderApp({ idp: { ...suffixIdp, host: 'auth.example.com/', realm: 'netbird/' } }),
+      'HelmRelease'
+    ).spec.values
+    expect(values.management.env.NETBIRD_AUTH_ISSUER).toBe(
+      'https://auth.example.com/realms/netbird'
+    )
+  })
+
   it('rejects issuer together with realm/host', () => {
     expect(() =>
       renderApp({ idp: { ...baseIdp, realm: 'netbird', host: 'auth.example.com' } })

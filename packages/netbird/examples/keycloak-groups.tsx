@@ -5,10 +5,14 @@ import { Netbird } from '@r8s/netbird'
 // Compose with the Auth recipe — realm-level group sync for policies.
 // groupsClaim puts Keycloak group memberships in the JWT `groups` claim —
 // Netbird auto-creates groups from it (map Netbird policies to those
-// groups). The manager client (client_credentials) is what netbird
-// management uses to read groups/users from the Keycloak API. CNPG
-// backups derive from the S3Provider; the IdP client secret +
-// relay/datastore credentials provision from the openbao store.
+// groups). Netbird's group/user reads authenticate via client_credentials —
+// grant the netbird client's service account realm-management
+// view-users/view-groups; `netbird-manager` is the upstream pattern for
+// splitting those reads onto separate credentials. localhost:53000 is the
+// netbird CLI/desktop PKCE redirect; the auth host gets TLS so the https
+// issuer is reachable. CNPG backups derive from the S3Provider; the IdP
+// client secret + relay/datastore credentials provision from the openbao
+// store.
 export default (
   <S3Provider
     provider={
@@ -16,14 +20,18 @@ export default (
     }
   >
     <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'apps' }}>
-      <Auth name="auth" host="auth.example.com">
+      <Auth
+        name="auth"
+        host="auth.example.com"
+        tls={{ secretName: 'auth-tls', clusterIssuer: 'letsencrypt-prod' }}
+      >
         <Realms>
           <Realm id="netbird" displayName="Netbird">
             <Clients>
               <Client
                 id="netbird"
                 type="confidential"
-                redirectUris={['https://netbird.example.com/*']}
+                redirectUris={['https://netbird.example.com/*', 'http://localhost:53000']}
                 groupsClaim
               />
               <Client id="netbird-manager" type="confidential" />

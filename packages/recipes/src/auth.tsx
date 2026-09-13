@@ -227,7 +227,12 @@ export function Auth(props: AuthProps) {
               clientId: client.id,
               name: client.name ?? client.id,
               publicClient: client.type === 'public',
-              standardFlowEnabled: client.type === 'public',
+              // Redirect URIs exist exactly for the authorization-code
+              // (standard) flow — a confidential client that declares any is
+              // browser-facing (e.g. the netbird PKCE/dashboard flow), so the
+              // flow must be on for it to work
+              standardFlowEnabled:
+                client.type === 'public' || (client.redirectUris?.length ?? 0) > 0,
               bearerOnly: client.type === 'bearer-only',
               serviceAccountsEnabled: client.type === 'confidential' ? true : undefined,
               secret: client.secret,
@@ -240,6 +245,10 @@ export function Auth(props: AuthProps) {
                     // this field when present, so the long-stable stock
                     // scopes ride along — dropping them would strip
                     // profile/email claims from this client's tokens.
+                    // Deliberately NOT adding 'acr' (KC 24+) / 'basic'
+                    // (KC 25+): defaultClientScopes referencing an unknown
+                    // scope fails the realm import on older Keycloaks, while
+                    // omitting them only skips auth_time/sid/acr claims.
                     defaultClientScopes: [
                       'profile',
                       'email',

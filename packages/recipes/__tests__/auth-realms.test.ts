@@ -248,6 +248,24 @@ describe('Auth — groupsClaim (JWT `groups` claim)', () => {
       expect(client.defaultClientScopes).toBeUndefined()
     }
   })
+
+  it('should enable standard flow for confidential clients that declare redirect URIs', () => {
+    // Netbird-style: the confidential netbird client runs the browser
+    // PKCE (authorization-code) flow — redirectUris without standardFlow
+    // would be dead config
+    const realmImport = renderRealmImport([
+      jsx(Client, { id: 'backend', type: 'confidential', secret: 's' }),
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        redirectUris: ['https://netbird.example.com/*', 'http://localhost:53000'],
+      }),
+    ])
+    const clients = realmImport.spec.realm.clients
+
+    expect(clients.find((c: any) => c.clientId === 'backend').standardFlowEnabled).toBe(false)
+    expect(clients.find((c: any) => c.clientId === 'netbird').standardFlowEnabled).toBe(true)
+  })
 })
 
 describe('Auth — JSX children identity checks', () => {
