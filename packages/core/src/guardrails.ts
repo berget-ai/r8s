@@ -198,7 +198,11 @@ function looksLikeReference(value: string): boolean {
     /^\$\{.+\}/.test(value) ||
     value.startsWith('${') ||
     value.startsWith('$') ||
-    value.startsWith('file://')
+    value.startsWith('file://') ||
+    // Go-template / helm-style placeholders that name an env var or secret
+    // reference (netbird management.json's `{{ .VAR }}` env-substitution
+    // convention) — braces + an identifier can't carry a live credential
+    /^\{\{\s*\.?[A-Za-z][^{}]*\}\}$/.test(value)
   )
 }
 

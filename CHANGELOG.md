@@ -2,6 +2,12 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## Unreleased
+
+### Removed
+
+- **`@r8s/wireguard` (wg-easy single-server VPN) is removed**, replaced by **`@r8s/netbird`** — a WireGuard-based *mesh* VPN (management + signal + relay + dashboard behind one hostname, Flux HelmRelease + CNPG Postgres + Keycloak OIDC). wg-easy and Netbird are different product classes (single-server VPN concentrator vs. peer-to-peer mesh); there is no data or configuration migration between them — a Netbird deployment enrolls peers separately. If you still need the old component, pin the previous r8s release (`0.3.3`).
+
 ## 0.3.3
 
 ### Changed

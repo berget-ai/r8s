@@ -70679,74 +70679,206 @@ export const packages: Package[] = [
     ],
   },
   {
-    slug: 'wireguard',
-    name: '@r8s/wireguard',
-    title: 'wireguard',
-    description: 'WireGuard VPN server (wg-easy) components for r8s',
+    slug: 'netbird',
+    name: '@r8s/netbird',
+    title: 'netbird',
+    description:
+      'Netbird mesh VPN (management + signal + relay + dashboard) — Flux HelmRelease, CNPG persistence, Keycloak IdP for r8s',
     category: 'Networking',
-    keywords: ['wireguard', 'vpn', 'networking', 'wg-easy'],
-    validation: { rke2: '2026-09-09' },
+    keywords: ['netbird', 'vpn', 'mesh', 'wireguard', 'networking'],
+    validation: null,
     components: [
       {
-        name: 'WireGuard',
+        name: 'NetbirdIdp',
         description:
-          'WireGuard VPN server (wg-easy). Deploys without operator — native Kubernetes resources only.',
+          'Keycloak is the documented IdP (docs.netbird.io → Self-hosted → Identity providers → Keycloak): a dedicated `netbird` realm with a confidential OIDC client `netbird`. The management store uses client credentials (`client_credentials` grant) — wire the Keycloak group-claim mapper on the Keycloak side for user-group sync; netbird reads the claim, this package only carries the identity endpoints derived from `issuer`.',
         props: [
-          { name: 'name', type: 'string', required: false, description: 'Resource name' },
+          {
+            name: 'issuer',
+            type: 'string',
+            required: true,
+            description:
+              "OIDC issuer, e.g. 'https://auth.example.com/realms/netbird'. Token, JWKS, device-authorize and authorize endpoints are derived from it (Keycloak realm layout: <issuer>/protocol/openid-connect/...).",
+          },
+          {
+            name: 'clientId',
+            type: 'string',
+            required: true,
+            description: 'OIDC client id — the confidential `netbird` client in the realm',
+          },
+          {
+            name: 'clientSecretRef',
+            type: 'string',
+            required: false,
+            description:
+              "Reference a pre-created Secret holding the client secret (key: `client-secret`). Payload: the OIDC client's secret from the Keycloak realm (Clients → netbird → Credentials). Without it the secrets backend provisions `${name}-oidc` from the store path.",
+          },
+        ],
+        examples: [
+          {
+            tsx: "import { Platform, S3Provider, MinIO } from '@r8s/recipes'\nimport { Netbird } from '@r8s/netbird'\n\n// CNPG backups derive from the S3Provider; the IdP client secret +\n// relay/datastore credentials provision from the openbao store\nexport default (\n  <S3Provider\n    provider={\n      <MinIO endpoint=\"https://rustfs:9000\" bucket=\"infra\" credentialsSecret=\"infra-s3-creds\" />\n    }\n  >\n    <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'apps' }}>\n      <Netbird\n        host=\"netbird.example.com\"\n        idp={{\n          issuer: 'https://auth.example.com/realms/netbird',\n          clientId: 'netbird',\n        }}\n      />\n    </Platform>\n  </S3Provider>\n)\n",
+            yaml: 'apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: netbird-oidc\n  namespace: default\nspec:\n  mount: secret\n  type: kv-v2\n  path: apps/netbird/oidc\n  refreshAfter: 1h\n  rolloutRestartTargets:\n    - kind: Deployment\n      name: netbird-management\n  destination:\n    create: true\n    name: netbird-oidc\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        client-secret:\n          text: \'{{ .Secrets.client_secret }}\'\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: netbird-credentials\n  namespace: default\nspec:\n  mount: secret\n  type: kv-v2\n  path: apps/netbird/credentials\n  refreshAfter: 1h\n  rolloutRestartTargets:\n    - kind: Deployment\n      name: netbird-management\n    - kind: Deployment\n      name: netbird-relay\n  destination:\n    create: true\n    name: netbird-credentials\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        relay-secret:\n          text: \'{{ .Secrets.relay_secret }}\'\n        datastore-encryption-key:\n          text: \'{{ .Secrets.datastore_encryption_key }}\'\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: netbird-db\n  namespace: default\nspec:\n  instances: 2\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: netbird\n      owner: netbird\n  monitoring:\n    enablePodMonitor: true\n  postgresql:\n    parameters:\n      shared_buffers: 128MB\n      max_connections: \'100\'\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/netbird-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: netbird-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: netbird-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: source.toolkit.fluxcd.io/v1\nkind: HelmRepository\nmetadata:\n  name: netbird\n  namespace: flux-system\nspec:\n  interval: 24h\n  url: https://netbirdio.github.io/helms\n---\napiVersion: helm.toolkit.fluxcd.io/v2\nkind: HelmRelease\nmetadata:\n  name: netbird\n  namespace: default\nspec:\n  interval: 30m\n  chart:\n    spec:\n      chart: netbird\n      version: 1.9.0\n      sourceRef:\n        kind: HelmRepository\n        name: netbird\n        namespace: flux-system\n      interval: 12h\n  values:\n    management:\n      persistentVolume:\n        enabled: false\n      useBackwardsGrpcService: true\n      ingress:\n        enabled: true\n        className: nginx\n        annotations:\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /api\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      ingressGrpc:\n        enabled: true\n        className: nginx\n        annotations:\n          nginx.ingress.kubernetes.io/backend-protocol: GRPC\n          nginx.ingress.kubernetes.io/ssl-redirect: \'true\'\n          nginx.ingress.kubernetes.io/proxy-read-timeout: \'3600\'\n          nginx.ingress.kubernetes.io/proxy-send-timeout: \'3600\'\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /management.ManagementService\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      configmap: |-\n        {\n          "Stuns": [],\n          "TURNConfig": {\n            "Turns": [],\n            "CredentialsTTL": "12h0m0s",\n            "Secret": "secret",\n            "TimeBasedCredentials": false\n          },\n          "Relay": {\n            "Addresses": [\n              "rels://netbird.example.com:443/relay"\n            ],\n            "CredentialsTTL": "24h",\n            "Secret": "{{ .RELAY_PASSWORD }}"\n          },\n          "Signal": {\n            "Proto": "https",\n            "URI": "netbird.example.com:443",\n            "Username": "",\n            "Password": ""\n          },\n          "ReverseProxy": {\n            "TrustedHTTPProxies": null,\n            "TrustedHTTPProxiesCount": 0,\n            "TrustedPeers": null\n          },\n          "Datadir": "",\n          "DataStoreEncryptionKey": "{{ .DATASTORE_ENCRYPTION_KEY }}",\n          "StoreConfig": {\n            "Engine": "postgres"\n          },\n          "HttpConfig": {\n            "LetsEncryptDomain": "",\n            "CertFile": "",\n            "CertKey": "",\n            "AuthAudience": "{{ .IDP_CLIENT_ID }}",\n            "AuthIssuer": "{{ .NETBIRD_AUTH_ISSUER }}",\n            "AuthUserIDClaim": "",\n            "AuthKeysLocation": "{{ .NETBIRD_AUTH_JWT_CERTS }}",\n            "IdpSignKeyRefreshEnabled": false,\n            "OIDCConfigEndpoint": "{{ .NETBIRD_AUTH_OIDC_CONFIGURATION_ENDPOINT }}"\n          },\n          "IdpManagerConfig": {\n            "ManagerType": "keycloak",\n            "ClientConfig": {\n              "Issuer": "{{ .NETBIRD_AUTH_ISSUER }}",\n              "TokenEndpoint": "{{ .NETBIRD_AUTH_TOKEN_ENDPOINT }}",\n              "ClientID": "{{ .IDP_CLIENT_ID }}",\n              "ClientSecret": "{{ .IDP_CLIENT_SECRET }}",\n              "GrantType": "client_credentials"\n            },\n            "KeycloakClientCredentials": {\n              "ClientID": "{{ .IDP_CLIENT_ID }}",\n              "ClientSecret": "{{ .IDP_CLIENT_SECRET }}",\n              "GrantType": "client_credentials"\n            },\n            "ExtraConfig": null,\n            "Auth0ClientCredentials": null,\n            "AzureClientCredentials": null,\n            "ZitadelClientCredentials": null\n          },\n          "DeviceAuthorizationFlow": {\n            "Provider": "hosted",\n            "ProviderConfig": {\n              "ClientID": "{{ .IDP_CLIENT_ID }}",\n              "ClientSecret": "",\n              "Domain": "",\n              "Audience": "{{ .IDP_CLIENT_ID }}",\n              "TokenEndpoint": "{{ .NETBIRD_AUTH_TOKEN_ENDPOINT }}",\n              "DeviceAuthEndpoint": "https://auth.example.com/realms/netbird/protocol/openid-connect/auth/device",\n              "AuthorizationEndpoint": "",\n              "Scope": "openid",\n              "UseIDToken": false,\n              "RedirectURLs": null\n            }\n          },\n          "PKCEAuthorizationFlow": {\n            "Provider": "hosted",\n            "ProviderConfig": {\n              "ClientID": "{{ .IDP_CLIENT_ID }}",\n              "ClientSecret": "{{ .IDP_CLIENT_SECRET }}",\n              "Domain": "",\n              "Audience": "{{ .IDP_CLIENT_ID }}",\n              "TokenEndpoint": "{{ .NETBIRD_AUTH_TOKEN_ENDPOINT }}",\n              "DeviceAuthEndpoint": "",\n              "AuthorizationEndpoint": "https://auth.example.com/realms/netbird/protocol/openid-connect/auth",\n              "Scope": "openid profile email offline_access api",\n              "UseIDToken": false,\n              "DisablePromptLogin": true,\n              "LoginFlag": false,\n              "RedirectURLs": [\n                "http://localhost:53000"\n              ]\n            }\n          }\n        }\n      env:\n        NETBIRD_DOMAIN: netbird.example.com\n        NETBIRD_AUTH_ISSUER: https://auth.example.com/realms/netbird\n        NETBIRD_AUTH_JWT_CERTS: https://auth.example.com/realms/netbird/protocol/openid-connect/certs\n        NETBIRD_AUTH_TOKEN_ENDPOINT: https://auth.example.com/realms/netbird/protocol/openid-connect/token\n        NETBIRD_AUTH_OIDC_CONFIGURATION_ENDPOINT: https://auth.example.com/realms/netbird/.well-known/openid-configuration\n        IDP_CLIENT_ID: netbird\n      envRaw:\n        - name: IDP_CLIENT_SECRET\n          valueFrom:\n            secretKeyRef:\n              name: netbird-oidc\n              key: client-secret\n        - name: DATASTORE_ENCRYPTION_KEY\n          valueFrom:\n            secretKeyRef:\n              name: netbird-credentials\n              key: datastore-encryption-key\n        - name: RELAY_PASSWORD\n          valueFrom:\n            secretKeyRef:\n              name: netbird-credentials\n              key: relay-secret\n        - name: NETBIRD_STORE_ENGINE_POSTGRES_DSN\n          valueFrom:\n            secretKeyRef:\n              name: netbird-db-app\n              key: fqdn-uri\n      image:\n        repository: netbirdio/management\n        tag: 0.46.0\n        pullPolicy: IfNotPresent\n    signal:\n      enabled: true\n      ingress:\n        enabled: true\n        className: nginx\n        annotations:\n          nginx.ingress.kubernetes.io/backend-protocol: GRPC\n          nginx.ingress.kubernetes.io/ssl-redirect: \'true\'\n          nginx.ingress.kubernetes.io/proxy-read-timeout: \'3600\'\n          nginx.ingress.kubernetes.io/proxy-send-timeout: \'3600\'\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /signalexchange.SignalExchange\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      image:\n        repository: netbirdio/signal\n        tag: 0.46.0\n        pullPolicy: IfNotPresent\n    relay:\n      enabled: true\n      env:\n        NB_LOG_LEVEL: info\n        NB_LISTEN_ADDRESS: \':33080\'\n        NB_EXPOSED_ADDRESS: rels://netbird.example.com:443/relay\n      envRaw:\n        - name: NB_AUTH_SECRET\n          valueFrom:\n            secretKeyRef:\n              name: netbird-credentials\n              key: relay-secret\n      ingress:\n        enabled: true\n        className: nginx\n        annotations:\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /relay\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      image:\n        repository: netbirdio/relay\n        tag: 0.46.0\n        pullPolicy: IfNotPresent\n    dashboard:\n      enabled: true\n      ingress:\n        enabled: true\n        className: nginx\n        annotations:\n          cert-manager.io/cluster-issuer: letsencrypt-prod\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      env:\n        NETBIRD_MGMT_API_ENDPOINT: https://netbird.example.com\n        NETBIRD_MGMT_GRPC_API_ENDPOINT: https://netbird.example.com\n        AUTH_AUTHORITY: https://auth.example.com/realms/netbird\n        AUTH_CLIENT_ID: netbird\n        AUTH_AUDIENCE: netbird\n        AUTH_SUPPORTED_SCOPES: openid profile email offline_access api\n        NETBIRD_TOKEN_SOURCE: accessToken\n        USE_AUTH0: \'false\'\n      image:\n        repository: netbirdio/dashboard\n        tag: v2.13.1\n        pullPolicy: IfNotPresent\n',
+          },
+        ],
+      },
+      {
+        name: 'Netbird',
+        description:
+          'Netbird — WireGuard-based mesh VPN (management + signal + relay + dashboard behind one hostname), facit-aligned via the official chart.',
+        props: [
+          {
+            name: 'name',
+            type: 'string',
+            required: false,
+            description:
+              "Release / chart name (defaults to 'netbird'; also the namespace-internal resource prefix)",
+          },
           {
             name: 'namespace',
             type: 'string',
             required: false,
-            description: 'Kubernetes namespace',
+            description:
+              'Kubernetes namespace for the release + data (inherited from <Platform> unless set)',
           },
           {
-            name: 'version',
+            name: 'host',
             type: 'string',
-            required: false,
-            description: 'wg-easy version (default: latest)',
+            required: true,
+            description:
+              'Single public hostname: dashboard, management API/gRPC, signal and relay are all routed on it (ingress-nginx merges the rules; TLS via one shared certificate).',
           },
-          { name: 'host', type: 'string', required: false, description: 'Hostname for the web UI' },
           {
-            name: 'wgPort',
+            name: 'idp',
+            type: 'NetbirdIdpProps',
+            required: true,
+            description: 'Keycloak OIDC identity provider wired into the management config',
+          },
+          {
+            name: 'relayPort',
             type: 'number',
             required: false,
-            description: 'WireGuard port (default: 51820)',
+            description:
+              "Expose the relay Service as a raw LoadBalancer on this TCP port in addition to the `rels://host:443/relay` ingress path. The chart's relay is the TCP websocket relay — it does NOT speak UDP, and the chart ships no coturn: add an external STUN/TURN server (+ its own LoadBalancer) separately if peers need it.",
           },
           {
-            name: 'webPort',
-            type: 'number',
-            required: false,
-            description: 'Web UI port (default: 51821)',
-          },
-          {
-            name: 'passwordSecret',
+            name: 'chartVersion',
             type: 'string',
             required: false,
-            description: 'Admin password secret name',
+            description:
+              "Chart version (defaults to the pinned '1.9.0'). Flux applies chart upgrades automatically on the repo interval — bump deliberately.",
+          },
+          {
+            name: 'repoUrl',
+            type: 'string',
+            required: false,
+            description:
+              'HelmRepository URL (defaults to https://netbirdio.github.io/helms — the gh-pages index of netbirdio/helms)',
+          },
+          {
+            name: 'repoNamespace',
+            type: 'string',
+            required: false,
+            description: "Namespace the HelmRepository lives in (defaults to 'flux-system')",
+          },
+          {
+            name: 'imageTag',
+            type: 'string',
+            required: false,
+            description:
+              "Image tag for the three core services (management, signal, relay — netbirdio/{management,signal,relay}). Defaults to '0.46.0', the chart 1.9.0 appVersion the management.json template is written against — newer netbird images may expect a different config shape, so bump chart + images together. PINNED — 'latest' is rejected. The dashboard keeps its own chart default (v2.13.1, also pinned).",
           },
           {
             name: 'storage',
-            type: 'string',
+            type: 'string | false',
             required: false,
-            description: 'Persistent storage (default: 1Gi)',
+            description:
+              "Management data PVC sizing. The chart only needs it for the sqlite store — with the CNPG Postgres contract below the management data dir is disposable, so the PVC is DISABLED by default. Pass a size (e.g. '1Gi') to keep it, or `false` to disable it explicitly.",
           },
           {
-            name: 'nodePort',
+            name: 'dbName',
+            type: 'string',
+            required: false,
+            description:
+              "CNPG cluster name (defaults to 'netbird-db'). Database + owner are 'netbird'.",
+          },
+          {
+            name: 'dbInstances',
             type: 'number',
             required: false,
-            description: 'Node port for UDP (if using NodePort)',
+            description: 'Number of CNPG instances (defaults to 2)',
+          },
+          {
+            name: 'dbStorage',
+            type: 'string',
+            required: false,
+            description: "CNPG data volume size (defaults to '10Gi' — management store, small)",
+          },
+          {
+            name: 'dbStorageClass',
+            type: 'string',
+            required: false,
+            description: 'CNPG storage class (defaults to cluster default)',
+          },
+          {
+            name: 'backup',
+            type: "DatabaseProps['backup']",
+            required: false,
+            description:
+              'CNPG backup passthrough — defaults to **enabled** via the platform S3Provider; `false` opts out',
+          },
+          {
+            name: 'credentialsSecretName',
+            type: 'string',
+            required: false,
+            description:
+              'Reference a pre-created Secret holding the relay auth secret + the datastore encryption key (keys `relay-secret`, `datastore-encryption-key`) instead of backend provisioning. The relay secret also travels to peers in management.json — rotating it restarts management + relay.',
+          },
+          {
+            name: 'userIdClaim',
+            type: 'string',
+            required: false,
+            description:
+              "User-ID claim netbird matches accounts on (e.g. 'preferred_username' — depends on the IdP mapper)",
           },
           {
             name: 'tls',
             type: '{ secretName: string, clusterIssuer: string }',
             required: false,
-            description: 'TLS config for web UI',
+            description:
+              'TLS: one shared cert for every ingress the chart creates (defaults to `netbird-tls` via letsencrypt-prod). The cert-manager annotation sits on the dashboard catch-all ingress only — the other ingresses reference the same secret without triggering duplicate issuances (LE duplicate-cert limit is 5/week).',
           },
         ],
         examples: [
           {
-            tsx: "import { WireGuard } from '@r8s/wireguard'\n\nexport default (\n  <WireGuard\n    host=\"vpn.example.com\"\n    passwordSecret=\"wg-password\"\n    nodePort={31820}\n    tls={{ secretName: 'wg-tls', clusterIssuer: 'letsencrypt' }}\n  />\n)\n",
-            yaml: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: wireguard\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: wireguard\n  namespace: wireguard\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: wireguard\n  template:\n    metadata:\n      labels:\n        app: wireguard\n    spec:\n      containers:\n        - name: wg-easy\n          image: ghcr.io/wg-easy/wg-easy:latest\n          ports:\n            - containerPort: 51820\n              protocol: UDP\n              name: wg\n            - containerPort: 51821\n              name: web\n          env:\n            - name: WG_HOST\n              value: vpn.example.com\n            - name: PASSWORD_HASH\n              valueFrom:\n                secretKeyRef:\n                  name: wg-password\n                  key: password\n            - name: WG_PORT\n              value: '51820'\n            - name: WG_DEFAULT_ADDRESS\n              value: 10.8.0.x\n            - name: WG_DEFAULT_DNS\n              value: 1.1.1.1, 8.8.8.8\n            - name: UI_TRAFFIC_STATS\n              value: 'true'\n            - name: UI_CHART_TYPE\n              value: '2'\n          volumeMounts:\n            - name: data\n              mountPath: /etc/wireguard\n          securityContext:\n            capabilities:\n              add:\n                - NET_ADMIN\n                - SYS_MODULE\n          resources:\n            requests:\n              memory: 64Mi\n              cpu: 50m\n            limits:\n              memory: 256Mi\n              cpu: 200m\n      volumes:\n        - name: data\n          persistentVolumeClaim:\n            claimName: wireguard-pvc\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: wireguard\n  namespace: wireguard\nspec:\n  type: NodePort\n  selector:\n    app: wireguard\n  ports:\n    - port: 51820\n      targetPort: 51820\n      protocol: UDP\n      name: wg\n      nodePort: 31820\n    - port: 51821\n      targetPort: 51821\n      name: web\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: wireguard-pvc\n  namespace: wireguard\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 1Gi\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: wireguard\n  namespace: wireguard\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\nspec:\n  rules:\n    - host: vpn.example.com\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: wireguard\n                port:\n                  number: 51821\n  tls:\n    - hosts:\n        - vpn.example.com\n      secretName: wg-tls\n",
+            tsx: "import { Platform, S3Provider, MinIO } from '@r8s/recipes'\nimport { Netbird } from '@r8s/netbird'\n\n// CNPG backups derive from the S3Provider; the IdP client secret +\n// relay/datastore credentials provision from the openbao store\nexport default (\n  <S3Provider\n    provider={\n      <MinIO endpoint=\"https://rustfs:9000\" bucket=\"infra\" credentialsSecret=\"infra-s3-creds\" />\n    }\n  >\n    <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'apps' }}>\n      <Netbird\n        host=\"netbird.example.com\"\n        idp={{\n          issuer: 'https://auth.example.com/realms/netbird',\n          clientId: 'netbird',\n        }}\n      />\n    </Platform>\n  </S3Provider>\n)\n",
+            yaml: 'apiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: netbird-oidc\n  namespace: default\nspec:\n  mount: secret\n  type: kv-v2\n  path: apps/netbird/oidc\n  refreshAfter: 1h\n  rolloutRestartTargets:\n    - kind: Deployment\n      name: netbird-management\n  destination:\n    create: true\n    name: netbird-oidc\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        client-secret:\n          text: \'{{ .Secrets.client_secret }}\'\n---\napiVersion: secrets.openbao.org/v1beta1\nkind: OpenBaoStaticSecret\nmetadata:\n  name: netbird-credentials\n  namespace: default\nspec:\n  mount: secret\n  type: kv-v2\n  path: apps/netbird/credentials\n  refreshAfter: 1h\n  rolloutRestartTargets:\n    - kind: Deployment\n      name: netbird-management\n    - kind: Deployment\n      name: netbird-relay\n  destination:\n    create: true\n    name: netbird-credentials\n    overwrite: true\n    transformation:\n      excludeRaw: true\n      templates:\n        relay-secret:\n          text: \'{{ .Secrets.relay_secret }}\'\n        datastore-encryption-key:\n          text: \'{{ .Secrets.datastore_encryption_key }}\'\n---\napiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: netbird-db\n  namespace: default\nspec:\n  instances: 2\n  storage:\n    size: 10Gi\n  bootstrap:\n    initdb:\n      database: netbird\n      owner: netbird\n  monitoring:\n    enablePodMonitor: true\n  postgresql:\n    parameters:\n      shared_buffers: 128MB\n      max_connections: \'100\'\n  backup:\n    retentionPolicy: 30d\n    barmanObjectStore:\n      destinationPath: s3://infra/netbird-db-cnpg\n      endpointURL: https://rustfs:9000\n      s3Credentials:\n        accessKeyId:\n          name: infra-s3-creds\n          key: access-key-id\n        secretAccessKey:\n          name: infra-s3-creds\n          key: secret-access-key\n      data:\n        compression: gzip\n      wal:\n        compression: gzip\n        encryption: AES256\n---\napiVersion: postgresql.cnpg.io/v1\nkind: ScheduledBackup\nmetadata:\n  name: netbird-db-backup\n  namespace: default\nspec:\n  cluster:\n    name: netbird-db\n  schedule: 0 3 * * *\n  backupOwnerReference: self\n---\napiVersion: source.toolkit.fluxcd.io/v1\nkind: HelmRepository\nmetadata:\n  name: netbird\n  namespace: flux-system\nspec:\n  interval: 24h\n  url: https://netbirdio.github.io/helms\n---\napiVersion: helm.toolkit.fluxcd.io/v2\nkind: HelmRelease\nmetadata:\n  name: netbird\n  namespace: default\nspec:\n  interval: 30m\n  chart:\n    spec:\n      chart: netbird\n      version: 1.9.0\n      sourceRef:\n        kind: HelmRepository\n        name: netbird\n        namespace: flux-system\n      interval: 12h\n  values:\n    management:\n      persistentVolume:\n        enabled: false\n      useBackwardsGrpcService: true\n      ingress:\n        enabled: true\n        className: nginx\n        annotations:\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /api\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      ingressGrpc:\n        enabled: true\n        className: nginx\n        annotations:\n          nginx.ingress.kubernetes.io/backend-protocol: GRPC\n          nginx.ingress.kubernetes.io/ssl-redirect: \'true\'\n          nginx.ingress.kubernetes.io/proxy-read-timeout: \'3600\'\n          nginx.ingress.kubernetes.io/proxy-send-timeout: \'3600\'\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /management.ManagementService\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      configmap: |-\n        {\n          "Stuns": [],\n          "TURNConfig": {\n            "Turns": [],\n            "CredentialsTTL": "12h0m0s",\n            "Secret": "secret",\n            "TimeBasedCredentials": false\n          },\n          "Relay": {\n            "Addresses": [\n              "rels://netbird.example.com:443/relay"\n            ],\n            "CredentialsTTL": "24h",\n            "Secret": "{{ .RELAY_PASSWORD }}"\n          },\n          "Signal": {\n            "Proto": "https",\n            "URI": "netbird.example.com:443",\n            "Username": "",\n            "Password": ""\n          },\n          "ReverseProxy": {\n            "TrustedHTTPProxies": null,\n            "TrustedHTTPProxiesCount": 0,\n            "TrustedPeers": null\n          },\n          "Datadir": "",\n          "DataStoreEncryptionKey": "{{ .DATASTORE_ENCRYPTION_KEY }}",\n          "StoreConfig": {\n            "Engine": "postgres"\n          },\n          "HttpConfig": {\n            "LetsEncryptDomain": "",\n            "CertFile": "",\n            "CertKey": "",\n            "AuthAudience": "{{ .IDP_CLIENT_ID }}",\n            "AuthIssuer": "{{ .NETBIRD_AUTH_ISSUER }}",\n            "AuthUserIDClaim": "",\n            "AuthKeysLocation": "{{ .NETBIRD_AUTH_JWT_CERTS }}",\n            "IdpSignKeyRefreshEnabled": false,\n            "OIDCConfigEndpoint": "{{ .NETBIRD_AUTH_OIDC_CONFIGURATION_ENDPOINT }}"\n          },\n          "IdpManagerConfig": {\n            "ManagerType": "keycloak",\n            "ClientConfig": {\n              "Issuer": "{{ .NETBIRD_AUTH_ISSUER }}",\n              "TokenEndpoint": "{{ .NETBIRD_AUTH_TOKEN_ENDPOINT }}",\n              "ClientID": "{{ .IDP_CLIENT_ID }}",\n              "ClientSecret": "{{ .IDP_CLIENT_SECRET }}",\n              "GrantType": "client_credentials"\n            },\n            "KeycloakClientCredentials": {\n              "ClientID": "{{ .IDP_CLIENT_ID }}",\n              "ClientSecret": "{{ .IDP_CLIENT_SECRET }}",\n              "GrantType": "client_credentials"\n            },\n            "ExtraConfig": null,\n            "Auth0ClientCredentials": null,\n            "AzureClientCredentials": null,\n            "ZitadelClientCredentials": null\n          },\n          "DeviceAuthorizationFlow": {\n            "Provider": "hosted",\n            "ProviderConfig": {\n              "ClientID": "{{ .IDP_CLIENT_ID }}",\n              "ClientSecret": "",\n              "Domain": "",\n              "Audience": "{{ .IDP_CLIENT_ID }}",\n              "TokenEndpoint": "{{ .NETBIRD_AUTH_TOKEN_ENDPOINT }}",\n              "DeviceAuthEndpoint": "https://auth.example.com/realms/netbird/protocol/openid-connect/auth/device",\n              "AuthorizationEndpoint": "",\n              "Scope": "openid",\n              "UseIDToken": false,\n              "RedirectURLs": null\n            }\n          },\n          "PKCEAuthorizationFlow": {\n            "Provider": "hosted",\n            "ProviderConfig": {\n              "ClientID": "{{ .IDP_CLIENT_ID }}",\n              "ClientSecret": "{{ .IDP_CLIENT_SECRET }}",\n              "Domain": "",\n              "Audience": "{{ .IDP_CLIENT_ID }}",\n              "TokenEndpoint": "{{ .NETBIRD_AUTH_TOKEN_ENDPOINT }}",\n              "DeviceAuthEndpoint": "",\n              "AuthorizationEndpoint": "https://auth.example.com/realms/netbird/protocol/openid-connect/auth",\n              "Scope": "openid profile email offline_access api",\n              "UseIDToken": false,\n              "DisablePromptLogin": true,\n              "LoginFlag": false,\n              "RedirectURLs": [\n                "http://localhost:53000"\n              ]\n            }\n          }\n        }\n      env:\n        NETBIRD_DOMAIN: netbird.example.com\n        NETBIRD_AUTH_ISSUER: https://auth.example.com/realms/netbird\n        NETBIRD_AUTH_JWT_CERTS: https://auth.example.com/realms/netbird/protocol/openid-connect/certs\n        NETBIRD_AUTH_TOKEN_ENDPOINT: https://auth.example.com/realms/netbird/protocol/openid-connect/token\n        NETBIRD_AUTH_OIDC_CONFIGURATION_ENDPOINT: https://auth.example.com/realms/netbird/.well-known/openid-configuration\n        IDP_CLIENT_ID: netbird\n      envRaw:\n        - name: IDP_CLIENT_SECRET\n          valueFrom:\n            secretKeyRef:\n              name: netbird-oidc\n              key: client-secret\n        - name: DATASTORE_ENCRYPTION_KEY\n          valueFrom:\n            secretKeyRef:\n              name: netbird-credentials\n              key: datastore-encryption-key\n        - name: RELAY_PASSWORD\n          valueFrom:\n            secretKeyRef:\n              name: netbird-credentials\n              key: relay-secret\n        - name: NETBIRD_STORE_ENGINE_POSTGRES_DSN\n          valueFrom:\n            secretKeyRef:\n              name: netbird-db-app\n              key: fqdn-uri\n      image:\n        repository: netbirdio/management\n        tag: 0.46.0\n        pullPolicy: IfNotPresent\n    signal:\n      enabled: true\n      ingress:\n        enabled: true\n        className: nginx\n        annotations:\n          nginx.ingress.kubernetes.io/backend-protocol: GRPC\n          nginx.ingress.kubernetes.io/ssl-redirect: \'true\'\n          nginx.ingress.kubernetes.io/proxy-read-timeout: \'3600\'\n          nginx.ingress.kubernetes.io/proxy-send-timeout: \'3600\'\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /signalexchange.SignalExchange\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      image:\n        repository: netbirdio/signal\n        tag: 0.46.0\n        pullPolicy: IfNotPresent\n    relay:\n      enabled: true\n      env:\n        NB_LOG_LEVEL: info\n        NB_LISTEN_ADDRESS: \':33080\'\n        NB_EXPOSED_ADDRESS: rels://netbird.example.com:443/relay\n      envRaw:\n        - name: NB_AUTH_SECRET\n          valueFrom:\n            secretKeyRef:\n              name: netbird-credentials\n              key: relay-secret\n      ingress:\n        enabled: true\n        className: nginx\n        annotations:\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /relay\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      image:\n        repository: netbirdio/relay\n        tag: 0.46.0\n        pullPolicy: IfNotPresent\n    dashboard:\n      enabled: true\n      ingress:\n        enabled: true\n        className: nginx\n        annotations:\n          cert-manager.io/cluster-issuer: letsencrypt-prod\n          external-dns.alpha.kubernetes.io/hostname: netbird.example.com\n        hosts:\n          - host: netbird.example.com\n            paths:\n              - path: /\n                pathType: ImplementationSpecific\n        tls:\n          - secretName: netbird-tls\n            hosts:\n              - netbird.example.com\n      env:\n        NETBIRD_MGMT_API_ENDPOINT: https://netbird.example.com\n        NETBIRD_MGMT_GRPC_API_ENDPOINT: https://netbird.example.com\n        AUTH_AUTHORITY: https://auth.example.com/realms/netbird\n        AUTH_CLIENT_ID: netbird\n        AUTH_AUDIENCE: netbird\n        AUTH_SUPPORTED_SCOPES: openid profile email offline_access api\n        NETBIRD_TOKEN_SOURCE: accessToken\n        USE_AUTH0: \'false\'\n      image:\n        repository: netbirdio/dashboard\n        tag: v2.13.1\n        pullPolicy: IfNotPresent\n',
+          },
+        ],
+        expandedTypes: [
+          {
+            name: 'NetbirdIdpProps',
+            props: [
+              {
+                name: 'issuer',
+                type: 'string',
+                required: true,
+                description:
+                  "OIDC issuer, e.g. 'https://auth.example.com/realms/netbird'. Token,\nJWKS, device-authorize and authorize endpoints are derived from it\n(Keycloak realm layout: <issuer>/protocol/openid-connect/...).",
+              },
+              {
+                name: 'clientId',
+                type: 'string',
+                required: true,
+                description: 'OIDC client id — the confidential `netbird` client in the realm',
+              },
+              {
+                name: 'clientSecretRef',
+                type: 'string',
+                required: false,
+                description:
+                  "Reference a pre-created Secret holding the client secret (key:\n`client-secret`). Payload: the OIDC client's secret from the\nKeycloak realm (Clients → netbird → Credentials). Without it the\nsecrets backend provisions `${name}-oidc` from the store path.",
+              },
+            ],
           },
         ],
       },
@@ -72196,7 +72328,7 @@ export const packages: Package[] = [
       'Matrix (Element Server Suite) — Synapse homeserver, MAS auth with Keycloak OIDC, Element Web/Admin, MatrixRTC/LiveKit SFU with HA defaults',
     category: 'Collaboration & Productivity',
     keywords: ['matrix', 'element', 'synapse', 'chat', 'rtc', 'oidc'],
-    validation: null,
+    validation: { rke2: '2026-09-13' },
     components: [
       {
         name: 'MatrixSSO',

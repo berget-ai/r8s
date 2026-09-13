@@ -87,9 +87,9 @@
  *   superset has NO Database stitch at all (external-Postgres contract) so
  *   the smoke renders a companion CNPG `superset-db` alongside it; the app
  *   is only Ready after `superset db upgrade` + `superset init` complete.
- *   wireguard renders no LB service (ClusterIP default, NodePort opt-in)
- *   and no probes — net-ops work (wg0 + iptables) verified via the 51821
- *   web UI. paperclip's operator IS resolvable from the package metadata
+ *   netbird renders via a Flux HelmRelease — skipped on kind (no Flux),
+ *   validated on the RKE2 (dogfood) cluster where Flux runs. paperclip's
+ *   operator IS resolvable from the package metadata
  *   (oci://ghcr.io/paperclipinc/charts) — install it first or expect the
  *   apply to fail on the missing CRD.
  * - Rendering: esbuild bundles a small child module that imports THIS file
@@ -137,7 +137,7 @@ import { Odoo } from '@r8s/odoo'
 import { Paperclip } from '@r8s/paperclip'
 import { Nextcloud } from '@r8s/nextcloud'
 import { Superset } from '@r8s/superset'
-import { WireGuard } from '@r8s/wireguard'
+import { Netbird } from '@r8s/netbird'
 import { EuroOffice } from '@r8s/eurooffice'
 import { Matrix } from '@r8s/matrix'
 // Value import: the superset smoke renders a companion CNPG cluster — the
@@ -237,7 +237,7 @@ export function buildAliasMap(): Record<string, string> {
     'grafana',
     'rustfs',
     'superset',
-    'wireguard',
+    'netbird',
     'n8n',
     'nextcloud',
     'outline',
@@ -773,37 +773,63 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     healthz: { port: 8088, path: '/' },
   },
 
-  wireguard: {
-    package: '@r8s/wireguard',
-    namespace: 'wireguard-smoke',
-    // passwordSecret (key `password`) is the pre-created-Secret prop; the
-    // package wires it as wg-easy PASSWORD_HASH, i.e. a bcrypt hash —
-    // the literal below is a real hash of the throwaway value
-    // 'smoke-only-password' (htpasswd -bnBC 10), never a real credential.
-    // NET_ADMIN + SYS_MODULE caps (privileged-pod contract) are the kind -
-    // tolerated case. Contract-notes vs. expectation: the package renders
-    // NO LoadBalancer service — ClusterIP by default, NodePort only with
-    // the `nodePort` opt-in (nothing sits Pending on kind); no host prop →
-    // no Ingress; the app image is `:latest` (package default, not pinned).
+  netbird: {
+    package: '@r8s/netbird',
+    namespace: 'netbird-smoke',
+    // render: full mesh VPN (management + signal + relay + dashboard) via a
+    // Flux HelmRelease (chart netbird 1.9.0 from the netbirdio gh-pages
+    // index) — chart + images pinned. idp.clientSecretRef /
+    // credentialsSecretName are the pre-created-Secret props (key
+    // client-secret; keys relay-secret + datastore-encryption-key); DB
+    // credentials are CNPG-generated (`<db>-app` fqdn-uri DSN — requires
+    // the CNPG operator).
+    // Flux dependency: the HelmRelease CRD only exists where Flux runs.
+    // The dogfood RKE2 cluster runs Flux; the local kind cluster does NOT —
+    // on kind this entry can never apply, so it skips there (the same
+    // kind/rke2 mapping the validation record uses). NOT YET VALIDATED:
+    // netbird ships with no docs/validation.json record — stamping it
+    // requires an RKE2 (Flux + CNPG) smoke run.
+    ...(validationPlatform() === 'kind'
+      ? {
+          skipReason:
+            'requires Flux controllers (HelmRelease) — the kind cluster does not run Flux; validated on the RKE2 (dogfood) cluster',
+        }
+      : {}),
     render: (jsx) =>
-      jsx(WireGuard, {
-        name: 'wireguard',
-        namespace: 'wireguard-smoke',
-        storage: '1Gi',
-        passwordSecret: 'wireguard-smoke-password',
+      jsx(Netbird, {
+        name: 'netbird',
+        namespace: 'netbird-smoke',
+        host: 'netbird.smoke.test',
+        idp: {
+          issuer: 'https://keycloak.smoke.test/realms/netbird',
+          clientId: 'netbird',
+          clientSecretRef: 'netbird-smoke-oidc',
+        },
+        credentialsSecretName: 'netbird-smoke-credentials',
+        // laptop-cluster sizing: one CNPG instance, backup off (no
+        // S3Provider in the smoke scope)
+        backup: false,
+        dbInstances: 1,
+        dbStorage: '1Gi',
       }),
     secrets: [
       {
-        name: 'wireguard-smoke-password',
+        name: 'netbird-smoke-oidc',
+        literal: { 'client-secret': 'smoke-only-oidc-secret' },
+      },
+      {
+        name: 'netbird-smoke-credentials',
         literal: {
-          password: '$2y$10$FWqhvS3f8l5ogPWcMFFhaeC.4MoiIT44JaX0eUYjy1AsrH0SV57lu',
+          'relay-secret': 'smoke-only-relay-secret',
+          'datastore-encryption-key': 'smoke-only-datastore-encryption-key',
         },
       },
     ],
-    ready: { kind: 'Deployment', name: 'wireguard' },
-    // No probes in the rendered Deployment; the wg-easy web UI answers /
-    // on 51821 (login page) once the wg0 + iptables setup succeeded.
-    healthz: { port: 51821, path: '/' },
+    // Ready target: the management Deployment (chart fullname + management).
+    // Its readiness probe is tcpSocket on the API port — no HTTP path is
+    // known-good pre-IdP-wiring, so no healthz probe (readiness only).
+    ready: { kind: 'Deployment', name: 'netbird-management' },
+    healthz: null,
   },
 
   eurooffice: {

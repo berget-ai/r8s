@@ -56,6 +56,12 @@ scripts/local-smoke.ts:generic-api-key:845
 scripts/local-smoke.ts:generic-api-key:473
 scripts/local-smoke.ts:generic-api-key:474
 scripts/local-smoke.ts:generic-api-key:853
+# (moved 853 → 877 → 879: the wireguard smoke entry — 24 lines above the
+# eurooffice entry — was replaced by the netbird entry, PR #144; the
+# review follow-up added the NOT-YET-VALIDATED note (2 more lines) above
+# it again; same 64-hex smoke dummies, position only)
+scripts/local-smoke.ts:generic-api-key:877
+scripts/local-smoke.ts:generic-api-key:879
 
 
 # (matrix entry adds its own 64-hex dummy — key `encryption_key` of the
@@ -63,3 +69,7 @@ scripts/local-smoke.ts:generic-api-key:853
 # operator to pre-create without a secrets backend; same 64-hex smoke
 # dummy as outline/eurooffice, fake not real)
 scripts/local-smoke.ts:generic-api-key:919
+# (moved 919 → 943 → 945: same shifts as the eurooffice entry above,
+# PR #144 netbird smoke entry + review note; position only)
+scripts/local-smoke.ts:generic-api-key:943
+scripts/local-smoke.ts:generic-api-key:945

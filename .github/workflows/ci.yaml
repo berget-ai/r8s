@@ -33,11 +33,14 @@ jobs:
             detect --source . --redact --verbose --exit-code 1
 
       - name: Scan working tree for hardcoded secrets
+        # Same pinned tag as the history scan above — gitleaks:latest
+        # drifted the generic-api-key rule and flagged the documented
+        # dummy smoke fixtures in scripts/local-smoke.ts (see PR #144)
         run: |
           docker run \
             -v "$PWD":/repo \
             --workdir /repo \
-            ghcr.io/gitleaks/gitleaks:latest \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
             detect --no-git --source . --redact --verbose --exit-code 1
 
   build-test:

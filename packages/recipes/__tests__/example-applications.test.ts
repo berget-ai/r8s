@@ -66,7 +66,7 @@ async function renderExample(examplePath: string): Promise<{
         '@r8s/grafana': path.join(EXAMPLES_DIR, 'packages/grafana/src'),
         '@r8s/rustfs': path.join(EXAMPLES_DIR, 'packages/rustfs/src'),
         '@r8s/superset': path.join(EXAMPLES_DIR, 'packages/superset/src'),
-        '@r8s/wireguard': path.join(EXAMPLES_DIR, 'packages/wireguard/src'),
+        '@r8s/netbird': path.join(EXAMPLES_DIR, 'packages/netbird/src'),
       },
     })
 

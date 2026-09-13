@@ -29,7 +29,7 @@
       "@r8s/grafana": ["./packages/grafana/src/index.ts"],
       "@r8s/rustfs": ["./packages/rustfs/src/index.ts"],
       "@r8s/superset": ["./packages/superset/src/index.ts"],
-      "@r8s/wireguard": ["./packages/wireguard/src/index.ts"],
+      "@r8s/netbird": ["./packages/netbird/src/index.tsx"],
       "@r8s/n8n": ["./packages/n8n/src/index.tsx"],
       "@r8s/outline": ["./packages/outline/src/index.tsx"],
       "@r8s/nextcloud": ["./packages/nextcloud/src/index.tsx"],
@@ -96,7 +96,7 @@
       "path": "./packages/superset"
     },
     {
-      "path": "./packages/wireguard"
+      "path": "./packages/netbird"
     },
     {
       "path": "./packages/n8n"

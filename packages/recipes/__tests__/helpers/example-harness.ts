@@ -49,7 +49,7 @@ const APP_PACKAGES: Record<string, string> = {
   grafana: 'index.ts',
   rustfs: 'index.ts',
   superset: 'index.ts',
-  wireguard: 'index.ts',
+  netbird: 'index.tsx',
   n8n: 'index.tsx',
   nextcloud: 'index.tsx',
   outline: 'index.tsx',
