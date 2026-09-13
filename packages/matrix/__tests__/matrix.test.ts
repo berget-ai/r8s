@@ -355,6 +355,28 @@ describe('Matrix — resource rendering', () => {
     expect(yaml).toContain('name: graphql')
   })
 
+  it('renders the MAS top-level matrix section with homeserver + endpoint + shared secret (1.24.0 schema)', () => {
+    // Round 6 dogfood: MAS 1.24.0 rejects the config pre-run with
+    // "Error: missing field `matrix`" — the schema (crates/config/src/
+    // sections/matrix.rs @ v1.24.0) requires the root-level `matrix` section,
+    // pinning `homeserver` (the synapse server_name users' IDs are built
+    // from, resolved by the component as `serverName ?? domain`), `endpoint`
+    // (the in-cluster synapse client API — the upstream default
+    // http://localhost:8008/ is unreachable from the pod) and the flattened
+    // `secret` (the MAS↔homeserver shared secret — TryFrom bails
+    // "Missing `secret` or `secret_file`"; a template placeholder,
+    // substituted by the render-config init container).
+    const result = renderMatrix()
+    const tpl = find(result, 'ConfigMap', 'matrix-mas-config').data['config.yaml.tpl'] as string
+    expect(tpl).toContain('matrix:\n  homeserver: example.com')
+    expect(tpl).toContain("endpoint: 'http://matrix-synapse:8008'")
+    expect(tpl).toContain('secret: __MAS_HOMESERVER_SECRET__')
+
+    const renamed = renderMatrix({ serverName: 'chat.example.com' })
+    const renamedCm = find(renamed, 'ConfigMap', 'matrix-mas-config') as any
+    expect(renamedCm.data['config.yaml.tpl']).toContain('matrix:\n  homeserver: chat.example.com')
+  })
+
   it('pulls the admin console from oci.element.io (ghcr no longer serves anonymous pulls)', () => {
     const result = renderMatrix()
     const admin = find(result, 'Deployment', 'matrix-admin') as any
@@ -378,6 +400,7 @@ describe('Matrix — resource rendering', () => {
     expect(script).toContain("Path('/template/config.yaml.tpl')")
     expect(script).toContain("Path('/config/config.yaml')")
     expect(script).toContain('/secrets/mas/encryption_key')
+    expect(script).toContain('/secrets/mas/homeserver_secret')
     expect(script).toContain('/secrets/db/password')
     expect(script).toContain('/secrets/oidc/clientSecret')
     // unrendered placeholders fail loudly instead of syncing garbage
@@ -489,6 +512,8 @@ describe('Matrix — resource rendering', () => {
             'password: __MAS_DB_PASSWORD__',
             'secrets:',
             '  encryption: __MAS_ENCRYPTION_KEY__',
+            'matrix:',
+            '  secret: __MAS_HOMESERVER_SECRET__',
             'client_secret: __MAS_OIDC_CLIENT_SECRET__',
             '',
           ].join('\n')
@@ -497,6 +522,7 @@ describe('Matrix — resource rendering', () => {
           `${root}/secrets/mas/encryption_key`,
           'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899\n'
         )
+        writeFileSync(`${root}/secrets/mas/homeserver_secret`, 'dh-shared-s3cr3t-42\n')
         writeFileSync(`${root}/secrets/db/password`, "it's a s3cr3t #$@ pass!word\n")
         writeFileSync(`${root}/secrets/oidc/clientSecret`, 'key-clock-sec-ret-42\n')
         run()
@@ -505,6 +531,7 @@ describe('Matrix — resource rendering', () => {
         expect(rendered).toContain(
           "encryption: 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899'"
         )
+        expect(rendered).toContain("secret: 'dh-shared-s3cr3t-42'")
         expect(rendered).toContain("client_secret: 'key-clock-sec-ret-42'")
         expect(rendered).not.toContain('__MAS_')
 
@@ -565,6 +592,7 @@ describe('Matrix — resource rendering', () => {
       expect(bundle.spec.destination.name).toBe('matrix-mas-secrets')
       expect(Object.keys(bundle.spec.destination.transformation.templates)).toEqual([
         'encryption_key',
+        'homeserver_secret',
       ])
     }
   })

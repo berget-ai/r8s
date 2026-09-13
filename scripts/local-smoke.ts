@@ -943,6 +943,10 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
           // Secret — without a secrets backend the operator pre-creates it,
           // or mas sticks Init on `secret "matrix-mas-secrets" not found`.
           encryption_key: 'd7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592',
+          // `matrix.secret` — the MAS↔homeserver shared secret (1.24.0
+          // schema: "Missing `secret` or `secret_file`", round 7 family).
+          // Substituted by the same render-init from /secrets/mas/homeserver_secret.
+          homeserver_secret: 'f3c9d1a76b4e205d8a1c7f09e5b3d2468c0a91f7e2d5b3846a7c0e9f1d2b3548',
         },
       },
     ],

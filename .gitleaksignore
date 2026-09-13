@@ -73,3 +73,7 @@ scripts/local-smoke.ts:generic-api-key:919
 # PR #144 netbird smoke entry + review note; position only)
 scripts/local-smoke.ts:generic-api-key:943
 scripts/local-smoke.ts:generic-api-key:945
+# (PR #146 follow-up: matrix.secret dummy — key `homeserver_secret` of the
+# `<name>-mas-secrets` Secret, rendered into MAS 1.24.0's required matrix
+# section by the render-config init container; same fake 64-hex smoke dummy)
+scripts/local-smoke.ts:generic-api-key:949
