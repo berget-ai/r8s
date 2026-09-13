@@ -786,7 +786,9 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
     // Flux dependency: the HelmRelease CRD only exists where Flux runs.
     // The dogfood RKE2 cluster runs Flux; the local kind cluster does NOT —
     // on kind this entry can never apply, so it skips there (the same
-    // kind/rke2 mapping the validation record uses).
+    // kind/rke2 mapping the validation record uses). NOT YET VALIDATED:
+    // netbird ships with no docs/validation.json record — stamping it
+    // requires an RKE2 (Flux + CNPG) smoke run.
     ...(validationPlatform() === 'kind'
       ? {
           skipReason:

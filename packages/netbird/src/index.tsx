@@ -234,10 +234,11 @@ export function Netbird(props: NetbirdProps) {
   if (
     storage !== undefined &&
     storage !== false &&
-    !/^\d+(\.\d+)?(Ei|Pi|Ti|Gi|Mi|Ki)$/.test(storage)
+    !/^\d+(\.\d+)?(Ei?|Pi?|Ti?|Gi?|Mi?|Ki?)$/.test(storage)
   ) {
     throw new Error(
-      `Netbird "${name}": storage must be a Kubernetes quantity (e.g. '1Gi'), got "${storage}".`
+      `Netbird "${name}": storage must be a Kubernetes (binary or decimal) quantity\n` +
+        `(e.g. '1Gi', '1G', '2.5Ti'), got "${storage}".`
     )
   }
 
