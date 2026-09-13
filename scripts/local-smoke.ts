@@ -906,7 +906,20 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
         // untestable in kind; rtc off drops the SFU Deployment + Service.
         rtc: { enabled: false },
       }),
-    secrets: [{ name: 'matrix-sso', literal: { clientSecret: 'dummy-sso-secret' } }],
+    secrets: [
+      { name: 'matrix-sso', literal: { clientSecret: 'dummy-sso-secret' } },
+      {
+        name: 'matrix-mas-secrets',
+        literal: {
+          // 64-hex dummy (must be 64-hex per the contract; fake, not a real
+          // credential). The #142 MAS render-init reads the encryption key
+          // from /secrets/mas/encryption_key in the `<name>-mas-secrets`
+          // Secret — without a secrets backend the operator pre-creates it,
+          // or mas sticks Init on `secret "matrix-mas-secrets" not found`.
+          encryption_key: 'd7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592',
+        },
+      },
+    ],
     // Synapse Deployment is named `${name}-synapse` (single replica,
     // Recreate) — its own probes are httpGet /health on container port 8008,
     // the same path through a port-forward here. DB credentials are

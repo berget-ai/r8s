@@ -57,3 +57,9 @@ scripts/local-smoke.ts:generic-api-key:473
 scripts/local-smoke.ts:generic-api-key:474
 scripts/local-smoke.ts:generic-api-key:853
 
+
+# (matrix entry adds its own 64-hex dummy — key `encryption_key` of the
+# `<name>-mas-secrets` Secret that the #142 MAS render-init requires the
+# operator to pre-create without a secrets backend; same 64-hex smoke
+# dummy as outline/eurooffice, fake not real)
+scripts/local-smoke.ts:generic-api-key:919
