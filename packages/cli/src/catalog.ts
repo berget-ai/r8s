@@ -664,7 +664,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         type: 'object',
         required: true,
         description:
-          "Keycloak OIDC: { issuer, clientId, clientSecretRef? } — e.g. { issuer: 'https://auth.example.com/realms/netbird', clientId: 'netbird' }",
+          "Keycloak OIDC: { issuer, clientId, clientSecretRef? } or { realm, host, clientId, clientSecretRef? } (issuer derived as https://<host>/realms/<realm> — the Auth recipe's layout) — e.g. { realm: 'netbird', host: 'auth.example.com', clientId: 'netbird' }. Group sync: pair with the Auth recipe's <Client groupsClaim> (JWT `groups` claim → Netbird groups).",
       },
       {
         name: 'relayPort',
@@ -2063,6 +2063,13 @@ export const authComponents: ComponentInfo[] = [
       },
       { name: 'name', type: 'string', required: false, description: 'Display name' },
       { name: 'redirectUris', type: 'string[]', required: false, description: 'Redirect URIs' },
+      {
+        name: 'groupsClaim',
+        type: 'boolean',
+        required: false,
+        description:
+          'Put Keycloak group memberships in the JWT `groups` claim — renders a `<clientId>-groups` client scope (oidc-group-membership-mapper) wired as a default client scope. The path Netbird (and other group-aware apps) use to sync IdP groups.',
+      },
       {
         name: 'secret',
         type: 'string',

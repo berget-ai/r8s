@@ -177,6 +177,33 @@ export function Auth(props: AuthProps) {
   // Process children (Realms) to create KeycloakRealmImport resources
   const realms = collectRealms(children)
   for (const realm of realms) {
+    // One `<clientId>-groups` client scope per groupsClaim client — the
+    // oidc-group-membership-mapper puts the user's Keycloak group
+    // memberships in the JWT `groups` claim (the path Netbird et al. use
+    // to sync IdP groups). Config keys are verified against Keycloak's
+    // GroupMembershipMapper + OIDCAttributeMapperHelper (dotted keys, no
+    // spacing); values are strings — the realm representation's mapper
+    // config is Map<String, String> and `useFullPath` string-compares.
+    const groupScopes = (realm.clients ?? [])
+      .filter((client) => client.groupsClaim)
+      .map((client) => ({
+        name: `${client.id}-groups`,
+        protocol: 'openid-connect',
+        attributes: { 'include.in.token.scope': 'true' },
+        protocolMappers: [
+          {
+            name: 'groups',
+            protocol: 'openid-connect',
+            protocolMapper: 'oidc-group-membership-mapper',
+            config: {
+              'full.path': 'false',
+              'id.token.claim': 'true',
+              'access.token.claim': 'true',
+              'claim.name': 'groups',
+            },
+          },
+        ],
+      }))
     resources.push(
       jsx('KeycloakRealmImport', {
         apiVersion: 'k8s.keycloak.org/v2alpha1',
@@ -207,7 +234,25 @@ export function Auth(props: AuthProps) {
               redirectUris: client.redirectUris,
               webOrigins: client.webOrigins,
               directAccessGrantsEnabled: client.directAccessGrantsEnabled ?? false,
+              ...(client.groupsClaim
+                ? {
+                    // Keycloak replaces the client's default-scope set with
+                    // this field when present, so the long-stable stock
+                    // scopes ride along — dropping them would strip
+                    // profile/email claims from this client's tokens.
+                    defaultClientScopes: [
+                      'profile',
+                      'email',
+                      'roles',
+                      'web-origins',
+                      `${client.id}-groups`,
+                    ],
+                  }
+                : {}),
             })),
+            // Realm-level client scopes (rendered only when a groupsClaim
+            // client exists — imports without one stay byte-identical)
+            ...(groupScopes.length > 0 ? { clientScopes: groupScopes } : {}),
           },
         },
       })

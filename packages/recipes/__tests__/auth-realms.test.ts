@@ -156,6 +156,100 @@ describe('Auth with hierarchical realms', () => {
   })
 })
 
+describe('Auth — groupsClaim (JWT `groups` claim)', () => {
+  // Netbird-style group sync: a groupsClaim client gets a dedicated
+  // `<clientId>-groups` client scope with an oidc-group-membership-mapper
+  // (config keys verified against Keycloak's GroupMembershipMapper +
+  // OIDCAttributeMapperHelper — dotted keys, string values) wired as a
+  // default client scope on that client only.
+
+  function renderRealmImport(clients: unknown[]) {
+    const element = jsx(Auth, {
+      name: 'auth',
+      host: 'auth.example.com',
+      children: jsx(Realms, {
+        children: jsx(Realm, {
+          id: 'company',
+          children: jsx(Clients, { children: clients }),
+        }),
+      }),
+    })
+    const result = render(element)
+    return result.resources.find((r) => r.kind === 'KeycloakRealmImport') as any
+  }
+
+  it('should render the groups client scope + mapper and wire defaultClientScopes', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        redirectUris: ['https://netbird.example.com/*'],
+        groupsClaim: true,
+      }),
+      jsx(Client, { id: 'netbird-manager', type: 'confidential' }),
+    ])
+    const realm = realmImport.spec.realm
+
+    // One client scope — named after the groupsClaim client only
+    expect(realm.clientScopes).toHaveLength(1)
+    const scope = realm.clientScopes[0]
+    expect(scope.name).toBe('netbird-groups')
+    expect(scope.protocol).toBe('openid-connect')
+    expect(scope.attributes['include.in.token.scope']).toBe('true')
+
+    const mapper = scope.protocolMappers[0]
+    expect(mapper.name).toBe('groups')
+    expect(mapper.protocol).toBe('openid-connect')
+    expect(mapper.protocolMapper).toBe('oidc-group-membership-mapper')
+    expect(mapper.config).toEqual({
+      // 'full.path' is the actual Keycloak config key (GroupMembershipMapper
+      // reads config.get("full.path")) — NOT 'full path' with a space
+      'full.path': 'false',
+      'id.token.claim': 'true',
+      'access.token.claim': 'true',
+      'claim.name': 'groups',
+    })
+
+    // The groupsClaim client carries the scope as a default client scope
+    const netbird = realm.clients.find((c: any) => c.clientId === 'netbird')
+    expect(netbird.defaultClientScopes).toContain('netbird-groups')
+
+    // Clients without groupsClaim stay untouched
+    const manager = realm.clients.find((c: any) => c.clientId === 'netbird-manager')
+    expect(manager.defaultClientScopes).toBeUndefined()
+  })
+
+  it('should render one distinct scope per groupsClaim client', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, { id: 'a', type: 'confidential', groupsClaim: true, secret: 'a' }),
+      jsx(Client, { id: 'b', type: 'confidential', groupsClaim: true, secret: 'b' }),
+    ])
+    const realm = realmImport.spec.realm
+
+    expect(realm.clientScopes.map((s: any) => s.name)).toEqual(['a-groups', 'b-groups'])
+
+    const a = realm.clients.find((c: any) => c.clientId === 'a')
+    const b = realm.clients.find((c: any) => c.clientId === 'b')
+    expect(a.defaultClientScopes).toContain('a-groups')
+    expect(a.defaultClientScopes).not.toContain('b-groups')
+    expect(b.defaultClientScopes).toContain('b-groups')
+    expect(b.defaultClientScopes).not.toContain('a-groups')
+  })
+
+  it('should leave the realm import unchanged without groupsClaim', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, { id: 'web', type: 'public' }),
+      jsx(Client, { id: 'api', type: 'bearer-only' }),
+    ])
+    const realm = realmImport.spec.realm
+
+    expect(realm.clientScopes).toBeUndefined()
+    for (const client of realm.clients) {
+      expect(client.defaultClientScopes).toBeUndefined()
+    }
+  })
+})
+
 describe('Auth — JSX children identity checks', () => {
   // These tests guard against the module-duplication regression where
   // esbuild bundled both src/ and dist/ copies of components, breaking

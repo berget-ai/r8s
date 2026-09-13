@@ -14,17 +14,22 @@ import {
  * providers → Keycloak): a dedicated `netbird` realm with a confidential
  * OIDC client `netbird`. The
  * management store uses client credentials (`client_credentials` grant) —
- * wire the Keycloak group-claim mapper on the Keycloak side for user-group
- * sync; netbird reads the claim, this package only carries the identity
- * endpoints derived from `issuer`.
+ * render that client with `<Client groupsClaim>` (the Auth recipe) so
+ * Keycloak puts group memberships in the JWT `groups` claim for
+ * user-group sync; netbird reads the claim, this package only carries the
+ * identity endpoints derived from `issuer`.
  */
 export interface NetbirdIdpProps {
   /**
    * OIDC issuer, e.g. 'https://auth.example.com/realms/netbird'. Token,
    * JWKS, device-authorize and authorize endpoints are derived from it
    * (Keycloak realm layout: <issuer>/protocol/openid-connect/...).
+   *
+   * Alternative: pass `realm` + `host` instead and the issuer is derived
+   * as `https://<host>/realms/<realm>` — the Auth recipe's layout. The
+   * two forms are mutually exclusive.
    */
-  issuer: string
+  issuer?: string
   /** OIDC client id — the confidential `netbird` client in the realm */
   clientId: string
   /**
@@ -34,6 +39,18 @@ export interface NetbirdIdpProps {
    * secrets backend provisions `${name}-oidc` from the store path.
    */
   clientSecretRef?: string
+  /**
+   * Keycloak realm name — with `host`, derives the issuer as
+   * `https://<host>/realms/<realm>` (mirrors <Realm id="netbird"> in the
+   * Auth recipe on the same host). Mutually exclusive with `issuer`.
+   */
+  realm?: string
+  /**
+   * Auth hostname (the AUTH host, NOT <Netbird host>) — with `realm`,
+   * derives the issuer as `https://<host>/realms/<realm>`. Mutually
+   * exclusive with `issuer`.
+   */
+  host?: string
 }
 
 export interface NetbirdProps {
@@ -47,7 +64,16 @@ export interface NetbirdProps {
    * one shared certificate).
    */
   host: string
-  /** Keycloak OIDC identity provider wired into the management config */
+  /**
+   * Keycloak OIDC identity provider wired into the management config.
+   *
+   * Group sync with the Auth recipe: give the realm's `netbird` client
+   * <Client groupsClaim> so Keycloak puts group memberships in the JWT
+   * `groups` claim — Netbird auto-creates groups from it (map Netbird
+   * policies to those groups). The manager client (client_credentials,
+   * e.g. `netbird-manager`) is what netbird management uses to read
+   * groups/users from the Keycloak API. See the compose example below.
+   */
   idp: NetbirdIdpProps
   /**
    * Expose the relay Service as a raw LoadBalancer on this TCP port in
@@ -181,6 +207,50 @@ function secretEnv(name: string, secretName: string, key: string) {
  *     </Platform>
  *   </S3Provider>
  * )
+ *
+ * @example
+ * // Compose with the Auth recipe — realm-level group sync for policies
+ * import { Platform, S3Provider, MinIO, Auth } from '@r8s/recipes'
+ * import { Realms, Realm, Clients, Client } from '@r8s/recipes/auth'
+ * import { Netbird } from '@r8s/netbird'
+ *
+ * // groupsClaim puts Keycloak group memberships in the JWT `groups`
+ * // claim — Netbird auto-creates groups from it (map Netbird policies
+ * // to those groups). The manager client (client_credentials) is what
+ * // netbird management uses to read groups/users from the Keycloak API.
+ * export default (
+ *   <S3Provider
+ *     provider={
+ *       <MinIO endpoint="https://rustfs:9000" bucket="infra" credentialsSecret="infra-s3-creds" />
+ *     }
+ *   >
+ *     <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'apps' }}>
+ *       <Auth name="auth" host="auth.example.com">
+ *         <Realms>
+ *           <Realm id="netbird" displayName="Netbird">
+ *             <Clients>
+ *               <Client
+ *                 id="netbird"
+ *                 type="confidential"
+ *                 redirectUris={['https://netbird.example.com/*']}
+ *                 groupsClaim
+ *               />
+ *               <Client id="netbird-manager" type="confidential" />
+ *             </Clients>
+ *           </Realm>
+ *         </Realms>
+ *       </Auth>
+ *       <Netbird
+ *         host="netbird.example.com"
+ *         idp={{
+ *           issuer: 'https://auth.example.com/realms/netbird',
+ *           clientId: 'netbird',
+ *           clientSecretRef: 'netbird-oidc',
+ *         }}
+ *       />
+ *     </Platform>
+ *   </S3Provider>
+ * )
  */
 export function Netbird(props: NetbirdProps) {
   const {
@@ -207,6 +277,30 @@ export function Netbird(props: NetbirdProps) {
   const namespace = useNamespace(namespaceProp)
   const secretProvider = useContext(SecretContext)
   const resources_: ReturnType<typeof jsx>[] = []
+
+  // --- IdP issuer (explicit, or derived from the Auth recipe's realm layout) ---
+  if (idp.issuer && (idp.realm || idp.host)) {
+    throw new Error(
+      `Netbird "${name}": idp.issuer and idp.realm + idp.host are mutually exclusive.\n` +
+        `\n` +
+        `Both describe the same Keycloak OIDC issuer — mixing them is\n` +
+        `ambiguous about which realm actually backs the mesh.\n` +
+        `\n` +
+        `Fix: keep one form —\n` +
+        `  idp={{ issuer: 'https://auth.example.com/realms/netbird', ... }}  or\n` +
+        `  idp={{ realm: 'netbird', host: 'auth.example.com', ... }}`
+    )
+  }
+  if (!idp.issuer && !(idp.realm && idp.host)) {
+    throw new Error(
+      `Netbird "${name}": the OIDC issuer is required — give idp.issuer, or\n` +
+        `idp.realm + idp.host to derive it as https://<host>/realms/<realm>\n` +
+        `(the Auth recipe's <Realm id=...> on the <Auth host>).\n` +
+        `\n` +
+        `Fix: idp={{ realm: 'netbird', host: 'auth.example.com', clientId: 'netbird' }}`
+    )
+  }
+  const issuer = idp.issuer ?? `https://${idp.host}/realms/${idp.realm}`
 
   // --- Pinned-version policy ---------------------------------------------------
   if (chartVersion === 'latest') {
@@ -325,9 +419,9 @@ export function Netbird(props: NetbirdProps) {
   )
 
   // --- Derived identity endpoints (Keycloak realm layout) -----------------------
-  const jwks = `${idp.issuer.replace(/\/$/, '')}/protocol/openid-connect/certs`
-  const tokenEndpoint = `${idp.issuer.replace(/\/$/, '')}/protocol/openid-connect/token`
-  const oidcConfigEndpoint = `${idp.issuer.replace(/\/$/, '')}/.well-known/openid-configuration`
+  const jwks = `${issuer.replace(/\/$/, '')}/protocol/openid-connect/certs`
+  const tokenEndpoint = `${issuer.replace(/\/$/, '')}/protocol/openid-connect/token`
+  const oidcConfigEndpoint = `${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`
 
   // management.json — {{ .VAR }} placeholders are substituted by the
   // management binary from process env (netbird ≥ 0.30.1), the mechanism
@@ -403,7 +497,7 @@ export function Netbird(props: NetbirdProps) {
           Domain: '',
           Audience: '{{ .IDP_CLIENT_ID }}',
           TokenEndpoint: '{{ .NETBIRD_AUTH_TOKEN_ENDPOINT }}',
-          DeviceAuthEndpoint: `${idp.issuer.replace(/\/$/, '')}/protocol/openid-connect/auth/device`,
+          DeviceAuthEndpoint: `${issuer.replace(/\/$/, '')}/protocol/openid-connect/auth/device`,
           AuthorizationEndpoint: '',
           Scope: 'openid',
           UseIDToken: false,
@@ -419,7 +513,7 @@ export function Netbird(props: NetbirdProps) {
           Audience: '{{ .IDP_CLIENT_ID }}',
           TokenEndpoint: '{{ .NETBIRD_AUTH_TOKEN_ENDPOINT }}',
           DeviceAuthEndpoint: '',
-          AuthorizationEndpoint: `${idp.issuer.replace(/\/$/, '')}/protocol/openid-connect/auth`,
+          AuthorizationEndpoint: `${issuer.replace(/\/$/, '')}/protocol/openid-connect/auth`,
           Scope: 'openid profile email offline_access api',
           UseIDToken: false,
           DisablePromptLogin: true,
@@ -508,7 +602,7 @@ export function Netbird(props: NetbirdProps) {
             configmap: managementConfig,
             env: {
               NETBIRD_DOMAIN: host,
-              NETBIRD_AUTH_ISSUER: idp.issuer,
+              NETBIRD_AUTH_ISSUER: issuer,
               NETBIRD_AUTH_JWT_CERTS: jwks,
               NETBIRD_AUTH_TOKEN_ENDPOINT: tokenEndpoint,
               NETBIRD_AUTH_OIDC_CONFIGURATION_ENDPOINT: oidcConfigEndpoint,
@@ -601,7 +695,7 @@ export function Netbird(props: NetbirdProps) {
             env: {
               NETBIRD_MGMT_API_ENDPOINT: `https://${host}`,
               NETBIRD_MGMT_GRPC_API_ENDPOINT: `https://${host}`,
-              AUTH_AUTHORITY: idp.issuer,
+              AUTH_AUTHORITY: issuer,
               AUTH_CLIENT_ID: idp.clientId,
               AUTH_AUDIENCE: idp.clientId,
               AUTH_SUPPORTED_SCOPES: 'openid profile email offline_access api',
