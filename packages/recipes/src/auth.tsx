@@ -204,6 +204,26 @@ export function Auth(props: AuthProps) {
           },
         ],
       }))
+    // Plain named scopes declared via <Client clientScopes={[...]}> —
+    // minimal realm-level definitions with NO mappers (pure pass-through:
+    // the scope must exist so the authorization request validates — modern
+    // Keycloak answers unknown requested scopes with invalid_scope — while
+    // tokens stay unchanged). Deduped by name across clients; a name
+    // already defined by a groupsClaim scope wins (mapper-carrying).
+    const clientScopeDefs = new Map<string, object>()
+    for (const groupScope of groupScopes) clientScopeDefs.set(groupScope.name, groupScope)
+    for (const client of realm.clients ?? []) {
+      for (const scopeName of client.clientScopes ?? []) {
+        if (!clientScopeDefs.has(scopeName)) {
+          clientScopeDefs.set(scopeName, {
+            name: scopeName,
+            protocol: 'openid-connect',
+            attributes: { 'include.in.token.scope': 'true' },
+          })
+        }
+      }
+    }
+    const clientScopes = [...clientScopeDefs.values()]
     resources.push(
       jsx('KeycloakRealmImport', {
         apiVersion: 'k8s.keycloak.org/v2alpha1',
@@ -239,6 +259,11 @@ export function Auth(props: AuthProps) {
               redirectUris: client.redirectUris,
               webOrigins: client.webOrigins,
               directAccessGrantsEnabled: client.directAccessGrantsEnabled ?? false,
+              // Scopes this client may request at runtime (optional client
+              // scopes — granted when named in the request's scope param)
+              ...(client.clientScopes?.length
+                ? { optionalClientScopes: [...client.clientScopes] }
+                : {}),
               ...(client.groupsClaim
                 ? {
                     // Keycloak replaces the client's default-scope set with
@@ -260,8 +285,9 @@ export function Auth(props: AuthProps) {
                 : {}),
             })),
             // Realm-level client scopes (rendered only when a groupsClaim
-            // client exists — imports without one stay byte-identical)
-            ...(groupScopes.length > 0 ? { clientScopes: groupScopes } : {}),
+            // or clientScopes declaration exists — imports without either
+            // stay byte-identical)
+            ...(clientScopes.length > 0 ? { clientScopes } : {}),
           },
         },
       })

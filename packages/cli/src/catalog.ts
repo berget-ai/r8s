@@ -2071,6 +2071,13 @@ export const authComponents: ComponentInfo[] = [
           'Put Keycloak group memberships in the JWT `groups` claim — renders a `<clientId>-groups` client scope (oidc-group-membership-mapper) wired as a default client scope. The path Netbird (and other group-aware apps) use to sync IdP groups.',
       },
       {
+        name: 'clientScopes',
+        type: 'string[]',
+        required: false,
+        description:
+          "Plain named scopes this client may request (e.g. ['api'] for netbird) — renders bare realm-level client scopes (no mappers) and assigns them as optional client scopes; modern Keycloak rejects requests naming unregistered scopes with invalid_scope.",
+      },
+      {
         name: 'secret',
         type: 'string',
         required: false,

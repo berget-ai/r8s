@@ -219,6 +219,52 @@ describe('Auth — groupsClaim (JWT `groups` claim)', () => {
     expect(manager.defaultClientScopes).toBeUndefined()
   })
 
+  it('should render declared clientScopes as bare realm scopes + optional assignments', () => {
+    // Netbird's PKCE flow requests `openid profile email offline_access api` —
+    // modern Keycloak answers unregistered scopes with invalid_scope, so the
+    // 'api' scope must exist at realm level and be optional-assigned
+    const realmImport = renderRealmImport([
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        redirectUris: ['https://netbird.example.com/*'],
+        groupsClaim: true,
+        clientScopes: ['api'],
+      }),
+      jsx(Client, { id: 'other-app', type: 'public', clientScopes: ['api'] }),
+    ])
+    const realm = realmImport.spec.realm
+
+    // Two realm scopes: the mapper-carrying groups scope + one deduped 'api'
+    expect(realm.clientScopes.map((s: any) => s.name)).toEqual(['netbird-groups', 'api'])
+    const apiScope = realm.clientScopes.find((s: any) => s.name === 'api')
+    expect(apiScope.protocol).toBe('openid-connect')
+    expect(apiScope.attributes['include.in.token.scope']).toBe('true')
+    expect(apiScope.protocolMappers).toBeUndefined() // bare pass-through
+
+    const netbird = realm.clients.find((c: any) => c.clientId === 'netbird')
+    expect(netbird.optionalClientScopes).toEqual(['api'])
+    const other = realm.clients.find((c: any) => c.clientId === 'other-app')
+    expect(other.optionalClientScopes).toEqual(['api'])
+  })
+
+  it('should not let a declared scope shadow a groupsClaim scope', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        groupsClaim: true,
+        clientScopes: ['netbird-groups', 'api'],
+      }),
+    ])
+    const realm = realmImport.spec.realm
+
+    // The mapper-carrying definition wins over the bare one
+    const scopes = realm.clientScopes.map((s: any) => s.name)
+    expect(scopes).toEqual(['netbird-groups', 'api'])
+    expect(realm.clientScopes[0].protocolMappers).toHaveLength(1)
+  })
+
   it('should render one distinct scope per groupsClaim client', () => {
     const realmImport = renderRealmImport([
       jsx(Client, { id: 'a', type: 'confidential', groupsClaim: true, secret: 'a' }),
@@ -246,6 +292,7 @@ describe('Auth — groupsClaim (JWT `groups` claim)', () => {
     expect(realm.clientScopes).toBeUndefined()
     for (const client of realm.clients) {
       expect(client.defaultClientScopes).toBeUndefined()
+      expect(client.optionalClientScopes).toBeUndefined()
     }
   })
 

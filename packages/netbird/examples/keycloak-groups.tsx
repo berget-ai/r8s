@@ -33,6 +33,7 @@ export default (
                 type="confidential"
                 redirectUris={['https://netbird.example.com/*', 'http://localhost:53000']}
                 groupsClaim
+                clientScopes={['api']}
               />
               <Client id="netbird-manager" type="confidential" />
             </Clients>
