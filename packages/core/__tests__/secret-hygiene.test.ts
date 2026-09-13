@@ -51,10 +51,14 @@ const SEALED_PLACEHOLDER_ASSIGNMENT = /\b(password|passwd)\s*[:=]\s*['"]REPLACE_
  * Template substitution slots — double-underscore-wrapped markers that a
  * render step fills at deploy/boot time (e.g. @r8s/matrix ships
  * homeserver.yaml as a template; the pod's init container substitutes
- * `__DB_PASSWORD__` from a mounted secret). The committed value is a slot,
- * not a credential.
+ * `__DB_PASSWORD__` from a mounted secret; its MAS config template carries
+ * `client_secret: '__MAS_OIDC_CLIENT_SECRET__'` for the same reason). The
+ * committed value is a slot, not a credential. Key set mirrors
+ * SUSPICIOUS_ASSIGNMENT so every credential-shaped key gets the same
+ * slot exemption.
  */
-const TEMPLATE_SLOT_ASSIGNMENT = /\b(password|passwd)\s*[:=]\s*['"]__\w+__['"]/
+const TEMPLATE_SLOT_ASSIGNMENT =
+  /\b(password|passwd|dbPassword|rootPassword|adminPassword|api_key|apiKey|access_key|secret_key|client_secret)\s*[:=]\s*['"]__\w+__['"]/i
 /** Lines that are comments or doc prose never count as live values. */
 function isCommentLine(line: string, ext: string): boolean {
   const trimmed = line.trim()
