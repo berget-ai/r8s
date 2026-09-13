@@ -240,6 +240,25 @@ export interface ClientConfig {
   serviceAccountsEnabled?: boolean
   /** Direct access grants enabled */
   directAccessGrantsEnabled?: boolean
+  /**
+   * Put Keycloak group memberships in the JWT `groups` claim.
+   *
+   * Renders a dedicated client scope (`<clientId>-groups`) with an
+   * `oidc-group-membership-mapper` and wires it as a default client scope —
+   * the path Netbird (and other group-aware apps) use to sync IdP groups.
+   */
+  groupsClaim?: boolean
+  /**
+   * Plain named client scopes this client may request (e.g. `['api']` —
+   * the scope netbird's PKCE flow adds on top of `openid profile email
+   * offline_access`). Modern Keycloak rejects authorization requests
+   * naming unregistered scopes with `invalid_scope`, so a requested scope
+   * must exist: each name renders a realm-level client scope (no mappers —
+   * pure pass-through, tokens unchanged) and is assigned to this client as
+   * an optional client scope. Names already rendered by `groupsClaim` are
+   * not shadowed.
+   */
+  clientScopes?: string[]
   /** Client secret (from secrets backend) */
   secret?: string
 }
@@ -253,6 +272,7 @@ export interface ClientProps extends ClientConfig {}
  * <Client id="api" type="bearer-only" />
  * <Client id="web" type="public" redirectUris={['https://app.example.com/*']} />
  * <Client id="backend" type="confidential" secret="${env:BACKEND_SECRET}" />
+ * <Client id="netbird" type="confidential" redirectUris={['https://netbird.example.com/*']} groupsClaim clientScopes={['api']} />
  */
 export function Client(props: ClientProps) {
   return jsx(Fragment, {})

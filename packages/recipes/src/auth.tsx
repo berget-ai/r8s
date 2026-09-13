@@ -177,6 +177,53 @@ export function Auth(props: AuthProps) {
   // Process children (Realms) to create KeycloakRealmImport resources
   const realms = collectRealms(children)
   for (const realm of realms) {
+    // One `<clientId>-groups` client scope per groupsClaim client — the
+    // oidc-group-membership-mapper puts the user's Keycloak group
+    // memberships in the JWT `groups` claim (the path Netbird et al. use
+    // to sync IdP groups). Config keys are verified against Keycloak's
+    // GroupMembershipMapper + OIDCAttributeMapperHelper (dotted keys, no
+    // spacing); values are strings — the realm representation's mapper
+    // config is Map<String, String> and `useFullPath` string-compares.
+    const groupScopes = (realm.clients ?? [])
+      .filter((client) => client.groupsClaim)
+      .map((client) => ({
+        name: `${client.id}-groups`,
+        protocol: 'openid-connect',
+        attributes: { 'include.in.token.scope': 'true' },
+        protocolMappers: [
+          {
+            name: 'groups',
+            protocol: 'openid-connect',
+            protocolMapper: 'oidc-group-membership-mapper',
+            config: {
+              'full.path': 'false',
+              'id.token.claim': 'true',
+              'access.token.claim': 'true',
+              'claim.name': 'groups',
+            },
+          },
+        ],
+      }))
+    // Plain named scopes declared via <Client clientScopes={[...]}> —
+    // minimal realm-level definitions with NO mappers (pure pass-through:
+    // the scope must exist so the authorization request validates — modern
+    // Keycloak answers unknown requested scopes with invalid_scope — while
+    // tokens stay unchanged). Deduped by name across clients; a name
+    // already defined by a groupsClaim scope wins (mapper-carrying).
+    const clientScopeDefs = new Map<string, object>()
+    for (const groupScope of groupScopes) clientScopeDefs.set(groupScope.name, groupScope)
+    for (const client of realm.clients ?? []) {
+      for (const scopeName of client.clientScopes ?? []) {
+        if (!clientScopeDefs.has(scopeName)) {
+          clientScopeDefs.set(scopeName, {
+            name: scopeName,
+            protocol: 'openid-connect',
+            attributes: { 'include.in.token.scope': 'true' },
+          })
+        }
+      }
+    }
+    const clientScopes = [...clientScopeDefs.values()]
     resources.push(
       jsx('KeycloakRealmImport', {
         apiVersion: 'k8s.keycloak.org/v2alpha1',
@@ -196,18 +243,56 @@ export function Auth(props: AuthProps) {
               trustEmail: idp.trustEmail ?? false,
               config: idp.config,
             })),
-            clients: realm.clients?.map((client) => ({
-              clientId: client.id,
-              name: client.name ?? client.id,
-              publicClient: client.type === 'public',
-              standardFlowEnabled: client.type === 'public',
-              bearerOnly: client.type === 'bearer-only',
-              serviceAccountsEnabled: client.type === 'confidential' ? true : undefined,
-              secret: client.secret,
-              redirectUris: client.redirectUris,
-              webOrigins: client.webOrigins,
-              directAccessGrantsEnabled: client.directAccessGrantsEnabled ?? false,
-            })),
+            clients: realm.clients?.map((client) => {
+              // Scope names already covered by the default set (this
+              // client's own groupsClaim scope) don't repeat as optional
+              const declaredScopes = (client.clientScopes ?? []).filter(
+                (name) => !(client.groupsClaim && name === `${client.id}-groups`)
+              )
+              return {
+                clientId: client.id,
+                name: client.name ?? client.id,
+                publicClient: client.type === 'public',
+                // Redirect URIs exist exactly for the authorization-code
+                // (standard) flow — a confidential client that declares any is
+                // browser-facing (e.g. the netbird PKCE/dashboard flow), so the
+                // flow must be on for it to work
+                standardFlowEnabled:
+                  client.type === 'public' || (client.redirectUris?.length ?? 0) > 0,
+                bearerOnly: client.type === 'bearer-only',
+                serviceAccountsEnabled: client.type === 'confidential' ? true : undefined,
+                secret: client.secret,
+                redirectUris: client.redirectUris,
+                webOrigins: client.webOrigins,
+                directAccessGrantsEnabled: client.directAccessGrantsEnabled ?? false,
+                // Scopes this client may request at runtime (optional client
+                // scopes — granted when named in the request's scope param)
+                ...(declaredScopes.length ? { optionalClientScopes: declaredScopes } : {}),
+                ...(client.groupsClaim
+                  ? {
+                      // Keycloak replaces the client's default-scope set with
+                      // this field when present, so the long-stable stock
+                      // scopes ride along — dropping them would strip
+                      // profile/email claims from this client's tokens.
+                      // Deliberately NOT adding 'acr' (KC 24+) / 'basic'
+                      // (KC 25+): defaultClientScopes referencing an unknown
+                      // scope fails the realm import on older Keycloaks, while
+                      // omitting them only skips auth_time/sid/acr claims.
+                      defaultClientScopes: [
+                        'profile',
+                        'email',
+                        'roles',
+                        'web-origins',
+                        `${client.id}-groups`,
+                      ],
+                    }
+                  : {}),
+              }
+            }),
+            // Realm-level client scopes (rendered only when a groupsClaim
+            // or clientScopes declaration exists — imports without either
+            // stay byte-identical)
+            ...(clientScopes.length > 0 ? { clientScopes } : {}),
           },
         },
       })

@@ -378,3 +378,62 @@ describe('Netbird chart release', () => {
     expect(runGuardrails(result.resources as never, [noPlaintextSecrets]).passed).toBe(true)
   })
 })
+
+describe('Netbird idp — realm/host shorthand (Auth recipe composition)', () => {
+  // The Auth recipe composes realms on an <Auth host>; the idp accepts
+  // { realm, host } and derives the issuer as https://<host>/realms/<realm>
+  // — the two forms (explicit issuer) are mutually exclusive.
+  const suffixIdp = {
+    realm: 'netbird',
+    host: 'auth.example.com',
+    clientId: 'netbird',
+    clientSecretRef: 'netbird-oidc',
+  }
+
+  it('derives the issuer from idp.realm + idp.host', () => {
+    const values = resource(renderApp({ idp: suffixIdp }), 'HelmRelease').spec.values
+    expect(values.management.env.NETBIRD_AUTH_ISSUER).toBe(
+      'https://auth.example.com/realms/netbird'
+    )
+    expect(values.management.env.NETBIRD_AUTH_JWT_CERTS).toBe(
+      'https://auth.example.com/realms/netbird/protocol/openid-connect/certs'
+    )
+    expect(values.management.env.NETBIRD_AUTH_TOKEN_ENDPOINT).toBe(
+      'https://auth.example.com/realms/netbird/protocol/openid-connect/token'
+    )
+    expect(values.management.env.NETBIRD_AUTH_OIDC_CONFIGURATION_ENDPOINT).toBe(
+      'https://auth.example.com/realms/netbird/.well-known/openid-configuration'
+    )
+    // netbird <host> is untouched by the auth host
+    expect(values.management.env.NETBIRD_DOMAIN).toBe('netbird.example.com')
+  })
+
+  it('trims stray slashes in the derived host/realm', () => {
+    const values = resource(
+      renderApp({ idp: { ...suffixIdp, host: 'auth.example.com/', realm: 'netbird/' } }),
+      'HelmRelease'
+    ).spec.values
+    expect(values.management.env.NETBIRD_AUTH_ISSUER).toBe(
+      'https://auth.example.com/realms/netbird'
+    )
+  })
+
+  it('rejects issuer together with realm/host', () => {
+    expect(() =>
+      renderApp({ idp: { ...baseIdp, realm: 'netbird', host: 'auth.example.com' } })
+    ).toThrow(/mutually exclusive/)
+  })
+
+  it('rejects a half-specified derivation (realm without host, host without realm)', () => {
+    expect(() =>
+      renderApp({
+        idp: { ...baseIdp, issuer: undefined, host: undefined, realm: 'netbird' },
+      })
+    ).toThrow(/OIDC issuer is required/)
+    expect(() =>
+      renderApp({
+        idp: { ...baseIdp, issuer: undefined, host: 'auth.example.com', realm: undefined },
+      })
+    ).toThrow(/OIDC issuer is required/)
+  })
+})

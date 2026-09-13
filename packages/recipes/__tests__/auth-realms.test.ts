@@ -156,6 +156,181 @@ describe('Auth with hierarchical realms', () => {
   })
 })
 
+describe('Auth — groupsClaim (JWT `groups` claim)', () => {
+  // Netbird-style group sync: a groupsClaim client gets a dedicated
+  // `<clientId>-groups` client scope with an oidc-group-membership-mapper
+  // (config keys verified against Keycloak's GroupMembershipMapper +
+  // OIDCAttributeMapperHelper — dotted keys, string values) wired as a
+  // default client scope on that client only.
+
+  function renderRealmImport(clients: unknown[]) {
+    const element = jsx(Auth, {
+      name: 'auth',
+      host: 'auth.example.com',
+      children: jsx(Realms, {
+        children: jsx(Realm, {
+          id: 'company',
+          children: jsx(Clients, { children: clients }),
+        }),
+      }),
+    })
+    const result = render(element)
+    return result.resources.find((r) => r.kind === 'KeycloakRealmImport') as any
+  }
+
+  it('should render the groups client scope + mapper and wire defaultClientScopes', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        redirectUris: ['https://netbird.example.com/*'],
+        groupsClaim: true,
+      }),
+      jsx(Client, { id: 'netbird-manager', type: 'confidential' }),
+    ])
+    const realm = realmImport.spec.realm
+
+    // One client scope — named after the groupsClaim client only
+    expect(realm.clientScopes).toHaveLength(1)
+    const scope = realm.clientScopes[0]
+    expect(scope.name).toBe('netbird-groups')
+    expect(scope.protocol).toBe('openid-connect')
+    expect(scope.attributes['include.in.token.scope']).toBe('true')
+
+    const mapper = scope.protocolMappers[0]
+    expect(mapper.name).toBe('groups')
+    expect(mapper.protocol).toBe('openid-connect')
+    expect(mapper.protocolMapper).toBe('oidc-group-membership-mapper')
+    expect(mapper.config).toEqual({
+      // 'full.path' is the actual Keycloak config key (GroupMembershipMapper
+      // reads config.get("full.path")) — NOT 'full path' with a space
+      'full.path': 'false',
+      'id.token.claim': 'true',
+      'access.token.claim': 'true',
+      'claim.name': 'groups',
+    })
+
+    // The groupsClaim client carries the scope as a default client scope
+    const netbird = realm.clients.find((c: any) => c.clientId === 'netbird')
+    expect(netbird.defaultClientScopes).toContain('netbird-groups')
+
+    // Clients without groupsClaim stay untouched
+    const manager = realm.clients.find((c: any) => c.clientId === 'netbird-manager')
+    expect(manager.defaultClientScopes).toBeUndefined()
+  })
+
+  it('should render declared clientScopes as bare realm scopes + optional assignments', () => {
+    // Netbird's PKCE flow requests `openid profile email offline_access api` —
+    // modern Keycloak answers unregistered scopes with invalid_scope, so the
+    // 'api' scope must exist at realm level and be optional-assigned
+    const realmImport = renderRealmImport([
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        redirectUris: ['https://netbird.example.com/*'],
+        groupsClaim: true,
+        clientScopes: ['api'],
+      }),
+      jsx(Client, { id: 'other-app', type: 'public', clientScopes: ['api'] }),
+    ])
+    const realm = realmImport.spec.realm
+
+    // Two realm scopes: the mapper-carrying groups scope + one deduped 'api'
+    expect(realm.clientScopes.map((s: any) => s.name)).toEqual(['netbird-groups', 'api'])
+    const apiScope = realm.clientScopes.find((s: any) => s.name === 'api')
+    expect(apiScope.protocol).toBe('openid-connect')
+    expect(apiScope.attributes['include.in.token.scope']).toBe('true')
+    expect(apiScope.protocolMappers).toBeUndefined() // bare pass-through
+
+    const netbird = realm.clients.find((c: any) => c.clientId === 'netbird')
+    expect(netbird.optionalClientScopes).toEqual(['api'])
+    const other = realm.clients.find((c: any) => c.clientId === 'other-app')
+    expect(other.optionalClientScopes).toEqual(['api'])
+  })
+
+  it('should not let a declared scope shadow a groupsClaim scope', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        groupsClaim: true,
+        clientScopes: ['netbird-groups', 'api'],
+      }),
+    ])
+    const realm = realmImport.spec.realm
+
+    // The mapper-carrying definition wins over the bare one
+    const scopes = realm.clientScopes.map((s: any) => s.name)
+    expect(scopes).toEqual(['netbird-groups', 'api'])
+    expect(realm.clientScopes[0].protocolMappers).toHaveLength(1)
+  })
+
+  it('should not duplicate the groupsClaim scope into optionalClientScopes', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        groupsClaim: true,
+        clientScopes: ['netbird-groups', 'api'],
+      }),
+    ])
+    const netbird = realmImport.spec.realm.clients.find((c: any) => c.clientId === 'netbird')
+
+    // The scope is already default-assigned; it must not repeat as optional
+    expect(netbird.defaultClientScopes).toContain('netbird-groups')
+    expect(netbird.optionalClientScopes).toEqual(['api'])
+  })
+
+  it('should render one distinct scope per groupsClaim client', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, { id: 'a', type: 'confidential', groupsClaim: true, secret: 'a' }),
+      jsx(Client, { id: 'b', type: 'confidential', groupsClaim: true, secret: 'b' }),
+    ])
+    const realm = realmImport.spec.realm
+
+    expect(realm.clientScopes.map((s: any) => s.name)).toEqual(['a-groups', 'b-groups'])
+
+    const a = realm.clients.find((c: any) => c.clientId === 'a')
+    const b = realm.clients.find((c: any) => c.clientId === 'b')
+    expect(a.defaultClientScopes).toContain('a-groups')
+    expect(a.defaultClientScopes).not.toContain('b-groups')
+    expect(b.defaultClientScopes).toContain('b-groups')
+    expect(b.defaultClientScopes).not.toContain('a-groups')
+  })
+
+  it('should leave the realm import unchanged without groupsClaim', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, { id: 'web', type: 'public' }),
+      jsx(Client, { id: 'api', type: 'bearer-only' }),
+    ])
+    const realm = realmImport.spec.realm
+
+    expect(realm.clientScopes).toBeUndefined()
+    for (const client of realm.clients) {
+      expect(client.defaultClientScopes).toBeUndefined()
+      expect(client.optionalClientScopes).toBeUndefined()
+    }
+  })
+
+  it('should enable standard flow for confidential clients that declare redirect URIs', () => {
+    // Netbird-style: the confidential netbird client runs the browser
+    // PKCE (authorization-code) flow — redirectUris without standardFlow
+    // would be dead config
+    const realmImport = renderRealmImport([
+      jsx(Client, { id: 'backend', type: 'confidential', secret: 's' }),
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        redirectUris: ['https://netbird.example.com/*', 'http://localhost:53000'],
+      }),
+    ])
+    const clients = realmImport.spec.realm.clients
+
+    expect(clients.find((c: any) => c.clientId === 'backend').standardFlowEnabled).toBe(false)
+    expect(clients.find((c: any) => c.clientId === 'netbird').standardFlowEnabled).toBe(true)
+  })
+})
+
 describe('Auth — JSX children identity checks', () => {
   // These tests guard against the module-duplication regression where
   // esbuild bundled both src/ and dist/ copies of components, breaking
