@@ -1,14 +1,14 @@
 {
-  "name": "@r8s/wireguard",
+  "name": "@r8s/netbird",
   "version": "0.3.3",
-  "description": "WireGuard VPN server (wg-easy) components for r8s",
+  "description": "Netbird mesh VPN (management + signal + relay + dashboard) — Flux HelmRelease, CNPG persistence, Keycloak IdP for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
   "homepage": "https://r8s.berget.ai",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/berget-ai/r8s.git",
-    "directory": "packages/wireguard"
+    "directory": "packages/netbird"
   },
   "bugs": "https://github.com/berget-ai/r8s/issues",
   "publishConfig": {
@@ -18,10 +18,11 @@
     "dist"
   ],
   "keywords": [
-    "wireguard",
+    "netbird",
     "vpn",
-    "networking",
-    "wg-easy"
+    "mesh",
+    "wireguard",
+    "networking"
   ],
   "r8s": {
     "category": "Networking"
@@ -35,7 +36,9 @@
   },
   "dependencies": {
     "@r8s/core": "^0.3.0",
-    "@r8s/k8s-types": "^0.3.0"
+    "@r8s/crds": "^0.3.0",
+    "@r8s/k8s-types": "^0.3.0",
+    "@r8s/recipes": "^0.3.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",

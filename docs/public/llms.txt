@@ -243,7 +243,7 @@ Platform provides contexts (namespace, routing, DNS, secrets) that all children 
 | `@r8s/grafana` | `Grafana` component |
 | `@r8s/superset` | `Superset` component |
 | `@r8s/rustfs` | `RustFS` S3-compatible storage |
-| `@r8s/wireguard` | WireGuard VPN |
+| `@r8s/netbird` | `Netbird` mesh VPN |
 
 ## Common pitfalls
 

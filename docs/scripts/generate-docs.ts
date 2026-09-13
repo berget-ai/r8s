@@ -110,7 +110,7 @@ async function renderToYaml(code: string): Promise<string | null> {
             '@r8s/grafana': [path.join(ROOT, 'packages/grafana/src/index.ts')],
             '@r8s/rustfs': [path.join(ROOT, 'packages/rustfs/src/index.ts')],
             '@r8s/superset': [path.join(ROOT, 'packages/superset/src/index.ts')],
-            '@r8s/wireguard': [path.join(ROOT, 'packages/wireguard/src/index.ts')],
+            '@r8s/netbird': [path.join(ROOT, 'packages/netbird/src/index.tsx')],
             '@r8s/n8n': [path.join(ROOT, 'packages/n8n/src/index.tsx')],
             '@r8s/nextcloud': [path.join(ROOT, 'packages/nextcloud/src/index.tsx')],
             '@r8s/outline': [path.join(ROOT, 'packages/outline/src/index.tsx')],
@@ -151,7 +151,7 @@ async function renderToYaml(code: string): Promise<string | null> {
         '@r8s/grafana': path.join(ROOT, 'packages/grafana/src/index.ts'),
         '@r8s/rustfs': path.join(ROOT, 'packages/rustfs/src/index.ts'),
         '@r8s/superset': path.join(ROOT, 'packages/superset/src/index.ts'),
-        '@r8s/wireguard': path.join(ROOT, 'packages/wireguard/src/index.ts'),
+        '@r8s/netbird': path.join(ROOT, 'packages/netbird/src/index.tsx'),
         '@r8s/n8n': path.join(ROOT, 'packages/n8n/src/index.tsx'),
         '@r8s/nextcloud': path.join(ROOT, 'packages/nextcloud/src/index.tsx'),
         '@r8s/outline': path.join(ROOT, 'packages/outline/src/index.tsx'),
@@ -751,7 +751,7 @@ async function generatePackages(): Promise<PackageDoc[]> {
     })
   }
 
-  // Also scan app packages (element, grafana, rustfs, superset, wireguard,
+  // Also scan app packages (element, grafana, rustfs, superset, netbird,
   // plus the app-store recipes: n8n, nextcloud, outline, chromadb, supabase,
   // odoo, open-webui, librechat, eurooffice, paperclip, eneo, matrix, umami).
   // NOTE: every PER_PACKAGE smoke target must appear here — the smoke stamps
@@ -763,7 +763,7 @@ async function generatePackages(): Promise<PackageDoc[]> {
     'grafana',
     'rustfs',
     'superset',
-    'wireguard',
+    'netbird',
     'n8n',
     'nextcloud',
     'outline',

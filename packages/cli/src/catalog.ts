@@ -634,35 +634,81 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
     example: `import { RustFS } from '@r8s/rustfs'\n\nexport default <RustFS name="storage" host="s3.example.com" storage="500Gi" />`,
   },
   {
-    name: 'WireGuard',
-    package: '@r8s/wireguard',
+    name: 'Netbird',
+    package: '@r8s/netbird',
     category: 'Networking',
-    description: 'WireGuard VPN server.',
+    description:
+      'Netbird mesh VPN (WireGuard-based) — management, signal, relay and dashboard behind one hostname, via a pinned Flux HelmRelease with CNPG Postgres and Keycloak OIDC.',
     props: [
       {
         name: 'name',
         type: 'string',
         required: false,
-        default: "'wireguard'",
-        description: 'Resource name',
+        default: "'netbird'",
+        description: 'Release / chart name (also the resource prefix)',
       },
       {
         name: 'namespace',
         type: 'string',
         required: false,
-        default: "'wireguard'",
-        description: 'Namespace',
+        description: 'Kubernetes namespace (inherited from Platform context when omitted)',
       },
-      { name: 'host', type: 'string', required: true, description: 'VPN endpoint host' },
       {
-        name: 'peers',
+        name: 'host',
+        type: 'string',
+        required: true,
+        description: 'Single public hostname: dashboard + management API/gRPC + signal + relay',
+      },
+      {
+        name: 'idp',
+        type: 'object',
+        required: true,
+        description:
+          "Keycloak OIDC: { issuer, clientId, clientSecretRef? } — e.g. { issuer: 'https://auth.example.com/realms/netbird', clientId: 'netbird' }",
+      },
+      {
+        name: 'relayPort',
         type: 'number',
         required: false,
-        default: '1',
-        description: 'Number of peers',
+        description:
+          'Expose the relay Service as a raw LoadBalancer on this TCP port (chart relay is websocket — no UDP/coturn)',
+      },
+      {
+        name: 'chartVersion',
+        type: 'string',
+        required: false,
+        default: "'1.9.0'",
+        description: 'Pinned chart version (latest rejected)',
+      },
+      {
+        name: 'imageTag',
+        type: 'string',
+        required: false,
+        default: "'0.46.0'",
+        description: 'Pinned image tag for management/signal/relay (latest rejected)',
+      },
+      {
+        name: 'storage',
+        type: 'string | false',
+        required: false,
+        description:
+          'Management PVC sizing (disabled by default — the CNPG Postgres store needs no datadir)',
+      },
+      {
+        name: 'dbName',
+        type: 'string',
+        required: false,
+        default: "'netbird-db'",
+        description: 'CNPG cluster name',
+      },
+      {
+        name: 'tls',
+        type: 'object',
+        required: false,
+        description: 'TLS secret + cluster issuer (defaults to netbird-tls via letsencrypt-prod)',
       },
     ],
-    example: `import { WireGuard } from '@r8s/wireguard'\n\nexport default <WireGuard host="vpn.example.com" peers={3} />`,
+    example: `import { Platform } from '@r8s/recipes'\nimport { Netbird } from '@r8s/netbird'\n\nexport default (\n  <Platform secrets={{ backend: 'openbao', mount: 'secret', path: 'apps' }}>\n    <Netbird\n      host="netbird.example.com"\n      idp={{\n        issuer: 'https://auth.example.com/realms/netbird',\n        clientId: 'netbird',\n      }}\n    />\n  </Platform>\n)`,
   },
   {
     name: 'N8n',

@@ -102,7 +102,7 @@ Complete real-world applications as packages — **pinned versions, derived from
 | `@r8s/odoo` | Odoo ERP |
 | `@r8s/harbor` | OCI container registry |
 | `@r8s/rustfs` | S3-compatible object store |
-| `@r8s/wireguard` | VPN |
+| `@r8s/netbird` | Mesh VPN (Netbird) |
 | `@r8s/umami` | Analytics |
 | `@r8s/grafana` | Metrics & dashboards |
 | `@r8s/superset` | BI dashboards |
@@ -182,7 +182,7 @@ Two strategies, scaffolded by `r8s init`:
 
 ## Contributing
 
-Missing a component? It's a typed function + (optionally) a line in `operators.yaml`. Copy `@r8s/wireguard` as a skeleton, add tests, open a PR — AI review + CI within minutes, human review within 24h. Details: [CONTRIBUTING.md](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [SECURITY.md](SECURITY.md)
+Missing a component? It's a typed function + (optionally) a line in `operators.yaml`. Copy `@r8s/netbird` as a skeleton, add tests, open a PR — AI review + CI within minutes, human review within 24h. Details: [CONTRIBUTING.md](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [SECURITY.md](SECURITY.md)
 
 ## License
 

@@ -151,6 +151,35 @@ describe('Guardrails', () => {
       expect(result.passed).toBe(true)
     })
 
+    it('passes Go/helm template placeholder values carrying credential-key names (netbird management.json {{ .VAR }} convention)', () => {
+      const resources = [
+        {
+          apiVersion: 'helm.toolkit.fluxcd.io/v2',
+          kind: 'HelmRelease',
+          metadata: { name: 'netbird' },
+          spec: {
+            values: {
+              management: {
+                configmap: JSON.stringify({
+                  HttpConfig: { AuthAudience: '{{ .IDP_CLIENT_ID }}' },
+                  IdpManagerConfig: {
+                    KeycloakClientCredentials: {
+                      ClientSecret: '{{ .IDP_CLIENT_SECRET }}',
+                      GrantType: 'client_credentials',
+                    },
+                  },
+                  DataStoreEncryptionKey: '{{ .DATASTORE_ENCRYPTION_KEY }}',
+                }),
+              },
+            },
+          },
+        },
+      ]
+
+      const result = runGuardrails(resources, [noPlaintextSecrets])
+      expect(result.passed).toBe(true)
+    })
+
     it('should pass when secrets use external references', () => {
       const resources = [
         {
