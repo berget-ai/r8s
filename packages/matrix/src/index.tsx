@@ -35,6 +35,20 @@ const haTopologySpread = (app: string) => [
 ]
 
 /** URL preview SSRF hardening — block internal/private ranges (production default) */
+/**
+ * MAS 1.24.0 requires upstream_oauth2.providers[].id to be a valid ULID
+ * (26 chars, Crockford base32 — no I/L/O/U; dogfood round 7: MAS dies
+ * pre-run with `invalid length for key
+ * "default.providers.0.id.upstream_oauth2"` when the old `sso` string
+ * renders). MAS keys the provider by this id in its database, so it must
+ * be DETERMINISTIC: re-renders may not churn the id out from under the
+ * running install. There is exactly one upstream provider per MAS
+ * install, so the simplest honest derivation wins — a fixed constant
+ * ULID with a comment. This value's 48-bit timestamp component decodes
+ * to 2025-01-01T03:38:53.076Z (a plausible '01J'-era instant).
+ */
+const MAS_UPSTREAM_OAUTH2_PROVIDER_ID = '01JGFZ3R8M0Q4TSDSVWX7E2K9Y'
+
 const URL_PREVIEW_BLACKLIST = {
   url_preview_enabled: true,
   max_spider_size: '10M',
@@ -441,7 +455,8 @@ function buildMasConfig(
       upstream_oauth2: {
         providers: [
           {
-            id: 'sso',
+            // providers[].id MUST be a ULID (see MAS_UPSTREAM_OAUTH2_PROVIDER_ID)
+            id: MAS_UPSTREAM_OAUTH2_PROVIDER_ID,
             issuer: sso.issuer,
             human_name: sso.humanName ?? 'SSO',
             client_id: sso.clientId,
