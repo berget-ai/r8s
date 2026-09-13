@@ -361,10 +361,13 @@ describe('Netbird chart release', () => {
   it('rejects a non-quantity storage prop', () => {
     expect(() => renderApp({ storage: 'big-volume' })).toThrow(/Kubernetes .*quantity/)
     expect(() => renderApp({ storage: '5Gi' })).not.toThrow()
-    // decimal SI units are valid Kubernetes quantities too
+    // decimal SI units are valid Kubernetes quantities too (kilo = lowercase k)
     expect(() => renderApp({ storage: '1G' })).not.toThrow()
     expect(() => renderApp({ storage: '100M' })).not.toThrow()
+    expect(() => renderApp({ storage: '1k' })).not.toThrow()
     expect(() => renderApp({ storage: false })).not.toThrow()
+    // bare 'K' is NOT a valid k8s suffix (decimal kilo is lowercase 'k')
+    expect(() => renderApp({ storage: '1K' })).toThrow(/Kubernetes .*quantity/)
   })
 
   it('produces valid, plaintext-free manifests', () => {
