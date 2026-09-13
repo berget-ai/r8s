@@ -1,9 +1,17 @@
 import { describe, it, expect } from 'vitest'
+import { execFileSync, spawnSync } from 'child_process'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { render, jsx, Fragment } from '@r8s/core'
 import { runGuardrails, noPlaintextSecrets } from '@r8s/core'
 import { SecretContext, Namespace } from '@r8s/core/defaults'
 import { S3Provider, Bucket } from '@r8s/recipes'
 import { Matrix } from '../src/index'
+
+// python3 exists on every GitHub actions runner (and every dev machine the
+// smoke runs from) — guard anyway so farm environments without it skip
+const HAS_PYTHON = spawnSync('python3', ['--version'], { stdio: 'ignore' }).status === 0
 
 function renderMatrix(overrides: any = {}) {
   const element = jsx(Matrix, {
@@ -101,6 +109,75 @@ describe('Matrix — resource rendering', () => {
     expect(find(result, 'PersistentVolumeClaim', 'matrix-synapse-keys')).toBeDefined()
   })
 
+  it('quotes YAML-1.1-ambiguous ARRAY ITEMS in the embedded YAML (smoke round 4 synapse CrashLoop)', () => {
+    // Round 4: toYaml routed scalar VALUES through yamlScalar but let
+    // primitive array items through raw — bind_addresses: ['::'] rendered
+    // as `- ::` and the synapse image's PyYAML (YAML 1.1) parsed it back as
+    // the dict {':': null} → twisted listenTCP: AttributeError: 'dict'
+    // object has no attribute 'split'. The unit tests missed it because
+    // js-yaml is YAML 1.2 and re-types nothing here.
+    const result = renderMatrix()
+    const tpl = find(result, 'ConfigMap', 'matrix-synapse-config').data[
+      'homeserver.yaml.tpl'
+    ] as string
+    // the live regression: every listener bind address
+    expect(tpl).toContain("bind_addresses:\n      - '::'")
+    expect(tpl).not.toMatch(/^- ::$/m)
+
+    // the rest of the YAML-1.1-ambiguous set — every one of these MUST
+    // survive the round trip through a YAML 1.1 parser (PyYAML) as a
+    // string: booleans (on/off/yes/no), null, octal-looking ints, short
+    // floats. ('::' is covered above via bind_addresses.)
+    const ambiguous = ['on', 'off', 'yes', 'no', 'null', '0755', '1e3']
+    const rtc = renderMatrix({
+      rtc: { stunServers: ambiguous },
+    })
+    const livekit = find(rtc, 'ConfigMap', 'matrix-sfu-config') as any
+    const yaml = livekit.data['livekit.yaml'] as string
+    for (const item of ambiguous) {
+      expect(yaml).toContain(`- '${item}'`)
+    }
+    // nothing raw survived
+    for (const item of ambiguous) {
+      expect(yaml).not.toContain(`- ${item}\n`)
+    }
+  })
+
+  it('renders the MAS secrets section with placeholders (1.24.0 dataclass) as a template', () => {
+    // Round 4: MAS 1.24.0 dies pre-run with "Error: missing field `secrets`"
+    // — the schema (crates/config/src/sections/secrets.rs @ v1.24.0)
+    // REQUIRES the flattened 32-byte `encryption` key (64 hex chars);
+    // `keys`/`keys_dir` are optional. The key is a SECRET → template
+    // placeholder, substituted by the render-config init container — never
+    // a ConfigMap literal.
+    const result = renderMatrix()
+    const cm = find(result, 'ConfigMap', 'matrix-mas-config') as any
+    const tpl = cm.data['config.yaml.tpl'] as string
+    expect(tpl).toContain('secrets:\n  encryption: __MAS_ENCRYPTION_KEY__')
+
+    // the DB connection moved to split fields (MAS DatabaseConfig supports
+    // host/port/database/username/password upstream; the old
+    // $(MASPASSWORD) env reference never worked — Kubernetes does not
+    // expand $(VAR) inside mounted file contents)
+    expect(tpl).toContain('host: matrix-mas-db-rw')
+    expect(tpl).toContain('username: mas')
+    expect(tpl).toContain('password: __MAS_DB_PASSWORD__')
+    expect(tpl).toContain('ssl_mode: prefer')
+    expect(tpl).not.toContain('MasPassword')
+    expect(tpl).not.toContain('$(')
+
+    // with SSO, the OIDC client secret is a placeholder too
+    const sso = renderMatrix({
+      sso: {
+        issuer: 'https://keycloak.example.com/realms/x',
+        clientId: 'matrix',
+        clientSecretRef: 'my-oidc-secret',
+      },
+    })
+    const ssoTpl = find(sso, 'ConfigMap', 'matrix-mas-config') as any
+    expect(ssoTpl.data['config.yaml.tpl']).toContain('client_secret: __MAS_OIDC_CLIENT_SECRET__')
+  })
+
   it('renders the render-config init container + SYNAPSE_CONFIG_PATH pointing at the rendered config', () => {
     const result = renderMatrix()
     const dep = find(result, 'Deployment', 'matrix-synapse') as any
@@ -151,11 +228,13 @@ describe('Matrix — resource rendering', () => {
     // ("missing field `public_base` for key \"default.http\"")
     const result = renderMatrix()
     let cm = find(result, 'ConfigMap', 'matrix-mas-config') as any
-    expect(cm.data['config.yaml']).toContain("public_base: 'https://matrix-account.example.com'")
+    expect(cm.data['config.yaml.tpl']).toContain(
+      "public_base: 'https://matrix-account.example.com'"
+    )
 
     const overridden = renderMatrix({ hosts: { account: 'id.example.com' } })
     cm = find(overridden, 'ConfigMap', 'matrix-mas-config') as any
-    expect(cm.data['config.yaml']).toContain("public_base: 'https://id.example.com'")
+    expect(cm.data['config.yaml.tpl']).toContain("public_base: 'https://id.example.com'")
   })
 
   it('renders a persistent keys PVC mounted writable at /data (signing key = server identity)', () => {
@@ -250,7 +329,7 @@ describe('Matrix — resource rendering', () => {
       'ghcr.io/element-hq/matrix-authentication-service:1.24.0'
     )
     const cm = find(result, 'ConfigMap', 'matrix-mas-config') as any
-    const yaml = cm.data['config.yaml']
+    const yaml = cm.data['config.yaml.tpl']
     // renamed upstream: oauthapi/compatapi → oauth/compat
     expect(yaml).toContain('name: oauth')
     expect(yaml).toContain('name: compat')
@@ -261,7 +340,7 @@ describe('Matrix — resource rendering', () => {
   it('emits MAS 1.24.0 listener binds (top-level host/port no longer parse)', () => {
     const result = renderMatrix()
     const cm = find(result, 'ConfigMap', 'matrix-mas-config') as any
-    const yaml = cm.data['config.yaml']
+    const yaml = cm.data['config.yaml.tpl']
     // Schema per crates/config/src/sections/http.rs @ v1.24.0: ListenerConfig
     // requires per-socket `binds` ("missing field `binds` for key
     // default.http.listeners.0"). Shape: the BindConfig enum's Listen
@@ -280,6 +359,214 @@ describe('Matrix — resource rendering', () => {
     const result = renderMatrix()
     const admin = find(result, 'Deployment', 'matrix-admin') as any
     expect(admin.spec.template.spec.containers[0].image).toBe('oci.element.io/element-admin:0.1.13')
+  })
+
+  it('renders the MAS config through a render-config init container (template + provisioned secrets)', () => {
+    // MAS 1.24.0's encryption key/DB password/OIDC client secret can never
+    // ride the ConfigMap — same discipline as synapse's #139 render
+    const result = renderMatrix()
+    const dep = find(result, 'Deployment', 'matrix-mas') as any
+    const podSpec = dep.spec.template.spec
+
+    // init container substitutes the placeholders from the mounted secrets
+    const init = podSpec.initContainers.find((c: any) => c.name === 'render-config')
+    expect(init).toBeDefined()
+    // the pinned MAS image is distroless (no shell/python) — the render
+    // borrows the synapse image's python3, pinned to the same synapse tag
+    expect(init.image).toBe('matrixdotorg/synapse:v1.99.0')
+    const script = init.command[init.command.indexOf('-c') + 1]
+    expect(script).toContain("Path('/template/config.yaml.tpl')")
+    expect(script).toContain("Path('/config/config.yaml')")
+    expect(script).toContain('/secrets/mas/encryption_key')
+    expect(script).toContain('/secrets/db/password')
+    expect(script).toContain('/secrets/oidc/clientSecret')
+    // unrendered placeholders fail loudly instead of syncing garbage
+    expect(script).toContain('unrendered placeholders')
+
+    const initMounts = Object.fromEntries(init.volumeMounts.map((m: any) => [m.name, m.mountPath]))
+    expect(initMounts['config-template']).toBe('/template')
+    expect(initMounts['mas-secrets']).toBe('/secrets/mas')
+    expect(initMounts['db-credentials']).toBe('/secrets/db')
+    expect(initMounts['oidc-credentials']).toBeUndefined() // no sso → no bundle
+    expect(initMounts['config']).toBe('/config')
+
+    // output volume: the template rides the ConfigMap, the rendered config
+    // lands on a fresh emptyDir (no more direct ConfigMap mount)
+    const volumes = Object.fromEntries(podSpec.volumes.map((v: any) => [v.name, v]))
+    expect(volumes['config'].emptyDir).toBeDefined()
+    expect(volumes['config'].configMap).toBeUndefined()
+    expect(volumes['config-template'].configMap.name).toBe('matrix-mas-config')
+    expect(volumes['mas-secrets'].secret.secretName).toBe('matrix-mas-secrets')
+    expect(volumes['db-credentials'].secret.secretName).toBe('matrix-mas-db-app')
+    expect(volumes['oidc-credentials']).toBeUndefined()
+
+    // main container: no secret envs, only the rendered config mount +
+    // MAS_CONFIG (the real upstream env var — MAS_CONFIG_FILE never existed)
+    const container = podSpec.containers[0]
+    expect(container.image).toBe('ghcr.io/element-hq/matrix-authentication-service:1.24.0')
+    const env = Object.fromEntries(container.env.map((e: any) => [e.name, e.value]))
+    expect(env['MAS_CONFIG']).toBe('/config/config.yaml')
+    expect(env['MASPASSWORD']).toBeUndefined()
+    expect(env['MAS_OIDC_CLIENT_SECRET']).toBeUndefined()
+    expect(env['MAS_CONFIG_FILE']).toBeUndefined()
+    const mainMounts = Object.fromEntries(
+      container.volumeMounts.map((m: any) => [m.name, m.mountPath])
+    )
+    expect(mainMounts['config']).toBe('/config')
+    expect(mainMounts['db-credentials']).toBeUndefined()
+    expect(mainMounts['mas-secrets']).toBeUndefined()
+
+    // with SSO the OIDC bundle reaches only the init container
+    const sso = renderMatrix({
+      sso: {
+        issuer: 'https://keycloak.example.com/realms/x',
+        clientId: 'matrix',
+        clientSecretRef: 'my-oidc-secret',
+      },
+    })
+    const ssoInit = (
+      find(sso, 'Deployment', 'matrix-mas') as any
+    ).spec.template.spec.initContainers.find((c: any) => c.name === 'render-config')
+    const ssoMounts = Object.fromEntries(
+      ssoInit.volumeMounts.map((m: any) => [m.name, m.mountPath])
+    )
+    expect(ssoMounts['oidc-credentials']).toBe('/secrets/oidc')
+    const ssoVolumes = Object.fromEntries(
+      (find(sso, 'Deployment', 'matrix-mas') as any).spec.template.spec.volumes.map((v: any) => [
+        v.name,
+        v,
+      ])
+    )
+    expect(ssoVolumes['oidc-credentials'].secret.secretName).toBe('my-oidc-secret')
+    const ssoContainer = (find(sso, 'Deployment', 'matrix-mas') as any).spec.template.spec
+      .containers[0]
+    expect(ssoContainer.env.find((e: any) => e.name === 'MAS_OIDC_CLIENT_SECRET')).toBeUndefined()
+  })
+
+  it(
+    'EXECUTES the render-config script: placeholders substituted, quoting correct, half-render fails loud',
+    { skip: !HAS_PYTHON },
+    () => {
+      // The script is a mounted python one-liner — substring assertions can
+      // never prove it RUNS (escaping bug → in-cluster-only breakage). JSON
+      // literal [\u{27}] etc. pitfalls: extract the argv from the rendered
+      // Deployment and execute it against fixture secrets.
+      const result = renderMatrix({
+        sso: {
+          issuer: 'https://keycloak.example.com/realms/x',
+          clientId: 'matrix',
+          clientSecretRef: 'my-oidc-secret',
+        },
+      })
+      const deploy = find(result, 'Deployment', 'matrix-mas') as any
+      const init = deploy.spec.template.spec.initContainers.find(
+        (c: any) => c.name === 'render-config'
+      )
+      const script = init.command[init.command.indexOf('-c') + 1]
+      // the pod mounts the container-root paths; sandbox them to a tmpdir
+      // (every occurrence — the script reads AND writes several)
+      const root = mkdtempSync(join(tmpdir(), 'mas-render-'))
+      const box = (p: string) =>
+        p
+          .replaceAll('/template/', `${root}/template/`)
+          .replaceAll('/secrets/mas/', `${root}/secrets/mas/`)
+          .replaceAll('/secrets/db/', `${root}/secrets/db/`)
+          .replaceAll('/secrets/oidc/', `${root}/secrets/oidc/`)
+          .replace('/config/config.yaml', `${root}/config/config.yaml`)
+      const run = () => execFileSync('python3', ['-c', box(script)])
+
+      mkdirSync(`${root}/template`, { recursive: true })
+      mkdirSync(`${root}/secrets/mas`, { recursive: true })
+      mkdirSync(`${root}/secrets/db`, { recursive: true })
+      mkdirSync(`${root}/secrets/oidc`, { recursive: true })
+      mkdirSync(`${root}/config`, { recursive: true })
+
+      try {
+        // --- happy path: every secret shape substituted + YAML-safe ---
+        writeFileSync(
+          `${root}/template/config.yaml.tpl`,
+          [
+            'password: __MAS_DB_PASSWORD__',
+            'secrets:',
+            '  encryption: __MAS_ENCRYPTION_KEY__',
+            'client_secret: __MAS_OIDC_CLIENT_SECRET__',
+            '',
+          ].join('\n')
+        )
+        writeFileSync(
+          `${root}/secrets/mas/encryption_key`,
+          'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899\n'
+        )
+        writeFileSync(`${root}/secrets/db/password`, "it's a s3cr3t #$@ pass!word\n")
+        writeFileSync(`${root}/secrets/oidc/clientSecret`, 'key-clock-sec-ret-42\n')
+        run()
+        const rendered = readFileSync(`${root}/config/config.yaml`, 'utf-8')
+        expect(rendered).toContain("password: 'it''s a s3cr3t #$@ pass!word'")
+        expect(rendered).toContain(
+          "encryption: 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899'"
+        )
+        expect(rendered).toContain("client_secret: 'key-clock-sec-ret-42'")
+        expect(rendered).not.toContain('__MAS_')
+
+        // --- no-sso path renders without the oidc mount at all ---
+        rmSync(`${root}/secrets/oidc/`, { recursive: true, force: true })
+        writeFileSync(
+          `${root}/template/config.yaml.tpl`,
+          [
+            'password: __MAS_DB_PASSWORD__',
+            'secrets:',
+            '  encryption: __MAS_ENCRYPTION_KEY__',
+            '',
+          ].join('\n')
+        )
+        writeFileSync(`${root}/secrets/db/password`, 'plain\n')
+        rmSync(`${root}/config/config.yaml`)
+        run()
+        const plain = readFileSync(`${root}/config/config.yaml`, 'utf-8')
+        expect(plain).toContain("password: 'plain'")
+        // the encryption-key substitution took place (mas secret still mounted)
+        expect(plain).toContain(
+          "encryption: 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899'"
+        )
+        expect(plain).not.toContain('__MAS_')
+
+        // --- a placeholder whose secret lags fails the init container LOUD ---
+        writeFileSync(
+          `${root}/template/config.yaml.tpl`,
+          'client_secret: __MAS_OIDC_CLIENT_SECRET__\n'
+        )
+        writeFileSync(`${root}/config/config.yaml`, 'STALE — init must overwrite or fail')
+        expect(() => run()).toThrow(/unrendered placeholders: __MAS_OIDC_CLIENT_SECRET__/)
+        expect(readFileSync(`${root}/config/config.yaml`, 'utf-8')).toBe(
+          'STALE — init must overwrite or fail'
+        )
+      } finally {
+        rmSync(root, { recursive: true, force: true })
+      }
+    }
+  )
+
+  it('provisions the MAS encryption-key bundle whenever a secrets backend is configured (sso or not)', () => {
+    // MAS is always deployed and the 1.24.0 schema always requires
+    // secrets.encryption — unlike the OIDC bundle this one is NOT gated
+    // on sso. The smoke provisions a 32-byte dummy (openssl rand -hex 32)
+    // at <mount>/<path>/mas under key `encryption_key`.
+    for (const sso of [
+      undefined,
+      { issuer: 'https://keycloak.example.com/realms/x', clientId: 'matrix' },
+    ] as const) {
+      const result = renderMatrixWithPlatform({
+        database: { backup: false },
+        ...(sso !== undefined && { sso }),
+      })
+      const bundle = find(result, 'OpenBaoStaticSecret', 'matrix-mas-secrets') as any
+      expect(bundle).toBeDefined()
+      expect(bundle.spec.path).toBe('matrix/matrix/mas')
+      expect(bundle.spec.destination.name).toBe('matrix-mas-secrets')
+      expect(Object.keys(bundle.spec.destination.transformation.templates)).toEqual([
+        'encryption_key',
+      ])
+    }
   })
 
   it('rejects floating latest for mas and admin (pinned-version policy)', () => {
@@ -571,7 +858,13 @@ describe('Matrix — secrets backends', () => {
     expect(backup.spec.openbaoAuthRef).toBe('openbao-auth')
   })
 
-  it('wires the MAS OIDC secret via secretKeyRef', () => {
+  it('wires the MAS OIDC secret into the render-config init container (never env on the main container)', () => {
+    // Round 4 follow-up: '$MAS_OIDC_CLIENT_SECRET' inside config.yaml was
+    // dead — MAS/figment interpolates no $-references in config values —
+    // and the secretKeyRef env exposed the secret to the main container.
+    // Now the bundle is mounted into the init container only, and the
+    // secret is substituted into the rendered config (which MAS then syncs
+    // encrypted into its database).
     const result = renderMatrix({
       sso: {
         issuer: 'https://keycloak.example.com/realms/x',
@@ -579,11 +872,17 @@ describe('Matrix — secrets backends', () => {
         clientSecretRef: 'my-oidc-secret',
       },
     })
-    const mas = find(result, 'Deployment', 'matrix-mas') as any
-    const env = mas.spec.template.spec.containers[0].env
+    const dep = find(result, 'Deployment', 'matrix-mas') as any
+    const podSpec = dep.spec.template.spec
+    const oidcVolume = podSpec.volumes.find((v: any) => v.name === 'oidc-credentials')
+    expect(oidcVolume.secret.secretName).toBe('my-oidc-secret')
+    const init = podSpec.initContainers.find((c: any) => c.name === 'render-config')
+    const mounts = Object.fromEntries(init.volumeMounts.map((m: any) => [m.name, m.mountPath]))
+    expect(mounts['oidc-credentials']).toBe('/secrets/oidc')
+    // main container sees no OIDC env at all
+    const env = dep.spec.template.spec.containers[0].env
     const oidc = env.find((e: any) => e.name === 'MAS_OIDC_CLIENT_SECRET')
-    expect(oidc.valueFrom.secretKeyRef.name).toBe('my-oidc-secret')
-    expect(oidc.value).toBeUndefined()
+    expect(oidc).toBeUndefined()
   })
 
   it('passes the plaintext-secrets guardrail on a fully configured render', () => {
