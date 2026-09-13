@@ -1,9 +1,17 @@
 import { describe, it, expect } from 'vitest'
+import { execFileSync, spawnSync } from 'child_process'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { render, jsx, Fragment } from '@r8s/core'
 import { runGuardrails, noPlaintextSecrets } from '@r8s/core'
 import { SecretContext, Namespace } from '@r8s/core/defaults'
 import { S3Provider, Bucket } from '@r8s/recipes'
 import { Matrix } from '../src/index'
+
+// python3 exists on every GitHub actions runner (and every dev machine the
+// smoke runs from) — guard anyway so farm environments without it skip
+const HAS_PYTHON = spawnSync('python3', ['--version'], { stdio: 'ignore' }).status === 0
 
 function renderMatrix(overrides: any = {}) {
   const element = jsx(Matrix, {
@@ -434,6 +442,109 @@ describe('Matrix — resource rendering', () => {
       .containers[0]
     expect(ssoContainer.env.find((e: any) => e.name === 'MAS_OIDC_CLIENT_SECRET')).toBeUndefined()
   })
+
+  it(
+    'EXECUTES the render-config script: placeholders substituted, quoting correct, half-render fails loud',
+    { skip: !HAS_PYTHON },
+    () => {
+      // The script is a mounted python one-liner — substring assertions can
+      // never prove it RUNS (escaping bug → in-cluster-only breakage). JSON
+      // literal [\u{27}] etc. pitfalls: extract the argv from the rendered
+      // Deployment and execute it against fixture secrets.
+      const result = renderMatrix({
+        sso: {
+          issuer: 'https://keycloak.example.com/realms/x',
+          clientId: 'matrix',
+          clientSecretRef: 'my-oidc-secret',
+        },
+      })
+      const deploy = find(result, 'Deployment', 'matrix-mas') as any
+      const init = deploy.spec.template.spec.initContainers.find(
+        (c: any) => c.name === 'render-config'
+      )
+      const script = init.command[init.command.indexOf('-c') + 1]
+      // the pod mounts the container-root paths; sandbox them to a tmpdir
+      // (every occurrence — the script reads AND writes several)
+      const root = mkdtempSync(join(tmpdir(), 'mas-render-'))
+      const box = (p: string) =>
+        p
+          .replaceAll('/template/', `${root}/template/`)
+          .replaceAll('/secrets/mas/', `${root}/secrets/mas/`)
+          .replaceAll('/secrets/db/', `${root}/secrets/db/`)
+          .replaceAll('/secrets/oidc/', `${root}/secrets/oidc/`)
+          .replace('/config/config.yaml', `${root}/config/config.yaml`)
+      const run = () => execFileSync('python3', ['-c', box(script)])
+
+      mkdirSync(`${root}/template`, { recursive: true })
+      mkdirSync(`${root}/secrets/mas`, { recursive: true })
+      mkdirSync(`${root}/secrets/db`, { recursive: true })
+      mkdirSync(`${root}/secrets/oidc`, { recursive: true })
+      mkdirSync(`${root}/config`, { recursive: true })
+
+      try {
+        // --- happy path: every secret shape substituted + YAML-safe ---
+        writeFileSync(
+          `${root}/template/config.yaml.tpl`,
+          [
+            'password: __MAS_DB_PASSWORD__',
+            'secrets:',
+            '  encryption: __MAS_ENCRYPTION_KEY__',
+            'client_secret: __MAS_OIDC_CLIENT_SECRET__',
+            '',
+          ].join('\n')
+        )
+        writeFileSync(
+          `${root}/secrets/mas/encryption_key`,
+          'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899\n'
+        )
+        writeFileSync(`${root}/secrets/db/password`, "it's a s3cr3t #$@ pass!word\n")
+        writeFileSync(`${root}/secrets/oidc/clientSecret`, 'key-clock-sec-ret-42\n')
+        run()
+        const rendered = readFileSync(`${root}/config/config.yaml`, 'utf-8')
+        expect(rendered).toContain("password: 'it''s a s3cr3t #$@ pass!word'")
+        expect(rendered).toContain(
+          "encryption: 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899'"
+        )
+        expect(rendered).toContain("client_secret: 'key-clock-sec-ret-42'")
+        expect(rendered).not.toContain('__MAS_')
+
+        // --- no-sso path renders without the oidc mount at all ---
+        rmSync(`${root}/secrets/oidc/`, { recursive: true, force: true })
+        writeFileSync(
+          `${root}/template/config.yaml.tpl`,
+          [
+            'password: __MAS_DB_PASSWORD__',
+            'secrets:',
+            '  encryption: __MAS_ENCRYPTION_KEY__',
+            '',
+          ].join('\n')
+        )
+        writeFileSync(`${root}/secrets/db/password`, 'plain\n')
+        rmSync(`${root}/config/config.yaml`)
+        run()
+        const plain = readFileSync(`${root}/config/config.yaml`, 'utf-8')
+        expect(plain).toContain("password: 'plain'")
+        // the encryption-key substitution took place (mas secret still mounted)
+        expect(plain).toContain(
+          "encryption: 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899'"
+        )
+        expect(plain).not.toContain('__MAS_')
+
+        // --- a placeholder whose secret lags fails the init container LOUD ---
+        writeFileSync(
+          `${root}/template/config.yaml.tpl`,
+          'client_secret: __MAS_OIDC_CLIENT_SECRET__\n'
+        )
+        writeFileSync(`${root}/config/config.yaml`, 'STALE — init must overwrite or fail')
+        expect(() => run()).toThrow(/unrendered placeholders: __MAS_OIDC_CLIENT_SECRET__/)
+        expect(readFileSync(`${root}/config/config.yaml`, 'utf-8')).toBe(
+          'STALE — init must overwrite or fail'
+        )
+      } finally {
+        rmSync(root, { recursive: true, force: true })
+      }
+    }
+  )
 
   it('provisions the MAS encryption-key bundle whenever a secrets backend is configured (sso or not)', () => {
     // MAS is always deployed and the 1.24.0 schema always requires
