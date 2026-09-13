@@ -243,47 +243,52 @@ export function Auth(props: AuthProps) {
               trustEmail: idp.trustEmail ?? false,
               config: idp.config,
             })),
-            clients: realm.clients?.map((client) => ({
-              clientId: client.id,
-              name: client.name ?? client.id,
-              publicClient: client.type === 'public',
-              // Redirect URIs exist exactly for the authorization-code
-              // (standard) flow — a confidential client that declares any is
-              // browser-facing (e.g. the netbird PKCE/dashboard flow), so the
-              // flow must be on for it to work
-              standardFlowEnabled:
-                client.type === 'public' || (client.redirectUris?.length ?? 0) > 0,
-              bearerOnly: client.type === 'bearer-only',
-              serviceAccountsEnabled: client.type === 'confidential' ? true : undefined,
-              secret: client.secret,
-              redirectUris: client.redirectUris,
-              webOrigins: client.webOrigins,
-              directAccessGrantsEnabled: client.directAccessGrantsEnabled ?? false,
-              // Scopes this client may request at runtime (optional client
-              // scopes — granted when named in the request's scope param)
-              ...(client.clientScopes?.length
-                ? { optionalClientScopes: [...client.clientScopes] }
-                : {}),
-              ...(client.groupsClaim
-                ? {
-                    // Keycloak replaces the client's default-scope set with
-                    // this field when present, so the long-stable stock
-                    // scopes ride along — dropping them would strip
-                    // profile/email claims from this client's tokens.
-                    // Deliberately NOT adding 'acr' (KC 24+) / 'basic'
-                    // (KC 25+): defaultClientScopes referencing an unknown
-                    // scope fails the realm import on older Keycloaks, while
-                    // omitting them only skips auth_time/sid/acr claims.
-                    defaultClientScopes: [
-                      'profile',
-                      'email',
-                      'roles',
-                      'web-origins',
-                      `${client.id}-groups`,
-                    ],
-                  }
-                : {}),
-            })),
+            clients: realm.clients?.map((client) => {
+              // Scope names already covered by the default set (this
+              // client's own groupsClaim scope) don't repeat as optional
+              const declaredScopes = (client.clientScopes ?? []).filter(
+                (name) => !(client.groupsClaim && name === `${client.id}-groups`)
+              )
+              return {
+                clientId: client.id,
+                name: client.name ?? client.id,
+                publicClient: client.type === 'public',
+                // Redirect URIs exist exactly for the authorization-code
+                // (standard) flow — a confidential client that declares any is
+                // browser-facing (e.g. the netbird PKCE/dashboard flow), so the
+                // flow must be on for it to work
+                standardFlowEnabled:
+                  client.type === 'public' || (client.redirectUris?.length ?? 0) > 0,
+                bearerOnly: client.type === 'bearer-only',
+                serviceAccountsEnabled: client.type === 'confidential' ? true : undefined,
+                secret: client.secret,
+                redirectUris: client.redirectUris,
+                webOrigins: client.webOrigins,
+                directAccessGrantsEnabled: client.directAccessGrantsEnabled ?? false,
+                // Scopes this client may request at runtime (optional client
+                // scopes — granted when named in the request's scope param)
+                ...(declaredScopes.length ? { optionalClientScopes: declaredScopes } : {}),
+                ...(client.groupsClaim
+                  ? {
+                      // Keycloak replaces the client's default-scope set with
+                      // this field when present, so the long-stable stock
+                      // scopes ride along — dropping them would strip
+                      // profile/email claims from this client's tokens.
+                      // Deliberately NOT adding 'acr' (KC 24+) / 'basic'
+                      // (KC 25+): defaultClientScopes referencing an unknown
+                      // scope fails the realm import on older Keycloaks, while
+                      // omitting them only skips auth_time/sid/acr claims.
+                      defaultClientScopes: [
+                        'profile',
+                        'email',
+                        'roles',
+                        'web-origins',
+                        `${client.id}-groups`,
+                      ],
+                    }
+                  : {}),
+              }
+            }),
             // Realm-level client scopes (rendered only when a groupsClaim
             // or clientScopes declaration exists — imports without either
             // stay byte-identical)

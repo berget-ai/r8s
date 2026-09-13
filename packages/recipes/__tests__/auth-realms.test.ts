@@ -265,6 +265,22 @@ describe('Auth — groupsClaim (JWT `groups` claim)', () => {
     expect(realm.clientScopes[0].protocolMappers).toHaveLength(1)
   })
 
+  it('should not duplicate the groupsClaim scope into optionalClientScopes', () => {
+    const realmImport = renderRealmImport([
+      jsx(Client, {
+        id: 'netbird',
+        type: 'confidential',
+        groupsClaim: true,
+        clientScopes: ['netbird-groups', 'api'],
+      }),
+    ])
+    const netbird = realmImport.spec.realm.clients.find((c: any) => c.clientId === 'netbird')
+
+    // The scope is already default-assigned; it must not repeat as optional
+    expect(netbird.defaultClientScopes).toContain('netbird-groups')
+    expect(netbird.optionalClientScopes).toEqual(['api'])
+  })
+
   it('should render one distinct scope per groupsClaim client', () => {
     const realmImport = renderRealmImport([
       jsx(Client, { id: 'a', type: 'confidential', groupsClaim: true, secret: 'a' }),
