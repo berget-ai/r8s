@@ -20,6 +20,8 @@ interface CliOptions {
   sourceNamespace?: string
   namespace?: string
   cluster?: string
+  /** flux: emit only the shared operators layer (stacks/<name>/operators + its CR). */
+  sharedOperators?: string
 }
 
 const FLAG_TABLE: Record<string, (o: CliOptions, value?: string) => boolean> = {
@@ -41,6 +43,7 @@ const FLAG_TABLE: Record<string, (o: CliOptions, value?: string) => boolean> = {
   '--source-namespace': (o, v) => ((o.sourceNamespace = v), true),
   '--namespace': (o, v) => ((o.namespace = v), true),
   '--cluster': (o, v) => ((o.cluster = v), true),
+  '--shared-operators': (o, v) => ((o.sharedOperators = v), true),
 }
 
 function parseArgs(args: string[]): CliOptions {
@@ -91,7 +94,13 @@ Options:
   --namespace <ns>       Default namespace for flux Helm resources without one
   --cluster <name>       Cluster directory for flux (default: default)
   --include-operators    Include operator manifests in rendered output
-  --operators-only       Render only operator manifests (with render command)
+  --shared-operators <kustomization-name>
+                         flux: emit only the stack layer, depending on the
+                         named shared operators Kustomization (full-catalog
+                         installs — one operators layer, N package stacks)
+  --operators-only       render: Render only operator manifests.
+                         flux: emit only the shared operators layer
+                         (stacks/<name>/operators + its Kustomization CR)
   --skip-secret-guardrails  Bypass the plaintext-credentials guardrail (local dev only).
                          Stdout output is masked; never commit or apply skipped output.
   --template, -t <name>  Template for init (basic, fullstack) [default: basic]
@@ -107,6 +116,8 @@ Examples:
   r8s render --out ./output/k8s.yaml --include-operators
   r8s operators --out ./operators.yaml
   r8s flux infra.tsx --out gitops --name my-stack --source my-repo
+  r8s flux operators.tsx --out gitops --name catalog --operators-only
+  r8s flux cnpg.tsx --out gitops --name cnpg --shared-operators catalog-operators
   r8s init
   r8s init my-project
   r8s init my-project --template fullstack
@@ -832,6 +843,10 @@ async function cmdOperators({ options }: CommandContext): Promise<void> {
  * Emit the two-Kustomization Flux stack recipe: operators first
  * (HelmRepository + HelmRelease per declared operator), then the stack
  * resources — `r8s flux <entry.tsx> --out <dir>`.
+ *
+ * Single-layer modes for full-catalog installs: `--operators-only` emits
+ * just the shared operators layer; `--shared-operators <name>` emits just
+ * the stack layer, depending on the named shared operators Kustomization.
  */
 async function cmdFlux({ args, options }: CommandContext): Promise<void> {
   const entryArg = args[1] ?? options.entry
@@ -856,6 +871,8 @@ async function cmdFlux({ args, options }: CommandContext): Promise<void> {
       sourceNamespace: options.sourceNamespace,
       namespace: options.namespace,
       cluster: options.cluster,
+      operatorsOnly: options.operatorsOnly,
+      sharedOperators: options.sharedOperators,
       skipSecretGuardrails: options.skipSecretGuardrails,
       // Output always goes to committed files (like render --out), so it
       // stays faithful — there is no log channel to mask.

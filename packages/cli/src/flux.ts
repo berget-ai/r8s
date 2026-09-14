@@ -7,10 +7,21 @@
  * wired together with dependsOn + wait + healthChecks so Flux reconciles
  * them in order (operators first, stack only once the operators are Ready).
  *
- * Rendered layout (output dir):
+ * Rendered layout (output dir, default mode):
  *   stacks/<name>/operators/kustomization.yaml + manifests.yaml
  *   stacks/<name>/stack/kustomization.yaml      + manifests.yaml
  *   clusters/<cluster>/stacks/<name>.yaml       # the two Flux Kustomizations
+ *
+ * Two composable single-layer modes for full-catalog installs, where ~20
+ * package stacks would otherwise collide per-stack on HelmRelease names
+ * under prune — so ONE shared operators layer is emitted once and every
+ * package stack dependsOn it:
+ *   --operators-only                only the operators layer + the single
+ *                                   <name>-operators Kustomization CR
+ *   --shared-operators <kustomization-name>
+ *                                   only the stack layer + the single
+ *                                   <name>-stack CR depending on <name>
+ *                                   instead of <name>-operators
  */
 import * as yaml from 'js-yaml'
 import { mkdirSync, writeFileSync } from 'fs'
@@ -32,6 +43,20 @@ export interface FluxRecipeOptions extends RenderOptions {
   namespace?: string
   /** Cluster directory under clusters/ — 'default' when omitted. */
   cluster?: string
+  /**
+   * Emit only the shared operators layer — `stacks/<name>/operators/` +
+   * the single `<name>-operators` Kustomization CR. Use with a synthetic
+   * entry that declares every operator a full-catalog install shares.
+   * Mutually exclusive with `sharedOperators`.
+   */
+  operatorsOnly?: boolean
+  /**
+   * Emit only the package stack layer, depending on the named shared
+   * operators Kustomization (instead of the per-stack `<name>-operators`).
+   * Operators declared in the entry are skipped — they belong to the
+   * shared layer. Mutually exclusive with `operatorsOnly`.
+   */
+  sharedOperators?: string
 }
 
 export interface FluxRecipeResult {
@@ -137,14 +162,25 @@ function pickHealthChecks(resources: any[]): {
 }
 
 /**
- * The two Flux Kustomizations: `<name>-operators` (wait: true so CRDs are
- * installed and the operator Ready) and `<name>-stack`, which dependsOn the
- * operators Kustomization and carries the workload healthChecks.
+ * Which layers the recipe emits: both (default), only the shared operators
+ * layer, or only the package stack layer.
+ */
+export type FluxRecipeMode = 'default' | 'operators-only' | 'shared-operators'
+
+/**
+ * The Flux Kustomization CRs per mode. Default: the `<name>-operators` /
+ * `<name>-stack` pair wired with dependsOn. Operators-only: just the
+ * `<name>-operators` CR — the shared layer every package stack points at
+ * with `--shared-operators <name>-operators`. Shared-operators: just the
+ * `<name>-stack` CR, depending on the named shared operators Kustomization
+ * instead of the per-stack one.
  */
 function fluxKustomizationDocs(
   name: string,
   options: FluxRecipeOptions,
-  healthChecks: { apiVersion: string; kind: string; name: string; namespace?: string }[]
+  mode: FluxRecipeMode,
+  sharedOperatorsName: string | undefined,
+  healthChecks: { apiVersion: string; kind: string; name: string; namespace?: string }[] = []
 ): any[] {
   const sourceNamespace = options.sourceNamespace ?? 'flux-system'
   const sourceRef = {
@@ -159,26 +195,31 @@ function fluxKustomizationDocs(
     sourceRef,
   }
 
-  return [
-    {
-      apiVersion: 'kustomize.toolkit.fluxcd.io/v1',
-      kind: 'Kustomization',
-      metadata: { name: `${name}-operators`, namespace: sourceNamespace },
-      spec: { ...shared, path: `stacks/${name}/operators`, timeout: OPERATORS_TIMEOUT },
+  const operatorsDoc = {
+    apiVersion: 'kustomize.toolkit.fluxcd.io/v1',
+    kind: 'Kustomization',
+    metadata: { name: `${name}-operators`, namespace: sourceNamespace },
+    spec: { ...shared, path: `stacks/${name}/operators`, timeout: OPERATORS_TIMEOUT },
+  }
+
+  const dependsOnName =
+    mode === 'shared-operators' ? (sharedOperatorsName as string) : `${name}-operators`
+  const stackDoc = {
+    apiVersion: 'kustomize.toolkit.fluxcd.io/v1',
+    kind: 'Kustomization',
+    metadata: { name: `${name}-stack`, namespace: sourceNamespace },
+    spec: {
+      ...shared,
+      path: `stacks/${name}/stack`,
+      timeout: STACK_TIMEOUT,
+      dependsOn: [{ name: dependsOnName }],
+      ...(healthChecks.length > 0 ? { healthChecks } : {}),
     },
-    {
-      apiVersion: 'kustomize.toolkit.fluxcd.io/v1',
-      kind: 'Kustomization',
-      metadata: { name: `${name}-stack`, namespace: sourceNamespace },
-      spec: {
-        ...shared,
-        path: `stacks/${name}/stack`,
-        timeout: STACK_TIMEOUT,
-        dependsOn: [{ name: `${name}-operators` }],
-        ...(healthChecks.length > 0 ? { healthChecks } : {}),
-      },
-    },
-  ]
+  }
+
+  if (mode === 'operators-only') return [operatorsDoc]
+  if (mode === 'shared-operators') return [stackDoc]
+  return [operatorsDoc, stackDoc]
 }
 
 function dumpDocs(docs: unknown[]): string {
@@ -201,6 +242,27 @@ export async function writeFluxRecipe(
   entryFile: string,
   options: FluxRecipeOptions
 ): Promise<FluxRecipeResult> {
+  if (options.operatorsOnly && options.sharedOperators) {
+    throw new Error(
+      '--operators-only and --shared-operators are mutually exclusive — ' +
+        'emit the shared operators layer as its own stack (one r8s flux run ' +
+        'with --operators-only), then point each package stack at it with --shared-operators.'
+    )
+  }
+
+  if (options.sharedOperators && !DNS_LABEL_RE.test(options.sharedOperators)) {
+    throw new Error(
+      `Invalid --shared-operators name "${options.sharedOperators}" — must be a DNS label ` +
+        `(lowercase alphanumerics and '-'). It is the Kustomization CR name the stack dependsOn.`
+    )
+  }
+
+  const mode: FluxRecipeMode = options.operatorsOnly
+    ? 'operators-only'
+    : options.sharedOperators
+      ? 'shared-operators'
+      : 'default'
+
   const outDir = resolve(options.out)
   const cluster = options.cluster ?? 'default'
   const name = options.name ?? basename(entryFile).replace(/\.(tsx|ts|jsx|js)$/, '')
@@ -213,29 +275,63 @@ export async function writeFluxRecipe(
 
   const renderResult = await bundleAndRender(entryFile)
 
-  if (renderResult.resources.length === 0) {
+  // A synthetic shared-operators entry may declare only operators, so the
+  // no-resources requirement applies to stack-carrying modes only.
+  if (mode !== 'operators-only' && renderResult.resources.length === 0) {
     throw new Error(
       `No Kubernetes resources rendered from ${entryFile}. ` +
         `Ensure your component returns resources with 'apiVersion' and 'kind'.`
     )
   }
 
-  const operatorDocs = helmOperatorDocs(renderResult.operators, options.namespace)
-
-  // Helm operators translate to HelmRepository + HelmRelease above. Raw
-  // (manifest) operators keep the existing fetch-at-render path — their
-  // manifests are committed into the operators layer next to the Flux
-  // docs. OLM/flux-source operators have no recipe translation yet; say
-  // so instead of silently dropping them.
-  const unsupported = renderResult.operators.filter(
-    (op) => op.source.type !== 'helm' && op.source.type !== 'manifest'
-  )
-  for (const op of unsupported) {
-    console.error(
-      `⚠️  Operator "${op.name}" declares source type "${op.source.type}" — not supported by the flux recipe yet, skipped.`
+  // Operators-only IS the shared operators layer — nothing to reconcile
+  // unless the entry declares operators a stack can depend on.
+  if (
+    mode === 'operators-only' &&
+    !renderResult.operators.some((op) => op.source.type === 'helm' || op.source.type === 'manifest')
+  ) {
+    throw new Error(
+      `No operators declared in ${entryFile}. ` +
+        `--operators-only emits the shared operators layer, so the entry must declare operators (helm or manifest sources).`
     )
   }
+
+  const emitOperatorsLayer = mode !== 'shared-operators'
+  const emitStackLayer = mode !== 'operators-only'
+
+  const operatorDocs = emitOperatorsLayer
+    ? helmOperatorDocs(renderResult.operators, options.namespace)
+    : []
+
+  if (emitOperatorsLayer) {
+    // Helm operators translate to HelmRepository + HelmRelease above. Raw
+    // (manifest) operators keep the existing fetch-at-render path — their
+    // manifests are committed into the operators layer next to the Flux
+    // docs. OLM/flux-source operators have no recipe translation yet; say
+    // so instead of silently dropping them.
+    const unsupported = renderResult.operators.filter(
+      (op) => op.source.type !== 'helm' && op.source.type !== 'manifest'
+    )
+    for (const op of unsupported) {
+      console.error(
+        `⚠️  Operator "${op.name}" declares source type "${op.source.type}" — not supported by the flux recipe yet, skipped.`
+      )
+    }
+  } else {
+    // package stack pointing at the shared layer: the shared operators
+    // layer owns operator installation — anything declared here would
+    // collide with it under prune (same HelmRelease names). Name them,
+    // skip them.
+    if (renderResult.operators.length > 0) {
+      const declared = renderResult.operators.map((op) => op.name).join(', ')
+      console.error(
+        `⚠️  --shared-operators "${options.sharedOperators}": operators [${declared}] declared in the entry are skipped — the shared operators layer owns operator installation.`
+      )
+    }
+  }
+
   const fetchedManifests =
+    emitOperatorsLayer &&
     renderResult.operators.some((op) => op.source.type === 'manifest') === true
       ? await fetchOperatorManifests(renderResult.operators)
       : []
@@ -243,9 +339,9 @@ export async function writeFluxRecipe(
   // Guardrails run over BOTH layers before anything is serialized — the
   // stack resources and the helm chart values inside the HelmReleases
   // (plain fetched operator manifests are external content, same policy
-  // as `r8s operators`).
-  enforceSecretGuardrails(operatorDocs, options)
-  enforceSecretGuardrails(renderResult.resources, options)
+  // as `r8s operators`). Per mode, only over the layers being emitted.
+  if (emitOperatorsLayer) enforceSecretGuardrails(operatorDocs, options)
+  if (emitStackLayer) enforceSecretGuardrails(renderResult.resources, options)
 
   const redact = (docs: any[]): any[] =>
     options.redactSecrets ? docs.map((doc) => maskSecretValues(doc)) : docs
@@ -258,7 +354,9 @@ export async function writeFluxRecipe(
   const kustomizationDocs = fluxKustomizationDocs(
     name,
     { ...options, sourceNamespace },
-    pickHealthChecks(renderResult.resources)
+    mode,
+    options.sharedOperators,
+    emitStackLayer ? pickHealthChecks(renderResult.resources) : []
   )
 
   const layerKustomization = (hasManifests: boolean) => ({
@@ -277,25 +375,63 @@ export async function writeFluxRecipe(
     files.push(relPath)
   }
 
-  write(
-    `stacks/${name}/operators/kustomization.yaml`,
-    dumpDocs([layerKustomization(operatorYaml.length > 0)])
-  )
-  write(`stacks/${name}/operators/manifests.yaml`, operatorYaml)
-  write(
-    `stacks/${name}/stack/kustomization.yaml`,
-    dumpDocs([layerKustomization(renderResult.resources.length > 0)])
-  )
-  write(`stacks/${name}/stack/manifests.yaml`, dumpDocs(redact(renderResult.resources)))
-  write(`clusters/${cluster}/stacks/${name}.yaml`, dumpDocs(kustomizationDocs))
+  if (mode === 'operators-only') {
+    write(
+      `stacks/${name}/operators/kustomization.yaml`,
+      dumpDocs([layerKustomization(operatorYaml.length > 0)])
+    )
+    write(`stacks/${name}/operators/manifests.yaml`, operatorYaml)
+    write(`clusters/${cluster}/stacks/${name}.yaml`, dumpDocs(kustomizationDocs))
+  } else if (mode === 'shared-operators') {
+    write(
+      `stacks/${name}/stack/kustomization.yaml`,
+      dumpDocs([layerKustomization(renderResult.resources.length > 0)])
+    )
+    write(`stacks/${name}/stack/manifests.yaml`, dumpDocs(redact(renderResult.resources)))
+    write(`clusters/${cluster}/stacks/${name}.yaml`, dumpDocs(kustomizationDocs))
+  } else {
+    write(
+      `stacks/${name}/operators/kustomization.yaml`,
+      dumpDocs([layerKustomization(operatorYaml.length > 0)])
+    )
+    write(`stacks/${name}/operators/manifests.yaml`, operatorYaml)
+    write(
+      `stacks/${name}/stack/kustomization.yaml`,
+      dumpDocs([layerKustomization(renderResult.resources.length > 0)])
+    )
+    write(`stacks/${name}/stack/manifests.yaml`, dumpDocs(redact(renderResult.resources)))
+    write(`clusters/${cluster}/stacks/${name}.yaml`, dumpDocs(kustomizationDocs))
+  }
 
   const repoName = options.source ?? 'flux-system'
-  console.log(`\nr8s flux recipe: ${name} (cluster: ${cluster})`)
-  for (const relPath of files) console.log(`  ${relPath}`)
-  console.log(
-    `\nApply to a fresh cluster (Flux bootstrapped, GitRepository "${repoName}" in ${sourceNamespace}):`
-  )
-  console.log(`  kubectl apply -f clusters/${cluster}/stacks/${name}.yaml`)
+  if (mode === 'operators-only') {
+    console.log(`\nr8s flux shared operators recipe: ${name} (cluster: ${cluster})`)
+    for (const relPath of files) console.log(`  ${relPath}`)
+    console.log(
+      `\nApply to a fresh cluster (Flux bootstrapped, GitRepository "${repoName}" in ${sourceNamespace}):`
+    )
+    console.log(`  kubectl apply -f clusters/${cluster}/stacks/${name}.yaml`)
+    console.log(
+      `\nPackage stacks point at this layer with: r8s flux <entry.tsx> --out <dir> --shared-operators ${name}-operators`
+    )
+  } else if (mode === 'shared-operators') {
+    console.log(`\nr8s flux package stack recipe: ${name} (cluster: ${cluster})`)
+    for (const relPath of files) console.log(`  ${relPath}`)
+    console.log(
+      `\nApply to a fresh cluster (Flux bootstrapped, GitRepository "${repoName}" in ${sourceNamespace}):`
+    )
+    console.log(`  kubectl apply -f clusters/${cluster}/stacks/${name}.yaml`)
+    console.log(
+      `The stack reconciles only once the "${options.sharedOperators}" Kustomization is Ready (dependsOn + wait).`
+    )
+  } else {
+    console.log(`\nr8s flux recipe: ${name} (cluster: ${cluster})`)
+    for (const relPath of files) console.log(`  ${relPath}`)
+    console.log(
+      `\nApply to a fresh cluster (Flux bootstrapped, GitRepository "${repoName}" in ${sourceNamespace}):`
+    )
+    console.log(`  kubectl apply -f clusters/${cluster}/stacks/${name}.yaml`)
+  }
 
   return { name, cluster, files }
 }
