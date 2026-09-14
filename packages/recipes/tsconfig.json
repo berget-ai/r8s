@@ -47,6 +47,9 @@
       "path": "../operator-redis"
     },
     {
+      "path": "../operator-reloader"
+    },
+    {
       "path": "../operator-vault-secrets"
     },
     {

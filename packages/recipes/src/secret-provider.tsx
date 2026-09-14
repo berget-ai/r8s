@@ -6,7 +6,8 @@ import {
   type StaticSecretRequest,
 } from '@r8s/core/defaults'
 import { OperatorContext } from '@r8s/core/defaults'
-import { declareIfMissing } from '@r8s/operator-vault-secrets'
+import { declareIfMissing as declareVaultSecretsIfMissing } from '@r8s/operator-vault-secrets'
+import { declareIfMissing as declareReloaderIfMissing } from '@r8s/operator-reloader'
 
 /**
  * Provisioner resolution — THE single identity-aware point in the platform.
@@ -274,9 +275,15 @@ export function SecretProvider(props: SecretProviderProps) {
 
   const resources: ReturnType<typeof jsx>[] = []
 
-  // Declare VSO for vault/openbao
+  // Declare VSO for vault/openbao, plus Stakater Reloader. VSO re-syncs
+  // Secrets in place — consumers only pick up rotated values when their
+  // pods restart, and Reloader performs exactly that restart (any workload
+  // annotated reloader.stakater.com/auto; the recipes' WebService/App
+  // annotate their Deployments under these backends). CNPG clusters are
+  // deliberately excluded — the operator manages credential rollouts itself.
   if (config.backend === 'vault' || config.backend === 'openbao') {
-    resources.push(...declareIfMissing(sharedOperators))
+    resources.push(...declareVaultSecretsIfMissing(sharedOperators))
+    resources.push(...declareReloaderIfMissing(sharedOperators))
   }
 
   return jsx(Fragment, {

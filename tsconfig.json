@@ -57,6 +57,7 @@
       "@r8s/operator-prometheus": ["./packages/operator-prometheus/src/index.tsx"],
       "@r8s/operator-redis": ["./packages/operator-redis/src/index.tsx"],
       "@r8s/operator-vault-secrets": ["./packages/operator-vault-secrets/src/index.tsx"],
+      "@r8s/operator-reloader": ["./packages/operator-reloader/src/index.tsx"],
       "@r8s/operator-velero": ["./packages/operator-velero/src/index.tsx"]
     }
   },
@@ -178,6 +179,9 @@
     },
     {
       "path": "./packages/operator-vault-secrets"
+    },
+    {
+      "path": "./packages/operator-reloader"
     },
     {
       "path": "./packages/operator-velero"

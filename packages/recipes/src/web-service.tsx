@@ -2,6 +2,7 @@ import { jsx, declareOperator, useContext } from '@r8s/core'
 import { Deployment, Service, EnvVar } from '@r8s/k8s-types'
 import { OperatorContext, DatabaseContext, SecretContext, useNamespace } from '@r8s/core/defaults'
 import { declareIfMissing } from '@r8s/operator-vault-secrets'
+import { RELOADER_ANNOTATION } from '@r8s/operator-reloader'
 
 export interface SecretRef {
   /** Name of the Kubernetes Secret containing this value */
@@ -290,6 +291,31 @@ export function WebService(props: WebServiceProps) {
   // Vault secrets — create VaultStaticSecret objects
   const namespace = useNamespace(namespaceProp)
   const platformSecrets = useContext(SecretContext)
+
+  /**
+   * Secret-rotation rollouts: a rotation-capable backend (OpenBao / Vault
+   * via the Vault Secrets Operator) re-syncs ITS Secrets in place, and
+   * env-var `secretKeyRef`s only see new values when the pod restarts.
+   * Annotate the pod template so Stakater Reloader (declared alongside VSO
+   * by the recipes' SecretProvider for exactly these backends) rolls this
+   * Deployment whenever an observed Secret changes.
+   *
+   * Design note — the annotation keys on the BACKEND in scope, not on this
+   * app's own secret references: under an OpenBao/Vault Platform an app can
+   * depend on a backend-managed Secret without naming it itself (e.g. the
+   * auto-wired DATABASE_URL from DatabaseContext). Listing every dependency
+   * path here would be brittle; the annotation is inert without Reloader
+   * installed and harmless for apps that reference no Secrets.
+   * Standalone WebServices using `vault` refs (which imply VSO even without
+   * a Platform) are covered too.
+   */
+  const rotatingBackend =
+    platformSecrets?.backend === 'openbao' || platformSecrets?.backend === 'vault'
+  const wantsReloader = rotatingBackend || Object.keys(vault).length > 0
+  // Key shared with @r8s/operator-reloader (RELOADER_ANNOTATION) — a single
+  // import instead of a duplicated string, so the two can't drift.
+  const reloaderAnnotation = { [RELOADER_ANNOTATION]: 'true' }
+
   for (const [envName, ref] of Object.entries(vault)) {
     const secretName = `${name}-${envName.toLowerCase().replace(/_/g, '-')}-vault`
     const refreshAfter = ref.refreshAfter ?? platformSecrets?.refreshAfter
@@ -386,7 +412,10 @@ export function WebService(props: WebServiceProps) {
       }),
       selector: { matchLabels: { app: name } },
       template: {
-        metadata: { labels: { app: name } },
+        metadata: {
+          labels: { app: name },
+          ...(wantsReloader && { annotations: reloaderAnnotation }),
+        },
         spec: {
           ...(podSecurityContext && { securityContext: podSecurityContext }),
           ...(tolerations && { tolerations }),

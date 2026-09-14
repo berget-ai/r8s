@@ -511,6 +511,11 @@ export function Database(props: DatabaseProps) {
       resources.push(...declareCnpg(sharedOperators, operatorVersion))
     }
 
+    // Deliberately NOT annotated with reloader.stakater.com/auto: CNPG
+    // manages its own rollouts — the operator restarts instances itself
+    // (instance manager, `cnpg.io/reload`-style reconcile) when credentials
+    // or configuration change, so a Reloader-triggered rollout would race
+    // the operator's own reconcile loop.
     resources.push(jsx('Cluster', cluster))
 
     if (backup && backupCredentials) {

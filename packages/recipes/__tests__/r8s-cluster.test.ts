@@ -10,7 +10,7 @@ const baseProps = {
 }
 
 describe('R8sCluster — operators', () => {
-  it('declares all 7 cluster operators', () => {
+  it('declares all 7 cluster operators plus Reloader via the OpenBao SecretProvider', () => {
     const result = render(jsx(R8sCluster, baseProps))
 
     const opNames = result.operators.map((o) => o.name)
@@ -21,7 +21,10 @@ describe('R8sCluster — operators', () => {
     expect(opNames).toContain('prometheus')
     expect(opNames).toContain('loki')
     expect(opNames).toContain('logging-operator')
-    expect(result.operators).toHaveLength(7)
+    // SecretProvider (OpenBao backend) redeploys alongside VSO so
+    // secret-synced workloads roll on rotation
+    expect(opNames).toContain('reloader')
+    expect(result.operators).toHaveLength(8)
   })
 
   it('does not re-declare operators already provided via operators prop', () => {
@@ -46,7 +49,7 @@ describe('R8sCluster — operators', () => {
 
     const certManagerCount = result.operators.filter((o) => o.name === 'cert-manager').length
     expect(certManagerCount).toBe(1)
-    expect(result.operators).toHaveLength(7)
+    expect(result.operators).toHaveLength(8)
   })
 })
 
@@ -304,8 +307,9 @@ describe('R8sCluster — complete cluster', () => {
     expect(kinds).toContain('HTTPRoute')
     expect(kinds).toContain('Certificate')
 
-    // Operators — 7 from R8sCluster + cnpg from Database
-    expect(result.operators).toHaveLength(8)
+    // Operators — 7 from R8sCluster + reloader (OpenBao SecretProvider)
+    // + cnpg from Database
+    expect(result.operators).toHaveLength(9)
   })
 
   it('all logging resources are in the logging namespace', () => {
