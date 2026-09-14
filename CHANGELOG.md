@@ -10,7 +10,7 @@ All notable changes to r8s are documented here. Versions follow semver; while pr
 
 ### Migration note
 
-The first apply after re-rendering triggers a one-time rollout for app workloads under an `openbao`/`vault` backend: every App/WebService Deployment now differs from its previously rendered manifest by the new `reloader.stakater.com/auto: "true"` pod-template annotation, so the next `kubectl apply` / Flux reconcile rolls it — once, even without Reloader installed and without an actual rotation. CLIs don't restart: only workloads whose re-rendered spec changes. The rollout is safe and idempotent (it also picks up any Secret values that changed on disk since the pods started), and nothing else in the rendered output changes — no data or configuration migration is involved.
+The first apply after re-rendering triggers a one-time rollout for two workload groups: every App/WebService under an `openbao`/`vault` backend, and standalone WebServices using `vault` refs without a Platform (those imply the Vault Secrets Operator and are annotated too). Both gain the new `reloader.stakater.com/auto: "true"` pod-template annotation, so the next `kubectl apply` / Flux reconcile rolls them — once, even without Reloader installed and without an actual rotation. CLIs don't restart: only workloads whose re-rendered spec changes. The rollout is safe and idempotent (it also picks up any Secret values that changed on disk since the pods started), and nothing else in the rendered output changes — no data or configuration migration is involved.
 
 ## 0.3.4
 
