@@ -56,6 +56,17 @@ describe('Netbird chart release', () => {
     expect(rel.spec.interval).toBe('30m')
   })
 
+  it('honors repoNamespace for both the HelmRepository and the release sourceRef', () => {
+    // The smoke harness pins the repo into the release's namespace — the
+    // HelmRelease's sourceRef.namespace must follow it or Flux cannot
+    // resolve the source (the drift-guard finding the local smoke caught).
+    const result = renderApp({ repoNamespace: 'netbird-smoke' })
+    expect(resource(result, 'HelmRepository').metadata.namespace).toBe('netbird-smoke')
+    expect(resource(result, 'HelmRelease').spec.chart.spec.sourceRef.namespace).toBe(
+      'netbird-smoke'
+    )
+  })
+
   it('pins all four images (core services to the chart appVersion, dashboard separately)', () => {
     const v = resource(renderApp(), 'HelmRelease').spec.values
     expect(v.management.image).toEqual({
