@@ -56,6 +56,17 @@ describe('Netbird chart release', () => {
     expect(rel.spec.interval).toBe('30m')
   })
 
+  it('honors repoNamespace for both the HelmRepository and the release sourceRef', () => {
+    // The smoke harness pins the repo into the release's namespace — the
+    // HelmRelease's sourceRef.namespace must follow it or Flux cannot
+    // resolve the source (the drift-guard finding the local smoke caught).
+    const result = renderApp({ repoNamespace: 'netbird-smoke' })
+    expect(resource(result, 'HelmRepository').metadata.namespace).toBe('netbird-smoke')
+    expect(resource(result, 'HelmRelease').spec.chart.spec.sourceRef.namespace).toBe(
+      'netbird-smoke'
+    )
+  })
+
   it('pins all four images (core services to the chart appVersion, dashboard separately)', () => {
     const v = resource(renderApp(), 'HelmRelease').spec.values
     expect(v.management.image).toEqual({
@@ -172,6 +183,10 @@ describe('Netbird chart release', () => {
     expect(config.PKCEAuthorizationFlow.ProviderConfig.AuthorizationEndpoint).toBe(
       'https://auth.example.com/realms/netbird/protocol/openid-connect/auth'
     )
+    // upstream common.LoginFlag: uint8 enum (0 = LoginFlagPrompt,
+    // 1 = LoginFlagMaxAge0) — a raw bool crash-loops management 0.46.0
+    expect(config.PKCEAuthorizationFlow.ProviderConfig.DisablePromptLogin).toBe(true)
+    expect(config.PKCEAuthorizationFlow.ProviderConfig.LoginFlag).toBe(0)
     // relay + signal on the single host
     expect(config.Relay.Addresses).toEqual(['rels://netbird.example.com:443/relay'])
     expect(config.Relay.Secret).toBe('{{ .RELAY_PASSWORD }}')
@@ -187,6 +202,27 @@ describe('Netbird chart release', () => {
     expect(config.TURNConfig.Turns).toEqual([])
     // datastore encryption key is a placeholder, never a value
     expect(config.DataStoreEncryptionKey).toBe('{{ .DATASTORE_ENCRYPTION_KEY }}')
+  })
+
+  it('renders the PKCE LoginFlag as the upstream common.LoginFlag uint8 enum, never a bool', () => {
+    // Dogfood round 1: management 0.46.0 crash-looped on `LoginFlag: false` —
+    //   json: cannot unmarshal bool into Go struct field
+    //   ProviderConfig.PKCEAuthorizationFlow.ProviderConfig.LoginFlag
+    //   of type common.LoginFlag
+    // Verified upstream at v0.46.0 (management/client/common/types.go):
+    //   type LoginFlag uint8; LoginFlagPrompt = iota (0), LoginFlagMaxAge0 (1)
+    // — encoding/json must see a NUMBER. The client only reads it in
+    // client/internal/auth/pkce_flow.go behind !DisablePromptLogin, so 0
+    // (LoginFlagPrompt, the Go zero value) is deterministic and neutral.
+    const config = JSON.parse(resource(renderApp(), 'HelmRelease').spec.values.management.configmap)
+    const pc = config.PKCEAuthorizationFlow.ProviderConfig
+    expect(pc).toMatchObject({
+      DisablePromptLogin: true,
+      LoginFlag: 0,
+    })
+    // toBe is strict: `false !== 0` — this is the bool-vs-enum regression gate
+    expect(pc.LoginFlag).toBe(0)
+    expect(typeof pc.LoginFlag).toBe('number')
   })
 
   it('routes the store DSN from the CNPG-generated -app secret (fqdn-uri)', () => {

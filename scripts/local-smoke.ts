@@ -806,6 +806,10 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
         name: 'netbird',
         namespace: 'netbird-smoke',
         host: 'netbird.smoke.test',
+        // HelmRepository must land in the smoke ns alongside the HelmRelease
+        // (sourceRef.namespace follows repoNamespace) — the package default
+        // 'flux-system' trips the drift guard pre-apply.
+        repoNamespace: 'netbird-smoke',
         idp: {
           issuer: 'https://keycloak.smoke.test/realms/netbird',
           clientId: 'netbird',
