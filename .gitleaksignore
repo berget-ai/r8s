@@ -99,3 +99,12 @@ scripts/local-smoke.ts:generic-api-key:480
 scripts/local-smoke.ts:generic-api-key:885
 scripts/local-smoke.ts:generic-api-key:951
 scripts/local-smoke.ts:generic-api-key:955
+
+# (moved 885 → 889, 951 → 955, 955 → 959: the netbird smoke entry pins
+# repoNamespace ('netbird-smoke') — 4 lines inserted above the eurooffice
+# and matrix entries, PR #150; same 64-hex smoke dummies, position only.
+# The matrix encryption_key dummy's new home at 955 coincides with the
+# existing fingerprint above; 889/959 are the new eurooffice JWT and
+# matrix homeserver_secret positions.)
+scripts/local-smoke.ts:generic-api-key:889
+scripts/local-smoke.ts:generic-api-key:959
