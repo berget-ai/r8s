@@ -40,17 +40,25 @@
  *   record write is atomic (temp file + rename) and failure-tolerant: a
  *   failed update warns and never fails a passing smoke. Recipe entries
  *   in the record are hand-maintained, not auto-updated.
- * - CNPG operator installed in the cluster (for packages that render a
+ * - Operators: every DECLARED operator with a helm source is bootstrapped by
+ *   this script itself through Flux (`HelmRepository` + `HelmRelease`,
+ *   then polled to Ready) — never a raw `helm install`. Operators whose
+ *   CRDs already exist are skipped (idempotent across reruns and clusters
+ *   that ship the operator as a shared prerequisite). Non-helm sources
+ *   stay out-of-band prerequisites: the CNPG operator (a plain manifest
+ *   install) must exist in the cluster for packages that render a
  *   Database — umami, n8n, outline, eneo, open-webui, odoo, paperclip,
  *   nextcloud, and superset via the smoke's companion `superset-db`
- *   render — the package itself has no CNPG stitch).
- *   The opstree redis-operator (ot-container-kit chart 0.22.0) is a second
- *   cluster prerequisite whenever a package renders a Redis CR (outline
- *   with default `cache: true`; nextcloud with default `cache: true`;
- *   superset via `redis.create: true`; open-webui only with `cache`).
+ *   render — the package itself has no CNPG stitch. The opstree
+ *   redis-operator (ot-container-kit chart 0.22.0) is a second such
+ *   prerequisite whenever a package renders a Redis CR (outline with
+ *   default `cache: true`; nextcloud with default `cache: true`; superset
+ *   via `redis.create: true`; open-webui only with `cache`).
  * - Batch-3 requires the paperclip-operator (helm chart v0.19.0 from
  *   oci://ghcr.io/paperclipinc/charts, release namespace paperclip-system)
- *   to own paperclip's Instance CR; without it the apply fails with
+ *   to own paperclip's Instance CR. The declaration IS resolvable from the
+ *   package metadata, so the smoke bootstraps it via Flux automatically;
+ *   on a cluster without working Flux CRDs the apply still fails with
  *   "no matches for kind" (recorded as FAIL, not skip).
  * - Enough free disk: image pulls go through the Docker-driver VM. Before
  *   each package the script checks free space and aborts the remaining
@@ -73,8 +81,10 @@
  *   `secretsName`, odoo `masterPasswordSecretName`, paperclip
  *   `secretsName` + `apiKeySecretName`); chromadb and element need none.
  * - Batch-2 expected rough edges, recorded in the per-entry notes: feature
- *   CRs whose operators are not installed in kind (paperclip's Instance
- *   CR → apply fails with "no matches for kind") and packages that pass
+ *   CRs whose operators are not installed in the cluster (the smoke now
+ *   bootstraps helm-declared operators like paperclip's via Flux; a
+ *   manifest-declared operator still needs the manual prerequisite) and
+ *   packages that pass
  *   through Database recipe defaults with no sizing knob (eneo,
  *   open-webui, odoo get 3 CNPG instances + a 10Gi db volume whether you
  *   like it or not). outline's Redis CR is NOT one of those rough edges —
@@ -89,9 +99,8 @@
  *   is only Ready after `superset db upgrade` + `superset init` complete.
  *   netbird renders via a Flux HelmRelease — skipped on kind (no Flux),
  *   validated on the RKE2 (dogfood) cluster where Flux runs. paperclip's
- *   operator IS resolvable from the package metadata
- *   (oci://ghcr.io/paperclipinc/charts) — install it first or expect the
- *   apply to fail on the missing CRD.
+ *   operator is bootstrapped automatically (see the operator phase above);
+ *   a cluster without Flux fails paperclip on the missing CRD instead.
  * - Rendering: esbuild bundles a small child module that imports THIS file
  *   (see buildBundle) with @r8s/* alias-mapped to packages/<pkg>/src — the same
  *   alias map as packages/recipes/__tests__/helpers/example-harness.ts. The
@@ -119,7 +128,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import type { KubernetesResource } from '@r8s/k8s-types'
+import type { KubernetesResource, Operator } from '@r8s/k8s-types'
 
 // Value imports used by the render table below. They are evaluated for real
 // only inside the esbuild-bundled child (which resolves them to
@@ -167,6 +176,14 @@ const MIN_FREE_BYTES = 2048 * 1024 * 1024
 const DISK_WARN_BYTES = 2500 * 1024 * 1024
 const READY_TIMEOUT_MS = 5 * 60 * 1000
 const READY_POLL_MS = 5 * 1000
+/**
+ * HelmRelease bootstrap budget for a declared operator (see
+ * bootstrapOperators): Ready means the chart is installed and its CRDs are
+ * established. Mostly absorbs HelmRepository fetch latency (an OCI artifact
+ * pull or a gh-pages index fetch) plus the image pulls the operator itself
+ * needs to schedule.
+ */
+const OPERATOR_BOOTSTRAP_TIMEOUT_MS = 4 * 60 * 1000
 /**
  * healthz retry-with-reconnect: up to HEALTHZ_ATTEMPTS probes, each with a
  * fresh port-forward and its own poll window, ~30s apart. The old variant
@@ -1118,6 +1135,181 @@ async function applyResources(ns: string, resources: KubernetesResource[]): Prom
   }
 }
 
+/** Create a namespace unless it already exists (operator-system namespaces are shared). */
+async function ensureNamespace(ns: string): Promise<void> {
+  const res = await kubectl(['create', 'namespace', ns])
+  if (res.code !== 0 && !/already exists/i.test(res.stderr)) {
+    throw new Error(`kubectl create namespace ${ns} failed — ${firstLine(res.stderr)}`)
+  }
+}
+
+// --- operator bootstrap via Flux ---------------------------------------------
+
+/**
+ * Operator declarations as they actually arrive from the render: operator
+ * packages mirror the release namespace on the declaration itself
+ * (`Operator & { namespace: string }`, see @r8s/operator-paperclip) — a
+ * field the base @r8s/k8s-types interface does not carry.
+ */
+type RenderedOperator = Operator & { namespace?: string }
+
+/**
+ * The namespace an operator's prerequisites belong in: the helm/manifest
+ * source namespace when declared, else the top-level mirror on the
+ * declaration. Undefined → the caller's default (flux-system for the Flux
+ * bootstrap, the smoke namespace for the drift-guard allowlist).
+ */
+function operatorNamespace(op: RenderedOperator): string | undefined {
+  if (op.source.type === 'helm' || op.source.type === 'manifest') {
+    return op.source.namespace ?? op.namespace
+  }
+  return op.namespace
+}
+
+/**
+ * Flux objects for one helm-source operator declaration. Per the Flux-only
+ * directive the smoke never runs raw `helm install`: a declared operator
+ * becomes a HelmRepository (OCI repo → spec.type 'oci' with the oci:// URL;
+ * http(s) repo → the plain index URL) plus a HelmRelease, both in the
+ * OPERATOR's own namespace (e.g. paperclip-system) — operator namespaces
+ * are legitimate shared prerequisites, exactly like cnpg-system.
+ *
+ * KubernetesResource is the native-kinds union; the Flux CRs ride the same
+ * loose shape the render pipeline uses for Instance/Cluster CRs.
+ */
+function renderFluxBootstrap(op: RenderedOperator): KubernetesResource[] {
+  const source = op.source
+  if (source.type !== 'helm') return []
+  const ns = operatorNamespace(op) ?? 'flux-system'
+  const repositorySpec: { type?: string; url: string; interval: string } = {
+    url: source.repository,
+    interval: '5m',
+  }
+  // An `oci://` URL means a Helm OCI artifact registry, not an index —
+  // source-controller demands spec.type: 'oci' for it.
+  if (source.repository.startsWith('oci://')) repositorySpec.type = 'oci'
+  const repository = {
+    apiVersion: 'source.toolkit.fluxcd.io/v1',
+    kind: 'HelmRepository',
+    metadata: { name: op.name, namespace: ns },
+    spec: repositorySpec,
+  }
+  const release = {
+    apiVersion: 'helm.toolkit.fluxcd.io/v2',
+    kind: 'HelmRelease',
+    metadata: { name: op.name, namespace: ns },
+    spec: {
+      interval: '5m',
+      chart: {
+        spec: {
+          chart: source.chart,
+          version: source.version,
+          sourceRef: { kind: 'HelmRepository', name: op.name, namespace: ns },
+        },
+      },
+      ...(source.values ? { values: source.values } : {}),
+    },
+  }
+  return [repository, release] as unknown as KubernetesResource[]
+}
+
+/**
+ * Wait for a HelmRelease's Ready condition to flip True — flux
+ * helm-controller's signal that the chart is installed and the CRDs it
+ * ships are established. NotFound / no condition yet both mean "keep
+ * polling": the controller needs a beat to pick up a freshly applied
+ * release.
+ */
+async function pollHelmReleaseReady(ns: string, name: string): Promise<void> {
+  const deadline = Date.now() + OPERATOR_BOOTSTRAP_TIMEOUT_MS
+  let lastStatus = '<no Ready condition yet>'
+  for (;;) {
+    const res = await kubectl([
+      '-n',
+      ns,
+      'get',
+      'helmrelease',
+      name,
+      '-o',
+      'jsonpath={.status.conditions[?(@.type=="Ready")].status}',
+    ])
+    if (res.code === 0 && res.stdout.trim()) {
+      lastStatus = res.stdout.trim()
+      if (lastStatus === 'True') return
+    }
+    if (Date.now() > deadline) {
+      const raw = await kubectl([
+        '-n',
+        ns,
+        'get',
+        'helmrelease',
+        name,
+        '-o',
+        'jsonpath={.status.conditions}',
+      ])
+      throw new Error(
+        `helmrelease ${ns}/${name} not Ready within ` +
+          `${OPERATOR_BOOTSTRAP_TIMEOUT_MS / 1000}s (Ready=${lastStatus}) — ` +
+          `conditions: ${truncate(raw.stdout.trim() || firstLine(raw.stderr), 400)}`
+      )
+    }
+    await sleep(READY_POLL_MS)
+  }
+}
+
+/**
+ * Bootstrap every DECLARED operator with a helm source through Flux, before
+ * the package's own resources are applied (the Instance CR apply needs the
+ * operator's CRDs to exist). Idempotent: an operator whose CRDs are already
+ * established is skipped, so reruns and clusters that ship the operator as
+ * a shared prerequisite stay untouched. Non-helm sources (CNPG is a plain
+ * manifest install) cannot be expressed as Flux objects by this declaration
+ * shape and remain documented out-of-band prerequisites — logged, not
+ * failed, so the honest "no matches for kind" apply failure (or success on
+ * a correctly provisioned cluster) is what surfaces.
+ */
+async function bootstrapOperators(
+  packageName: string,
+  operators: RenderedOperator[]
+): Promise<void> {
+  log(`\n=== operators via flux (${packageName}) ===`)
+  if (operators.length === 0) {
+    log('no operators declared')
+    return
+  }
+  for (const op of operators) {
+    if (op.source.type !== 'helm') {
+      log(
+        `${op.name}: ${op.source.type} source — out-of-band prerequisite ` +
+          `(flux bootstrap applies only to helm sources)`
+      )
+      continue
+    }
+
+    const crds = op.crds ?? []
+    const missing: string[] = []
+    for (const crd of crds) {
+      const res = await kubectl(['get', 'crd', crd])
+      if (res.code !== 0) missing.push(crd)
+    }
+    if (crds.length > 0 && missing.length === 0) {
+      log(`${op.name}: CRDs present (${crds.join(', ')}) — skipping bootstrap`)
+      continue
+    }
+
+    const ns = operatorNamespace(op) ?? 'flux-system'
+    await ensureNamespace(ns)
+    await applyResources(ns, renderFluxBootstrap(op))
+    log(
+      `${op.name}: HelmRepository ${op.source.repository} + HelmRelease ` +
+        `(chart ${op.source.chart} ${op.source.version}) applied in ${ns} — waiting for Ready` +
+        (missing.length > 0 ? ` (missing CRDs: ${missing.join(', ')})` : '')
+    )
+    await pollHelmReleaseReady(ns, op.name)
+    log(`${op.name}: HelmRelease Ready — CRDs installed`)
+  }
+}
+
 async function teardownNamespace(ns: string): Promise<void> {
   if (process.env.R8S_SMOKE_KEEP_NAMESPACES === '1') {
     log(`(kept — R8S_SMOKE_KEEP_NAMESPACES=1) namespace ${ns} left in place`)
@@ -1376,7 +1568,12 @@ async function buildBundle(): Promise<string> {
 
 interface ChildRenderResult {
   resources: KubernetesResource[]
-  operators: Array<{ name: string }>
+  /**
+   * The full operator declarations collected by the renderer (name, source,
+   * version, crds) — not just names. The smoke bootstraps helm-source
+   * operators through Flux before applying the package (see bootstrapOperators).
+   */
+  operators: RenderedOperator[]
 }
 
 /**
@@ -1517,9 +1714,22 @@ async function smokeOne(name: string, spec: SmokeSpec): Promise<Outcome> {
     // Drift guard: PER_PACKAGE render props carry namespace literals of
     // their own; a copy-paste drift would apply resources to one namespace
     // while this script polls (and tears down) another. Namespace objects
-    // (metadata.name only) are exempt.
+    // (metadata.name only) are exempt, and a DECLARED OPERATOR's own
+    // namespace is legitimate: shared operator prerequisites live outside
+    // the smoke namespace (paperclip-system, cnpg-system) — the allowlist
+    // comes from the render's operator declarations, so anything else
+    // drifting (netbird's HelmRepository → 'flux-system', round 8) still
+    // trips the guard.
+    const operatorNamespaces = new Set(
+      operators
+        .map(operatorNamespace)
+        .filter((candidate): candidate is string => Boolean(candidate))
+    )
     const drifted = resources.filter(
-      (r) => (r as { kind?: string }).kind !== 'Namespace' && (r.metadata?.namespace ?? ns) !== ns
+      (r) =>
+        (r as { kind?: string }).kind !== 'Namespace' &&
+        (r.metadata?.namespace ?? ns) !== ns &&
+        !(r.metadata?.namespace && operatorNamespaces.has(r.metadata.namespace))
     )
     if (drifted.length > 0) {
       outcome.notes = `namespace drift — ${drifted
@@ -1527,6 +1737,10 @@ async function smokeOne(name: string, spec: SmokeSpec): Promise<Outcome> {
         .join(', ')} (expected ${ns})`
       return outcome
     }
+
+    // Declared operators with a helm source bootstrap via Flux (never raw
+    // helm install) before the package resources reference their CRDs.
+    await bootstrapOperators(name, operators)
 
     await preCreateSecrets(ns, spec.secrets)
     await applyResources(ns, resources)
