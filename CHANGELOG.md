@@ -2,13 +2,13 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
-## Unreleased
+## 0.3.5
 
 ### Added
 
-- **Secret-triggered rollouts — workloads restart when OpenBao/Vault secrets rotate.** Stakater Reloader joins the operator registry (`@r8s/operator-reloader`, chart `reloader` 2.2.17 from stakater-charts, namespace `reloader`, no CRDs). `SecretProvider` declares it alongside the Vault Secrets Operator for the rotation-capable backends (`openbao` | `vault`) — VSO re-syncs Secrets in place, so a consumer only picks up rotated values when its pods restart, and Reloader performs exactly that restart. Under those backends, App/WebService render `reloader.stakater.com/auto: "true"` on every Deployment pod template (covers explicit `secrets`, `vault` refs, and backend-provisioned credentials wired via DatabaseContext — e.g. the auto-wired `DATABASE_URL`). The annotation is inert without Reloader installed. CNPG clusters are deliberately excluded — the operator manages its own credential rollouts.
+- **Secret-triggered rollouts — workloads restart when OpenBao/Vault secrets rotate (#155).** Stakater Reloader joins the operator registry (`@r8s/operator-reloader`, chart `reloader` 2.2.17 from stakater-charts, namespace `reloader`, no CRDs). `SecretProvider` declares it alongside the Vault Secrets Operator for the rotation-capable backends (`openbao` | `vault`) — VSO re-syncs Secrets in place, so a consumer only picks up rotated values when their pods restart, and Reloader performs exactly that restart. Under those backends, App/WebService render `reloader.stakater.com/auto: "true"` on every Deployment pod template (covers explicit `secrets`, `vault` refs, and backend-provisioned credentials wired via DatabaseContext — e.g. the auto-wired `DATABASE_URL`). The annotation is inert without Reloader installed. CNPG clusters are deliberately excluded — the operator manages its own credential rollouts.
 
-### Migration note
+### Migration note (0.3.4 → 0.3.5)
 
 The first apply after re-rendering triggers a one-time rollout for two workload groups: every App/WebService under an `openbao`/`vault` backend, and standalone WebServices using `vault` refs without a Platform (those imply the Vault Secrets Operator and are annotated too). Both gain the new `reloader.stakater.com/auto: "true"` pod-template annotation, so the next `kubectl apply` / Flux reconcile rolls them — once, even without Reloader installed and without an actual rotation. CLIs don't restart: only workloads whose re-rendered spec changes. The rollout is safe and idempotent (it also picks up any Secret values that changed on disk since the pods started), and nothing else in the rendered output changes — no data or configuration migration is involved.
 
