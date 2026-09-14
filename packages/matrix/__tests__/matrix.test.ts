@@ -346,6 +346,10 @@ describe('Matrix — resource rendering', () => {
     expect(yaml).toContain('name: compat')
     expect(yaml).not.toContain('oauthapi')
     expect(yaml).not.toContain('compatapi')
+    // Round 8 dogfood: the probes hit GET /health on 8080, but MAS 1.24.0
+    // only serves /health on a listener carrying the `health` resource —
+    // pods served fine yet crash-looped on probe 404 → SIGTERM.
+    expect(yaml).toContain('name: health')
   })
 
   it('emits MAS 1.24.0 listener binds (top-level host/port no longer parse)', () => {

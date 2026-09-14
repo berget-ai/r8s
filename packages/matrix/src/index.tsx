@@ -436,6 +436,12 @@ function buildMasConfig(
             { name: 'oauth' },
             { name: 'compat' },
             { name: 'graphql' },
+            // Round 8 dogfood: MAS 1.24.0 only serves GET /health on a
+            // listener carrying the `health` resource — without it the pod
+            // starts fine ("Listening on ... with resources [Discovery,
+            // OAuth, Compat, GraphQL]") but every kubelet probe 404s →
+            // SIGTERM crash loop despite a fully working service.
+            { name: 'health' },
           ],
           // MAS 1.24.0 requires per-listener socket binds — the pre-1.24
           // top-level port/host fields no longer parse ("missing field
