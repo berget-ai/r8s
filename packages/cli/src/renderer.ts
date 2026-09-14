@@ -115,10 +115,13 @@ export async function bundleAndRender(entryFile: string) {
 /**
  * Enforce the no-plaintext-secrets guardrail on rendered resources.
  * Runs by default so plaintext credentials can never reach rendered YAML,
- * CI logs, or cluster state. Passing `skipSecretGuardrails` bypasses it —
+ * files, or logs. Passing `skipSecretGuardrails` bypasses it —
  * every caller must make that an explicit, user-visible decision.
+ *
+ * Exported so other render paths (`r8s flux`) enforce the same guardrail
+ * over their own manifests before anything is serialized.
  */
-function enforceSecretGuardrails(
+export function enforceSecretGuardrails(
   resources: ReturnType<typeof render>['resources'],
   options: RenderOptions
 ): void {
