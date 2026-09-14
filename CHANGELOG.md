@@ -2,6 +2,12 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## Unreleased
+
+### Added
+
+- **Secret-triggered rollouts — workloads restart when OpenBao/Vault secrets rotate.** Stakater Reloader joins the operator registry (`@r8s/operator-reloader`, chart `reloader` 2.2.17 from stakater-charts, namespace `reloader`, no CRDs). `SecretProvider` declares it alongside the Vault Secrets Operator for the rotation-capable backends (`openbao` | `vault`) — VSO re-syncs Secrets in place, so a consumer only picks up rotated values when its pods restart, and Reloader performs exactly that restart. Under those backends, App/WebService render `reloader.stakater.com/auto: "true"` on every Deployment pod template (covers explicit `secrets`, `vault` refs, and backend-provisioned credentials wired via DatabaseContext — e.g. the auto-wired `DATABASE_URL`). The annotation is inert without Reloader installed. CNPG clusters are deliberately excluded — the operator manages its own credential rollouts.
+
 ## 0.3.4
 
 ### Added

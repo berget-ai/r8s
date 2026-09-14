@@ -87,6 +87,14 @@ export const operators: Record<string, (version?: string) => Operator> = {
     namespace: "kube-system",
     crds: ["redisclusters.redis.redis.opstreelabs.in","redisreplications.redis.redis.opstreelabs.in","redisfailovers.databases.spotahome.com"],
   }),
+  "reloader": (version = "2.2.17") => ({
+    name: "reloader",
+    description: "Stakater Reloader — rolls workloads when their Secrets or ConfigMaps change",
+    source: { type: 'helm', chart: "reloader", repository: "https://stakater.github.io/stakater-charts/", version, namespace: "reloader" },
+    version,
+    namespace: "reloader",
+    crds: [],
+  }),
   "vault-secrets-operator": (version = "0.5.0") => ({
     name: "vault-secrets-operator",
     description: "HashiCorp Vault Secrets Operator",
@@ -202,6 +210,13 @@ export const operatorMetadata: OperatorMeta[] = [
     category: "Data & Analytics",
     version: "0.22.0",
     crds: ["redisclusters.redis.redis.opstreelabs.in","redisreplications.redis.redis.opstreelabs.in","redisfailovers.databases.spotahome.com"],
+  },
+  {
+    name: "reloader",
+    description: "Stakater Reloader — rolls workloads when their Secrets or ConfigMaps change",
+    category: "Security & Identity",
+    version: "2.2.17",
+    crds: [],
   },
   {
     name: "vault-secrets-operator",

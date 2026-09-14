@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, jsx, Fragment } from '@r8s/core'
+import { OperatorContext } from '@r8s/core/defaults'
 import {
   SecretProvider,
   OpenBao,
@@ -94,6 +95,45 @@ describe('Provider Hierarchy', () => {
       })
 
       expect(() => render(element)).toThrow(/received a plaintext password/)
+    })
+
+    it('declares Reloader alongside VSO for the rotation-capable backends only', () => {
+      const rotating = (provider: any) =>
+        render(jsx(SecretProvider, { provider, children: null })).operators.some(
+          (op) => op.name === 'reloader'
+        )
+
+      expect(rotating('openbao')).toBe(true)
+      expect(rotating('vault')).toBe(true)
+      expect(rotating('sealed-secrets')).toBe(false)
+      expect(rotating('kubernetes')).toBe(false)
+      expect(rotating('manual-secrets')).toBe(false)
+    })
+
+    it('Reloader is deduplicated when the Platform already declares it', () => {
+      const preinstalled = [
+        {
+          name: 'reloader',
+          description: 'pre-installed',
+          source: {
+            type: 'helm' as const,
+            chart: 'reloader',
+            repository: 'https://stakater.github.io/stakater-charts/',
+            version: '2.2.17',
+          },
+          version: '2.2.17',
+          namespace: 'reloader',
+          crds: [],
+        },
+      ]
+      const result = render(
+        jsx(OperatorContext.Provider, {
+          value: preinstalled,
+          children: jsx(SecretProvider, { provider: 'openbao', children: null }),
+        })
+      )
+
+      expect(result.operators.filter((op) => op.name === 'reloader')).toHaveLength(1)
     })
   })
 
@@ -347,6 +387,79 @@ describe('Provider Hierarchy', () => {
       expect(result.operators.some((op) => op.name === 'vault-secrets-operator')).toBe(true)
       expect(result.operators.some((op) => op.name === 'external-dns')).toBe(true)
       expect(result.resources.some((r) => r.kind === 'Ingress')).toBe(true)
+    })
+  })
+})
+
+describe('Reloader secret-rotation rollouts', () => {
+  const deployments = (element: any) =>
+    render(element).resources.filter((r) => r.kind === 'Deployment') as any[]
+
+  it('App under an OpenBao Platform carries the Reloader annotation on its Deployment', () => {
+    const element = jsx(Platform, {
+      namespace: 'production',
+      secrets: { backend: 'openbao', mount: 'secret', path: 'infra' },
+      children: jsx(App, { name: 'api', image: 'myapp/api:v1' }),
+    })
+
+    for (const d of deployments(element)) {
+      expect(d.spec.template.metadata.annotations).toEqual({
+        'reloader.stakater.com/auto': 'true',
+      })
+    }
+  })
+
+  it('the App Deployment facing backend-provisioned credentials is annotated', () => {
+    // App under a Database consumes the backend-provisioned
+    // `<name>-db-credentials` Secret via DatabaseContext — no explicit
+    // `secrets`/`vault` props — mirroring the directive's core scenario.
+    const element = jsx(Platform, {
+      namespace: 'production',
+      secrets: 'openbao',
+      children: jsx(Fragment, {
+        children: [
+          jsx(Database, { backup: false, name: 'api-db' }),
+          jsx(App, { name: 'api', image: 'myapp/api:v1' }),
+        ],
+      }),
+    })
+
+    const app = deployments(element).find((d) => d.metadata.name === 'api')
+    expect(app?.spec.template.metadata.annotations).toEqual({
+      'reloader.stakater.com/auto': 'true',
+    })
+    // The CNPG Cluster itself is NOT opting into Reloader — the operator
+    // manages its own credential rollouts.
+    const cluster = render(element).resources.find((r) => r.kind === 'Cluster') as any
+    expect(cluster.spec.template).toBeUndefined()
+  })
+
+  it('no annotation without a rotation-capable backend', () => {
+    const element = jsx(App, { name: 'api', image: 'myapp/api:v1' })
+    for (const d of deployments(element)) {
+      expect(d.spec.template.metadata.annotations).toBeUndefined()
+    }
+
+    const manual = jsx(Platform, {
+      namespace: 'production',
+      secrets: 'manual-secrets',
+      children: jsx(App, { name: 'api', image: 'myapp/api:v1' }),
+    })
+    for (const d of deployments(manual)) {
+      expect(d.spec.template.metadata.annotations).toBeUndefined()
+    }
+  })
+
+  it('standalone App with vault refs implies VSO and is annotated', () => {
+    const element = jsx(App, {
+      name: 'api',
+      image: 'myapp/api:v1',
+      vault: { DATABASE_URL: { mount: 'kv', path: 'db/credentials' } },
+    })
+
+    const app = deployments(element).find((d) => d.metadata.name === 'api')
+    expect(app?.spec.template.metadata.annotations).toEqual({
+      'reloader.stakater.com/auto': 'true',
     })
   })
 })

@@ -55,6 +55,12 @@ export interface AppProps {
  * The simplest way to deploy an app to Kubernetes — Deployment, Service,
  * and routing (Ingress or Gateway) with TLS.
  *
+ * Secret rotation: under a rotation-capable secrets backend (OpenBao or
+ * Vault), the rendered Deployment carries `reloader.stakater.com/auto:
+ * "true"` on its pod template so Stakater Reloader rolls the pods when the
+ * backend re-syncs a Secret it consumes (see WebService for the exact
+ * condition). The annotation is inert without Reloader installed.
+ *
  * @example
  * import { App } from '@r8s/recipes'
  *
