@@ -531,7 +531,15 @@ export function Netbird(props: NetbirdProps) {
           Scope: 'openid profile email offline_access api',
           UseIDToken: false,
           DisablePromptLogin: true,
-          LoginFlag: false,
+          // netbird ≥ 0.44 models LoginFlag as common.LoginFlag (uint8 enum:
+          // 0 = LoginFlagPrompt, 1 = LoginFlagMaxAge0; no custom
+          // UnmarshalJSON) — management 0.46.0 rejects a raw bool at
+          // config parse ("cannot unmarshal bool into Go struct field
+          // ... LoginFlag of type common.LoginFlag"). 0 (LoginFlagPrompt)
+          // is the Go zero value and behavior-neutral behind
+          // DisablePromptLogin: only consumed in client/internal/auth/
+          // pkce_flow.go when DisablePromptLogin is false.
+          LoginFlag: 0,
           RedirectURLs: ['http://localhost:53000'],
         },
       },
