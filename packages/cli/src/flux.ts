@@ -212,7 +212,17 @@ function fluxKustomizationDocs(
       ...shared,
       path: `stacks/${name}/stack`,
       timeout: STACK_TIMEOUT,
-      dependsOn: [{ name: dependsOnName }],
+      // The shared operators Kustomization is emitted by a separate r8s
+      // flux run — make the namespace explicit so the reference is
+      // self-describing (Flux resolves dependsOn in the referencing CR's
+      // namespace by default; emit the shared layer and the package stacks
+      // with the same --source-namespace). The default mode's pair is
+      // always co-located from one run, so it keeps the bare name.
+      dependsOn: [
+        mode === 'shared-operators'
+          ? { name: dependsOnName, namespace: sourceNamespace }
+          : { name: dependsOnName },
+      ],
       ...(healthChecks.length > 0 ? { healthChecks } : {}),
     },
   }
@@ -330,6 +340,15 @@ export async function writeFluxRecipe(
     }
   }
 
+  // Symmetric signal to the skipped-operators warning above: passing a
+  // real package entry (with resources) instead of the synthetic
+  // operators-only entry would silently lose those resources.
+  if (mode === 'operators-only' && renderResult.resources.length > 0) {
+    console.error(
+      `⚠️  ${renderResult.resources.length} resources rendered are dropped in --operators-only mode (it emits only the shared operators layer — stack resources belong to a package stack, r8s flux <entry> --shared-operators ${name}-operators).`
+    )
+  }
+
   const fetchedManifests =
     emitOperatorsLayer &&
     renderResult.operators.some((op) => op.source.type === 'manifest') === true
@@ -375,62 +394,43 @@ export async function writeFluxRecipe(
     files.push(relPath)
   }
 
-  if (mode === 'operators-only') {
+  if (emitOperatorsLayer) {
     write(
       `stacks/${name}/operators/kustomization.yaml`,
       dumpDocs([layerKustomization(operatorYaml.length > 0)])
     )
     write(`stacks/${name}/operators/manifests.yaml`, operatorYaml)
-    write(`clusters/${cluster}/stacks/${name}.yaml`, dumpDocs(kustomizationDocs))
-  } else if (mode === 'shared-operators') {
-    write(
-      `stacks/${name}/stack/kustomization.yaml`,
-      dumpDocs([layerKustomization(renderResult.resources.length > 0)])
-    )
-    write(`stacks/${name}/stack/manifests.yaml`, dumpDocs(redact(renderResult.resources)))
-    write(`clusters/${cluster}/stacks/${name}.yaml`, dumpDocs(kustomizationDocs))
-  } else {
-    write(
-      `stacks/${name}/operators/kustomization.yaml`,
-      dumpDocs([layerKustomization(operatorYaml.length > 0)])
-    )
-    write(`stacks/${name}/operators/manifests.yaml`, operatorYaml)
-    write(
-      `stacks/${name}/stack/kustomization.yaml`,
-      dumpDocs([layerKustomization(renderResult.resources.length > 0)])
-    )
-    write(`stacks/${name}/stack/manifests.yaml`, dumpDocs(redact(renderResult.resources)))
-    write(`clusters/${cluster}/stacks/${name}.yaml`, dumpDocs(kustomizationDocs))
   }
+  if (emitStackLayer) {
+    write(
+      `stacks/${name}/stack/kustomization.yaml`,
+      dumpDocs([layerKustomization(renderResult.resources.length > 0)])
+    )
+    write(`stacks/${name}/stack/manifests.yaml`, dumpDocs(redact(renderResult.resources)))
+  }
+  write(`clusters/${cluster}/stacks/${name}.yaml`, dumpDocs(kustomizationDocs))
 
   const repoName = options.source ?? 'flux-system'
+  const recipeLabel =
+    mode === 'operators-only'
+      ? 'r8s flux shared operators recipe'
+      : mode === 'shared-operators'
+        ? 'r8s flux package stack recipe'
+        : 'r8s flux recipe'
+  console.log(`\n${recipeLabel}: ${name} (cluster: ${cluster})`)
+  for (const relPath of files) console.log(`  ${relPath}`)
+  console.log(
+    `\nApply to a fresh cluster (Flux bootstrapped, GitRepository "${repoName}" in ${sourceNamespace}):`
+  )
+  console.log(`  kubectl apply -f clusters/${cluster}/stacks/${name}.yaml`)
   if (mode === 'operators-only') {
-    console.log(`\nr8s flux shared operators recipe: ${name} (cluster: ${cluster})`)
-    for (const relPath of files) console.log(`  ${relPath}`)
-    console.log(
-      `\nApply to a fresh cluster (Flux bootstrapped, GitRepository "${repoName}" in ${sourceNamespace}):`
-    )
-    console.log(`  kubectl apply -f clusters/${cluster}/stacks/${name}.yaml`)
     console.log(
       `\nPackage stacks point at this layer with: r8s flux <entry.tsx> --out <dir> --shared-operators ${name}-operators`
     )
   } else if (mode === 'shared-operators') {
-    console.log(`\nr8s flux package stack recipe: ${name} (cluster: ${cluster})`)
-    for (const relPath of files) console.log(`  ${relPath}`)
-    console.log(
-      `\nApply to a fresh cluster (Flux bootstrapped, GitRepository "${repoName}" in ${sourceNamespace}):`
-    )
-    console.log(`  kubectl apply -f clusters/${cluster}/stacks/${name}.yaml`)
     console.log(
       `The stack reconciles only once the "${options.sharedOperators}" Kustomization is Ready (dependsOn + wait).`
     )
-  } else {
-    console.log(`\nr8s flux recipe: ${name} (cluster: ${cluster})`)
-    for (const relPath of files) console.log(`  ${relPath}`)
-    console.log(
-      `\nApply to a fresh cluster (Flux bootstrapped, GitRepository "${repoName}" in ${sourceNamespace}):`
-    )
-    console.log(`  kubectl apply -f clusters/${cluster}/stacks/${name}.yaml`)
   }
 
   return { name, cluster, files }

@@ -202,7 +202,7 @@ npx r8s flux cnpg.tsx --out . --name cnpg --shared-operators catalog-operators
 npx r8s flux redis.tsx --out . --name redis --shared-operators catalog-operators
 ```
 
-`--operators-only` emits `stacks/catalog/operators/` plus a single `catalog-operators` Kustomization CR; `--shared-operators` emits just `stacks/<name>/stack/` plus a single stack CR whose `dependsOn` references it. Flux reconciles the operators once, and every package stack only after the shared layer is Ready. Without either flag, `r8s flux` emits the full per-stack pair as before.
+`--operators-only` emits `stacks/catalog/operators/` plus a single `catalog-operators` Kustomization CR; `--shared-operators` emits just `stacks/<name>/stack/` plus a single stack CR whose `dependsOn` references it (name + namespace made explicit). Emit the shared layer and the package stacks with the **same `--source-namespace`** (default `flux-system`) — Flux resolves `dependsOn` among Kustomizations in that namespace. Flux reconciles the operators once, and every package stack only after the shared layer is Ready. Without either flag, `r8s flux` emits the full per-stack pair as before.
 
 ## Comparison
 

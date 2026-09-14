@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'fs'
 import { join, resolve } from 'path'
 import * as YAML from 'js-yaml'
@@ -86,6 +86,7 @@ describe('r8s flux — two-Kustomization stack recipe', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true })
     }
@@ -307,6 +308,9 @@ export default function Stack() {
     const entryFile = join(testDir, 'cnpg-stack.tsx')
     writeFileSync(entryFile, paperclipEntry, 'utf-8')
     const outDir = join(testDir, 'flux-out')
+    // The paperclip entry declares an operator — shared-operators mode
+    // must warn and skip it (the shared layer owns operator installation).
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const result = await writeFluxRecipe(entryFile, {
       out: outDir,
@@ -315,6 +319,10 @@ export default function Stack() {
       source: 'my-repo',
       sourceNamespace: 'gitops',
     })
+
+    expect(errorSpy.mock.calls.join('\n')).toMatch(
+      /--shared-operators "catalog-operators".*paperclip-operator.*skipped/s
+    )
 
     // Only the stack layer + one CR — no operators dir. The CR lives in
     // the 'default' cluster dir (--cluster is separate from --source-namespace).
@@ -338,7 +346,9 @@ export default function Stack() {
     expect(stackCr.metadata).toEqual({ name: 'cnpg-stack', namespace: 'gitops' })
     expect(stackCr.spec.path).toBe('stacks/cnpg/stack')
     expect(stackCr.spec.timeout).toBe('12m')
-    expect(stackCr.spec.dependsOn).toEqual([{ name: 'catalog-operators' }])
+    // dependsOn names the shared Kustomization explicitly, namespace
+    // included — both runs must share the same --source-namespace.
+    expect(stackCr.spec.dependsOn).toEqual([{ name: 'catalog-operators', namespace: 'gitops' }])
     expect(stackCr.spec.sourceRef).toEqual({
       kind: 'GitRepository',
       name: 'my-repo',
@@ -347,6 +357,38 @@ export default function Stack() {
     expect(stackCr.spec.healthChecks).toEqual([
       { apiVersion: 'apps/v1', kind: 'Deployment', name: 'paperclip-api', namespace: 'paperclip' },
     ])
+  })
+
+  it('warns that --operators-only drops rendered resources', async () => {
+    const entryFile = join(testDir, 'paperclip-stack.tsx')
+    writeFileSync(entryFile, paperclipEntry, 'utf-8')
+    const outDir = join(testDir, 'flux-out')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await writeFluxRecipe(entryFile, {
+      out: outDir,
+      name: 'catalog',
+      operatorsOnly: true,
+    })
+
+    expect(errorSpy.mock.calls.join('\n')).toMatch(/dropped in --operators-only mode/)
+
+    // The resources are dropped, but the operators layer is intact.
+    expect(existsSync(join(outDir, 'stacks/catalog/stack'))).toBe(false)
+    const operators = loadAll(join(outDir, 'stacks/catalog/operators/manifests.yaml'))
+    expect(operators).toHaveLength(2)
+  })
+
+  it('rejects a --shared-operators name that is not a DNS label', async () => {
+    const entryFile = join(testDir, 'paperclip-stack.tsx')
+    writeFileSync(entryFile, paperclipEntry, 'utf-8')
+
+    await expect(
+      writeFluxRecipe(entryFile, {
+        out: join(testDir, 'flux-out'),
+        sharedOperators: 'catalog_operators',
+      })
+    ).rejects.toThrow(/Invalid --shared-operators name "catalog_operators"/)
   })
 
   it('rejects combining --operators-only with --shared-operators', async () => {
