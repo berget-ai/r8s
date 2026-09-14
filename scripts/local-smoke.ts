@@ -293,8 +293,14 @@ export interface SmokeSpec {
   render: (jsx: typeof import('@r8s/core').jsx) => unknown
   /** Pre-created Opaque Secrets (the forgejo `credentialsSecretName` pattern) */
   secrets: SecretSpec[]
-  /** Workload polled for readiness (5 min budget, or readyTimeoutMs) */
-  ready: ReadySpec
+  /**
+   * Workload(s) polled for readiness (5 min budget, or readyTimeoutMs).
+   * A single target, or an array where EVERY target must be Ready —
+   * e.g. the matrix entry gates on the synapse AND mas Deployments
+   * (rounds 5–7 stamped PASS while MAS crash-looped behind a
+   * synapse-only gate).
+   */
+  ready: ReadySpec | ReadySpec[]
   /** Optional HTTP health probe through a port-forward; null → N/A */
   healthz: HealthzSpec | null
   /**
@@ -950,12 +956,17 @@ export const PER_PACKAGE: Record<string, SmokeSpec> = {
         },
       },
     ],
-    // Synapse Deployment is named `${name}-synapse` (single replica,
-    // Recreate) — its own probes are httpGet /health on container port 8008,
-    // the same path through a port-forward here. DB credentials are
+    // Ready gate: BOTH stateless app Deployments, `${name}-synapse` AND
+    // `${name}-mas` — rounds 5-7 stamped PASS while MAS crash-looped
+    // because the gate watched only synapse. Synapse's own probes are
+    // httpGet /health on container port 8008, the same path through a
+    // port-forward here (healthz below). DB credentials are
     // CNPG-generated (`matrix-synapse-db-app` / `matrix-mas-db-app`) —
     // nothing to pre-create; requires the CNPG operator in the cluster.
-    ready: { kind: 'Deployment', name: 'matrix-synapse' },
+    ready: [
+      { kind: 'Deployment', name: 'matrix-synapse' },
+      { kind: 'Deployment', name: 'matrix-mas' },
+    ],
     healthz: { port: 8008, path: '/health' },
     // four fresh image pulls (synapse/mas/web/admin) gated behind two CNPG
     // bootstraps — the default 5-min budget is tight on a cold node.
@@ -1482,6 +1493,9 @@ async function smokeOne(name: string, spec: SmokeSpec): Promise<Outcome> {
   const ns = spec.namespace
   const outcome: Outcome = { status: 'fail', rendered: '-', ready: '-', healthz: '-', notes: '' }
   const started = Date.now()
+  // Normalize the single-target shape to a one-element list; EVERY target
+  // must be Ready before the healthz probe runs.
+  const readyTargets = Array.isArray(spec.ready) ? spec.ready : [spec.ready]
   try {
     await resetNamespace(ns)
     await createNamespace(ns)
@@ -1513,16 +1527,24 @@ async function smokeOne(name: string, spec: SmokeSpec): Promise<Outcome> {
     await preCreateSecrets(ns, spec.secrets)
     await applyResources(ns, resources)
 
-    const readiness = await pollReadiness(ns, spec.ready, spec.readyTimeoutMs)
-    if (!readiness.ok) {
+    // Poll all ready targets concurrently — the shared readiness budget is
+    // max(targets), not their sum, and every target must report full
+    // replicas before the healthz probe runs.
+    const readiness = await Promise.all(
+      readyTargets.map((target) => pollReadiness(ns, target, spec.readyTimeoutMs))
+    )
+    const failed = readiness.find((r): r is { ok: false; detail: string } => !r.ok)
+    if (failed) {
       outcome.ready = 'timeout'
-      outcome.notes = truncate(readiness.detail, 300)
+      outcome.notes = truncate(failed.detail, 300)
       return outcome
     }
     outcome.ready = 'ok'
 
     if (spec.healthz) {
-      const health = await probeHealthz(ns, spec.ready.name, spec.healthz)
+      // The healthz pod selector follows the PRIMARY (first) ready target —
+      // the app the healthz spec was written against (matrix: synapse).
+      const health = await probeHealthz(ns, readyTargets[0].name, spec.healthz)
       if (health.ok) {
         outcome.healthz = '2xx'
       } else {

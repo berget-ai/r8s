@@ -77,3 +77,25 @@ scripts/local-smoke.ts:generic-api-key:945
 # `<name>-mas-secrets` Secret, rendered into MAS 1.24.0's required matrix
 # section by the render-config init container; same fake 64-hex smoke dummy)
 scripts/local-smoke.ts:generic-api-key:949
+
+# false positive: packages/matrix/src/index.tsx MAS_UPSTREAM_OAUTH2_PROVIDER_ID —
+# the fixed constant ULID `01JGFZ3R8M0Q4TSDSVWX7E2K9Y` (Crockford base32,
+# '01JGFZ3R…', decodes to a 2025-01-01 timestamp). It is a deterministic
+# public identifier MAS keys the upstream provider by in its database —
+# deliberately constant to survive re-renders; not a credential. The value's
+# length + charset trips gitleaks' generic-api-key (entropy 4.5) (dummy, not
+# real; #147)
+aca2eaaab469b7aae8be920f213c47347bbf1fac:packages/matrix/src/index.tsx:generic-api-key:50
+# (working-tree / --no-git fingerprint)
+packages/matrix/src/index.tsx:generic-api-key:50
+
+# (moved 473/474 → 479/480, 879 → 885, 945 → 951, 949 → 955: aca2eaa's
+# multi-target smoke-gate edit — dept/pool fields in the SmokeSpec smoke-juju
+# contract block — inserted 6 lines above the outline entry, shifting the
+# outline, eurooffice and both matrix dummies down; same smoke dummies,
+# position only)
+scripts/local-smoke.ts:generic-api-key:479
+scripts/local-smoke.ts:generic-api-key:480
+scripts/local-smoke.ts:generic-api-key:885
+scripts/local-smoke.ts:generic-api-key:951
+scripts/local-smoke.ts:generic-api-key:955

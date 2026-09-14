@@ -176,6 +176,17 @@ describe('Matrix — resource rendering', () => {
     })
     const ssoTpl = find(sso, 'ConfigMap', 'matrix-mas-config') as any
     expect(ssoTpl.data['config.yaml.tpl']).toContain('client_secret: __MAS_OIDC_CLIENT_SECRET__')
+
+    // Round 7: MAS 1.24.0 requires upstream_oauth2.providers[].id to be a
+    // valid ULID — 26 chars, Crockford base32 (no I/L/O/U); the old
+    // `id: 'sso'` died pre-run with `invalid length for key
+    // "default.providers.0.id.upstream_oauth2"`. The package renders a
+    // deterministic constant (MAS keys the provider by this id in its DB).
+    const ssoYaml = ssoTpl.data['config.yaml.tpl'] as string
+    // 26 chars, Crockford base32 (no I/L/O/U)
+    const providerId = (ssoYaml.match(/\bid: ([0-9A-HJKMNP-TV-Z]{26})\n/) ?? [])[1]
+    expect(providerId).toBe('01JGFZ3R8M0Q4TSDSVWX7E2K9Y')
+    expect(ssoYaml).not.toContain('id: sso')
   })
 
   it('renders the render-config init container + SYNAPSE_CONFIG_PATH pointing at the rendered config', () => {
