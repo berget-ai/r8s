@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'fs'
 import { join, resolve } from 'path'
 import * as YAML from 'js-yaml'
@@ -48,6 +48,33 @@ export default function PaperclipStack() {
 }
 `
 
+/**
+ * Fixture entry for the shared operators layer: a synthetic entry that
+ * declares one helm operator and no stack resources — exactly what the
+ * full-catalog pattern emits once for every package stack to reuse.
+ */
+const sharedOperatorsEntry = `
+import { jsx, Fragment, declareOperator } from '@r8s/core';
+
+export default function SharedOperators() {
+  return jsx(Fragment, {
+    children: [
+      declareOperator({
+        name: 'shared-op',
+        source: {
+          type: 'helm',
+          chart: 'shared-op',
+          repository: 'oci://ghcr.io/example/charts',
+          version: '1.0.0',
+          namespace: 'shared-system',
+        },
+        version: '1.0.0',
+      }),
+    ],
+  });
+}
+`
+
 const loadAll = (file: string) => YAML.loadAll(readFileSync(file, 'utf-8')) as any[]
 
 describe('r8s flux — two-Kustomization stack recipe', () => {
@@ -59,6 +86,7 @@ describe('r8s flux — two-Kustomization stack recipe', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true })
     }
@@ -225,6 +253,155 @@ export default function Stack() {
     // The operators Kustomization waits but carries no healthChecks list
     expect(operators.spec.dependsOn).toBeUndefined()
     expect(operators.spec.healthChecks).toBeUndefined()
+  })
+
+  it('operators-only emits only the shared operators layer and a single CR without dependsOn', async () => {
+    const entryFile = join(testDir, 'shared-operators.tsx')
+    writeFileSync(entryFile, sharedOperatorsEntry, 'utf-8')
+    const outDir = join(testDir, 'flux-out')
+
+    const result = await writeFluxRecipe(entryFile, {
+      out: outDir,
+      name: 'catalog',
+      operatorsOnly: true,
+    })
+
+    // Only the operators layer + one CR — no stack dir.
+    expect(result.files).toEqual([
+      'stacks/catalog/operators/kustomization.yaml',
+      'stacks/catalog/operators/manifests.yaml',
+      'clusters/default/stacks/catalog.yaml',
+    ])
+    expect(existsSync(join(outDir, 'stacks/catalog/stack'))).toBe(false)
+
+    const operatorsK = loadAll(join(outDir, 'stacks/catalog/operators/kustomization.yaml'))[0]
+    expect(operatorsK).toEqual({
+      apiVersion: 'kustomize.config.k8s.io/v1beta1',
+      kind: 'Kustomization',
+      resources: ['manifests.yaml'],
+    })
+    const operators = loadAll(join(outDir, 'stacks/catalog/operators/manifests.yaml'))
+    expect(operators.map((d) => d.kind)).toEqual(['HelmRepository', 'HelmRelease'])
+    expect(operators.find((d) => d.kind === 'HelmRepository')?.spec.type).toBe('oci')
+
+    // The single CR is the operators Kustomization — the name package
+    // stacks reference with --shared-operators.
+    const docs = loadAll(join(outDir, 'clusters/default/stacks/catalog.yaml'))
+    expect(docs).toHaveLength(1)
+    const [operatorsCr] = docs
+    expect(operatorsCr.metadata).toEqual({ name: 'catalog-operators', namespace: 'flux-system' })
+    expect(operatorsCr.spec.path).toBe('stacks/catalog/operators')
+    expect(operatorsCr.spec.interval).toBe('5m')
+    expect(operatorsCr.spec.prune).toBe(true)
+    expect(operatorsCr.spec.wait).toBe(true)
+    expect(operatorsCr.spec.timeout).toBe('8m')
+    expect(operatorsCr.spec.sourceRef).toEqual({
+      kind: 'GitRepository',
+      name: 'flux-system',
+      namespace: 'flux-system',
+    })
+    expect(operatorsCr.spec.dependsOn).toBeUndefined()
+    expect(operatorsCr.spec.healthChecks).toBeUndefined()
+  })
+
+  it('shared-operators emits only the stack layer, depending on the shared Kustomization', async () => {
+    const entryFile = join(testDir, 'cnpg-stack.tsx')
+    writeFileSync(entryFile, paperclipEntry, 'utf-8')
+    const outDir = join(testDir, 'flux-out')
+    // The paperclip entry declares an operator — shared-operators mode
+    // must warn and skip it (the shared layer owns operator installation).
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await writeFluxRecipe(entryFile, {
+      out: outDir,
+      name: 'cnpg',
+      sharedOperators: 'catalog-operators',
+      source: 'my-repo',
+      sourceNamespace: 'gitops',
+    })
+
+    expect(errorSpy.mock.calls.join('\n')).toMatch(
+      /--shared-operators "catalog-operators".*paperclip-operator.*skipped/s
+    )
+
+    // Only the stack layer + one CR — no operators dir. The CR lives in
+    // the 'default' cluster dir (--cluster is separate from --source-namespace).
+    expect(result.files).toEqual([
+      'stacks/cnpg/stack/kustomization.yaml',
+      'stacks/cnpg/stack/manifests.yaml',
+      'clusters/default/stacks/cnpg.yaml',
+    ])
+    expect(existsSync(join(outDir, 'stacks/cnpg/operators'))).toBe(false)
+
+    const stackK = loadAll(join(outDir, 'stacks/cnpg/stack/kustomization.yaml'))[0]
+    expect(stackK.resources).toEqual(['manifests.yaml'])
+    const stackDocs = loadAll(join(outDir, 'stacks/cnpg/stack/manifests.yaml'))
+    expect(stackDocs.map((d) => d.kind)).toEqual(expect.arrayContaining(['Deployment', 'Service']))
+
+    // The single CR points at the shared operators Kustomization instead
+    // of the per-stack <cnpg>-operators one, and keeps the healthChecks.
+    const docs = loadAll(join(outDir, 'clusters/default/stacks/cnpg.yaml'))
+    expect(docs).toHaveLength(1)
+    const [stackCr] = docs
+    expect(stackCr.metadata).toEqual({ name: 'cnpg-stack', namespace: 'gitops' })
+    expect(stackCr.spec.path).toBe('stacks/cnpg/stack')
+    expect(stackCr.spec.timeout).toBe('12m')
+    // dependsOn names the shared Kustomization explicitly, namespace
+    // included — both runs must share the same --source-namespace.
+    expect(stackCr.spec.dependsOn).toEqual([{ name: 'catalog-operators', namespace: 'gitops' }])
+    expect(stackCr.spec.sourceRef).toEqual({
+      kind: 'GitRepository',
+      name: 'my-repo',
+      namespace: 'gitops',
+    })
+    expect(stackCr.spec.healthChecks).toEqual([
+      { apiVersion: 'apps/v1', kind: 'Deployment', name: 'paperclip-api', namespace: 'paperclip' },
+    ])
+  })
+
+  it('warns that --operators-only drops rendered resources', async () => {
+    const entryFile = join(testDir, 'paperclip-stack.tsx')
+    writeFileSync(entryFile, paperclipEntry, 'utf-8')
+    const outDir = join(testDir, 'flux-out')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await writeFluxRecipe(entryFile, {
+      out: outDir,
+      name: 'catalog',
+      operatorsOnly: true,
+    })
+
+    expect(errorSpy.mock.calls.join('\n')).toMatch(/dropped in --operators-only mode/)
+
+    // The resources are dropped, but the operators layer is intact.
+    expect(existsSync(join(outDir, 'stacks/catalog/stack'))).toBe(false)
+    const operators = loadAll(join(outDir, 'stacks/catalog/operators/manifests.yaml'))
+    expect(operators).toHaveLength(2)
+  })
+
+  it('rejects a --shared-operators name that is not a DNS label', async () => {
+    const entryFile = join(testDir, 'paperclip-stack.tsx')
+    writeFileSync(entryFile, paperclipEntry, 'utf-8')
+
+    await expect(
+      writeFluxRecipe(entryFile, {
+        out: join(testDir, 'flux-out'),
+        sharedOperators: 'catalog_operators',
+      })
+    ).rejects.toThrow(/Invalid --shared-operators name "catalog_operators"/)
+  })
+
+  it('rejects combining --operators-only with --shared-operators', async () => {
+    const entryFile = join(testDir, 'paperclip-stack.tsx')
+    writeFileSync(entryFile, paperclipEntry, 'utf-8')
+
+    await expect(
+      writeFluxRecipe(entryFile, {
+        out: join(testDir, 'flux-out'),
+        operatorsOnly: true,
+        sharedOperators: 'catalog-operators',
+      })
+    ).rejects.toThrow(/--operators-only and --shared-operators are mutually exclusive/)
   })
 
   it('caps healthChecks at five distinct workloads', async () => {

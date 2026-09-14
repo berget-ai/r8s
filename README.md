@@ -189,6 +189,21 @@ kubectl apply -f clusters/default/stacks/my-stack.yaml
 
 Flux installs every operator, waits until each is Ready (CRDs included), then reconciles the stack — no CI, no manual kubectl ordering, no cluster state beyond what Flux holds.
 
+### Full-catalog installs: one shared operators layer
+
+A full catalog means ~20 package stacks — and per-stack operators layers collide: the same operator (CNPG, redis, paperclip) would render the same HelmRelease names in several layers, fighting over prune ownership. Emit **one** shared operators stack, then point every package stack at it:
+
+```bash
+# Once: a synthetic entry declaring every shared operator, no resources
+npx r8s flux operators.tsx --out . --name catalog --operators-only
+
+# Each package stack: resources only, depending on the shared layer
+npx r8s flux cnpg.tsx --out . --name cnpg --shared-operators catalog-operators
+npx r8s flux redis.tsx --out . --name redis --shared-operators catalog-operators
+```
+
+`--operators-only` emits `stacks/catalog/operators/` plus a single `catalog-operators` Kustomization CR; `--shared-operators` emits just `stacks/<name>/stack/` plus a single stack CR whose `dependsOn` references it (name + namespace made explicit). Emit the shared layer and the package stacks with the **same `--source-namespace`** (default `flux-system`) — Flux resolves `dependsOn` among Kustomizations in that namespace. Flux reconciles the operators once, and every package stack only after the shared layer is Ready. Without either flag, `r8s flux` emits the full per-stack pair as before.
+
 ## Comparison
 
 | | Raw YAML | Helm | Kustomize | Pulumi | **r8s** |
