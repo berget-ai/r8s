@@ -15,6 +15,11 @@ interface CliOptions {
   includeOperators?: boolean
   operatorsOnly?: boolean
   skipSecretGuardrails?: boolean
+  name?: string
+  source?: string
+  sourceNamespace?: string
+  namespace?: string
+  cluster?: string
 }
 
 const FLAG_TABLE: Record<string, (o: CliOptions, value?: string) => boolean> = {
@@ -31,6 +36,11 @@ const FLAG_TABLE: Record<string, (o: CliOptions, value?: string) => boolean> = {
   '--include-operators': (o) => ((o.includeOperators = true), false),
   '--operators-only': (o) => ((o.operatorsOnly = true), false),
   '--skip-secret-guardrails': (o) => ((o.skipSecretGuardrails = true), false),
+  '--name': (o, v) => ((o.name = v), true),
+  '--source': (o, v) => ((o.source = v), true),
+  '--source-namespace': (o, v) => ((o.sourceNamespace = v), true),
+  '--namespace': (o, v) => ((o.namespace = v), true),
+  '--cluster': (o, v) => ((o.cluster = v), true),
 }
 
 function parseArgs(args: string[]): CliOptions {
@@ -61,6 +71,7 @@ Usage: r8s [command] [options]
 Commands:
   render     Render k8s/r8s.tsx to YAML (default)
   operators  Render only operator manifests
+  flux       Emit the two-Kustomization Flux stack recipe (operators → stack)
   init       Scaffold a new r8s project
   list       List all available components and operators
   info       Show props and example for a component (e.g. r8s info App)
@@ -74,6 +85,11 @@ Commands:
 Options:
   --entry, -e <path>     Entry file path (default: k8s/r8s.tsx)
   --out, -o <path>       Output file path (default: stdout)
+  --name <stack-name>    Stack name for flux (default: entry file basename)
+  --source <name>        GitRepository name for flux (default: flux-system)
+  --source-namespace <ns> GitRepository namespace for flux (default: flux-system)
+  --namespace <ns>       Default namespace for flux Helm resources without one
+  --cluster <name>       Cluster directory for flux (default: default)
   --include-operators    Include operator manifests in rendered output
   --operators-only       Render only operator manifests (with render command)
   --skip-secret-guardrails  Bypass the plaintext-credentials guardrail (local dev only).
@@ -90,6 +106,7 @@ Examples:
   r8s render --entry ./infra/manifest.tsx
   r8s render --out ./output/k8s.yaml --include-operators
   r8s operators --out ./operators.yaml
+  r8s flux infra.tsx --out gitops --name my-stack --source my-repo
   r8s init
   r8s init my-project
   r8s init my-project --template fullstack
@@ -811,6 +828,43 @@ async function cmdOperators({ options }: CommandContext): Promise<void> {
   }
 }
 
+/**
+ * Emit the two-Kustomization Flux stack recipe: operators first
+ * (HelmRepository + HelmRelease per declared operator), then the stack
+ * resources — `r8s flux <entry.tsx> --out <dir>`.
+ */
+async function cmdFlux({ args, options }: CommandContext): Promise<void> {
+  const entryArg = args[1] ?? options.entry
+  if (!entryArg) {
+    console.error('Usage: r8s flux <entry.tsx> --out <dir>')
+    console.error('Example: r8s flux k8s/r8s.tsx --out . --name my-stack --source my-repo')
+    process.exit(1)
+  }
+  if (!options.out) {
+    console.error('Error: --out <dir> is required for r8s flux — the recipe is written to disk.')
+    process.exit(1)
+  }
+  try {
+    const entryFile = await findEntryFile(entryArg)
+    console.error(`Rendering Flux stack recipe from: ${entryFile}`)
+
+    const { writeFluxRecipe } = await import('./flux.js')
+    await writeFluxRecipe(entryFile, {
+      out: resolve(options.out),
+      name: options.name,
+      source: options.source,
+      sourceNamespace: options.sourceNamespace,
+      namespace: options.namespace,
+      cluster: options.cluster,
+      skipSecretGuardrails: options.skipSecretGuardrails,
+      // Output always goes to committed files (like render --out), so it
+      // stays faithful — there is no log channel to mask.
+    })
+  } catch (error) {
+    failWith('Error:', error, true)
+  }
+}
+
 async function cmdList(): Promise<void> {
   const { allComponents, operators } = await import('./catalog.js')
   const comps = allComponents()
@@ -881,6 +935,7 @@ async function cmdContext(): Promise<void> {
   console.log('  r8s init [name]              Scaffold a project')
   console.log('  r8s render --entry f.tsx      Render to stdout')
   console.log('  r8s render --out k8s.yaml     Render to file')
+  console.log('  r8s flux f.tsx --out gitops   Two-Kustomization Flux stack recipe')
   console.log('  r8s list                      List all components')
   console.log('  r8s info <name>               Show props for a component')
   console.log('  r8s preview <name>            Render a component with dummy props')
@@ -1138,6 +1193,8 @@ async function main(): Promise<void> {
       return cmdInit(ctx)
     case 'operators':
       return cmdOperators(ctx)
+    case 'flux':
+      return cmdFlux(ctx)
     case 'list':
       return cmdList()
     case 'info':

@@ -38,6 +38,7 @@ r8s render --entry infra/app.tsx   # Render a specific file
 r8s render --out k8s/manifest.yaml # Write to file
 r8s render --include-operators     # Include operator manifests in output
 r8s operators --out operators.yaml # Only operator manifests
+r8s flux infra.tsx --out gitops --name my-stack   # Two-Kustomization Flux stack recipe (operators → stack)
 
 # Discovery (no docs browsing needed):
 r8s list                           # All components + operators

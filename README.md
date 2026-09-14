@@ -49,6 +49,8 @@ npx r8s explain App          # what resources + operators does a component creat
 npx r8s validate k8s/r8s.tsx # type-check + reference-check rendered output
 npx r8s list                 # the full component catalog
 npx r8s context              # compact context blob, made for LLM prompts
+
+npx r8s flux k8s/r8s.tsx --out . --name my-stack   # two-Kustomization Flux recipe
 ```
 
 ## A complete platform in one file
@@ -164,6 +166,28 @@ Two strategies, scaffolded by `r8s init`:
 
 - `github-actions` (default): CI renders TSX → committed YAML → Flux/ArgoCD syncs. Reviewable diffs.
 - `flux-controller`: push TSX; render in-cluster via the source controller. No CI build step.
+
+### Install a whole stack on a fresh cluster
+
+The stateless promise as an artifact: `r8s flux <entry.tsx> --out <dir>` emits the full install recipe — operators first (HelmRepository + HelmRelease per declared operator), then the stack resources, wired as two Flux Kustomizations with `dependsOn`, `wait` and workload `healthChecks`:
+
+```bash
+npx r8s flux k8s/r8s.tsx --out . --name my-stack
+```
+
+```
+stacks/my-stack/operators/   # HelmRepository + HelmRelease per declared operator
+stacks/my-stack/stack/       # your rendered resources
+clusters/default/stacks/     # the two Kustomization CRs (operators → stack)
+```
+
+Commit it, push, and point a fresh Flux-bootstrapped cluster at the repo:
+
+```bash
+kubectl apply -f clusters/default/stacks/my-stack.yaml
+```
+
+Flux installs every operator, waits until each is Ready (CRDs included), then reconciles the stack — no CI, no manual kubectl ordering, no cluster state beyond what Flux holds.
 
 ## Comparison
 
