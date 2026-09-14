@@ -2,7 +2,27 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
-## Unreleased
+## 0.3.4
+
+### Added
+
+- **`r8s flux` — the two-Kustomization stack recipe (#152).** The stateless-install promise as an artifact: `r8s flux <entry> --out <dir>` emits operators first (HelmRepository + HelmRelease per declared operator), then the stack resources, wired as two Flux Kustomizations with dependsOn, wait and healthChecks — the full recipe for a fresh cluster.
+- **`r8s flux` shared-operators mode (#153).** Full-catalog installs need ONE operators Kustomization that every package stack dependsOn — per-stack operators layers collide on HelmRelease names under prune. `--operators-only` emits the shared operators stack; `--shared-operators <name>` points a package stack at it (dependsOn names the shared Kustomization explicitly, name + namespace). Default per-stack output is byte-identical to 0.3.3.
+- **`@r8s/netbird` — mesh VPN package (#144)**, replacing `@r8s/wireguard` (see Removed): WireGuard-based *mesh* — management + signal + relay + dashboard behind one hostname, Flux HelmRelease + CNPG Postgres + Keycloak OIDC. Structured `LoginFlag` for the IdP contract (#150).
+- **`groupsClaim` (#145) — group sync for netbird (and any OIDC app).** `<Client groupsClaim>` renders a client-scope with an `oidc-group-membership-mapper` (JWT `groups` claim), default-assigned — the path Netbird uses to sync IdP groups into mesh policies. Confidential clients declaring `redirectUris` render `standardFlowEnabled: true`; declared `clientScopes` render as bare realm scopes (deduped; a client's own groupsClaim scope wins on name collision and is not repeated as optional) so modern Keycloak's `invalid_scope` answers don't break PKCE flows naming unregistered scopes.
+- Runtime-validation record (#141): `docs/validation.json` records which packages/recipes are runtime-validated on kind and the dogfood rke2 cluster, with dates; `scripts/local-smoke.ts` updates it on every PASS and docs detail pages render the validation line — live data, not hand-written JSDoc.
+
+### Changed
+
+- **`objectStorage` derives from the `S3Provider` (#133).** supabase, outline, eneo and nextcloud no longer require an explicit `objectStorage` under an `<S3Provider>`: explicit object wins, a `<Bucket>` descriptor resolves via `resolveBucket`, omitted + provider → derived (the provider's region carries through), omitted without → actionable throw naming both fixes. Plus the error-ergonomics suite: every throw must answer what failed (component + instance), why, and how to fix (copy-pasteable snippet).
+- **eurooffice gets a 20-minute startup budget for first-boot migrations (#134)** — fresh-boot readiness polls no longer time out mid-migration.
+- Local smoke harness grows a batch-3 wave and hardens: nextcloud/superset ready targets name the real workloads, readiness polls fail loudly on workload NotFound instead of reporting a fabricated `readyReplicas=1`, RWX-only claims skip with reason (#131, #132); eurooffice records skip-on-kind as environment-limited (#135); matrix-mas-secrets provisioning + multi-target smoke gate (#143, #147).
+
+### Fixed
+
+- **matrix rounds 5–9** — six successive smoke iterations on kind + rke2: synapse signing-key volume (`${name}-synapse-keys` PVC, `keysStorage` prop follows the forgejo-style storage-prop shape), MAS pin + config schema + admin image (#136); media store volume + MAS listener binds (#137); synapse config rendering + MAS `public_base` (#139); YAML 1.1 array quoting + MAS secrets (#142); MAS `matrix.homeserver` section (#146); ULID provider ids (#147); MAS web listener must carry the health resource (#148).
+- **`r8s init` first-run friction (#138)** — entrypoint, pins, gitignore, flux auth.
+- **paperclip defaults to the official public image (#140)** — the private ghcr image 401s without `pullSecrets`.
 
 ### Removed
 
