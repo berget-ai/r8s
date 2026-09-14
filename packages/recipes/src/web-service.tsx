@@ -2,6 +2,7 @@ import { jsx, declareOperator, useContext } from '@r8s/core'
 import { Deployment, Service, EnvVar } from '@r8s/k8s-types'
 import { OperatorContext, DatabaseContext, SecretContext, useNamespace } from '@r8s/core/defaults'
 import { declareIfMissing } from '@r8s/operator-vault-secrets'
+import { RELOADER_ANNOTATION } from '@r8s/operator-reloader'
 
 export interface SecretRef {
   /** Name of the Kubernetes Secret containing this value */
@@ -311,6 +312,9 @@ export function WebService(props: WebServiceProps) {
   const rotatingBackend =
     platformSecrets?.backend === 'openbao' || platformSecrets?.backend === 'vault'
   const wantsReloader = rotatingBackend || Object.keys(vault).length > 0
+  // Key shared with @r8s/operator-reloader (RELOADER_ANNOTATION) — a single
+  // import instead of a duplicated string, so the two can't drift.
+  const reloaderAnnotation = { [RELOADER_ANNOTATION]: 'true' }
 
   for (const [envName, ref] of Object.entries(vault)) {
     const secretName = `${name}-${envName.toLowerCase().replace(/_/g, '-')}-vault`
@@ -410,7 +414,7 @@ export function WebService(props: WebServiceProps) {
       template: {
         metadata: {
           labels: { app: name },
-          ...(wantsReloader && { annotations: { 'reloader.stakater.com/auto': 'true' } }),
+          ...(wantsReloader && { annotations: reloaderAnnotation }),
         },
         spec: {
           ...(podSecurityContext && { securityContext: podSecurityContext }),
