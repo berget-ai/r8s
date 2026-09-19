@@ -35,7 +35,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
   "envoy-gateway": (version = "1.7.0") => ({
     name: "envoy-gateway",
     description: "Envoy Gateway — Kubernetes Gateway API implementation",
-    source: { type: 'helm', chart: "gateway-helm", repository: "oci://docker.io/envoyproxy", version, namespace: "envoy-gateway-system" },
+    source: { type: 'manifest', url: expandVersion("https://github.com/envoyproxy/gateway/releases/download/v{version}/install.yaml", version), version, namespace: "envoy-gateway-system" },
     version,
     namespace: "envoy-gateway-system",
     crds: ["gatewayclasses.gateway.networking.k8s.io","gateways.gateway.networking.k8s.io","httproutes.gateway.networking.k8s.io","grpcroutes.gateway.networking.k8s.io","tlsroutes.gateway.networking.k8s.io","tcproutes.gateway.networking.k8s.io","udproutes.gateway.networking.k8s.io","envoyproxies.gateway.envoyproxy.io","backendtrafficpolicies.gateway.envoyproxy.io","clienttrafficpolicies.gateway.envoyproxy.io","securitypolicies.gateway.envoyproxy.io"],
@@ -87,12 +87,20 @@ export const operators: Record<string, (version?: string) => Operator> = {
     namespace: "kube-system",
     crds: ["redisclusters.redis.redis.opstreelabs.in","redisreplications.redis.redis.opstreelabs.in","redisfailovers.databases.spotahome.com"],
   }),
-  "reloader": (version = "2.2.17") => ({
+  "reloader": (version = "1.4.22") => ({
     name: "reloader",
     description: "Stakater Reloader — rolls workloads when their Secrets or ConfigMaps change",
-    source: { type: 'helm', chart: "reloader", repository: "https://stakater.github.io/stakater-charts/", version, namespace: "reloader" },
+    source: { type: 'manifest', url: expandVersion("https://raw.githubusercontent.com/stakater/Reloader/v{version}/deployments/kubernetes/reloader.yaml", version), version, namespace: "reloader" },
     version,
     namespace: "reloader",
+    crds: [],
+  }),
+  "openbao": (version = "2.6.2") => ({
+    name: "openbao",
+    description: "OpenBao secrets server — natively rendered (helm-free) raft single-server",
+    source: { type: 'manifest', url: expandVersion("native://openbao-server", version), version, namespace: "openbao" },
+    version,
+    namespace: "openbao",
     crds: [],
   }),
   "vault-secrets-operator": (version = "0.5.0") => ({
@@ -119,13 +127,13 @@ export const operators: Record<string, (version?: string) => Operator> = {
     namespace: "ingress-nginx",
     crds: ["ingressclassparams.networking.k8s.io"],
   }),
-  "paperclip-operator": (version = "0.19.0") => ({
+  "paperclip-operator": (version = "0.19.1") => ({
     name: "paperclip-operator",
     description: "Paperclip agent orchestration operator",
-    source: { type: 'helm', chart: "paperclip-operator", repository: "oci://ghcr.io/paperclipinc/charts", version, namespace: "paperclip-system", values: {"metrics":{"enabled":true,"serviceMonitor":{"enabled":false}},"leaderElection":{"enabled":false}} },
+    source: { type: 'manifest', url: expandVersion("https://github.com/paperclipinc/paperclip-operator/releases/download/v{version}/install.yaml", version), version, namespace: "paperclip-operator-system" },
     version,
-    namespace: "paperclip-system",
-    crds: ["instances.paperclip.inc"],
+    namespace: "paperclip-operator-system",
+    crds: ["instances.paperclip.inc","paperclipclusterdefaults.paperclip.inc","paperclipselfconfigs.paperclip.inc"],
   }),
 }
 
@@ -215,7 +223,14 @@ export const operatorMetadata: OperatorMeta[] = [
     name: "reloader",
     description: "Stakater Reloader — rolls workloads when their Secrets or ConfigMaps change",
     category: "Security & Identity",
-    version: "2.2.17",
+    version: "1.4.22",
+    crds: [],
+  },
+  {
+    name: "openbao",
+    description: "OpenBao secrets server — natively rendered (helm-free) raft single-server",
+    category: "Security & Identity",
+    version: "2.6.2",
     crds: [],
   },
   {
@@ -243,7 +258,7 @@ export const operatorMetadata: OperatorMeta[] = [
     name: "paperclip-operator",
     description: "Paperclip agent orchestration operator",
     category: "Data & Analytics",
-    version: "0.19.0",
-    crds: ["instances.paperclip.inc"],
+    version: "0.19.1",
+    crds: ["instances.paperclip.inc","paperclipclusterdefaults.paperclip.inc","paperclipselfconfigs.paperclip.inc"],
   },
 ]

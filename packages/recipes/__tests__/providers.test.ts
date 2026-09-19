@@ -110,22 +110,21 @@ describe('Provider Hierarchy', () => {
       expect(rotating('manual-secrets')).toBe(false)
     })
 
-    it('Reloader is deduplicated when the Platform already declares it', () => {
-      const preinstalled = [
-        {
-          name: 'reloader',
-          description: 'pre-installed',
-          source: {
-            type: 'helm' as const,
-            chart: 'reloader',
-            repository: 'https://stakater.github.io/stakater-charts/',
-            version: '2.2.17',
-          },
-          version: '2.2.17',
-          namespace: 'reloader',
-          crds: [],
+  it('Reloader is deduplicated when the Platform already declares it', () => {
+    const preinstalled = [
+      {
+        name: 'reloader',
+        description: 'pre-installed',
+        source: {
+          type: 'manifest' as const,
+          url: 'https://raw.githubusercontent.com/stakater/Reloader/v1.4.22/deployments/kubernetes/reloader.yaml',
+          version: '1.4.22',
         },
-      ]
+        version: '1.4.22',
+        namespace: 'reloader',
+        crds: [],
+      },
+    ]
       const result = render(
         jsx(OperatorContext.Provider, {
           value: preinstalled,

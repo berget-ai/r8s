@@ -9,12 +9,26 @@ import { declareOperator } from '@r8s/core'
 import type { Operator } from '@r8s/k8s-types'
 
 /** The paperclip-operator operator version this package was cut for. */
-export const DEFAULT_PAPERCLIP_VERSION = '0.19.0'
+export const DEFAULT_PAPERCLIP_VERSION = '0.19.1'
+
+/** Upstream static install manifest, expanded from the version. */
+const PAPERCLIP_MANIFEST_URL =
+  'https://github.com/paperclipinc/paperclip-operator/releases/download/v{version}/install.yaml'
 
 /**
  * Operator declaration — mirror of the `paperclip-operator` entry in
  * packages/crds/operators.yaml (registry stays the CLI metadata source;
  * version parity is enforced by the operator-contracts suite).
+ *
+ * Helm-free install: paperclipinc attaches the fully rendered install.yaml
+ * (Namespace, CRDs, RBAC, Deployment, Service) to every GitHub release —
+ * fetched at render time by the recipes/flux pipeline, no OCI chart access.
+ *
+ * The static manifest deploys into `paperclip-operator-system` (the chart
+ * defaulted to `paperclip-system`) and carries all three CRDs the operator
+ * owns, not just `instances.paperclip.inc`. The previous chart tuning
+ * values (metrics serviceMonitor off, leaderElection off) do not apply —
+ * the manifest ships its own metrics Service and single-replica manager.
  */
 export function PaperclipOperator(
   version: string = DEFAULT_PAPERCLIP_VERSION
@@ -23,19 +37,18 @@ export function PaperclipOperator(
     name: 'paperclip-operator',
     description: 'Paperclip agent orchestration operator',
     source: {
-      type: 'helm',
-      chart: 'paperclip-operator',
-      repository: 'oci://ghcr.io/paperclipinc/charts',
+      type: 'manifest',
+      url: PAPERCLIP_MANIFEST_URL.replaceAll('{version}', version),
       version,
-      namespace: 'paperclip-system',
-      values: {
-        metrics: { enabled: true, serviceMonitor: { enabled: false } },
-        leaderElection: { enabled: false },
-      },
+      namespace: 'paperclip-operator-system',
     },
     version,
-    namespace: 'paperclip-system',
-    crds: ['instances.paperclip.inc'],
+    namespace: 'paperclip-operator-system',
+    crds: [
+      'instances.paperclip.inc',
+      'paperclipclusterdefaults.paperclip.inc',
+      'paperclipselfconfigs.paperclip.inc',
+    ],
   }
 }
 

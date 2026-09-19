@@ -11,16 +11,32 @@ const pkg = JSON.parse(
 )
 
 describe('@r8s/operator-paperclip', () => {
-  it('mirrors the registry version (0.19.0)', () => {
-    expect(pkg.version).toBe('0.19.0')
+  it('mirrors the registry version (0.19.1)', () => {
+    expect(pkg.version).toBe('0.19.1')
     expect(DEFAULT_PAPERCLIP_VERSION).toBe(pkg.version)
-    expect(PaperclipOperator().version).toBe('0.19.0')
+    expect(PaperclipOperator().version).toBe('0.19.1')
   })
 
   it('declaration is deep-equal to the generated registry entry', () => {
-    const expected = operators['paperclip-operator']('0.19.0')
-    const actual = PaperclipOperator('0.19.0')
+    const expected = operators['paperclip-operator']('0.19.1')
+    const actual = PaperclipOperator('0.19.1')
     expect({ ...actual }).toEqual({ ...expected })
+  })
+
+  it('installs helm-free from the upstream release manifest', () => {
+    const op = PaperclipOperator()
+    expect(op.source.type).toBe('manifest')
+    expect(op.source.url).toBe(
+      'https://github.com/paperclipinc/paperclip-operator/releases/download/v0.19.1/install.yaml'
+    )
+    // the static manifest deploys into `paperclip-operator-system` (upstream
+    // renamed the namespace from the chart's `paperclip-system`)
+    expect(op.namespace).toBe('paperclip-operator-system')
+    expect(op.crds).toEqual([
+      'instances.paperclip.inc',
+      'paperclipclusterdefaults.paperclip.inc',
+      'paperclipselfconfigs.paperclip.inc',
+    ])
   })
 
   it('declares only when the Platform does not already provide it', () => {

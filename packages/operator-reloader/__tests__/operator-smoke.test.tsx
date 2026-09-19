@@ -11,16 +11,25 @@ const pkg = JSON.parse(
 )
 
 describe('@r8s/operator-reloader', () => {
-  it('mirrors the registry version (2.2.17)', () => {
-    expect(pkg.version).toBe('2.2.17')
+  it('mirrors the registry version (1.4.22 — the app release tag; chart 2.2.17 == app v1.4.22)', () => {
+    expect(pkg.version).toBe('1.4.22')
     expect(DEFAULT_RELOADER_VERSION).toBe(pkg.version)
-    expect(ReloaderOperator().version).toBe('2.2.17')
+    expect(ReloaderOperator().version).toBe('1.4.22')
   })
 
   it('declaration is deep-equal to the generated registry entry', () => {
-    const expected = operators['reloader']('2.2.17')
-    const actual = ReloaderOperator('2.2.17')
+    const expected = operators['reloader']('1.4.22')
+    const actual = ReloaderOperator('1.4.22')
     expect({ ...actual }).toEqual({ ...expected })
+  })
+
+  it('installs helm-free from the upstream static manifest', () => {
+    const op = ReloaderOperator()
+    expect(op.source.type).toBe('manifest')
+    expect(op.source.url).toBe(
+      'https://raw.githubusercontent.com/stakater/Reloader/v1.4.22/deployments/kubernetes/reloader.yaml'
+    )
+    expect(op.source.namespace).toBe('reloader')
   })
 
   it('declares no CRDs (Deployment + RBAC only)', () => {

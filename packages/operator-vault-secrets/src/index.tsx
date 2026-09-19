@@ -59,3 +59,8 @@ export function declareIfMissing(
 }
 
 // CRDs for this operator are not generated yet — declaration + install manifest only.
+
+// The chart's defaultVaultConnection/defaultAuthMethod values, as native
+// r8s components (helm-free connection wiring).
+export { VaultConnection, VaultAuth } from './vault-cr'
+export type { VaultConnectionProps, VaultAuthProps, VaultCaCertRef } from './vault-cr'

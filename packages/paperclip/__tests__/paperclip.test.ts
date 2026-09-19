@@ -29,15 +29,16 @@ const resource = (result: ReturnType<typeof render>, kind: string) =>
   result.resources.find((r: any) => r.kind === kind) as any
 
 describe('Paperclip operator Instance', () => {
-  it('declares the paperclip-operator once (facit chart values)', () => {
+  it('declares the paperclip-operator once (helm-free manifest install)', () => {
     const ops = renderApp().operators.filter((o) => o.name === 'paperclip-operator')
     expect(ops).toHaveLength(1)
-    expect(ops[0].version).toBe('0.19.0')
-    const src = ops[0].source as { type: string; chart: string; values: Record<string, unknown> }
-    expect(src.type).toBe('helm')
-    expect(src.chart).toBe('paperclip-operator')
-    expect(src.values.metrics).toEqual({ enabled: true, serviceMonitor: { enabled: false } })
-    expect(src.values.leaderElection).toEqual({ enabled: false })
+    expect(ops[0].version).toBe('0.19.1')
+    const src = ops[0].source as { type: string; url: string; namespace: string }
+    expect(src.type).toBe('manifest')
+    expect(src.url).toBe(
+      'https://github.com/paperclipinc/paperclip-operator/releases/download/v0.19.1/install.yaml'
+    )
+    expect(src.namespace).toBe('paperclip-operator-system')
   })
 
   it('renders the Instance CR with facit image/auth/database spec', () => {
