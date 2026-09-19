@@ -1,6 +1,6 @@
 {
   "name": "@r8s/operator-envoy-gateway",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Envoy Gateway \u2014 Kubernetes Gateway API implementation \u2014 npm-resolved operator package for r8s",
   "license": "MIT",
   "author": "Berget AI AB",

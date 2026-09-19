@@ -11,10 +11,16 @@ const pkg = JSON.parse(
 )
 
 describe('@r8s/operator-vault-secrets', () => {
-  it('mirrors the registry version (0.5.0)', () => {
-    expect(pkg.version).toBe('0.5.0')
-    expect(DEFAULT_VAULTSECRETS_VERSION).toBe(pkg.version)
+  it('mirrors the registry version (cut for 0.5.0; 0.5.1 is a package patch)', () => {
+    // The tracked upstream (chart 0.5.0) is unchanged — 0.5.1 is a
+    // package patch carrying the native VaultConnection/VaultAuth
+    // components (#156), not a new operator cut. The mirror invariant
+    // binds the registry default to the tracked cut; the package floats
+    // one patch above.
+    expect(DEFAULT_VAULTSECRETS_VERSION).toBe('0.5.0')
     expect(VaultSecretsOperator().version).toBe('0.5.0')
+    expect(operators['vault-secrets-operator']().version).toBe('0.5.0')
+    expect(pkg.version).toBe('0.5.1')
   })
 
   it('declaration is deep-equal to the generated registry entry', () => {

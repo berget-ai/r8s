@@ -2,6 +2,17 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## 0.3.6
+
+### Added
+
+- **Helm-free operator installs — manifest sources + native workloads (#156).** The envoy-gateway, reloader and paperclip operator packages switch to upstream static install manifests (fetched at render time by the flux recipe — no HelmRepository/HelmRelease emitted); redis stays helm (documented straggler — no upstream static YAML). The envoy mirror tracks upstream 1.7.1. external-dns grows the native `ExternalDns` component (ServiceAccount + ClusterRole/Binding + Deployment; Route53 credentials via `awsSecretRef` secretKeyRefs), the Vault Secrets Operator grows native `VaultConnection`/`VaultAuth` CR components (install the chart with its `defaultVaultConnection`/`defaultAuthMethod` defaults OFF and render the CRs natively), and the new `@r8s/operator-openbao` package renders `OpenBaoServer` (raft StatefulSet + config ConfigMap + Services). Operator packages whose only change is a native component float exactly one package patch above their tracked cut (`@r8s/operator-external-dns` 1.21.2, `@r8s/operator-vault-secrets` 0.5.1) — the mirror invariant keeps pinning the tracked version; with these additions the shared operators layer can drop HelmRepository/HelmRelease entirely.
+- **Flux smoke harness additions (#151).** The local smoke bootstrap phase installs declared operators through the r8s flux recipe, validating the shared operators layer end to end on kind.
+
+### Migration note (0.3.5 → 0.3.6)
+
+Consumers declaring `@r8s/operator-external-dns`/`@r8s/operator-vault-secrets` bump to `^1.21.2`/`^0.5.1` to receive the native components; the tracked operator cuts (chart 1.21.1 / 0.5.0) and the rendered helm sources for those two factories are unchanged. `@r8s/operator-reloader` corrects its mirror to the app release it tracks (1.4.22 — chart 2.2.17 == app v1.4.22) and `@r8s/operator-paperclip` re-publishes at 0.19.1 — repos depending on `^2.2.17`/`^0.19.0` move to the corrected versions. All other publishable packages ride the routine 0.3.6 bump.
+
 ## 0.3.5
 
 ### Added

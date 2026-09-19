@@ -1,7 +1,10 @@
 /**
  * @r8s/operator-vault-secrets — HashiCorp Vault Secrets Operator as an npm-resolved
  * operator package. The package version mirrors the operator's own
- * version (0.5.0); consumers declare
+ * version (chart 0.5.0 — the tracked cut, DEFAULT_VAULTSECRETS_VERSION),
+ * floating one package patch above it for component-only changes
+ * (0.5.1 ships the native VaultConnection/VaultAuth CRs from #156);
+ * consumers declare
  * "@r8s/operator-vault-secrets": "^0.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */

@@ -11,15 +11,16 @@ const pkg = JSON.parse(
 )
 
 describe('@r8s/operator-envoy-gateway', () => {
-  it('mirrors the registry version (1.7.0)', () => {
-    expect(pkg.version).toBe('1.7.0')
+  it('mirrors the registry version (1.7.1)', () => {
+    expect(pkg.version).toBe('1.7.1')
     expect(DEFAULT_ENVOYGATEWAY_VERSION).toBe(pkg.version)
-    expect(EnvoyGatewayOperator().version).toBe('1.7.0')
+    expect(EnvoyGatewayOperator().version).toBe('1.7.1')
+    expect(operators['envoy-gateway']().version).toBe('1.7.1')
   })
 
   it('declaration is deep-equal to the generated registry entry', () => {
-    const expected = operators['envoy-gateway']('1.7.0')
-    const actual = EnvoyGatewayOperator('1.7.0')
+    const expected = operators['envoy-gateway']('1.7.1')
+    const actual = EnvoyGatewayOperator('1.7.1')
     expect({ ...actual }).toEqual({ ...expected })
   })
 
@@ -27,7 +28,7 @@ describe('@r8s/operator-envoy-gateway', () => {
     const op = EnvoyGatewayOperator()
     expect(op.source.type).toBe('manifest')
     expect(op.source.url).toBe(
-      'https://github.com/envoyproxy/gateway/releases/download/v1.7.0/install.yaml'
+      'https://github.com/envoyproxy/gateway/releases/download/v1.7.1/install.yaml'
     )
     expect(op.source.namespace).toBe('envoy-gateway-system')
     expect(op.crds).toContain('gatewayclasses.gateway.networking.k8s.io')
