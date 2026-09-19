@@ -41,9 +41,8 @@
   description: "Envoy Gateway \u2014 Kubernetes Gateway API implementation"
   category: Networking
   source:
-    type: helm
-    chart: gateway-helm
-    repository: oci://docker.io/envoyproxy
+    type: manifest
+    url: https://github.com/envoyproxy/gateway/releases/download/v{version}/install.yaml
   version: 1.7.0
   namespace: envoy-gateway-system
   crds:
@@ -145,11 +144,19 @@
   description: "Stakater Reloader \u2014 rolls workloads when their Secrets or ConfigMaps change"
   category: Security & Identity
   source:
-    type: helm
-    chart: reloader
-    repository: https://stakater.github.io/stakater-charts/
-  version: 2.2.17
+    type: manifest
+    url: https://raw.githubusercontent.com/stakater/Reloader/v{version}/deployments/kubernetes/reloader.yaml
+  version: 1.4.22
   namespace: reloader
+  crds: []
+- name: openbao
+  description: "OpenBao secrets server \u2014 natively rendered (helm-free) raft single-server"
+  category: Security & Identity
+  source:
+    type: manifest
+    url: native://openbao-server
+  version: 2.6.2
+  namespace: openbao
   crds: []
 - name: vault-secrets-operator
   description: HashiCorp Vault Secrets Operator
@@ -195,17 +202,11 @@
   description: Paperclip agent orchestration operator
   category: Data & Analytics
   source:
-    type: helm
-    chart: paperclip-operator
-    repository: oci://ghcr.io/paperclipinc/charts
-    values:
-      metrics:
-        enabled: true
-        serviceMonitor:
-          enabled: false
-      leaderElection:
-        enabled: false
-  version: 0.19.0
-  namespace: paperclip-system
+    type: manifest
+    url: https://github.com/paperclipinc/paperclip-operator/releases/download/v{version}/install.yaml
+  version: 0.19.1
+  namespace: paperclip-operator-system
   crds:
     - instances.paperclip.inc
+    - paperclipclusterdefaults.paperclip.inc
+    - paperclipselfconfigs.paperclip.inc

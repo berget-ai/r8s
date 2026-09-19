@@ -23,6 +23,18 @@ describe('@r8s/operator-redis', () => {
     expect({ ...actual }).toEqual({ ...expected })
   })
 
+  it('stays helm-sourced (helm straggler)', () => {
+    // Helm-free pilot: no static install manifest exists upstream — the
+    // chart ships the CRDs+RBAC+Deployment and the docs document only the
+    // Helm path (the kustomize config/ tree would need a kustomize build,
+    // which the manifest source cannot fetch). Swap to 'manifest' when
+    // ot-container-kit starts publishing a single install YAML.
+    const op = RedisOperator()
+    expect(op.source.type).toBe('helm')
+    expect(op.source.chart).toBe('redis-operator')
+    expect(op.source.version).toBe('0.22.0')
+  })
+
   it('declares only when the Platform does not already provide it', () => {
     expect(declareIfMissing([operators['redis-operator']()])).toEqual([])
     const resources = declareIfMissing([])

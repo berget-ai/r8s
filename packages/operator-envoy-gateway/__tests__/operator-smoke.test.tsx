@@ -23,6 +23,16 @@ describe('@r8s/operator-envoy-gateway', () => {
     expect({ ...actual }).toEqual({ ...expected })
   })
 
+  it('installs helm-free from the upstream static manifest', () => {
+    const op = EnvoyGatewayOperator()
+    expect(op.source.type).toBe('manifest')
+    expect(op.source.url).toBe(
+      'https://github.com/envoyproxy/gateway/releases/download/v1.7.0/install.yaml'
+    )
+    expect(op.source.namespace).toBe('envoy-gateway-system')
+    expect(op.crds).toContain('gatewayclasses.gateway.networking.k8s.io')
+  })
+
   it('declares only when the Platform does not already provide it', () => {
     expect(declareIfMissing([operators['envoy-gateway']()])).toEqual([])
     const resources = declareIfMissing([])

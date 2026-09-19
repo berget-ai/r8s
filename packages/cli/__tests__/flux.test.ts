@@ -10,7 +10,10 @@ const testDir = resolve(__dirname, '../test-temp-flux')
  * Fixture entry: declares @r8s/operator-paperclip's PaperclipOperator and
  * renders one Deployment + Service as the stack resources. The operator
  * resolves through the workspace (esbuild → tsconfig paths/core src) so
- * the test exercises the real npm-resolved operator shape.
+ * the test exercises the real npm-resolved operator shape. Paperclip is a
+ * manifest-source operator since the helm-free switch — its install.yaml
+ * is fetched at render time, so these tests mock global.fetch (the
+ * mockManifest below stands in for the upstream release artifact).
  */
 const paperclipEntry = `
 import { jsx, Fragment, declareOperator } from '@r8s/core';
@@ -49,6 +52,29 @@ export default function PaperclipStack() {
 `
 
 /**
+ * Stand-in for the upstream static install manifest fetched at render
+ * time for manifest-source operators (paperclip et al).
+ */
+const mockManifest = [
+  'apiVersion: v1',
+  'kind: Namespace',
+  'metadata:',
+  '  name: paperclip-operator-system',
+  '---',
+  'apiVersion: apps/v1',
+  'kind: Deployment',
+  'metadata:',
+  '  name: paperclip-operator-controller-manager',
+  '  namespace: paperclip-operator-system',
+  'spec:',
+  '  selector:',
+  '    matchLabels: {}',
+  '  template:',
+  '    spec:',
+  '      containers: []',
+].join('\n')
+
+/**
  * Fixture entry for the shared operators layer: a synthetic entry that
  * declares one helm operator and no stack resources — exactly what the
  * full-catalog pattern emits once for every package stack to reuse.
@@ -78,14 +104,22 @@ export default function SharedOperators() {
 const loadAll = (file: string) => YAML.loadAll(readFileSync(file, 'utf-8')) as any[]
 
 describe('r8s flux — two-Kustomization stack recipe', () => {
+  let originalFetch: typeof global.fetch
+
   beforeEach(() => {
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true })
     }
     mkdirSync(testDir, { recursive: true })
+    // Manifest-source operators fetch their install.yaml at render time —
+    // keep the suite offline.
+    originalFetch = global.fetch
+    global.fetch = (async () =>
+      ({ ok: true, text: async () => mockManifest }) as Response) as typeof fetch
   })
 
   afterEach(() => {
+    global.fetch = originalFetch
     vi.restoreAllMocks()
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true })
@@ -113,7 +147,62 @@ describe('r8s flux — two-Kustomization stack recipe', () => {
     ])
   })
 
-  it('renders HelmRepository (type: oci) + HelmRelease in the operators layer', async () => {
+  it('renders HelmRepository (type: oci) + HelmRelease for the remaining helm operators', async () => {
+    const entryFile = join(testDir, 'redis-stack.tsx')
+    writeFileSync(
+      entryFile,
+      `
+import { jsx, Fragment, declareOperator } from '@r8s/core';
+import { RedisOperator } from '@r8s/operator-redis';
+
+export default function RedisStack() {
+  return jsx(Fragment, {
+    children: [
+      declareOperator(RedisOperator()),
+      jsx('ConfigMap', {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: { name: 'redis-stack-marker', namespace: 'redis-stack' },
+        data: { marker: 'true' },
+      }),
+    ],
+  });
+}
+`,
+      'utf-8'
+    )
+    const outDir = join(testDir, 'flux-out')
+
+    await writeFluxRecipe(entryFile, { out: outDir })
+
+    const docs = loadAll(join(outDir, 'stacks/redis-stack/operators/manifests.yaml'))
+
+    const repository = docs.find((d) => d.kind === 'HelmRepository')
+    expect(repository).toBeDefined()
+    // Plain HTTP URLs carry no type marker — source-controller fetches a
+    // Helm index from them.
+    expect(repository.spec).not.toHaveProperty('type')
+    expect(repository.spec.url).toBe('https://ot-container-kit.github.io/helm-charts/')
+    expect(repository.spec.interval).toBe('5m')
+    expect(repository.metadata).toEqual({
+      name: 'redis-operator',
+      namespace: 'kube-system',
+    })
+
+    const release = docs.find((d) => d.kind === 'HelmRelease')
+    expect(release).toBeDefined()
+    expect(release.apiVersion).toBe('helm.toolkit.fluxcd.io/v2')
+    expect(release.spec.interval).toBe('5m')
+    expect(release.spec.chart.spec.chart).toBe('redis-operator')
+    expect(release.spec.chart.spec.version).toBe('0.22.0')
+    expect(release.spec.chart.spec.sourceRef).toEqual({
+      kind: 'HelmRepository',
+      name: 'redis-operator',
+      namespace: 'kube-system',
+    })
+  })
+
+  it('commits fetched upstream manifests for manifest-source operators', async () => {
     const entryFile = join(testDir, 'paperclip-stack.tsx')
     writeFileSync(entryFile, paperclipEntry, 'utf-8')
     const outDir = join(testDir, 'flux-out')
@@ -122,33 +211,17 @@ describe('r8s flux — two-Kustomization stack recipe', () => {
 
     const docs = loadAll(join(outDir, 'stacks/paperclip-stack/operators/manifests.yaml'))
 
-    const repository = docs.find((d) => d.kind === 'HelmRepository')
-    expect(repository).toBeDefined()
-    // oci:// URLs get the type: oci marker so source-controller uses the
-    // registry instead of expecting a Helm index.
-    expect(repository.spec.type).toBe('oci')
-    expect(repository.spec.url).toBe('oci://ghcr.io/paperclipinc/charts')
-    expect(repository.spec.interval).toBe('5m')
-    expect(repository.metadata).toEqual({
-      name: 'paperclip-operator',
-      namespace: 'paperclip-system',
-    })
+    // No HelmRepository/HelmRelease — the upstream install.yaml is fetched
+    // at render time and committed next to the Flux docs.
+    expect(docs.find((d) => d.kind === 'HelmRelease')).toBeUndefined()
+    expect(docs.find((d) => d.kind === 'HelmRepository')).toBeUndefined()
 
-    const release = docs.find((d) => d.kind === 'HelmRelease')
-    expect(release).toBeDefined()
-    expect(release.apiVersion).toBe('helm.toolkit.fluxcd.io/v2')
-    expect(release.spec.interval).toBe('5m')
-    expect(release.spec.chart.spec.chart).toBe('paperclip-operator')
-    expect(release.spec.chart.spec.version).toBe('0.19.0')
-    expect(release.spec.chart.spec.sourceRef).toEqual({
-      kind: 'HelmRepository',
-      name: 'paperclip-operator',
-      namespace: 'paperclip-system',
-    })
-    // chart values pass through (operator defaults)
-    expect(release.spec.values).toEqual(
-      expect.objectContaining({ leaderElection: { enabled: false } })
+    const namespace = docs.find((d) => d.kind === 'Namespace')
+    expect(namespace?.metadata?.name).toBe('paperclip-operator-system')
+    const deployment = docs.find(
+      (d) => d.kind === 'Deployment' && d.metadata?.name === 'paperclip-operator-controller-manager'
     )
+    expect(deployment).toBeDefined()
   })
 
   it('renders plain HTTP repositories without the oci type marker', async () => {

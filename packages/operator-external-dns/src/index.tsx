@@ -55,3 +55,7 @@ export function declareIfMissing(
 
 // Generated CRD components for this operator — re-exported as the single import path.
 export * from '@r8s/crds/externaldns'
+
+// Native workload rendering (helm-free install path — no HelmRelease).
+export { ExternalDns } from './external-dns'
+export type { ExternalDnsProps, AwsSecretRef } from './external-dns'

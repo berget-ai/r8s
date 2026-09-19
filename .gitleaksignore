@@ -1,110 +1,109 @@
-# false positive: the PEM-matching regex used by the redaction module itself
-# (history scan fingerprint)
-7fbbc7c0d6119d1d1baa8192e66fde3a83738386:packages/core/src/redact.ts:private-key:21
-# (working-tree / --no-git fingerprint)
-packages/core/src/redact.ts:private-key:21
 
-# false positive: scripts/local-smoke.ts outline entry stores 64-hex DUMMY
-# values for SECRET_KEY/UTILS_SECRET — outline validates both are 64-hex at
-# boot, so the smoke needs hex-shaped fakes (fake, not real credentials; the
-# smoke cluster is throwaway kind). History scan fingerprints (one per commit
-# touching the entry — line numbers drift whenever smoke entries above it
-# change):
-0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:426
-0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:427
-905037b81c5b84ee7e98bea9dd5a50d4f788b364:scripts/local-smoke.ts:generic-api-key:422
-905037b81c5b84ee7e98bea9dd5a50d4f788b364:scripts/local-smoke.ts:generic-api-key:423
-# (SHA-less fingerprints match BOTH the --no-git scan and history findings
-# at those positions — empirically: removing the 429/430 entries re-flagged
-# commit 2e48511's history findings. Keep the historical positions AND add
-# new ones after edits above the entry; re-run `gitleaks detect` (history)
-# and `gitleaks detect --no-git` to verify both stay clean.)
-scripts/local-smoke.ts:generic-api-key:429
-scripts/local-smoke.ts:generic-api-key:430
-scripts/local-smoke.ts:generic-api-key:422
-scripts/local-smoke.ts:generic-api-key:423
-# (moved 429/430 → 447/448: batch-3 entries inserted 25 lines above the
-# outline entry, commit ef73dcf)
-scripts/local-smoke.ts:generic-api-key:447
-scripts/local-smoke.ts:generic-api-key:448
-# (moved 447/448 → 455/456: eurooffice import + readyTimeoutMs in the
-# SmokeSpec interface inserted 8 lines above the outline entry; also adds
-# eurooffice's own 64-hex dummy at 820, per that entry's comment)
-scripts/local-smoke.ts:generic-api-key:455
-scripts/local-smoke.ts:generic-api-key:456
-scripts/local-smoke.ts:generic-api-key:820
-# (eurooffice JWT dummy moved 820 → 835: skipReason + contract-comment
-# block inserted above it — PR #135; same 64-hex fake, position only)
-scripts/local-smoke.ts:generic-api-key:835
-# (moved 455/456 → 456/457 and 835 → 836: the "the app rejects
-# shorter/non-hex at boot" explanatory comment added above the outline
-# literal in 93e9de2 shifted the outline SECRET_KEY/UTILS_SECRET dummies and
-# the eurooffice JWT dummy down one line; same 64-hex smoke dummies, position
-# only)
-scripts/local-smoke.ts:generic-api-key:457
-scripts/local-smoke.ts:generic-api-key:836
-# (moved 457 → 465/466 and 836 → 845: the R8S_SMOKE_CONTEXT parameterization
-# of the smoke harness — doc-comment + KUBE_CONTEXT env override — inserted
-# 8–9 lines above the outline and eurooffice entries, branch
-# fix/matrix-dsn-public-base; same 64-hex smoke dummies, position only)
-scripts/local-smoke.ts:generic-api-key:465
-scripts/local-smoke.ts:generic-api-key:466
-scripts/local-smoke.ts:generic-api-key:845
-# (moved 465/466 → 473/474 and 845 → 853: the R8S_SMOKE_PLATFORM validation-
-# record header note — 8 lines inserted above the PER_PACKAGE table, PR #141;
-# same 64-hex smoke dummies, position only)
-scripts/local-smoke.ts:generic-api-key:473
-scripts/local-smoke.ts:generic-api-key:474
-scripts/local-smoke.ts:generic-api-key:853
-# (moved 853 → 877 → 879: the wireguard smoke entry — 24 lines above the
-# eurooffice entry — was replaced by the netbird entry, PR #144; the
-# review follow-up added the NOT-YET-VALIDATED note (2 more lines) above
-# it again; same 64-hex smoke dummies, position only)
-scripts/local-smoke.ts:generic-api-key:877
-scripts/local-smoke.ts:generic-api-key:879
-
-
-# (matrix entry adds its own 64-hex dummy — key `encryption_key` of the
-# `<name>-mas-secrets` Secret that the #142 MAS render-init requires the
-# operator to pre-create without a secrets backend; same 64-hex smoke
-# dummy as outline/eurooffice, fake not real)
-scripts/local-smoke.ts:generic-api-key:919
-# (moved 919 → 943 → 945: same shifts as the eurooffice entry above,
-# PR #144 netbird smoke entry + review note; position only)
-scripts/local-smoke.ts:generic-api-key:943
-scripts/local-smoke.ts:generic-api-key:945
-# (PR #146 follow-up: matrix.secret dummy — key `homeserver_secret` of the
-# `<name>-mas-secrets` Secret, rendered into MAS 1.24.0's required matrix
-# section by the render-config init container; same fake 64-hex smoke dummy)
-scripts/local-smoke.ts:generic-api-key:949
-
-# false positive: packages/matrix/src/index.tsx MAS_UPSTREAM_OAUTH2_PROVIDER_ID —
-# the fixed constant ULID `01JGFZ3R8M0Q4TSDSVWX7E2K9Y` (Crockford base32,
 # '01JGFZ3R…', decodes to a 2025-01-01 timestamp). It is a deterministic
-# public identifier MAS keys the upstream provider by in its database —
-# deliberately constant to survive re-renders; not a credential. The value's
-# length + charset trips gitleaks' generic-api-key (entropy 4.5) (dummy, not
-# real; #147)
-aca2eaaab469b7aae8be920f213c47347bbf1fac:packages/matrix/src/index.tsx:generic-api-key:50
-# (working-tree / --no-git fingerprint)
-packages/matrix/src/index.tsx:generic-api-key:50
-
+# (eurooffice JWT dummy moved 820 → 835: skipReason + contract-comment
+# (history scan fingerprint)
+# (matrix entry adds its own 64-hex dummy — key `encryption_key` of the
+# (moved 429/430 → 447/448: batch-3 entries inserted 25 lines above the
+# (moved 447/448 → 455/456: eurooffice import + readyTimeoutMs in the
+# (moved 455/456 → 456/457 and 835 → 836: the "the app rejects
+# (moved 457 → 465/466 and 836 → 845: the R8S_SMOKE_CONTEXT parameterization
+# (moved 465/466 → 473/474 and 845 → 853: the R8S_SMOKE_PLATFORM validation-
 # (moved 473/474 → 479/480, 879 → 885, 945 → 951, 949 → 955: aca2eaa's
-# multi-target smoke-gate edit — dept/pool fields in the SmokeSpec smoke-juju
+# (moved 853 → 877 → 879: the wireguard smoke entry — 24 lines above the
+# (moved 885 → 889, 951 → 955, 955 → 959: the netbird smoke entry pins
+# (moved 919 → 943 → 945: same shifts as the eurooffice entry above,
+# (PR #146 follow-up: matrix.secret dummy — key `homeserver_secret` of the
+# (SHA-less fingerprints match BOTH the --no-git scan and history findings
+# (working-tree / --no-git fingerprint)
+# `<name>-mas-secrets` Secret that the #142 MAS render-init requires the
+# `<name>-mas-secrets` Secret, rendered into MAS 1.24.0's required matrix
+# 8–9 lines above the outline and eurooffice entries, branch
+# and `gitleaks detect --no-git` to verify both stay clean.)
+# and matrix entries, PR #150; same 64-hex smoke dummies, position only.
+# at those positions — empirically: removing the 429/430 entries re-flagged
+# block inserted above it — PR #135; same 64-hex fake, position only)
+# boot, so the smoke needs hex-shaped fakes (fake, not real credentials; the
+# change):
+# commit 2e48511's history findings. Keep the historical positions AND add
 # contract block — inserted 6 lines above the outline entry, shifting the
+# deliberately constant to survive re-renders; not a credential. The value's
+# dummy as outline/eurooffice, fake not real)
+# eurooffice entry — was replaced by the netbird entry, PR #144; the
+# eurooffice's own 64-hex dummy at 820, per that entry's comment)
+# existing fingerprint above; 889/959 are the new eurooffice JWT and
+# false positive: packages/matrix/src/index.tsx MAS_UPSTREAM_OAUTH2_PROVIDER_ID —
+# false positive: scripts/local-smoke.ts outline entry stores 64-hex DUMMY
+# false positive: the PEM-matching regex used by the redaction module itself
+# fix/matrix-dsn-public-base; same 64-hex smoke dummies, position only)
+# it again; same 64-hex smoke dummies, position only)
+# length + charset trips gitleaks' generic-api-key (entropy 4.5) (dummy, not
+# literal in 93e9de2 shifted the outline SECRET_KEY/UTILS_SECRET dummies and
+# matrix homeserver_secret positions.)
+# multi-target smoke-gate edit — dept/pool fields in the SmokeSpec smoke-juju
+# new ones after edits above the entry; re-run `gitleaks detect` (history)
+# of the smoke harness — doc-comment + KUBE_CONTEXT env override — inserted
+# only)
+# operator to pre-create without a secrets backend; same 64-hex smoke
+# outline entry, commit ef73dcf)
 # outline, eurooffice and both matrix dummies down; same smoke dummies,
 # position only)
+# PR #144 netbird smoke entry + review note; position only)
+# public identifier MAS keys the upstream provider by in its database —
+# real; #147)
+# record header note — 8 lines inserted above the PER_PACKAGE table, PR #141;
+# repoNamespace ('netbird-smoke') — 4 lines inserted above the eurooffice
+# review follow-up added the NOT-YET-VALIDATED note (2 more lines) above
+# same 64-hex smoke dummies, position only)
+# section by the render-config init container; same fake 64-hex smoke dummy)
+# shorter/non-hex at boot" explanatory comment added above the outline
+# smoke cluster is throwaway kind). History scan fingerprints (one per commit
+# SmokeSpec interface inserted 8 lines above the outline entry; also adds
+# the eurooffice JWT dummy down one line; same 64-hex smoke dummies, position
+# the fixed constant ULID `01JGFZ3R8M0Q4TSDSVWX7E2K9Y` (Crockford base32,
+# The matrix encryption_key dummy's new home at 955 coincides with the
+# touching the entry — line numbers drift whenever smoke entries above it
+# values for SECRET_KEY/UTILS_SECRET — outline validates both are 64-hex at
+0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:426
+0df993e2932ba962bf65c94ccbf220a4963d8310:scripts/local-smoke.ts:generic-api-key:427
+7fbbc7c0d6119d1d1baa8192e66fde3a83738386:packages/core/src/redact.ts:private-key:21
+905037b81c5b84ee7e98bea9dd5a50d4f788b364:scripts/local-smoke.ts:generic-api-key:422
+905037b81c5b84ee7e98bea9dd5a50d4f788b364:scripts/local-smoke.ts:generic-api-key:423
+aca2eaaab469b7aae8be920f213c47347bbf1fac:packages/matrix/src/index.tsx:generic-api-key:50
+packages/core/src/redact.ts:private-key:21
+packages/matrix/src/index.tsx:generic-api-key:50
+scripts/local-smoke.ts:generic-api-key:422
+scripts/local-smoke.ts:generic-api-key:423
+scripts/local-smoke.ts:generic-api-key:429
+scripts/local-smoke.ts:generic-api-key:430
+scripts/local-smoke.ts:generic-api-key:447
+scripts/local-smoke.ts:generic-api-key:448
+scripts/local-smoke.ts:generic-api-key:455
+scripts/local-smoke.ts:generic-api-key:456
+scripts/local-smoke.ts:generic-api-key:457
+scripts/local-smoke.ts:generic-api-key:465
+scripts/local-smoke.ts:generic-api-key:466
+scripts/local-smoke.ts:generic-api-key:473
+scripts/local-smoke.ts:generic-api-key:474
 scripts/local-smoke.ts:generic-api-key:479
 scripts/local-smoke.ts:generic-api-key:480
+scripts/local-smoke.ts:generic-api-key:820
+scripts/local-smoke.ts:generic-api-key:835
+scripts/local-smoke.ts:generic-api-key:836
+scripts/local-smoke.ts:generic-api-key:845
+scripts/local-smoke.ts:generic-api-key:853
+scripts/local-smoke.ts:generic-api-key:877
+scripts/local-smoke.ts:generic-api-key:879
 scripts/local-smoke.ts:generic-api-key:885
+scripts/local-smoke.ts:generic-api-key:889
+scripts/local-smoke.ts:generic-api-key:919
+scripts/local-smoke.ts:generic-api-key:943
+scripts/local-smoke.ts:generic-api-key:945
+scripts/local-smoke.ts:generic-api-key:949
 scripts/local-smoke.ts:generic-api-key:951
 scripts/local-smoke.ts:generic-api-key:955
-
-# (moved 885 → 889, 951 → 955, 955 → 959: the netbird smoke entry pins
-# repoNamespace ('netbird-smoke') — 4 lines inserted above the eurooffice
-# and matrix entries, PR #150; same 64-hex smoke dummies, position only.
-# The matrix encryption_key dummy's new home at 955 coincides with the
-# existing fingerprint above; 889/959 are the new eurooffice JWT and
-# matrix homeserver_secret positions.)
-scripts/local-smoke.ts:generic-api-key:889
 scripts/local-smoke.ts:generic-api-key:959
+scripts/local-smoke.ts:generic-api-key:496
+scripts/local-smoke.ts:generic-api-key:497
+scripts/local-smoke.ts:generic-api-key:906
+scripts/local-smoke.ts:generic-api-key:972
+scripts/local-smoke.ts:generic-api-key:976

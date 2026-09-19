@@ -1,9 +1,12 @@
 /**
  * @r8s/operator-reloader — Stakater Reloader as an npm-resolved operator
- * package. The package version mirrors the Helm chart version (2.2.17,
- * app v1.4.x); consumers declare
- * "@r8s/operator-reloader": "^<major>.0.0" as a peerDependency
- * so npm resolves ONE copy per tree and mixed majors fail at install time.
+ * package. The package version tracks the Reloader APPLICATION release tag
+ * (v1.4.22 — the app the release artifacts ship); the Helm chart that
+ * historically drove the version axis was chart 2.2.17 with appVersion
+ * v1.4.22, and the static install manifest lives under the app tag.
+ * Consumers declare "@r8s/operator-reloader": "^<major>.0.0" as a
+ * peerDependency so npm resolves ONE copy per tree and mixed majors fail
+ * at install time.
  *
  * Reloader watches Secrets and ConfigMaps and rolling-restarts the
  * Deployments/StatefulSets annotated `reloader.stakater.com/auto: "true"`.
@@ -15,13 +18,22 @@
 import { declareOperator } from '@r8s/core'
 import type { Operator } from '@r8s/k8s-types'
 
-/** The reloader Helm chart version this package was cut for. */
-export const DEFAULT_RELOADER_VERSION = '2.2.17'
+/** The reloader application release tag this package was cut for. */
+export const DEFAULT_RELOADER_VERSION = '1.4.22'
+
+/** Upstream static install manifest, expanded from the version. */
+const RELOADER_MANIFEST_URL =
+  'https://raw.githubusercontent.com/stakater/Reloader/v{version}/deployments/kubernetes/reloader.yaml'
 
 /**
  * Operator declaration — mirror of the `reloader` entry in
  * packages/crds/operators.yaml (registry stays the CLI metadata source;
  * version parity is enforced by the operator-contracts suite).
+ *
+ * Helm-free install: Stakater publishes a rendered Deployment + RBAC
+ * manifest per release tag (the same content the reloader chart renders),
+ * fetched at render time by the recipes/flux pipeline — no
+ * HelmRepository needed.
  */
 export function ReloaderOperator(
   version: string = DEFAULT_RELOADER_VERSION
@@ -30,9 +42,8 @@ export function ReloaderOperator(
     name: 'reloader',
     description: 'Stakater Reloader — rolls workloads when their Secrets or ConfigMaps change',
     source: {
-      type: 'helm',
-      chart: 'reloader',
-      repository: 'https://stakater.github.io/stakater-charts/',
+      type: 'manifest',
+      url: RELOADER_MANIFEST_URL.replaceAll('{version}', version),
       version,
       namespace: 'reloader',
     },

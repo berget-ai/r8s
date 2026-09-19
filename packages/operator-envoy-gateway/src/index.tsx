@@ -11,10 +11,18 @@ import type { Operator } from '@r8s/k8s-types'
 /** The envoy-gateway operator version this package was cut for. */
 export const DEFAULT_ENVOYGATEWAY_VERSION = '1.7.0'
 
+/** Upstream static install manifest, expanded from the version. */
+const ENVOY_GATEWAY_INSTALL_URL =
+  'https://github.com/envoyproxy/gateway/releases/download/v{version}/install.yaml'
+
 /**
  * Operator declaration — mirror of the `envoy-gateway` entry in
  * packages/crds/operators.yaml (registry stays the CLI metadata source;
  * version parity is enforced by the operator-contracts suite).
+ *
+ * Helm-free install: the upstream release carries the fully rendered
+ * gateway-helm install.yaml (RBAC, CRDs, Deployment, namespace) — fetched
+ * at render time by the recipes/flux pipeline, no HelmRepository needed.
  */
 export function EnvoyGatewayOperator(
   version: string = DEFAULT_ENVOYGATEWAY_VERSION
@@ -23,9 +31,8 @@ export function EnvoyGatewayOperator(
     name: 'envoy-gateway',
     description: 'Envoy Gateway \u2014 Kubernetes Gateway API implementation',
     source: {
-      type: 'helm',
-      chart: 'gateway-helm',
-      repository: 'oci://docker.io/envoyproxy',
+      type: 'manifest',
+      url: ENVOY_GATEWAY_INSTALL_URL.replaceAll('{version}', version),
       version,
       namespace: 'envoy-gateway-system',
     },
