@@ -51,6 +51,7 @@
       "@r8s/operator-clickhouse": ["./packages/operator-clickhouse/src/index.tsx"],
       "@r8s/operator-envoy-gateway": ["./packages/operator-envoy-gateway/src/index.tsx"],
       "@r8s/operator-external-dns": ["./packages/operator-external-dns/src/index.tsx"],
+      "@r8s/operator-openbao": ["./packages/operator-openbao/src/index.ts"],
       "@r8s/operator-keycloak": ["./packages/operator-keycloak/src/index.tsx"],
       "@r8s/operator-logging": ["./packages/operator-logging/src/index.tsx"],
       "@r8s/operator-loki": ["./packages/operator-loki/src/index.tsx"],
@@ -161,6 +162,9 @@
     },
     {
       "path": "./packages/operator-external-dns"
+    },
+    {
+      "path": "./packages/operator-openbao"
     },
     {
       "path": "./packages/operator-keycloak"
