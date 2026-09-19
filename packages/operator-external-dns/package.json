@@ -1,6 +1,6 @@
 {
   "name": "@r8s/operator-external-dns",
-  "version": "1.21.1",
+  "version": "1.21.2",
   "description": "ExternalDNS for automatic DNS management \u2014 npm-resolved operator package for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
@@ -23,7 +23,8 @@
   ],
   "r8s": {
     "category": "Operators",
-    "operator": "external-dns"
+    "operator": "external-dns",
+    "componentOnly": true
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

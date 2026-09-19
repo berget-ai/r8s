@@ -3,7 +3,13 @@
  *
  * The desired behavior (before any npm install runs):
  * 1. every packages/operator-* package mirrors its operator's own version
- *    (major = operator major, version === operators.yaml until phase 2)
+ *    (major = operator major, version === operators.yaml until phase 2).
+ *    The ONE exception is opt-in and auditable: a package whose only
+ *    release delta is an r8s-native component — no upstream cut, the
+ *    registry version stays the tracked operator — marks
+ *    `r8s.componentOnly: true` and floats EXACTLY one package patch
+ *    above the registry version (1.21.1 → 1.21.2 carries the native
+ *    ExternalDns component without adopting chart 1.21.2).
  * 2. every consumer of an operator package declares it as
  *    ^<major>.0.0 — in peerDependencies (apps) or dependencies (toolkits)
  * 3. two packages depending on the same operator therefore resolve to one
@@ -60,8 +66,14 @@ describe.each(operatorPackages.map((dir) => [dir]))('operator package %s', (dir)
     expect(pj.r8s?.operator).toBeTruthy()
   })
 
-  it('version mirrors the operator version 1:1 (upstream semver carried as-is)', () => {
-    expect(pj.version).toBe(registryVersion(pj.r8s.operator))
+  it('version mirrors the operator version 1:1 (component-only packages float one patch above)', () => {
+    const registry = registryVersion(pj.r8s.operator)
+    if (pj.r8s?.componentOnly === true) {
+      const [major, minor, patch] = registry.split('.').map(Number)
+      expect(pj.version).toBe(`${major}.${minor}.${patch + 1}`)
+    } else {
+      expect(pj.version).toBe(registry)
+    }
   })
 })
 

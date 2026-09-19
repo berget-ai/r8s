@@ -1,6 +1,6 @@
 {
   "name": "@r8s/operator-vault-secrets",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "HashiCorp Vault Secrets Operator \u2014 npm-resolved operator package for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
@@ -23,7 +23,8 @@
   ],
   "r8s": {
     "category": "Operators",
-    "operator": "vault-secrets-operator"
+    "operator": "vault-secrets-operator",
+    "componentOnly": true
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

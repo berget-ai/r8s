@@ -32,7 +32,7 @@ export const operators: Record<string, (version?: string) => Operator> = {
     namespace: "cnpg-system",
     crds: ["clusters.postgresql.cnpg.io","poolers.postgresql.cnpg.io","scheduledbackups.postgresql.cnpg.io"],
   }),
-  "envoy-gateway": (version = "1.7.0") => ({
+  "envoy-gateway": (version = "1.7.1") => ({
     name: "envoy-gateway",
     description: "Envoy Gateway — Kubernetes Gateway API implementation",
     source: { type: 'manifest', url: expandVersion("https://github.com/envoyproxy/gateway/releases/download/v{version}/install.yaml", version), version, namespace: "envoy-gateway-system" },
@@ -174,7 +174,7 @@ export const operatorMetadata: OperatorMeta[] = [
     name: "envoy-gateway",
     description: "Envoy Gateway — Kubernetes Gateway API implementation",
     category: "Networking",
-    version: "1.7.0",
+    version: "1.7.1",
     crds: ["gatewayclasses.gateway.networking.k8s.io","gateways.gateway.networking.k8s.io","httproutes.gateway.networking.k8s.io","grpcroutes.gateway.networking.k8s.io","tlsroutes.gateway.networking.k8s.io","tcproutes.gateway.networking.k8s.io","udproutes.gateway.networking.k8s.io","envoyproxies.gateway.envoyproxy.io","backendtrafficpolicies.gateway.envoyproxy.io","clienttrafficpolicies.gateway.envoyproxy.io","securitypolicies.gateway.envoyproxy.io"],
   },
   {

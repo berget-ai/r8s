@@ -11,10 +11,15 @@ const pkg = JSON.parse(
 )
 
 describe('@r8s/operator-external-dns', () => {
-  it('mirrors the registry version (1.21.1)', () => {
-    expect(pkg.version).toBe('1.21.1')
-    expect(DEFAULT_EXTERNALDNS_VERSION).toBe(pkg.version)
+  it('mirrors the registry version (cut for 1.21.1; 1.21.2 is a package patch)', () => {
+    // The tracked upstream (chart 1.21.1) is unchanged — 1.21.2 is a
+    // package patch carrying the native ExternalDns component (#156),
+    // not a new operator cut. The mirror invariant binds the registry
+    // default to the tracked cut; the package floats one patch above.
+    expect(DEFAULT_EXTERNALDNS_VERSION).toBe('1.21.1')
     expect(ExternalDnsOperator().version).toBe('1.21.1')
+    expect(operators['external-dns']().version).toBe('1.21.1')
+    expect(pkg.version).toBe('1.21.2')
   })
 
   it('declaration is deep-equal to the generated registry entry', () => {

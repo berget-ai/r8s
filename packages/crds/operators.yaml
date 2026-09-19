@@ -43,7 +43,7 @@
   source:
     type: manifest
     url: https://github.com/envoyproxy/gateway/releases/download/v{version}/install.yaml
-  version: 1.7.0
+  version: 1.7.1
   namespace: envoy-gateway-system
   crds:
     - gatewayclasses.gateway.networking.k8s.io
