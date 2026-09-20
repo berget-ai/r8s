@@ -56,7 +56,11 @@ export interface PaperclipProps {
   backup?: DatabaseProps['backup']
   /**
    * App-native database backups (sql dumps on the persistence volume).
-   * Defaults to facit: enabled, hourly, 7 days retention.
+   * When omitted (or `false`), the `backup` field is left out of the
+   * Instance CR entirely — the paperclip-operator's own default governs
+   * (the CRD rejects explicit nulls, so the field is never rendered as
+   * `null`). Pass an object to render `backup.appNative` explicitly
+   * (defaults filled: enabled, hourly, 7-day retention).
    */
   appBackup?: { enabled?: boolean; intervalMinutes?: number; retentionDays?: number } | false
   /**
@@ -65,7 +69,12 @@ export interface PaperclipProps {
    * Defaults to 10Gi; storageClass optional.
    */
   storage?: { size?: string; storageClass?: string } | false
-  /** Heartbeat scheduler (defaults to facit: every 30s) */
+  /**
+   * Heartbeat scheduler. When omitted (or `false`), the `heartbeat` field is
+   * left out of the Instance CR entirely — the operator's own default
+   * governs (the CRD rejects explicit nulls). Pass an object to render it
+   * explicitly (intervalMS defaults to the facit 30000).
+   */
   heartbeat?: { enabled?: boolean; intervalMS?: number } | false
   /**
    * LLM access via the Berget gateway. `baseUrl` defaults to
@@ -263,8 +272,13 @@ export function Paperclip(props: PaperclipProps) {
 
   // --- App env (facit contract) ----------------------------------------------
   const llmBaseUrl = llm?.baseUrl ?? 'https://api.berget.ai/v1'
-  const appNative = appBackup === false ? undefined : (appBackup ?? {})
-  const hb = heartbeat === false ? undefined : (heartbeat ?? {})
+  // Absent/disabled → the CR fields are OMITTED entirely (the operator's own
+  // default governs). They must never render as `null`: the paperclip.inc CRD
+  // types spec.heartbeat / spec.backup as objects, and the API server rejects
+  // explicit nulls at apply time ("Invalid value: \"null\": must be of type
+  // object"). Only explicit objects render, with facit defaults filled.
+  const appNative = appBackup === false ? undefined : appBackup
+  const hb = heartbeat === false ? undefined : heartbeat
   const store = storage === false ? undefined : (storage ?? {})
   const catalog = modelCatalog === false ? undefined : (modelCatalog ?? {})
 
@@ -358,18 +372,22 @@ export function Paperclip(props: PaperclipProps) {
           },
         },
         probes: { type: 'auto' },
-        heartbeat:
-          hb && hb.enabled !== false ? { enabled: true, intervalMS: hb.intervalMS ?? 30000 } : null,
-        backup:
-          appNative && appNative.enabled !== false
-            ? {
+        // heartbeat/backup: objects only — omitted or disabled props leave the
+        // keys out entirely (never `null`; the CRD rejects null fields)
+        ...(hb && hb.enabled !== false
+          ? { heartbeat: { enabled: true, intervalMS: hb.intervalMS ?? 30000 } }
+          : {}),
+        ...(appNative && appNative.enabled !== false
+          ? {
+              backup: {
                 appNative: {
                   enabled: true,
                   intervalMinutes: appNative.intervalMinutes ?? 60,
                   retentionDays: appNative.retentionDays ?? 7,
                 },
-              }
-            : null,
+              },
+            }
+          : {}),
         security: {
           networkPolicy: { enabled: false },
           seLinuxRelabel: false,

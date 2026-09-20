@@ -439,6 +439,38 @@ describe('no secrets backend — CNPG-generated credentials contract', () => {
   })
 })
 
+describe('env deduplication — k8s dry-run regression', () => {
+  // Dogfood: the API dry-run rejected the Deployment with
+  // `.spec.template.spec.containers[name="app"].env: duplicate entries for key
+  // [name="SECRET_KEY"]` (and UTILS_SECRET). The secret-ref path in the
+  // `secrets` map AND an inline `$(VAR)` entry in the plain `env` map both
+  // emitted them; WebService concatenates the two into one env array. The
+  // secret ref is now the single source of truth for both keys.
+  it('renders every env name exactly once (SECRET_KEY/UTILS_SECRET single-source via secretKeyRef)', () => {
+    for (const props of [
+      { host: 'wiki.example.com' },
+      { host: 'wiki.example.com', sso },
+      { host: 'wiki.example.com', sso, secretsName: 'existing-secrets' },
+    ]) {
+      const result = renderOutline(props)
+      const app = result.resources.find((r: any) => r.kind === 'Deployment') as any
+      const env = app.spec.template.spec.containers[0].env as { name: string }[]
+      const names = env.map((e) => e.name)
+
+      // NO duplicate env keys anywhere in the rendered Deployment
+      expect(new Set(names).size).toBe(names.length)
+
+      // the previously-duplicated keys appear exactly once, via secretKeyRef
+      for (const key of ['SECRET_KEY', 'UTILS_SECRET']) {
+        expect(names.filter((n) => n === key)).toEqual([key])
+        const entry = env.find((e: any) => e.name === key) as any
+        expect(entry.valueFrom.secretKeyRef.name).toBe(props.secretsName ?? 'outline-app-secrets')
+        expect(entry.value).toBeUndefined()
+      }
+    }
+  })
+})
+
 describe('objectStorage — derives from the S3Provider', () => {
   const findApp = (result: ReturnType<typeof render>) =>
     result.resources.find(
