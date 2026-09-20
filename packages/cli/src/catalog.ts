@@ -89,9 +89,9 @@ export const components: ComponentInfo[] = [
       },
       {
         name: 'resources',
-        type: '{ requests, limits }',
+        type: '{ requests?: { cpu?: string; memory?: string } limits?: { cpu?: string; memory?: string } }',
         required: false,
-        description: 'CPU/memory',
+        description: 'Requested resources — applied to both the backend and frontend pods',
       },
       {
         name: 'cache',
@@ -1801,7 +1801,7 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
     package: '@r8s/eneo',
     category: 'Collaboration & Productivity',
     description:
-      'Eneo — open AI platform from Sundsvall municipality (agent workspaces, assistants, document AI)',
+      'Eneo — open AI platform from Sundsvall municipality (agent workspaces, assistants, document AI) on the public eneo-ai images (backend + frontend split)',
     props: [
       {
         name: 'name',
@@ -1819,7 +1819,8 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         name: 'version',
         type: 'string',
         required: false,
-        description: "Container image tag (defaults to 'latest' — pin a version in production)",
+        description:
+          "Image tag applied to BOTH eneo-ai images — backend and frontend (defaults to '2.1.1', pinned and public)",
       },
       {
         name: 'host',
@@ -1831,7 +1832,8 @@ import { App } from '@r8s/recipes'\n\nexport default <App name="api" image="api:
         name: 'replicas',
         type: 'number',
         required: false,
-        description: 'Number of app replicas (defaults to 2 — scale freely, the app is stateless)',
+        description:
+          'Number of replicas for EACH deployment — backend and frontend (defaults to 2; both apps are stateless)',
       },
       {
         name: 'objectStorage',

@@ -171,9 +171,12 @@ const SECRET_ENV_NAME_PATTERN =
   /(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|client[_-]?secret)/i
 
 /** Env var names that carry policy/lifetime metadata, not credentials
- *  (e.g. REFRESH_TOKEN_EXPIRY, ACCESS_TOKEN_TTL, JWT_LIFESPAN). */
+ *  (e.g. REFRESH_TOKEN_EXPIRY, ACCESS_TOKEN_TTL, JWT_LIFESPAN, and scheme
+ *  metadata like JWT_TOKEN_PREFIX='Bearer', API_KEY_LENGTH=64 or
+ *  API_KEY_HEADER_NAME='X-API-Key' — header-scheme labels, the same class
+ *  as JWT_AUDIENCE). */
 const NON_SECRET_ENV_NAME_PATTERN =
-  /(_expiry|_expires(_at|_in)?$|_ttl$|max[_-]age|lifespan|_timeout$|_url|_uri|_endpoint$|_provider$|_issuer$|_audience$|_header$|_transport$)/i
+  /(_expiry|_expires(_at|_in)?$|_ttl$|max[_-]age|lifespan|_timeout$|_url|_uri|_endpoint$|_provider$|_issuer$|_audience$|_header(_?name)?$|_prefix$|_length$|_transport$)/i
 
 /** Matches scheme://[user[:password]@]host — a credentials-bearing URI. */
 const CONNECTION_STRING_RE = /[a-z][a-z0-9+.-]*:\/\/([^/\s:@]*):([^@/\s]+)@/i
