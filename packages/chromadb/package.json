@@ -1,6 +1,6 @@
 {
   "name": "@r8s/chromadb",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "ChromaDB vector database — persistent storage, optional Postgres metadata backend, token auth, CPU autoscaling",
   "license": "MIT",
   "author": "Berget AI AB",

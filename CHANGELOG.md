@@ -2,6 +2,16 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## 0.3.9
+
+### Fixed
+
+- **fsGroup on the grafana/odoo/rustfs data volumes (#165).** The three workloads rendered no pod securityContext — their images' non-root users hit root-owned PVC volumes on Harvester/RKE2 storage and crash-looped: grafana (uid 472) couldn't write `/var/lib/grafana`, odoo (uid 100 / gid 101) died with `PermissionError [Errno 13]` on `/var/lib/odoo/.local`, and rustfs (uid/gid 10001) exited with `Io error: Permission denied (os error 13)` on `/data`. Each pod template now carries `securityContext.fsGroup` (grafana 472, odoo 101, rustfs 10001) so the kubelet chowns the mounted volumes to the image's group at attach time.
+
+### Migration note (0.3.8 → 0.3.9)
+
+Routine bump — all 27 packages on the 0.3.8 line move to 0.3.9; operator packages publish as-is (each mirrors its operator's tracked version). Rendered output changes only for the grafana, odoo and rustfs stacks: their pod templates gain `securityContext.fsGroup`. The kubelet chowns persistent volumes on the next attach, so already-provisioned PVCs are recovered by rolling the pods to the new spec.
+
 ## 0.3.8
 
 ### Fixed
