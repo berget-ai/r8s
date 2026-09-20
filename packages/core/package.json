@@ -1,6 +1,6 @@
 {
   "name": "@r8s/core",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "JSX factory and renderer for r8s",
   "license": "MIT",
   "author": "Berget AI AB",

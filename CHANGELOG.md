@@ -2,6 +2,16 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## 0.3.8
+
+### Fixed
+
+- **Identity-mapped StaticSecret keys render as raw passthrough (#162).** VSO names each transformation template after the *destination* key, and Go template names reject dashes — paperclip's `berget-api-key` bundle (dest key `berget-api-key`) died with `parse error: bad character U+002D` and never synced. A pure identity map (dest === src for every key, no templates) now renders a bare destination (`create` + `name` only, no `transformation`) instead of an identity template block, keeping `refreshAfter` + `rolloutRestartTargets`. Key-renaming maps / template maps still render explicit templates. Note the bare destination also drops the `overwrite`/`excludeRaw` pair the template path carried: **every** key in the vault path is now imported — including ones not declared in the keys map (previously stripped by `excludeRaw`) — and keys removed from the vault path linger in the destination Secret across rotations instead of being pruned (`overwrite` merge semantics).
+
+### Migration note (0.3.7 → 0.3.8)
+
+Routine bump — all 27 packages on the 0.3.7 line move to 0.3.8. Operator packages publish as-is at this tag (each mirrors its operator's tracked version; guarded by the operator-contracts suite). Rendered output changes only where a StackSecret request used identity-mapped keys: its `VaultStaticSecret` destination loses the no-op template block — see the caveats above on `excludeRaw`/`overwrite` semantics if your vault paths carry keys beyond the declared map or you rely on pruning removed keys.
+
 ## 0.3.7
 
 ### Fixed
