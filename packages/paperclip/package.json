@@ -1,6 +1,6 @@
 {
   "name": "@r8s/paperclip",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Paperclip — Berget's agent platform (tasks, documents, agent orchestration)",
   "license": "MIT",
   "author": "Berget AI AB",

@@ -1,6 +1,6 @@
 {
   "name": "@r8s/netbird",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Netbird mesh VPN (management + signal + relay + dashboard) — Flux HelmRelease, CNPG persistence, Keycloak IdP for r8s",
   "license": "MIT",
   "author": "Berget AI AB",

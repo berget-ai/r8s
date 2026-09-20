@@ -1,6 +1,6 @@
 {
   "name": "@r8s/supabase",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Supabase backend platform — Postgres core with GoTrue auth, PostgREST, Realtime, Storage API (S3/RustFS) and ImgProxy. This is Supabase, NOT Apache Superset.",
   "license": "MIT",
   "author": "Berget AI AB",
