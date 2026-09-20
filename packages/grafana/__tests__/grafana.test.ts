@@ -25,6 +25,16 @@ describe('Grafana', () => {
     expect(result.resources).toHaveLength(4)
   })
 
+  it('should set pod securityContext fsGroup 472 so the grafana user can write the PVC', () => {
+    const result = render(jsx(Grafana, {}))
+
+    const deployment = result.resources.find((r) => r.kind === 'Deployment') as any
+    // The grafana image runs as uid 472 — without fsGroup the root-group-owned
+    // PVC mount at /var/lib/grafana is not writable (crash-loop: permission
+    // denied) — fsGroup makes the kubelet chown the mount to gid 472.
+    expect(deployment.spec.template.spec.securityContext.fsGroup).toBe(472)
+  })
+
   it('should render admin Secret so the Deployment volume reference resolves', () => {
     const result = render(jsx(Grafana, {}))
 

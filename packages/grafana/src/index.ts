@@ -136,6 +136,10 @@ export function Grafana(props: GrafanaProps) {
         template: {
           metadata: { labels: { app: name } },
           spec: {
+            // The grafana image runs as uid 472 (gid 0); without fsGroup the
+            // kubelet's root-group-owned PVC mount at /var/lib/grafana is not
+            // writable and the container crash-loops with permission denied.
+            securityContext: { fsGroup: 472 },
             containers: [
               {
                 name: 'grafana',

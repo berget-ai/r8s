@@ -354,6 +354,11 @@ export function Odoo(props: OdooProps) {
       template: {
         metadata: { labels: { app: name } },
         spec: {
+          // The odoo image runs as uid 100 / gid 101 (deb-packaged user);
+          // without fsGroup the root-group-owned filestore mount at
+          // /var/lib/odoo is not writable and the container crash-loops
+          // with PermissionError [Errno 13] on /var/lib/odoo/.local.
+          securityContext: { fsGroup: 101 },
           containers: [
             {
               name: 'odoo',
