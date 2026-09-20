@@ -111,8 +111,12 @@ export function ExternalDns(props: ExternalDnsProps) {
         metadata: { name, labels },
         rules: [
           {
+            // pods + nodes: the controller lists them at startup for
+            // endpoint target resolution (pod source, publishInternal,
+            // headless-service targets) — missing `pods` is a FATAL
+            // "failed to sync *v1.Pod" crash on boot.
             apiGroups: [''],
-            resources: ['services', 'endpoints', 'namespaces'],
+            resources: ['pods', 'nodes', 'services', 'endpoints', 'namespaces'],
             verbs: ['get', 'list', 'watch'],
           },
           {

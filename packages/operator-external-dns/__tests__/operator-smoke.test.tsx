@@ -36,3 +36,38 @@ describe('@r8s/operator-external-dns', () => {
     expect(result.operators.map((o) => o.name)).toEqual(['external-dns'])
   })
 })
+
+describe('ExternalDns — the native helm-free workload', () => {
+  it('grants pods+nodes read — the controller lists them at startup (fatal without)', async () => {
+    const { render } = await import('@r8s/core')
+    const { jsx } = await import('@r8s/core')
+    const { ExternalDns } = await import('../src/external-dns')
+    const { resources } = await render(jsx(ExternalDns, { awsSecretRef: { name: 'aws-creds' } }))
+    const role = resources.find((r: any) => r.kind === 'ClusterRole')
+    const core = role.rules.find((r: any) => r.apiGroups.includes(''))
+    expect(core.resources).toContain('pods')
+    expect(core.resources).toContain('nodes')
+    expect(core.resources).toContain('services')
+  })
+
+  it('wires the AWS credentials via secretKeyRef — never literals', async () => {
+    const { render, jsx } = await import('@r8s/core')
+    const { ExternalDns } = await import('../src/external-dns')
+    const { resources } = await render(
+      jsx(ExternalDns, {
+        awsSecretRef: {
+          name: 'aws-creds',
+          accessKeyId: 'AWS_ACCESS_KEY_ID',
+          secretAccessKey: 'AWS_SECRET_ACCESS_KEY',
+        },
+        txtOwnerId: 'test',
+        domainFilters: ['example.io'],
+      })
+    )
+    const dep = resources.find((r: any) => r.kind === 'Deployment')
+    const env = dep.spec.template.spec.containers[0].env
+    const ak = env.find((e: any) => e.name === 'AWS_ACCESS_KEY_ID')
+    expect(ak.valueFrom.secretKeyRef).toEqual({ name: 'aws-creds', key: 'AWS_ACCESS_KEY_ID' })
+    expect(JSON.stringify(dep)).not.toMatch(/AKIA/)
+  })
+})
