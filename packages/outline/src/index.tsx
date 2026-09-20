@@ -337,8 +337,11 @@ export function Outline(props: OutlineProps) {
     DATABASE_URL: `postgresql://${name}:$(PGPASSWORD)@${dbHost}:5432/${name}`,
     // Outline (Sequelize) cannot do SSL to the in-cluster CNPG service
     PGSSLMODE: 'disable',
-    SECRET_KEY: '$(SECRET_KEY)',
-    UTILS_SECRET: '$(UTILS_SECRET)',
+    // SECRET_KEY / UTILS_SECRET intentionally NOT here: they are emitted
+    // exactly once, via the secrets map below (secretKeyRef is the single
+    // source of truth). Listing them in both maps made WebService render
+    // duplicate env entries and the API server rejected the Deployment at
+    // dry-run: `env: duplicate entries for key [name="SECRET_KEY"]`.
     URL: `https://${host}`,
     FORCE_HTTPS: 'true',
     RATE_LIMITER_ENABLED: 'true',

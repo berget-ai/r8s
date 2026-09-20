@@ -6,9 +6,10 @@ import { Paperclip } from '../src/index'
 
 // Paperclip (operator Instance CR) recipe tests, facit-aligned against
 // berget-internal/apps/paperclip:
-//   1. Operator declaration (paperclip-operator 0.19.0, facit values)
+//   1. Operator declaration (paperclip-operator 0.19.1, facit values)
 //   2. Instance CR: image/pullSecrets, Better Auth, external DB, adapters,
-//      storage, resources, networking, probes, heartbeat, backup, security, env
+//      storage, resources, networking, probes, heartbeat/backup (objects or
+//      absent — never null), security, env
 //   3. Secrets via backend: paperclip-secrets + berget-api-key with
 //      StatefulSet rotation-restart; reference fallbacks; actionable errors
 //   4. CNPG cluster in 'cnpg' credentialsMode (facit: `-app` fqdn-uri)
@@ -68,7 +69,7 @@ describe('Paperclip operator Instance', () => {
     expect(inst.spec.adapters).toEqual({ apiKeysSecretRef: { name: 'berget-api-key' } })
   })
 
-  it('renders facit storage/resources/networking/probes/heartbeat/backup/security', () => {
+  it('renders facit storage/resources/networking/probes/security; CR keys left to the operator when heartbeat/backup are omitted', () => {
     const s = resource(renderApp(), 'Instance').spec
     expect(s.storage.persistence).toEqual({ enabled: true, size: '10Gi' })
     expect(s.resources).toEqual(DEFAULT_RESOURCES_MATCH)
@@ -79,8 +80,11 @@ describe('Paperclip operator Instance', () => {
       { hosts: ['paperclip.example.com'], secretName: 'paperclip-tls' },
     ])
     expect(s.probes).toEqual({ type: 'auto' })
-    expect(s.heartbeat).toEqual({ enabled: true, intervalMS: 30000 })
-    expect(s.backup.appNative).toEqual({ enabled: true, intervalMinutes: 60, retentionDays: 7 })
+    // Omitted props leave heartbeat/backup OUT of the Instance CR: the
+    // paperclip.inc CRD types both as objects and rejects explicit nulls,
+    // so the operator's own default governs (see the never-null suite below)
+    expect('heartbeat' in s).toBe(false)
+    expect('backup' in s).toBe(false)
     expect(s.security.containerSecurityContext.runAsUser).toBe(0)
     expect(s.security.containerSecurityContext.runAsNonRoot).toBe(false)
     expect(s.security.podSecurityContext).toEqual({ fsGroup: 1000 })
@@ -231,6 +235,49 @@ const DEFAULT_RESOURCES_MATCH = {
   requests: { memory: '512Mi', cpu: '250m' },
   limits: { memory: '12Gi', cpu: '2' },
 }
+
+describe('heartbeat/backup CR fields — objects or absent, never null', () => {
+  // Dogfood regression: the API server rejected the Instance CR with
+  //   spec.backup: Invalid value: "null": must be of type object;
+  //   spec.heartbeat: Invalid value: "null": must be of type object
+  // The paperclip.inc/v1alpha1 CRD types both fields as objects (not
+  // nullable); the old disabled-path rendered explicit `null`. Absent or
+  // disabled props now omit the fields entirely; only explicit objects
+  // render, with facit defaults filled.
+  it('props omitted: the Instance spec has NO heartbeat/backup keys', () => {
+    const s = resource(renderApp(), 'Instance').spec
+    expect('heartbeat' in s).toBe(false)
+    expect('backup' in s).toBe(false)
+  })
+
+  it('props disabled (false): keys omitted, never null', () => {
+    const inst = resource(renderApp({ heartbeat: false, appBackup: false }), 'Instance')
+    expect('heartbeat' in inst.spec).toBe(false)
+    expect('backup' in inst.spec).toBe(false)
+    // belt-and-braces: no null of either field anywhere in the rendered CR
+    const rendered = JSON.stringify(inst)
+    expect(rendered).not.toContain('"heartbeat":null')
+    expect(rendered).not.toContain('"backup":null')
+  })
+
+  it('enabled: false inside the object: keys omitted instead of rendering null', () => {
+    const s = resource(
+      renderApp({ heartbeat: { enabled: false }, appBackup: { enabled: false } }),
+      'Instance'
+    ).spec
+    expect('heartbeat' in s).toBe(false)
+    expect('backup' in s).toBe(false)
+  })
+
+  it('props present: rendered as objects with facit defaults filled', () => {
+    const s = resource(
+      renderApp({ heartbeat: { intervalMS: 15000 }, appBackup: { intervalMinutes: 30 } }),
+      'Instance'
+    ).spec
+    expect(s.heartbeat).toEqual({ enabled: true, intervalMS: 15000 })
+    expect(s.backup.appNative).toEqual({ enabled: true, intervalMinutes: 30, retentionDays: 7 })
+  })
+})
 
 describe('no secrets backend — CNPG-generated credentials contract', () => {
   it('still references the CNPG-generated <db>-app fqdn-uri (the contract unchanged)', () => {
