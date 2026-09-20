@@ -143,6 +143,12 @@ export function RustFS(props: RustFSProps) {
         template: {
           metadata: { labels: { app: name } },
           spec: {
+            // The rustfs image runs as uid/gid 10001 (upstream Dockerfile:
+            // addgroup -g 10001 rustfs, USER rustfs, /data pre-created as
+            // 0750 rustfs:rustfs); without fsGroup the root-group-owned
+            // volumeClaimTemplate mount at /data is not writable and the
+            // server exits with "Io error: Permission denied (os error 13)".
+            securityContext: { fsGroup: 10001 },
             containers: [
               {
                 name: 'rustfs',

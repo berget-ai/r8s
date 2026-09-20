@@ -115,6 +115,10 @@ export interface PodSpec {
   nodeSelector?: Record<string, string>
   affinity?: unknown
   tolerations?: unknown[]
+  /** Pod-level security context — fsGroup makes the kubelet chown mounted volumes */
+  securityContext?: {
+    fsGroup?: number
+  }
 }
 
 export interface PodTemplateSpec {

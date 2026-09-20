@@ -88,6 +88,17 @@ describe('rendering defaults', () => {
     expect(pvc.spec.resources.requests.storage).toBe('20Gi')
   })
 
+  it('sets pod securityContext fsGroup 101 so the odoo user can write the filestore PVC', () => {
+    const result = renderOdoo({ host: 'erp.example.com' })
+    const deployment = findDeployment(result)
+    // The odoo image runs as uid 100 / gid 101 (deb-packaged user) —
+    // without fsGroup the root-group-owned filestore mount at /var/lib/odoo
+    // is not writable (crash-loop: PermissionError [Errno 13] on
+    // /var/lib/odoo/.local) — fsGroup makes the kubelet chown the mount to
+    // gid 101.
+    expect(deployment.spec.template.spec.securityContext.fsGroup).toBe(101)
+  })
+
   it('mounts the filestore at /var/lib/odoo and probes /web/health on 8069', () => {
     const result = renderOdoo({ host: 'erp.example.com' })
     const deployment = findDeployment(result)

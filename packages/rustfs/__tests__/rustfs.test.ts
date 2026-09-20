@@ -17,6 +17,18 @@ describe('RustFS', () => {
     expect(sts.spec.volumeClaimTemplates[0].spec.resources.requests.storage).toBe('100Gi')
   })
 
+  it('should set pod securityContext fsGroup 10001 so the rustfs user can write /data', () => {
+    const result = render(jsx(RustFS, {}))
+
+    const sts = result.resources.find((r) => r.kind === 'StatefulSet') as any
+    // The rustfs image runs as uid/gid 10001 (upstream Dockerfile: addgroup
+    // -g 10001 rustfs, USER rustfs) — without fsGroup the root-group-owned
+    // volumeClaimTemplate mount at /data is not writable (crash-loop: "Io
+    // error: Permission denied (os error 13)") — fsGroup makes the kubelet
+    // chown the mount to gid 10001.
+    expect(sts.spec.template.spec.securityContext.fsGroup).toBe(10001)
+  })
+
   it('should render root credentials Secret so the StatefulSet reference resolves', () => {
     const result = render(jsx(RustFS, {}))
 
