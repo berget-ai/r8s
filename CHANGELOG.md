@@ -2,6 +2,20 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## 0.3.10
+
+### Changed
+
+- **eneo split into backend + frontend on the public eneo-ai images (#167).** The single Deployment pulled `ghcr.io/berget-ai/eneo:latest` — a private registry anonymous pulls can't reach (403, ImagePullBackOff for 27h on dogfood). The render now emits **two** Deployments from the public, pinned images: `<name>-backend` (`ghcr.io/eneo-ai/eneo-backend:2.1.1` — API + CNPG wiring) and `<name>-frontend` (`ghcr.io/eneo-ai/eneo-frontend:2.1.1` — UI, routed by the Endpoint), plus the Redis replication set the backend image's pydantic Settings hard-require (ARQ background queue; `<name>-redis` master service fronts it, image overridable, `redis:7.2-alpine` default). `version` pins **both** eneo-ai images and defaults to `2.1.1` (was floating `latest`); `replicas` scales each Deployment (independent `replicasBackend`/`replicasFrontend` still win).
+
+### Fixed
+
+- **Guardrails no longer flag scheme-metadata env names as secrets (#167).** `API_KEY_HEADER_NAME`, `JWT_TOKEN_PREFIX` and `API_KEY_LENGTH`-style variables (the `_header(_?name)?`/`_prefix`/`_length` suffix family) carry policy/lifetime metadata, not credentials — they're now classified like `_audience` and pass the secret-leak guard instead of tripping it.
+
+### Migration note (0.3.9 → 0.3.10)
+
+Routine bump — all 27 packages on the 0.3.9 line move to 0.3.10; operator packages publish as-is at this tag (each mirrors its operator's tracked version). Rendered output changes **only for the eneo stack**: the private single Deployment is replaced by the two public eneo-ai Deployments + the Redis replication set (a brand-new dependency of the component — `@r8s/operator-redis` is declared if missing). Rolling a dogfood cluster to `^0.3.10` needs the old crash-looping eneo pods deleted so Flux/Masterminds re-renders and the new Deployments pull the public images.
+
 ## 0.3.9
 
 ### Fixed

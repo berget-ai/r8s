@@ -1,6 +1,6 @@
 {
   "name": "@r8s/odoo",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "description": "Odoo ERP — Postgres persistence, filestore PVC, worker tuning, master password via secrets backend",
   "license": "MIT",
   "author": "Berget AI AB",
