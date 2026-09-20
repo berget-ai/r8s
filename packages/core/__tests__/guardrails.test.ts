@@ -244,6 +244,42 @@ describe('Guardrails', () => {
       )
     })
 
+    it('treats scheme metadata (JWT_TOKEN_PREFIX, API_KEY_LENGTH, API_KEY_HEADER_NAME) as non-secret, but JWT_SECRET still fails', () => {
+      const resources = [
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: { name: 'api' },
+          spec: {
+            template: {
+              spec: {
+                containers: [
+                  {
+                    name: 'api',
+                    env: [
+                      // A header-scheme label — metadata, not a credential
+                      // (same class as API_KEY_HEADER_NAME / JWT_AUDIENCE)
+                      { name: 'JWT_TOKEN_PREFIX', value: 'Bearer' },
+                      // Policy values, not credentials
+                      { name: 'API_KEY_LENGTH', value: '64' },
+                      { name: 'API_KEY_HEADER_NAME', value: 'X-API-Key' },
+                      { name: 'JWT_SECRET', value: 'supersecret123' },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ]
+
+      const result = runGuardrails(resources, [noPlaintextSecrets])
+      expect(result.passed).toBe(false)
+      expect(result.errors.map((e) => e.field)).toEqual([
+        'spec.template.spec.containers[].env[name=JWT_SECRET].value',
+      ])
+    })
+
     it('recurses into nested specs and catches deep credentials', () => {
       const resources = [
         {
