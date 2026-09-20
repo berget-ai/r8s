@@ -605,10 +605,8 @@ describe('Matrix — resource rendering', () => {
       expect(bundle).toBeDefined()
       expect(bundle.spec.path).toBe('matrix/matrix/mas')
       expect(bundle.spec.destination.name).toBe('matrix-mas-secrets')
-      expect(Object.keys(bundle.spec.destination.transformation.templates)).toEqual([
-        'encryption_key',
-        'homeserver_secret',
-      ])
+      // identity-mapped keys → raw passthrough (no transformation)
+      expect(bundle.spec.destination.transformation).toBeUndefined()
     }
   })
 

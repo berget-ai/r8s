@@ -40,6 +40,14 @@ function builtinProvisionStaticSecret(provider: SecretProviderConfig, req: Stati
   // no templates — destination passes the whole store entry through,
   // legacy Database/operator-contract shape).
   const exhaustive = Object.keys(req.keys).length > 0 || req.templates !== undefined
+  // Identity-mapped keys (dest === src) with Go-template-hostile characters
+  // (dashes — VSO names each template after the destination key) cannot be
+  // templated; a pure identity map is semantically identical to a raw
+  // passthrough, so prefer that and skip the transformation entirely.
+  const identityMap =
+    Object.keys(req.keys).length > 0 &&
+    Object.entries(req.keys).every(([dest, src]) => dest === src) &&
+    req.templates === undefined
   const spec = {
     ...(provider.backend === 'vault'
       ? { vaultAuthRef: req.authRef ?? provider.authRef }
@@ -47,33 +55,35 @@ function builtinProvisionStaticSecret(provider: SecretProviderConfig, req: Stati
     mount: req.mount ?? provider.mount,
     type: 'kv-v2' as const,
     path: req.path,
-    refreshAfter: req.refreshAfter ?? provider.refreshAfter ?? (exhaustive ? '1h' : undefined),
+    refreshAfter:
+      req.refreshAfter ?? provider.refreshAfter ?? (exhaustive || identityMap ? '1h' : undefined),
     ...(req.restartTargets && req.restartTargets.length > 0
       ? { rolloutRestartTargets: req.restartTargets }
       : {}),
-    destination: exhaustive
-      ? {
-          create: true,
-          name: req.secretName ?? req.name,
-          overwrite: true,
-          transformation: {
-            excludeRaw: true,
-            templates: {
-              ...Object.fromEntries(
-                Object.entries(req.keys).map(([dest, src]) => [
-                  dest,
-                  { text: `{{ .Secrets.${src} }}` },
-                ])
-              ),
-              // Raw passthrough templates (literals, composed templates) win
-              // over key-mapped entries on collision
-              ...Object.fromEntries(
-                Object.entries(req.templates ?? {}).map(([dest, tpl]) => [dest, { text: tpl }])
-              ),
+    destination:
+      exhaustive && !identityMap
+        ? {
+            create: true,
+            name: req.secretName ?? req.name,
+            overwrite: true,
+            transformation: {
+              excludeRaw: true,
+              templates: {
+                ...Object.fromEntries(
+                  Object.entries(req.keys).map(([dest, src]) => [
+                    dest,
+                    { text: `{{ .Secrets.${src} }}` },
+                  ])
+                ),
+                // Raw passthrough templates (literals, composed templates) win
+                // over key-mapped entries on collision
+                ...Object.fromEntries(
+                  Object.entries(req.templates ?? {}).map(([dest, tpl]) => [dest, { text: tpl }])
+                ),
+              },
             },
-          },
-        }
-      : { create: true, name: req.secretName ?? req.name },
+          }
+        : { create: true, name: req.secretName ?? req.name },
   }
   return provider.backend === 'vault'
     ? jsx('VaultStaticSecret', {

@@ -72,9 +72,13 @@ describe('StaticSecret', () => {
       })
     )
     const vso = result.resources.find((r: any) => r.kind === 'OpenBaoStaticSecret') as any
-    const tpl = vso.spec.destination.transformation.templates
-    expect(tpl.accesskey.text).toBe('{{ .Secrets.accesskey }}')
-    expect(tpl.secretkey.text).toBe('{{ .Secrets.secretkey }}')
+    // Identity-mapped keys render as a RAW passthrough (no transformation):
+    // VSO names each template after the destination key, and Go template
+    // names reject dashes — a raw sync carries the source keys as-is,
+    // which is semantically identical for identity maps.
+    expect(vso.spec.destination.transformation).toBeUndefined()
+    expect(vso.spec.destination.name).toBe('creds')
+    expect(vso.spec.refreshAfter).toBe('1h')
   })
 
   it('backup creds: no restart targets means no rolloutRestartTargets key', () => {

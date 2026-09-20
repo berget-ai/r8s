@@ -60,9 +60,8 @@ describe('Umami', () => {
     expect(vso.metadata.name).toBe('umami-secrets')
     expect(vso.spec.path).toBe('umami/umami/app')
     expect(vso.spec.rolloutRestartTargets).toEqual([{ kind: 'Deployment', name: 'umami' }])
-    expect(vso.spec.destination.transformation.templates['app-secret'].text).toBe(
-      '{{ .Secrets.app-secret }}'
-    )
+    // identity-mapped keys → raw passthrough (no transformation)
+    expect(vso.spec.destination.transformation).toBeUndefined()
   })
 
   it('renders the CNPG cluster in cnpg credentialsMode (no VSO for db creds)', () => {
