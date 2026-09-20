@@ -146,9 +146,8 @@ describe('EuroOffice DocumentServer', () => {
     expect(vso.spec.refreshAfter).toBe('1h')
     expect(vso.spec.rolloutRestartTargets).toEqual([{ kind: 'Deployment', name: 'onlyoffice' }])
     expect(vso.spec.destination.name).toBe('onlyoffice-jwt-secret')
-    expect(vso.spec.destination.transformation.templates.JWT_SECRET.text).toBe(
-      '{{ .Secrets.JWT_SECRET }}'
-    )
+    // identity-mapped keys → raw passthrough (no transformation)
+    expect(vso.spec.destination.transformation).toBeUndefined()
   })
 
   it('jwtSecretName references a pre-created secret instead of provisioning', () => {

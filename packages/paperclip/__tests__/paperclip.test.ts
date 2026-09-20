@@ -164,9 +164,10 @@ describe('Paperclip operator Instance', () => {
     expect(appSecret?.spec.rolloutRestartTargets).toEqual([
       { kind: 'StatefulSet', name: 'paperclip' },
     ])
-    expect(appSecret?.spec.destination.transformation.templates['better-auth-secret'].text).toBe(
-      '{{ .Secrets.better-auth-secret }}'
-    )
+    // identity-mapped keys render as a raw passthrough (Go template names
+    // reject dashes — VSO names templates after the destination key)
+    expect(appSecret?.spec.destination.transformation).toBeUndefined()
+    expect(appSecret?.spec.destination.name).toBe('paperclip-secrets')
     expect(apiKey?.spec.path).toBe('paperclip/paperclip/berget-ai')
     expect(apiKey?.spec.refreshAfter).toBe('3600s')
     expect(apiKey?.spec.rolloutRestartTargets).toEqual([{ kind: 'StatefulSet', name: 'paperclip' }])

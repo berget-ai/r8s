@@ -385,9 +385,8 @@ describe('facit deltas', () => {
       encryptionSecret: { key: 'N8N_ENCRYPTION_KEY' },
     })
     const vso = result.resources.find((r: any) => r.kind === 'OpenBaoStaticSecret') as any
-    expect(vso.spec.destination.transformation.templates.N8N_ENCRYPTION_KEY.text).toBe(
-      '{{ .Secrets.N8N_ENCRYPTION_KEY }}'
-    )
+    // identity-mapped keys → raw passthrough (no transformation)
+    expect(vso.spec.destination.transformation).toBeUndefined()
     const env = editorSpec(result).containers[0].env
     expect(env.find((e: any) => e.name === 'N8N_ENCRYPTION_KEY').valueFrom.secretKeyRef.key).toBe(
       'N8N_ENCRYPTION_KEY'

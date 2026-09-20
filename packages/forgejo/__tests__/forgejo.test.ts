@@ -125,10 +125,8 @@ describe('Forgejo instance', () => {
     const result = renderApp()
     const vso = resource(result, 'OpenBaoStaticSecret', 'forgejo-credentials')
     expect(vso.spec.path).toBe('forgejo/forgejo')
-    const t = vso.spec.destination.transformation.templates
-    expect(t.SECRET_KEY.text).toBe('{{ .Secrets.SECRET_KEY }}')
-    expect(t.INTERNAL_TOKEN.text).toBe('{{ .Secrets.INTERNAL_TOKEN }}')
-    expect(t.LFS_JWT_SECRET.text).toBe('{{ .Secrets.LFS_JWT_SECRET }}')
+    // identity-mapped keys → raw passthrough (no transformation)
+    expect(vso.spec.destination.transformation).toBeUndefined()
     expect(vso.spec.destination.name).toBe('forgejo-credentials')
     expect(vso.spec.rolloutRestartTargets).toEqual([{ kind: 'Deployment', name: 'forgejo' }])
 
@@ -284,9 +282,8 @@ describe('Forgejo Actions runners', () => {
     // token provisioned through the backend
     const vso = resource(result, 'OpenBaoStaticSecret', 'forgejo-runner-registration')
     expect(vso.spec.path).toBe('forgejo/forgejo/runner-registration-token')
-    expect(vso.spec.destination.transformation.templates['registration-token'].text).toBe(
-      '{{ .Secrets.registration-token }}'
-    )
+    // identity-mapped keys (dash in the name!) → raw passthrough
+    expect(vso.spec.destination.transformation).toBeUndefined()
     // Actions enabled on the instance + runner config labels
     expect(envOf(resource(result, 'Deployment', 'forgejo'))['FORGEJO__actions__ENABLED']).toBe(
       'true'
