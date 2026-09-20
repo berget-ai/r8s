@@ -1,7 +1,7 @@
 {
   "name": "@r8s/librechat",
-  "version": "0.3.7",
-  "description": "LibreChat multi-model AI chat \u2014 MongoDB (provisioned externally), Redis sessions, optional Meilisearch, OIDC SSO",
+  "version": "0.3.8",
+  "description": "LibreChat multi-model AI chat — MongoDB (provisioned externally), Redis sessions, optional Meilisearch, OIDC SSO",
   "license": "MIT",
   "author": "Berget AI AB",
   "homepage": "https://r8s.berget.ai",

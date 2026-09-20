@@ -1,7 +1,7 @@
 {
   "name": "@r8s/outline",
-  "version": "0.3.7",
-  "description": "Outline wiki \u2014 Postgres persistence, Redis queue, S3 attachments, OIDC SSO via Keycloak",
+  "version": "0.3.8",
+  "description": "Outline wiki — Postgres persistence, Redis queue, S3 attachments, OIDC SSO via Keycloak",
   "license": "MIT",
   "author": "Berget AI AB",
   "homepage": "https://r8s.berget.ai",
