@@ -1,6 +1,6 @@
 {
   "name": "@r8s/eurooffice",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "description": "Euro-Office DocumentServer — self-hosted collaborative document editing (facit-aligned): CNPG persistence, JWT-signed API, WOPI/secure-link data volume, preStop document save",
   "license": "MIT",
   "author": "Berget AI AB",
