@@ -2,6 +2,17 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## 0.3.7
+
+### Fixed
+
+- **Dry-run-valid renders — outline + paperclip (#159).** Dogfood dry-runs rejected both renders: outline's Deployment carried duplicate `SECRET_KEY`/`UTILS_SECRET` env entries (the secret-ref path and an inline path both emitted them) and paperclip's Instance CR rendered explicit null `heartbeat`/`backup` fields where the CRD requires objects. The secret ref is now the single env source (env names are unique per container), and absent props omit the CR fields entirely.
+- **external-dns RBAC — pods+nodes read (#160).** The native `ExternalDns` workload's ClusterRole mirrored the chart's source rules but omitted pods/nodes: the controller lists Pods during boot for endpoint target resolution and dies FATAL (`failed to sync *v1.Pod after 1m0s`) without them — seen live as a CrashLoopBackOff (19 restarts) on dogfood. Both resources are now granted; regression tests assert the rules and the secretKeyRef wiring.
+
+### Migration note (0.3.6 → 0.3.7)
+
+All 27 packages on the 0.3.6 line ride the routine 0.3.7 bump. `@r8s/operator-external-dns` floats to 1.21.3 — a component-only package patch (the componentOnly float advances one patch per r8s-side component release; the tracked cut stays chart 1.21.1, whose latest upstream is 1.22.0 and was not adopted) — consumers on `^1.21.2` receive it unchanged. All other operator packages publish as-is at this tag.
+
 ## 0.3.6
 
 ### Added

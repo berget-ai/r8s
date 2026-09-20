@@ -2,9 +2,9 @@
  * @r8s/operator-external-dns — ExternalDNS for automatic DNS management as an npm-resolved
  * operator package. The package version mirrors the operator's own
  * version (chart 1.21.1 — the tracked cut, DEFAULT_EXTERNALDNS_VERSION),
- * floating one package patch above it for component-only changes
- * (1.21.2 ships the native helm-free ExternalDns workload from #156);
- * consumers declare
+ * floating one package patch above it per component-only change
+ * (1.21.2 carried the native helm-free ExternalDns workload from #156,
+ * 1.21.3 the pods+nodes ClusterRole fix from #160); consumers declare
  * "@r8s/operator-external-dns": "^1.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */

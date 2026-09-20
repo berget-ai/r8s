@@ -7,9 +7,12 @@
  *    The ONE exception is opt-in and auditable: a package whose only
  *    release delta is an r8s-native component — no upstream cut, the
  *    registry version stays the tracked operator — marks
- *    `r8s.componentOnly: true` and floats EXACTLY one package patch
- *    above the registry version (1.21.1 → 1.21.2 carries the native
- *    ExternalDns component without adopting chart 1.21.2).
+ *    `r8s.componentOnly: true` and floats above the registry version:
+ *    one package patch per component-only release, same major.minor as
+ *    the tracked cut, never adopting it (1.21.2 carried the native
+ *    ExternalDns component #156, 1.21.3 the pods+nodes ClusterRole fix
+ *    #160 — both above chart 1.21.1). The exact float per package is
+ *    hard-asserted by the package's own smoke suite.
  * 2. every consumer of an operator package declares it as
  *    ^<major>.0.0 — in peerDependencies (apps) or dependencies (toolkits)
  * 3. two packages depending on the same operator therefore resolve to one
@@ -66,11 +69,16 @@ describe.each(operatorPackages.map((dir) => [dir]))('operator package %s', (dir)
     expect(pj.r8s?.operator).toBeTruthy()
   })
 
-  it('version mirrors the operator version 1:1 (component-only packages float one patch above)', () => {
+  it('version mirrors the operator version 1:1 (component-only packages float above)', () => {
     const registry = registryVersion(pj.r8s.operator)
     if (pj.r8s?.componentOnly === true) {
-      const [major, minor, patch] = registry.split('.').map(Number)
-      expect(pj.version).toBe(`${major}.${minor}.${patch + 1}`)
+      // Float above the cut, same major.minor — never equal (an equal
+      // version would collide with a real upstream release and can no
+      // longer be republished after a burned same-version publish).
+      const [regMajor, regMinor, regPatch] = registry.split('.').map(Number)
+      const [pjMajor, pjMinor, pjPatch] = pj.version.split('.').map(Number)
+      expect(`${pjMajor}.${pjMinor}`).toBe(`${regMajor}.${regMinor}`)
+      expect(pjPatch).toBeGreaterThan(regPatch)
     } else {
       expect(pj.version).toBe(registry)
     }
