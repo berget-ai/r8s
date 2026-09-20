@@ -6,7 +6,7 @@ import { Paperclip } from '../src/index'
 
 // Paperclip (operator Instance CR) recipe tests, facit-aligned against
 // berget-internal/apps/paperclip:
-//   1. Operator declaration (paperclip-operator 0.19.0, facit values)
+//   1. Operator declaration (paperclip-operator 0.19.1, facit values)
 //   2. Instance CR: image/pullSecrets, Better Auth, external DB, adapters,
 //      storage, resources, networking, probes, heartbeat/backup (objects or
 //      absent — never null), security, env

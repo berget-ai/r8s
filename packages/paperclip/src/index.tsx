@@ -56,11 +56,12 @@ export interface PaperclipProps {
   backup?: DatabaseProps['backup']
   /**
    * App-native database backups (sql dumps on the persistence volume).
-   * When omitted (or `false`), the `backup` field is left out of the
-   * Instance CR entirely — the paperclip-operator's own default governs
-   * (the CRD rejects explicit nulls, so the field is never rendered as
-   * `null`). Pass an object to render `backup.appNative` explicitly
-   * (defaults filled: enabled, hourly, 7-day retention).
+   * When omitted (or `false`, or `{ enabled: false }`), the `backup`
+   * field is left out of the Instance CR entirely — the
+   * paperclip-operator's own default governs (the CRD rejects explicit
+   * nulls, so the field is never rendered as `null`). Pass an enabled
+   * object to render `backup.appNative` explicitly (defaults filled:
+   * enabled, hourly, 7-day retention).
    */
   appBackup?: { enabled?: boolean; intervalMinutes?: number; retentionDays?: number } | false
   /**
@@ -70,9 +71,10 @@ export interface PaperclipProps {
    */
   storage?: { size?: string; storageClass?: string } | false
   /**
-   * Heartbeat scheduler. When omitted (or `false`), the `heartbeat` field is
-   * left out of the Instance CR entirely — the operator's own default
-   * governs (the CRD rejects explicit nulls). Pass an object to render it
+   * Heartbeat scheduler. When omitted (or `false`, or
+   * `{ enabled: false }`), the `heartbeat` field is left out of the
+   * Instance CR entirely — the operator's own default governs (the CRD
+   * rejects explicit nulls). Pass an enabled object to render it
    * explicitly (intervalMS defaults to the facit 30000).
    */
   heartbeat?: { enabled?: boolean; intervalMS?: number } | false
