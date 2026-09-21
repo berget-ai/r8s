@@ -53,7 +53,7 @@
     "@r8s/operator-prometheus": "^58.4.0",
     "@r8s/operator-loki": "^5.47.0",
     "@r8s/operator-logging": "^4.2.3",
-    "@r8s/operator-keycloak": "^24.0.0",
+    "@r8s/operator-keycloak": "^26.0.0",
     "@r8s/operator-redis": "^0.22.0",
     "@r8s/operator-reloader": "^1.4.22",
     "@r8s/operator-velero": "^1.13.0"
@@ -67,7 +67,7 @@
     "@r8s/operator-prometheus": "^58.4.0",
     "@r8s/operator-loki": "^5.47.0",
     "@r8s/operator-logging": "^4.2.3",
-    "@r8s/operator-keycloak": "^24.0.0",
+    "@r8s/operator-keycloak": "^26.0.0",
     "@r8s/operator-redis": "^0.22.0",
     "@r8s/operator-reloader": "^1.4.22",
     "@r8s/operator-velero": "^1.13.0"

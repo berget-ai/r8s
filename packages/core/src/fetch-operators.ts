@@ -8,18 +8,26 @@ export async function fetchOperatorManifests(operators: Operator[]): Promise<str
   const manifests: string[] = []
 
   for (const op of operators) {
-    if (op.source.type !== 'manifest' || !op.source.url) {
+    if (op.source.type !== 'manifest') {
       // Skip non-manifest operators (helm, olm, flux) — they need external tooling
       continue
     }
 
+    // Multi-URL manifests (upstream kustomize splits) fetch in order first,
+    // then the optional single url. Without either, nothing to fetch.
+    const urls = [...(op.source.urls ?? []), ...(op.source.url ? [op.source.url] : [])]
+    if (urls.length === 0) continue
+
     try {
-      const response = await fetch(op.source.url)
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i]
+        const response = await fetch(url)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText} (fetched ${url})`)
+        }
+        const yaml = await response.text()
+        manifests.push(i === 0 ? `# Operator: ${op.name} v${op.version}\n${yaml}` : yaml)
       }
-      const yaml = await response.text()
-      manifests.push(`# Operator: ${op.name} v${op.version}\n${yaml}`)
     } catch (error) {
       throw new Error(
         `Failed to fetch operator manifest for ${op.name}: ${error instanceof Error ? error.message : String(error)}`

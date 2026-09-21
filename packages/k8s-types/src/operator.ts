@@ -20,7 +20,19 @@
 
 /** Supported operator installation methods */
 export type OperatorSource =
-  | { type: 'manifest'; url: string; version: string; namespace?: string }
+  | {
+      type: 'manifest'
+      /** Single manifest URL. Optional when urls covers the install. */
+      url?: string
+      /**
+       * Ordered multi-doc manifests — fetched in order before url.
+       * For upstream kustomize splits (e.g. keycloak-k8s-resources ships
+       * CRDs and the RBAC/Deployment as separate files).
+       */
+      urls?: string[]
+      version: string
+      namespace?: string
+    }
   | {
       type: 'helm'
       chart: string

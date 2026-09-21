@@ -1,15 +1,31 @@
 /**
  * @r8s/operator-keycloak — Keycloak identity and access management operator as an npm-resolved
  * operator package. The package version mirrors the operator's own
- * version (24.0.0); consumers declare
- * "@r8s/operator-keycloak": "^24.0.0" as a peerDependency
+ * version (26.7.4); consumers declare
+ * "@r8s/operator-keycloak": "^26.0.0" as a peerDependency
  * so npm resolves ONE copy per tree and mixed majors fail at install time.
  */
 import { declareOperator } from '@r8s/core'
 import type { Operator } from '@r8s/k8s-types'
 
 /** The keycloak-operator operator version this package was cut for. */
-export const DEFAULT_KEYCLOAK_VERSION = '24.0.0'
+export const DEFAULT_KEYCLOAK_VERSION = '26.7.4'
+
+/**
+ * keycloak-k8s-resources is a kustomize split — CRDs and the
+ * RBAC/Deployment ship as separate files. Fetched in this order, then the
+ * CRDs land before the operator's Deployment.
+ */
+const KEYCLOAK_MANIFEST_URLS = [
+  'https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{version}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml',
+  'https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{version}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml',
+  'https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{version}/kubernetes/cluster-wide/kubernetes.yml',
+]
+
+function expandVersion(url: string, version: string): string {
+  const minor = version.split('.').slice(0, 2).join('.')
+  return url.replaceAll('{version}', version).replaceAll('{minor}', minor)
+}
 
 /**
  * Operator declaration — mirror of the `keycloak-operator` entry in
@@ -21,9 +37,8 @@ export function KeycloakOperator(version: string = DEFAULT_KEYCLOAK_VERSION): Op
     name: 'keycloak-operator',
     description: 'Keycloak identity and access management operator',
     source: {
-      type: 'olm',
-      package: 'keycloak-operator',
-      channel: 'fast',
+      type: 'manifest',
+      urls: KEYCLOAK_MANIFEST_URLS.map((url) => expandVersion(url, version)),
       version,
     },
     version,

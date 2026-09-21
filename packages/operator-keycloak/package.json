@@ -1,6 +1,6 @@
 {
   "name": "@r8s/operator-keycloak",
-  "version": "24.0.0",
+  "version": "26.7.4",
   "description": "Keycloak identity and access management operator \u2014 npm-resolved operator package for r8s",
   "license": "MIT",
   "author": "Berget AI AB",
