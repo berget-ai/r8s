@@ -2,6 +2,20 @@
 
 All notable changes to r8s are documented here. Versions follow semver; while pre-1.0, breaking changes bump the minor.
 
+## 0.3.11
+
+### Added
+
+- **Multi-URL manifest operator sources (#169).** `OperatorSource`'s manifest variant gains optional `urls?: string[]` — fetched in order before `url`. Upstream kustomize splits (keycloak-k8s-resources ships the CRDs and the RBAC/Deployment as separate files) were inexpressible as a single URL.
+
+### Changed
+
+- **@r8s/operator-keycloak installs for real (#169).** The `olm` source was skipped by the manifest fetcher entirely (no OLM on target clusters — the dogfood auth stack failed with `no matches for kind "Keycloak"`), so the operator never installed. It now pins the upstream **26.7.4** cluster-wide static set (CRDs `keycloaks.k8s.keycloak.org` + `keycloakrealmimports.k8s.keycloak.org`, operator Deployment in ns `keycloak`) as an ordered three-URL manifest source. Recipes' peer pin moves `^24.0.0` → `^26.0.0`.
+
+### Migration note (0.3.10 → 0.3.11)
+
+Routine bump — all 27 packages on the 0.3.10 line move to 0.3.11; operator packages publish as-is at this tag. Rendered output changes only where the Keycloak operator is declared (the shared-operators layer gains the keycloak CRDs + Deployment; the auth stack's `Keycloak`/`KeycloakRealmImport` CRs reconcile once the operator is up).
+
 ## 0.3.10
 
 ### Changed
