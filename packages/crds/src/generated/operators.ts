@@ -48,10 +48,10 @@ export const operators: Record<string, (version?: string) => Operator> = {
     namespace: "external-dns",
     crds: ["dnsendpoints.externaldns.k8s.io"],
   }),
-  "keycloak-operator": (version = "24.0.0") => ({
+  "keycloak-operator": (version = "26.7.4") => ({
     name: "keycloak-operator",
     description: "Keycloak identity and access management operator",
-    source: { type: 'olm', package: "keycloak-operator", channel: "fast", version },
+    source: { type: 'manifest', urls: ["https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{version}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml","https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{version}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml","https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{version}/kubernetes/cluster-wide/kubernetes.yml"].map((u) => expandVersion(u, version)), version, namespace: undefined },
     version,
     crds: ["keycloaks.k8s.keycloak.org","keycloakrealmimports.k8s.keycloak.org"],
   }),
@@ -188,7 +188,7 @@ export const operatorMetadata: OperatorMeta[] = [
     name: "keycloak-operator",
     description: "Keycloak identity and access management operator",
     category: "Security & Identity",
-    version: "24.0.0",
+    version: "26.7.4",
     crds: ["keycloaks.k8s.keycloak.org","keycloakrealmimports.k8s.keycloak.org"],
   },
   {

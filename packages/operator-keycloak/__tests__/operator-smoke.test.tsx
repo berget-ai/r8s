@@ -11,16 +11,26 @@ const pkg = JSON.parse(
 )
 
 describe('@r8s/operator-keycloak', () => {
-  it('mirrors the registry version (24.0.0)', () => {
-    expect(pkg.version).toBe('24.0.0')
+  it('mirrors the registry version (26.7.4)', () => {
+    expect(pkg.version).toBe('26.7.4')
     expect(DEFAULT_KEYCLOAK_VERSION).toBe(pkg.version)
-    expect(KeycloakOperator().version).toBe('24.0.0')
+    expect(KeycloakOperator().version).toBe('26.7.4')
   })
 
   it('declaration is deep-equal to the generated registry entry', () => {
-    const expected = operators['keycloak-operator']('24.0.0')
-    const actual = KeycloakOperator('24.0.0')
+    const expected = operators['keycloak-operator']('26.7.4')
+    const actual = KeycloakOperator('26.7.4')
     expect({ ...actual }).toEqual({ ...expected })
+  })
+
+  it('sources an ordered multi-URL manifest (CRD, CRD, operator)', () => {
+    const source = KeycloakOperator('26.7.4').source
+    expect(source.type).toBe('manifest')
+    if (source.type !== 'manifest' || !source.urls) throw new Error('expected manifest with urls')
+    expect(source.urls[0]).toContain('keycloaks.k8s.keycloak.org-v1.yml')
+    expect(source.urls[1]).toContain('keycloakrealmimports.k8s.keycloak.org-v1.yml')
+    expect(source.urls[2]).toContain('/cluster-wide/kubernetes.yml')
+    expect('url' in source).toBe(false)
   })
 
   it('declares only when the Platform does not already provide it', () => {

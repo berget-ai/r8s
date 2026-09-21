@@ -324,7 +324,7 @@ interface OperatorEntry {
   description?: string
   category?: string
   source:
-    | { type: 'manifest'; url: string }
+    | { type: 'manifest'; url?: string; urls?: string[] }
     | { type: 'helm'; chart: string; repository: string }
     | { type: 'olm'; package: string; channel: string }
   version: string
@@ -358,12 +358,19 @@ const opsLines: string[] = [
 
 for (const op of operatorsYaml) {
   const urlTemplate = 'url' in op.source ? op.source.url : undefined
-  const sourceObj =
-    op.source.type === 'manifest'
-      ? `{ type: 'manifest', url: expandVersion(${JSON.stringify(urlTemplate)}, version), version, namespace: ${JSON.stringify(op.namespace)} }`
-      : op.source.type === 'helm'
-        ? `{ type: 'helm', chart: ${JSON.stringify(op.source.chart)}, repository: ${JSON.stringify(op.source.repository)}, version, namespace: ${JSON.stringify(op.namespace)}${op.source.values ? `, values: ${JSON.stringify(op.source.values)}` : ''} }`
-        : `{ type: 'olm', package: ${JSON.stringify(op.source.package)}, channel: ${JSON.stringify(op.source.channel)}, version }`
+  const urls = 'urls' in op.source ? op.source.urls : undefined
+  let sourceObj: string
+  if (op.source.type === 'manifest' && urls && !urlTemplate) {
+    // Multi-URL manifests (upstream kustomize splits) expand {version}/{minor}
+    // at factory-call time — same convention as single-url manifests.
+    sourceObj = `{ type: 'manifest', urls: ${JSON.stringify(urls)}.map((u) => expandVersion(u, version)), version, namespace: ${JSON.stringify(op.namespace)} }`
+  } else if (op.source.type === 'manifest') {
+    sourceObj = `{ type: 'manifest', url: expandVersion(${JSON.stringify(urlTemplate)}, version), version, namespace: ${JSON.stringify(op.namespace)} }`
+  } else if (op.source.type === 'helm') {
+    sourceObj = `{ type: 'helm', chart: ${JSON.stringify(op.source.chart)}, repository: ${JSON.stringify(op.source.repository)}, version, namespace: ${JSON.stringify(op.namespace)}${op.source.values ? `, values: ${JSON.stringify(op.source.values)}` : ''} }`
+  } else {
+    sourceObj = `{ type: 'olm', package: ${JSON.stringify(op.source.package)}, channel: ${JSON.stringify(op.source.channel)}, version }`
+  }
 
   opsLines.push(
     `  ${JSON.stringify(op.name)}: (version = ${JSON.stringify(op.version)}) => ({`,

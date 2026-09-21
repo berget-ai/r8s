@@ -72,10 +72,12 @@
   description: Keycloak identity and access management operator
   category: Security & Identity
   source:
-    type: olm
-    package: keycloak-operator
-    channel: fast
-  version: 24.0.0
+    type: manifest
+    urls:
+      - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{version}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
+      - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{version}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
+      - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/{version}/kubernetes/cluster-wide/kubernetes.yml
+  version: 26.7.4
   crds:
     - keycloaks.k8s.keycloak.org
     - keycloakrealmimports.k8s.keycloak.org
