@@ -1,6 +1,6 @@
 {
   "name": "@r8s/forgejo",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "description": "Forgejo git forge — repos, PRs, Actions runners (forgejo-runner + dind), LFS on S3, CNPG persistence, SSH via LoadBalancer",
   "license": "MIT",
   "author": "Berget AI AB",
